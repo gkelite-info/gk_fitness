@@ -43,6 +43,12 @@ module.exports = {
           foreground: withOpacity('card-foreground'),
         },
       },
+      fontFamily: {
+        sans: ['Sora_400Regular'],
+        medium: ['Sora_500Medium'],
+        semibold: ['Sora_600SemiBold'],
+        bold: ['Sora_700Bold'],
+      },
       borderWidth: {
         hairline: hairlineWidth(),
       },

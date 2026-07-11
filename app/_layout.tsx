@@ -1,6 +1,6 @@
 import '@/global.css';
 
-import { ThemeProvider as NavThemeProvider } from 'expo-router/react-navigation';
+import { ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import * as Device from 'expo-device';
 import { Link, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

@@ -1,4 +1,4 @@
-import { useHeaderHeight } from 'expo-router/react-navigation';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { FlashList } from '@shopify/flash-list';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';

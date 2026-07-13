@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "my-expo-app",
-    "slug": "my-expo-app",
+    "name": "gk-fitness",
+    "slug": "gk-fitness",
     "version": "1.0.0",
-    "scheme": "my-expo-app",
+    "scheme": "gk-fitness",
     "platforms": [
       "ios",
       "android",
@@ -42,6 +42,13 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      },
+      "package": "com.vamshi0111.gkfitness"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5d58a773-7b20-402a-b488-fd27bccbc462"
       }
     }
   }

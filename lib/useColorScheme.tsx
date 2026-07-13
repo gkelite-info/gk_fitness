@@ -1,20 +1,56 @@
 import { useColorScheme as useNativewindColorScheme } from 'nativewind';
-
+import { useEffect } from 'react';
+import { Appearance } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '@/theme/colors';
 
+const THEME_STORAGE_KEY = 'theme-storage';
+
 function useColorScheme() {
-  const { colorScheme, setColorScheme } = useNativewindColorScheme();
+  const { colorScheme: nativewindColorScheme, setColorScheme: setNativewindColorScheme } = useNativewindColorScheme();
+
+  useEffect(() => {
+    // Load theme from storage on mount
+    AsyncStorage.getItem(THEME_STORAGE_KEY).then((storedTheme) => {
+      if (storedTheme === 'dark' || storedTheme === 'light') {
+        setNativewindColorScheme(storedTheme);
+      } else {
+        setNativewindColorScheme(Appearance.getColorScheme() ?? 'light');
+      }
+    });
+
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      AsyncStorage.getItem(THEME_STORAGE_KEY).then((storedTheme) => {
+        if (!storedTheme || storedTheme === 'system') {
+          setNativewindColorScheme(colorScheme ?? 'light');
+        }
+      });
+    });
+
+    return () => subscription.remove();
+  }, [setNativewindColorScheme]);
 
   function toggleColorScheme() {
-    return setColorScheme(colorScheme === 'light' ? 'dark' : 'light');
+    const nextTheme = nativewindColorScheme === 'light' ? 'dark' : 'light';
+    setNativewindColorScheme(nextTheme);
+    AsyncStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+  }
+
+  function setColorScheme(theme: 'light' | 'dark' | 'system') {
+    AsyncStorage.setItem(THEME_STORAGE_KEY, theme);
+    if (theme === 'system') {
+      setNativewindColorScheme(Appearance.getColorScheme() ?? 'light');
+    } else {
+      setNativewindColorScheme(theme);
+    }
   }
 
   return {
-    colorScheme: colorScheme ?? 'light',
-    isDarkColorScheme: colorScheme === 'dark',
+    colorScheme: nativewindColorScheme ?? 'light',
+    isDarkColorScheme: nativewindColorScheme === 'dark',
     setColorScheme,
     toggleColorScheme,
-    colors: COLORS[colorScheme ?? 'light'],
+    colors: COLORS[nativewindColorScheme ?? 'light'],
   };
 }
 

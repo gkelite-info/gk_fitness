@@ -8,7 +8,6 @@ import { Platform, Pressable } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Icon } from '@/components/nativewindui/Icon';
-import { ThemeToggle } from '@/components/nativewindui/ThemeToggle';
 import { cn } from '@/lib/cn';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { NAV_THEME } from '@/theme';
@@ -35,12 +34,16 @@ const isIos26 = Platform.select({ default: false, ios: Device.osVersion?.startsW
 export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();
 
-  const [loaded] = useFonts({
+  const [loaded, error] = useFonts({
     Sora_400Regular,
     Sora_500Medium,
     Sora_600SemiBold,
     Sora_700Bold,
   });
+
+  useEffect(() => {
+    if (error) throw error;
+  }, [error]);
 
   useEffect(() => {
     if (loaded) {
@@ -63,7 +66,10 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <NavThemeProvider value={NAV_THEME[colorScheme]}>
           <Stack>
-            <Stack.Screen name="index" options={INDEX_OPTIONS} />
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(customer)" options={{ headerShown: false }} />
+            <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+            <Stack.Screen name="(doctor)" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={MODAL_OPTIONS} />
           </Stack>
         </NavThemeProvider>
@@ -94,5 +100,4 @@ const MODAL_OPTIONS = {
   presentation: 'modal',
   animation: 'fade_from_bottom', // for android
   title: 'Settings',
-  headerRight: () => <ThemeToggle />,
 } as const;

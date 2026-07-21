@@ -4,7 +4,7 @@ import { ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import * as Device from 'expo-device';
 import { Link, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, Pressable } from 'react-native';
+import { Platform, Pressable, StatusBar as RNStatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Icon } from '@/components/nativewindui/Icon';
@@ -31,6 +31,8 @@ export {
 
 const isIos26 = Platform.select({ default: false, ios: Device.osVersion?.startsWith('26.') });
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();
 
@@ -56,13 +58,12 @@ export default function RootLayout() {
   }
 
   return (
-    <>
-      <StatusBar
-        key={`root-status-bar-${isDarkColorScheme ? 'light' : 'dark'}`}
-        style={isDarkColorScheme ? 'light' : 'dark'}
+    <SafeAreaProvider>
+      <RNStatusBar
+        barStyle="dark-content"
+        backgroundColor="white"
+        translucent={false}
       />
-      {/* WRAP YOUR APP WITH ANY ADDITIONAL PROVIDERS HERE */}
-      {/* <ExampleProvider> */}
       <GestureHandlerRootView style={{ flex: 1 }}>
         <NavThemeProvider value={NAV_THEME[colorScheme]}>
           <Stack>
@@ -74,8 +75,7 @@ export default function RootLayout() {
           </Stack>
         </NavThemeProvider>
       </GestureHandlerRootView>
-      {/* </ExampleProvider> */}
-    </>
+    </SafeAreaProvider>
   );
 }
 
@@ -98,6 +98,6 @@ function SettingsIcon() {
 
 const MODAL_OPTIONS = {
   presentation: 'modal',
-  animation: 'fade_from_bottom', // for android
+  animation: 'fade_from_bottom',
   title: 'Settings',
 } as const;

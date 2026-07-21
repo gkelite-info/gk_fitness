@@ -45,6 +45,11 @@
       },
       "package": "com.vamshi0111.gkfitness"
     },
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "translucent": false,
+      "backgroundColor": "#ffffff"
+    },
     "extra": {
       "router": {},
       "eas": {

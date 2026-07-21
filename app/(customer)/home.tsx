@@ -1,11 +1,20 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Image, Pressable } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, Image, Pressable, TextInput } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { ArrowRightIcon, CaretRightIcon, ClockIcon, HandWavingIcon, Check, Bell, LightningIcon, CalendarIcon, StarIcon, CheckCircleIcon, SquaresFour, Barbell, BookmarkSimple, PlayCircle } from 'phosphor-react-native';
+import { ArrowRightIcon, CaretRightIcon, ClockIcon, HandWavingIcon, Check, Bell, LightningIcon, CalendarIcon, StarIcon, CheckCircleIcon, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass } from 'phosphor-react-native';
 import { BlurView } from 'expo-blur';
+import { useNavigation } from 'expo-router';
 
 export default function CustomerHome() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    const unsubscribe = (navigation as any).addListener('tabPress', () => {
+      setActiveTab(null);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const cardsText = [
     { text: "Muscle Group" },
@@ -71,6 +80,8 @@ export default function CustomerHome() {
 
         {activeTab === 'Muscle Group' ? (
           <MuscleGroupView />
+        ) : activeTab === 'Equipment' ? (
+          <EquipmentView />
         ) : !activeTab ? (
           <>
             <View className='flex flex-row items-center justify-between gap-2 w-full mt-5 bg-[#191919] p-3 pb-0 rounded-xl'>
@@ -353,6 +364,113 @@ function MuscleGroupView() {
         </View>
       </View>
 
+    </View>
+  );
+}
+
+function EquipmentView() {
+  const [savedWorkouts, setSavedWorkouts] = useState<Record<string, boolean>>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeEquipment, setActiveEquipment] = useState('All');
+
+  const toggleSave = (title: string) => {
+    setSavedWorkouts(prev => ({ ...prev, [title]: !prev[title] }));
+  };
+
+  const subTabs = [
+    { name: 'All', icon: <SquaresFour size={28} color="#8E8E8E" weight="fill" /> },
+    { name: 'Dumbbell', image: require('../../assets/dumbell.png') },
+    { name: 'Barbell', image: require('../../assets/barbell.png') },
+    { name: 'Kettlebell', image: require('../../assets/kettlebell.png') },
+    { name: 'Band', image: require('../../assets/resistance-band.png') },
+  ];
+
+  const workouts = [
+    { title: 'Dumbbell Strength', subtitle: 'Full body strength workout using dumbbells', time: '5 min', level: 'Intermediate', image: require('../../assets/dumbell-strength.png'), equipment: 'Dumbbell' },
+    { title: 'Barbell Power', subtitle: 'Build strength and power with barbell exercises', time: '5 min', level: 'Advanced', image: require('../../assets/barbell-power.png'), equipment: 'Barbell' },
+    { title: 'Kettlebell Burn', subtitle: 'High intensity kettlebell circuit for fat loss', time: '3 min', level: 'Intermediate', image: require('../../assets/kettlebell-burn.png'), equipment: 'Kettlebell' },
+    { title: 'Resistance Band Flow', subtitle: 'Tone and strengthen with resistance bands', time: '2 min', level: 'Beginner', image: require('../../assets/resistance-band-flow.png'), equipment: 'Resistance Band' },
+    { title: 'Bodyweight Blast', subtitle: 'No equipment? No problem. Get stronger anywhere!', time: '2 min', level: 'Beginner', image: require('../../assets/bodyweight-blast.png'), equipment: 'Bodyweight' },
+  ];
+
+  const filteredWorkouts = workouts.filter(w => {
+    const matchesSearch = w.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesEquipment = activeEquipment === 'All' || w.equipment === activeEquipment;
+    return matchesSearch && matchesEquipment;
+  });
+
+  return (
+    <View className="w-full mt-5 gap-6">
+      <View className="gap-1">
+        <Text className="text-white text-xl font-bold">Browse by Equipment</Text>
+        <Text className="text-[#8E8E8E] text-sm">Choose your equipment and start training</Text>
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+        {subTabs.map((tab, i) => {
+          const isActive = tab.name === activeEquipment;
+          return (
+            <Pressable
+              key={i}
+              onPress={() => setActiveEquipment(tab.name)}
+              className={`items-center justify-center p-3 rounded-2xl border ${isActive ? 'border-[#C4EF00] bg-[#1a2000]' : 'border-[#27272A] bg-[#111111]'}`}
+              style={{ width: 85, height: 100 }}
+            >
+              <View className="flex-1 items-center justify-center">
+                {tab.image ? (
+                  <Image source={tab.image} style={{ width: 45, height: 50 }} resizeMode="contain" />
+                ) : (
+                  tab.icon
+                )}
+              </View>
+              <Text className={`text-xs mt-2 font-semibold ${isActive ? 'text-[#C4EF00]' : 'text-[#8E8E8E]'}`}>{tab.name}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <View className="w-full bg-[#111111] rounded-2xl border border-[#27272A] px-4 flex-row items-center gap-3 h-[50px]">
+        <MagnifyingGlass size={20} color="#8E8E8E" />
+        <TextInput
+          placeholder="Search workouts..."
+          placeholderTextColor="#8E8E8E"
+          className="flex-1 text-white h-full"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
+      <View className="gap-4 w-full">
+        {filteredWorkouts.map((workout, i) => (
+          <View key={i} className="bg-[#111111] rounded-3xl p-3 border border-[#1D1D1D] flex-row gap-4 w-full">
+            <Image source={workout.image} style={{ width: 100, height: 100, borderRadius: 16 }} />
+            <View className="flex-1 justify-between py-1">
+              <View>
+                <View className="flex-row items-start justify-between">
+                  <Text className="text-white font-semibold text-base flex-1 mr-2">{workout.title}</Text>
+                  <Pressable onPress={() => toggleSave(workout.title)}>
+                    <BookmarkSimple size={20} color={savedWorkouts[workout.title] ? "#C4EF00" : "#8E8E8E"} weight={savedWorkouts[workout.title] ? "fill" : "regular"} />
+                  </Pressable>
+                </View>
+                <Text className="text-[#8E8E8E] text-xs mt-1 leading-4 pr-2">{workout.subtitle}</Text>
+              </View>
+              <View className="flex-row items-center justify-between mt-2">
+                <View className="flex-row items-center gap-1.5">
+                  <ClockIcon size={14} color="#8E8E8E" />
+                  <Text className="text-[#8E8E8E] text-xs">{workout.time}</Text>
+                </View>
+                <View className="flex-row items-center gap-1.5">
+                  <LightningIcon size={14} color={workout.level === 'Beginner' ? '#C4EF00' : workout.level === 'Intermediate' ? '#FFCB3F' : '#FF4F4F'} weight="fill" />
+                  <Text className="text-[#8E8E8E] text-xs">{workout.level}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        ))}
+        {filteredWorkouts.length === 0 && (
+          <Text className="text-[#8E8E8E] text-center mt-4">No workouts found matching your search.</Text>
+        )}
+      </View>
     </View>
   );
 }

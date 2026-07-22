@@ -21,11 +21,9 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export {
-  // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
 
@@ -70,6 +68,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(customer)" options={{ headerShown: false }} />
             <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+            <Stack.Screen name="(superadmin)" options={{ headerShown: false }} />
             <Stack.Screen name="(doctor)" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={MODAL_OPTIONS} />
           </Stack>

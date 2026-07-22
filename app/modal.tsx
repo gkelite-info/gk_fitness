@@ -10,7 +10,7 @@ export default function ModalScreen() {
   return (
     <>
       <StatusBar
-        style={Platform.OS === 'ios' ? 'light' : colorScheme === 'dark' ? 'light' : 'dark'}
+        style={Platform.OS === 'ios' ? 'dark' : colorScheme === 'dark' ? 'light' : 'dark'}
       />
       <View className="pb-safe flex-1 items-center justify-center gap-1 px-12">
         <Icon name="doc.badge.plus" size={42} color={colors.grey} />

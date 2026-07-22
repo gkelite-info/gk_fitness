@@ -39,7 +39,7 @@ export default function CustomerHome() {
   ]
 
   return (
-    <ScrollView className="flex-1 bg-background bg-[#0A0A0A]" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+    <ScrollView className="flex-1 bg-[#0A0A0A]" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
       <View className="items-start justify-start p-5 gap-3">
         <Text className="text-foreground text-sm text-[#8E8E8E]">
           Hi User <HandWavingIcon size={20} color='#FFCB3F' weight='fill' />
@@ -158,11 +158,11 @@ export default function CustomerHome() {
                   )
                 })}
               </ScrollView>
-              <View className="flex-row items-center justify-between mt-2">
-                <Text className="text-[#8E8E8E] text-xs font-medium">6 of 7 completed</Text>
-                <Text className="text-white text-xs font-bold">85%</Text>
+              <View className="flex-row items-center justify-between mt-3">
+                <Text className="text-[#8E8E8E] text-xs font-medium mb-1">6 of 7 completed</Text>
+                <Text className="text-white text-xs font-bold mb-1">85%</Text>
               </View>
-              <View className="w-full h-1.5 bg-[#27272A] rounded-full">
+              <View className="w-full h-1.5 bg-[#27272A] rounded-full mt-1">
                 <View className="h-full bg-[#C4EF00] rounded-full" style={{ width: '85%' }} />
               </View>
             </View>
@@ -187,7 +187,7 @@ export default function CustomerHome() {
             </View>
 
             <View className='mt-5 w-full flex-row items-center justify-between'>
-              <View className='bg-[#111111] w-[48%] p-3 rounded-xl gap-1 w-full border border-[#1D1D1D]'>
+              <View className='bg-[#111111] w-[48%] p-3 rounded-xl gap-1 border border-[#1D1D1D]'>
                 <Text className='text-[#C4EF00] font-semibold text-sm'>FEATURED PROGRAM</Text>
                 <Text className='text-white font-semibold text-lg w-[80%]'>8 Week Mass Builder</Text>
                 <View className='flex-row items-center gap-1'>
@@ -198,14 +198,14 @@ export default function CustomerHome() {
                   <CalendarIcon size={13} color='#8E8E8E' />
                   <Text className='text-[#8E8E8E] text-sm'>4 Days/Week</Text>
                 </View>
-                <View className='flex-row justify-center items-center w-full bg-green-00'>
+                <View className='flex-row justify-center items-center bg-green-00'>
                   <Pressable className='mt-2 bg-[#1D1D1D] px-4 py-2 rounded-lg'>
                     <Text className='text-white text-sm font-semibold'>View Program</Text>
                   </Pressable>
                 </View>
               </View>
 
-              <View className='bg-[#111111] w-[48%] p-3 rounded-xl gap-1 w-full border border-[#1D1D1D]'>
+              <View className='bg-[#111111] w-[48%] p-3 rounded-xl gap-1 border border-[#1D1D1D]'>
                 <Text className='text-[#C4EF00] font-semibold text-sm'>DAILY CHALLENGE</Text>
                 <Text className='text-white font-semibold text-lg w-[80%]'>Plank Hold Challenge</Text>
                 <View className='flex-row items-center gap-1'>
@@ -216,7 +216,7 @@ export default function CustomerHome() {
                   <StarIcon size={13} color='#8E8E8E' />
                   <Text className='text-[#8E8E8E] text-xs'>Complete & earn 50 XP</Text>
                 </View>
-                <View className='flex-row justify-center items-center w-full bg-green-00'>
+                <View className='flex-row justify-center items-center bg-green-00'>
                   <Pressable className='flex-row items-center gap-1 mt-2 bg-[#C4EF00] px-4 py-2 rounded-lg'>
                     <Text className='text-black text-sm font-semibold'>View Program</Text>
                     <CaretRightIcon size={15} />

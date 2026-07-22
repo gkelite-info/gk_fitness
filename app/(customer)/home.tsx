@@ -1,476 +1,224 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Image, Pressable, TextInput } from 'react-native';
+import React from 'react';
+import { View, ScrollView, Image, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { ArrowRightIcon, CaretRightIcon, ClockIcon, HandWavingIcon, Check, Bell, LightningIcon, CalendarIcon, StarIcon, CheckCircleIcon, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass } from 'phosphor-react-native';
-import { BlurView } from 'expo-blur';
-import { useNavigation } from 'expo-router';
+import {
+  Star,
+  QrCode,
+  Barbell,
+  Clock,
+  ArrowRight,
+  Flame,
+  Footprints,
+  Drop,
+  Lightning,
+} from 'phosphor-react-native';
 
 export default function CustomerHome() {
-  const [activeTab, setActiveTab] = useState<string | null>(null);
-  const navigation = useNavigation();
-
-  useEffect(() => {
-    const unsubscribe = (navigation as any).addListener('tabPress', () => {
-      setActiveTab(null);
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  const cardsText = [
-    { text: "Muscle Group" },
-    { text: "Equipment" },
-    { text: "Videos" },
-    { text: "Saved" },
-  ]
-
-  const weeklyPlan = [
-    { day: 'Mon', type: 'Push', status: 'active' },
-    { day: 'Tue', type: 'Pull', status: 'completed' },
-    { day: 'Wed', type: 'Legs', status: 'completed' },
-    { day: 'Thu', type: 'Rest', status: 'rest' },
-    { day: 'Fri', type: 'Push', status: 'completed' },
+  const weeklyBars = [
+    { day: 'M', height: 45, active: true },
+    { day: 'T', height: 75, active: true },
+    { day: 'W', height: 60, active: true },
+    { day: 'T', height: 85, active: true },
+    { day: 'F', height: 25, active: false },
+    { day: 'S', height: 35, active: false },
+    { day: 'S', height: 20, active: false },
   ];
 
-  const quikStartCards = [
-    { icon: "", text: "Full Body Workout" },
-    { icon: "", text: "Upper Body Workout" },
-    { icon: "", text: "Lower Body Workout" },
-    { icon: "", text: "Abs Workout" }
-  ]
-
   return (
-    <ScrollView className="flex-1 bg-[#0A0A0A]" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-      <View className="items-start justify-start p-5 gap-3">
-        <Text className="text-foreground text-sm text-[#8E8E8E]">
-          Hi User <HandWavingIcon size={20} color='#FFCB3F' weight='fill' />
+    <ScrollView
+      className="flex-1 bg-[#0A0A0A]"
+      contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+      showsVerticalScrollIndicator={false}
+    >
+      <View className="mb-5">
+        <Text className="text-[#8E8E93] text-sm font-medium">
+          Hi Emon 👋
         </Text>
-        <Text className="text-foreground text-sm text-white">
-          Let's crush your <Text className='text-base font-semibold text-[#C4EF00]'>Muscle Gain</Text> goal today!
+        <Text className="text-white text-lg font-semibold mt-1">
+          Every rep. Every step. <Text className="text-[#D7FF00]">Better than yesterday.</Text>
         </Text>
-        <Text className="text-foreground text-sm text-[#8E8E8E]">
-          Discipline today, strength tomorrow.
-        </Text>
-
-        <View className='border border-[#4B4B4B] bg-[#222222] rounded-full px-3 py-2 flex-row gap-2 items-center self-start'>
-          <View className='h-4 w-4 rounded-full bg-[#C4EF00]'></View>
-          <Text className='text-white text-sm'>Goal: Muscle Gain</Text>
-          <CaretRightIcon size={17} color='white' />
-        </View>
-
-        <View className="w-full mt-5">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-          >
-            {cardsText.map((item, index) => {
-              const isActive = activeTab === item.text;
-              return (
-                <Pressable
-                  onPress={() => setActiveTab(isActive ? null : item.text)}
-                  className={`px-4 py-2 justify-center ${isActive ? 'border-b-2 border-[#C4EF00]' : 'border border-[#27272A] rounded-xl bg-[#111111]'}`}
-                  key={index}
-                >
-                  <Text className={`text-sm ${isActive ? 'text-[#C4EF00] font-semibold' : 'text-[#A1A1AA]'}`}>{item.text}</Text>
-                </Pressable>
-              )
-            })}
-          </ScrollView>
-        </View>
-
-        {activeTab === 'Muscle Group' ? (
-          <MuscleGroupView />
-        ) : activeTab === 'Equipment' ? (
-          <EquipmentView />
-        ) : !activeTab ? (
-          <>
-            <View className='flex flex-row items-center justify-between gap-2 w-full mt-5 bg-[#191919] p-3 pb-0 rounded-xl'>
-              <View className='w-[50%] h-full gap-3'>
-                <Text className='text-[#C4EF00] text-xs'>TODAY'S WORKOUT</Text>
-                <Text className='text-xl text-white'>Back & Biceps</Text>
-                <View className='flex-row items-center gap-1'><ClockIcon size={15} color='#8E8E8E' /><Text className='text-[#8E8E8E] text-sm'>45 Mins</Text></View>
-                <View className='flex-row items-center gap-1'><View className='h-2 w-2 rounded-full bg-[#C4EF00]'></View><Text className='text-[#8E8E8E] text-sm'>6 Exercises</Text></View>
-                <View className='bg-[#C4EF00] p-2 flex-row items-center justify-center gap-3 w-fit rounded-lg'>
-                  <Text className='font-semibold'>Start Workout</Text><ArrowRightIcon size={17} />
-                </View>
-              </View>
-              <View className='w-[50%]'>
-                <Image
-                  source={require('../../assets/fit-1.png')}
-                  style={{ width: 180, height: 180 }}
-                  resizeMode='contain'
-                />
-              </View>
-            </View>
-
-            <View className='mt-5 w-full flex-row items-center justify-between'>
-              <Text className='text-[#C4EF00] font-semibold'>WEEKLY WORKOUT PLAN</Text>
-              <View className='flex-row items-center gap-2'>
-                <Text className='text-[#8E8E8E] text-sm'>View Full Plan</Text>
-                <Pressable>
-                  <CaretRightIcon size={15} color='#8E8E8E' />
-                </Pressable>
-              </View>
-            </View>
-
-            <View className='w-full mt-3'>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 12, paddingVertical: 4, paddingRight: 20 }}
-              >
-                {weeklyPlan.map((item, index) => {
-                  const isActive = item.status === 'active';
-                  const isRest = item.status === 'rest';
-
-                  return (
-                    <View
-                      key={index}
-                      className={`items-center justify-center rounded-xl p-2 w-[85px] gap-3 ${isActive ? 'bg-[#C4EF00]' : 'border border-[#27272A] bg-[#111111]'
-                        }`}
-                    >
-                      <Text className={`font-semibold text-base ${isActive ? 'text-black' : 'text-[#8E8E8E]'}`}>
-                        {item.day}
-                      </Text>
-
-                      {isActive && (
-                        <View className="h-8 w-8 rounded-full bg-black items-center justify-center">
-                          <Check size={16} color="white" weight="bold" />
-                        </View>
-                      )}
-
-                      {!isActive && !isRest && (
-                        <View className="h-8 w-8 rounded-full bg-[#242A00] items-center justify-center">
-                          <Check size={16} color="#C4EF00" weight="bold" />
-                        </View>
-                      )}
-
-                      {isRest && (
-                        <View className="h-8 w-8 rounded-full items-center justify-center">
-                          <Bell size={20} color="#8E8E8E" weight="fill" />
-                        </View>
-                      )}
-
-                      <Text className={`font-bold text-base ${isActive ? 'text-black' : isRest ? 'text-[#8E8E8E]' : 'text-white'}`}>
-                        {item.type}
-                      </Text>
-                    </View>
-                  )
-                })}
-              </ScrollView>
-              <View className="flex-row items-center justify-between mt-3">
-                <Text className="text-[#8E8E8E] text-xs font-medium mb-1">6 of 7 completed</Text>
-                <Text className="text-white text-xs font-bold mb-1">85%</Text>
-              </View>
-              <View className="w-full h-1.5 bg-[#27272A] rounded-full mt-1">
-                <View className="h-full bg-[#C4EF00] rounded-full" style={{ width: '85%' }} />
-              </View>
-            </View>
-
-            <View className='mt-5 w-full'>
-              <Text className='text-white font-semibold'>QUICK START</Text>
-              <View className='mt-3 flex-wrap flex-row justify-between'>
-                {quikStartCards.map((item, index) => {
-                  return (
-                    <View className='bg-[#111111] w-[48%] mb-3 p-3 flex-row items-center rounded-xl border border-[#1D1D1D]' key={index}>
-                      <View className='bg-[#C4EF00] h-9 w-9 rounded-xl items-center justify-center'>
-                        {item.icon}
-                      </View>
-                      <View className='flex-1 px-2'>
-                        <Text className='text-xs text-white font-semibold' numberOfLines={2}>{item.text}</Text>
-                      </View>
-                      <CaretRightIcon size={16} color='white' />
-                    </View>
-                  )
-                })}
-              </View>
-            </View>
-
-            <View className='mt-5 w-full flex-row items-center justify-between'>
-              <View className='bg-[#111111] w-[48%] p-3 rounded-xl gap-1 border border-[#1D1D1D]'>
-                <Text className='text-[#C4EF00] font-semibold text-sm'>FEATURED PROGRAM</Text>
-                <Text className='text-white font-semibold text-lg w-[80%]'>8 Week Mass Builder</Text>
-                <View className='flex-row items-center gap-1'>
-                  <LightningIcon size={13} color='#8E8E8E' />
-                  <Text className='text-[#8E8E8E] text-sm'>Intermediate</Text>
-                </View>
-                <View className='flex-row items-center gap-1'>
-                  <CalendarIcon size={13} color='#8E8E8E' />
-                  <Text className='text-[#8E8E8E] text-sm'>4 Days/Week</Text>
-                </View>
-                <View className='flex-row justify-center items-center bg-green-00'>
-                  <Pressable className='mt-2 bg-[#1D1D1D] px-4 py-2 rounded-lg'>
-                    <Text className='text-white text-sm font-semibold'>View Program</Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              <View className='bg-[#111111] w-[48%] p-3 rounded-xl gap-1 border border-[#1D1D1D]'>
-                <Text className='text-[#C4EF00] font-semibold text-sm'>DAILY CHALLENGE</Text>
-                <Text className='text-white font-semibold text-lg w-[80%]'>Plank Hold Challenge</Text>
-                <View className='flex-row items-center gap-1'>
-                  <ClockIcon size={13} color='#8E8E8E' />
-                  <Text className='text-[#8E8E8E] text-sm'>Hold for 2 min</Text>
-                </View>
-                <View className='flex-row items-center gap-1'>
-                  <StarIcon size={13} color='#8E8E8E' />
-                  <Text className='text-[#8E8E8E] text-xs'>Complete & earn 50 XP</Text>
-                </View>
-                <View className='flex-row justify-center items-center bg-green-00'>
-                  <Pressable className='flex-row items-center gap-1 mt-2 bg-[#C4EF00] px-4 py-2 rounded-lg'>
-                    <Text className='text-black text-sm font-semibold'>View Program</Text>
-                    <CaretRightIcon size={15} />
-                  </Pressable>
-                </View>
-              </View>
-            </View>
-
-            <View className='bg-[#111111] border border-[#1D1D1D] mt-5 w-full p-4 rounded-lg flex flex-row justify-between'>
-              <View className='bg-yellow-00 flex-row items-center justify-start'>
-                <Image
-                  source={require('../../assets/workout.png')}
-                  style={{ height: 120, width: 120 }}
-                  resizeMode='contain'
-                />
-                <View>
-                  <Text className='text-white font-semibold'>Back & Biceps</Text>
-                  <View className='flex-row justify-between gap-2'>
-                    <Text className='text-xs text-[#8E8E8E]'>42 mins</Text>
-                    <Text className='text-xs text-[#8E8E8E]'>6 Exercises</Text>
-                  </View>
-                </View>
-              </View>
-              <View className='bg-blue-00 flex flex-col items-center justify-center gap-1'>
-                <Text className='text-[#8E8E8E] text-sm'>Yesterday</Text>
-                <CheckCircleIcon size={25} weight='fill' color='#C4EF00' />
-              </View>
-            </View>
-          </>
-        ) : null}
       </View>
-    </ScrollView>
-  );
-}
 
-function MuscleGroupView() {
-  const [savedWorkouts, setSavedWorkouts] = useState<Record<string, boolean>>({});
-
-  const toggleSave = (title: string) => {
-    setSavedWorkouts(prev => ({ ...prev, [title]: !prev[title] }));
-  };
-
-  const subTabs = [
-    { name: 'All', icon: <SquaresFour size={28} color="#8E8E8E" weight="fill" /> },
-    { name: 'Chest', image: require('../../assets/chest-stood.png') },
-    { name: 'Back', image: require('../../assets/back-stood.png') },
-    { name: 'Shoulders', image: require('../../assets/shoulders-stood.png') },
-  ];
-
-  const popularChest = [
-    { title: 'Push Day', subtitle: 'Chest • Shoulders • Triceps', time: '45 min', image: require('../../assets/push-day.png') },
-    { title: 'Lower Chest Sculpt', subtitle: 'Chest • Shoulders • Triceps', time: '45 min', image: require('../../assets/lower-chest-sculpt.png') },
-  ];
-
-  const recommended = [
-    { title: 'Upper Chest Focus', subtitle: 'Chest', time: '35 min', image: require('../../assets/upper-chest-focus.png') },
-    { title: 'Chest Intensity', subtitle: 'Chest', time: '35 min', image: require('../../assets/chest-intersity.png') },
-  ];
-
-  return (
-    <View className="w-full mt-5 gap-6">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-        {subTabs.map((tab, i) => {
-          const isActive = tab.name === 'Chest';
-          return (
-            <View key={i} className={`items-center justify-center p-3 rounded-2xl border ${isActive ? 'border-[#C4EF00] bg-[#1a2000]' : 'border-[#27272A] bg-[#111111]'}`} style={{ width: 85, height: 100 }}>
-              <View className="flex-1 items-center justify-center">
-                {tab.image ? (
-                  <Image source={tab.image} style={{ width: 45, height: 50 }} resizeMode="contain" />
-                ) : (
-                  tab.icon
-                )}
-              </View>
-              <Text className={`text-xs mt-2 font-semibold ${isActive ? 'text-[#C4EF00]' : 'text-[#8E8E8E]'}`}>{tab.name}</Text>
+      <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 flex-row items-center justify-between">
+        <View className="flex-1 pr-3">
+          <View className="flex-row items-center gap-2 mb-3">
+            <View className="w-6 h-6 rounded-full bg-[#D7FF00] items-center justify-center">
+              <Star size={14} color="#000000" weight="fill" />
             </View>
-          );
-        })}
-      </ScrollView>
+            <Text className="text-[#D7FF00] text-xs font-semibold tracking-wider">
+              PREMIUM MEMBER
+            </Text>
+          </View>
 
-      {/* Create Your Own Workout */}
-      <View className="bg-[#111111] p-5 rounded-3xl border border-[#1D1D1D] gap-4 w-full">
-        <Text className="text-white text-lg font-semibold">Create Your Own Workout</Text>
-        <Text className="text-[#8E8E8E] text-sm leading-5">Select muscle groups, equipment and duration to get your custom plan.</Text>
-        <Pressable className="bg-[#C4EF00] flex-row items-center justify-center py-3 px-5 rounded-full self-start gap-2 mt-2">
-          <Text className="text-black font-semibold text-sm">Build Workout</Text>
-          <ArrowRightIcon size={16} color="black" weight="bold" />
+          <View className="flex-row items-baseline gap-2 mb-3">
+            <Text className="text-white text-4xl font-semibold">28</Text>
+            <Text className="text-[#8E8E93] text-sm font-medium">Days Left</Text>
+          </View>
+
+          <View className="w-full h-1.5 bg-[#262626] rounded-full overflow-hidden">
+            <View className="h-full bg-[#D7FF00] rounded-full" style={{ width: '45%' }} />
+          </View>
+        </View>
+
+        <View className="w-[1px] h-16 bg-[#262626] mx-2" />
+
+        <Pressable className="items-center justify-center pl-2 active:opacity-80">
+          <View className="w-12 h-12 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] items-center justify-center mb-1">
+            <QrCode size={26} color="#D7FF00" />
+          </View>
+          <Text className="text-white text-[11px] font-semibold text-center">Check-in</Text>
+          <Text className="text-[#8E8E93] text-[10px] text-center">(QR)</Text>
         </Pressable>
       </View>
 
-      {/* Popular Chest Workouts */}
-      <View className="w-full gap-4 mt-2">
-        <Text className="text-white font-semibold text-xl">Popular Chest Workouts</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-          {popularChest.map((workout, i) => (
-            <View key={i} className="bg-[#111111] rounded-3xl p-3 border border-[#1D1D1D] gap-3" style={{ width: 280 }}>
-              <Image source={workout.image} style={{ width: '100%', height: 160, borderRadius: 16 }} />
-              <View className="gap-1 mt-1">
-                <Text className="text-white font-semibold text-xl">{workout.title}</Text>
-                <Text className="text-[#8E8E8E] text-sm font-medium">{workout.subtitle}</Text>
-              </View>
-              <View className="flex-row items-center justify-between mt-2 mb-1">
-                <View className="flex-row items-center gap-1.5">
-                  <ClockIcon size={16} color="#8E8E8E" />
-                  <Text className="text-[#8E8E8E] text-sm">{workout.time}</Text>
-                </View>
-                <Pressable onPress={() => toggleSave(workout.title)}>
-                  <BookmarkSimple size={24} color={savedWorkouts[workout.title] ? "#C4EF00" : "white"} weight={savedWorkouts[workout.title] ? "fill" : "regular"} />
-                </Pressable>
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
+      <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 relative overflow-hidden flex-row items-center justify-between">
+        <View className="flex-1 z-10 pr-2">
+          <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider mb-1">
+            TODAY'S WORKOUT
+          </Text>
+          <Text className="text-white text-2xl font-semibold mb-2">
+            Back & Biceps
+          </Text>
 
-      {/* Recommended For You */}
-      <View className="w-full gap-4 mt-2">
-        <Text className="text-white font-semibold text-xl">Recommended For You</Text>
-        <View className="flex-row flex-wrap justify-between w-full">
-          {recommended.map((workout, i) => (
-            <View key={i} className="w-[48%] bg-[#111111] rounded-3xl border border-[#1D1D1D] mb-4 pb-4">
-              <View className="w-full h-48 bg-[#1a1a1a] rounded-t-3xl items-center justify-center overflow-hidden">
-                <Image source={workout.image} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                <View className="absolute inset-0 bg-black/30 items-center justify-center">
-                  <BlurView intensity={30} tint="light" className="p-3 rounded-full overflow-hidden border border-white/30">
-                    <PlayCircle size={36} color="white" weight="fill" />
-                  </BlurView>
-                </View>
-                <View className="absolute top-3 left-3 flex-row gap-1">
-                  <View className="bg-black/60 p-1.5 rounded-lg border border-white/20"><Barbell size={14} color="white" /></View>
-                  <View className="bg-[#C4EF00] p-1.5 rounded-lg"><Barbell size={14} color="black" weight="fill" /></View>
-                </View>
-                <View className="absolute top-3 right-3">
-                  <Pressable onPress={() => toggleSave(workout.title)}>
-                    <BookmarkSimple size={20} color={savedWorkouts[workout.title] ? "#C4EF00" : "white"} weight={savedWorkouts[workout.title] ? "fill" : "bold"} />
-                  </Pressable>
-                </View>
-              </View>
-              <View className="px-4 pt-4 gap-1.5">
-                <Text className="text-white font-semibold text-base">{workout.title}</Text>
-                <Text className="text-[#8E8E8E] text-xs font-medium">{workout.subtitle}</Text>
-                <Text className="text-[#8E8E8E] text-xs font-medium mt-1">{workout.time}</Text>
-              </View>
+          <View className="flex-row items-center gap-3 mb-4">
+            <View className="flex-row items-center gap-1.5">
+              <Barbell size={16} color="#8E8E93" />
+              <Text className="text-[#8E8E93] text-xs font-medium">6 Exercises</Text>
             </View>
-          ))}
+            <View className="flex-row items-center gap-1.5">
+              <Clock size={16} color="#8E8E93" />
+              <Text className="text-[#8E8E93] text-xs font-medium">50 min</Text>
+            </View>
+          </View>
+
+          <Pressable className="bg-[#D7FF00] rounded-full py-3 px-5 flex-row items-center justify-center self-start active:opacity-90">
+            <Text className="text-black font-semibold text-sm mr-2">Start Workout</Text>
+            <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
+              <ArrowRight size={14} color="#000000" weight="bold" />
+            </View>
+          </Pressable>
+        </View>
+
+        <View className="items-end justify-center">
+          <Image
+            source={require('../../assets/fit-1.png')}
+            style={{ width: 145, height: 160 }}
+            resizeMode="contain"
+          />
         </View>
       </View>
 
-    </View>
-  );
-}
-
-function EquipmentView() {
-  const [savedWorkouts, setSavedWorkouts] = useState<Record<string, boolean>>({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeEquipment, setActiveEquipment] = useState('All');
-
-  const toggleSave = (title: string) => {
-    setSavedWorkouts(prev => ({ ...prev, [title]: !prev[title] }));
-  };
-
-  const subTabs = [
-    { name: 'All', icon: <SquaresFour size={28} color="#8E8E8E" weight="fill" /> },
-    { name: 'Dumbbell', image: require('../../assets/dumbell.png') },
-    { name: 'Barbell', image: require('../../assets/barbell.png') },
-    { name: 'Kettlebell', image: require('../../assets/kettlebell.png') },
-    { name: 'Band', image: require('../../assets/resistance-band.png') },
-  ];
-
-  const workouts = [
-    { title: 'Dumbbell Strength', subtitle: 'Full body strength workout using dumbbells', time: '5 min', level: 'Intermediate', image: require('../../assets/dumbell-strength.png'), equipment: 'Dumbbell' },
-    { title: 'Barbell Power', subtitle: 'Build strength and power with barbell exercises', time: '5 min', level: 'Advanced', image: require('../../assets/barbell-power.png'), equipment: 'Barbell' },
-    { title: 'Kettlebell Burn', subtitle: 'High intensity kettlebell circuit for fat loss', time: '3 min', level: 'Intermediate', image: require('../../assets/kettlebell-burn.png'), equipment: 'Kettlebell' },
-    { title: 'Resistance Band Flow', subtitle: 'Tone and strengthen with resistance bands', time: '2 min', level: 'Beginner', image: require('../../assets/resistance-band-flow.png'), equipment: 'Resistance Band' },
-    { title: 'Bodyweight Blast', subtitle: 'No equipment? No problem. Get stronger anywhere!', time: '2 min', level: 'Beginner', image: require('../../assets/bodyweight-blast.png'), equipment: 'Bodyweight' },
-  ];
-
-  const filteredWorkouts = workouts.filter(w => {
-    const matchesSearch = w.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesEquipment = activeEquipment === 'All' || w.equipment === activeEquipment;
-    return matchesSearch && matchesEquipment;
-  });
-
-  return (
-    <View className="w-full mt-5 gap-6">
-      <View className="gap-1">
-        <Text className="text-white text-xl font-bold">Browse by Equipment</Text>
-        <Text className="text-[#8E8E8E] text-sm">Choose your equipment and start training</Text>
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-        {subTabs.map((tab, i) => {
-          const isActive = tab.name === activeEquipment;
-          return (
-            <Pressable
-              key={i}
-              onPress={() => setActiveEquipment(tab.name)}
-              className={`items-center justify-center p-3 rounded-2xl border ${isActive ? 'border-[#C4EF00] bg-[#1a2000]' : 'border-[#27272A] bg-[#111111]'}`}
-              style={{ width: 85, height: 100 }}
-            >
-              <View className="flex-1 items-center justify-center">
-                {tab.image ? (
-                  <Image source={tab.image} style={{ width: 45, height: 50 }} resizeMode="contain" />
-                ) : (
-                  tab.icon
-                )}
-              </View>
-              <Text className={`text-xs mt-2 font-semibold ${isActive ? 'text-[#C4EF00]' : 'text-[#8E8E8E]'}`}>{tab.name}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
-      <View className="w-full bg-[#111111] rounded-2xl border border-[#27272A] px-4 flex-row items-center gap-3 h-[50px]">
-        <MagnifyingGlass size={20} color="#8E8E8E" />
-        <TextInput
-          placeholder="Search workouts..."
-          placeholderTextColor="#8E8E8E"
-          className="flex-1 text-white h-full"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      <View className="gap-4 w-full">
-        {filteredWorkouts.map((workout, i) => (
-          <View key={i} className="bg-[#111111] rounded-3xl p-3 border border-[#1D1D1D] flex-row gap-4 w-full">
-            <Image source={workout.image} style={{ width: 100, height: 100, borderRadius: 16 }} />
-            <View className="flex-1 justify-between py-1">
-              <View>
-                <View className="flex-row items-start justify-between">
-                  <Text className="text-white font-semibold text-base flex-1 mr-2">{workout.title}</Text>
-                  <Pressable onPress={() => toggleSave(workout.title)}>
-                    <BookmarkSimple size={20} color={savedWorkouts[workout.title] ? "#C4EF00" : "#8E8E8E"} weight={savedWorkouts[workout.title] ? "fill" : "regular"} />
-                  </Pressable>
-                </View>
-                <Text className="text-[#8E8E8E] text-xs mt-1 leading-4 pr-2">{workout.subtitle}</Text>
-              </View>
-              <View className="flex-row items-center justify-between mt-2">
-                <View className="flex-row items-center gap-1.5">
-                  <ClockIcon size={14} color="#8E8E8E" />
-                  <Text className="text-[#8E8E8E] text-xs">{workout.time}</Text>
-                </View>
-                <View className="flex-row items-center gap-1.5">
-                  <LightningIcon size={14} color={workout.level === 'Beginner' ? '#C4EF00' : workout.level === 'Intermediate' ? '#FFCB3F' : '#FF4F4F'} weight="fill" />
-                  <Text className="text-[#8E8E8E] text-xs">{workout.level}</Text>
-                </View>
-              </View>
-            </View>
+      <View className="flex-row flex-wrap justify-between gap-y-3 mb-4">
+        <View className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4">
+          <View className="w-8 h-8 rounded-full bg-[#C3F400]/10 items-center justify-center mb-2">
+            <Flame size={20} color="#C3F400" weight="fill" />
           </View>
-        ))}
-        {filteredWorkouts.length === 0 && (
-          <Text className="text-[#8E8E8E] text-center mt-4">No workouts found matching your search.</Text>
-        )}
+          <Text className="text-white text-3xl font-semibold mt-1">520</Text>
+          <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
+            CALORIES KCAL
+          </Text>
+          <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
+            <View className="h-full bg-[#C3F400] rounded-full" style={{ width: '60%' }} />
+          </View>
+        </View>
+
+        <View className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4">
+          <View className="w-8 h-8 rounded-full bg-[#C3F400]/10 items-center justify-center mb-2">
+            <Footprints size={20} color="#C3F400" weight="fill" />
+          </View>
+          <Text className="text-white text-3xl font-semibold mt-1">7,845</Text>
+          <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
+            STEPS
+          </Text>
+          <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
+            <View className="h-full bg-[#C3F400] rounded-full" style={{ width: '78%' }} />
+          </View>
+        </View>
+
+        <View className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4">
+          <View className="w-8 h-8 rounded-full bg-[#00DBE7]/10 items-center justify-center mb-2">
+            <Drop size={20} color="#00DBE7" weight="fill" />
+          </View>
+          <Text className="text-white text-3xl font-semibold mt-1">2.3</Text>
+          <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
+            WATER (LITERS)
+          </Text>
+          <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
+            <View className="h-full bg-[#00DBE7] rounded-full" style={{ width: '55%' }} />
+          </View>
+        </View>
+
+        <View className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4">
+          <View className="w-8 h-8 rounded-full bg-[#FB923C]/10 items-center justify-center mb-2">
+            <Lightning size={20} color="#FB923C" weight="fill" />
+          </View>
+          <Text className="text-white text-3xl font-semibold mt-1">12</Text>
+          <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
+            DAY STREAK
+          </Text>
+          <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
+            <View className="h-full bg-[#FB923C] rounded-full" style={{ width: '85%' }} />
+          </View>
+        </View>
       </View>
-    </View>
+
+      <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4">
+        <View className="flex-row items-center justify-between mb-4">
+          <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider">
+            WEEKLY PROGRESS
+          </Text>
+          <Pressable className="flex-row items-center gap-1 active:opacity-80">
+            <Text className="text-[#8E8E93] text-xs font-medium">View All</Text>
+            <ArrowRight size={13} color="#8E8E93" />
+          </Pressable>
+        </View>
+
+        <View className="flex-row items-end justify-between">
+          <View className="justify-end mb-2">
+            <View className="flex-row items-baseline">
+              <Text className="text-white text-4xl font-semibold">68</Text>
+              <Text className="text-white text-xl font-semibold ml-0.5">%</Text>
+            </View>
+            <Text className="text-[#8E8E93] text-xs font-medium mt-1">Completed</Text>
+          </View>
+
+          <View className="flex-row items-end gap-2.5">
+            {weeklyBars.map((item, index) => (
+              <View key={index} className="items-center gap-2">
+                <View className="w-3.5 h-20 bg-[#1E1E1E] rounded-full justify-end overflow-hidden">
+                  <View
+                    className="w-full rounded-full"
+                    style={{
+                      height: `${item.height}%`,
+                      backgroundColor: item.active ? '#C4EF00' : '#2A2A2A',
+                    }}
+                  />
+                </View>
+                <Text className="text-[#8E8E93] text-[11px] font-semibold">{item.day}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 flex-row items-center justify-between">
+        <View className="flex-1 pr-2">
+          <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider mb-1">
+            UPCOMING SESSION
+          </Text>
+          <Text className="text-white text-base font-semibold mb-1">
+            Personal Training
+          </Text>
+          <Text className="text-[#8E8E93] text-xs font-medium">
+            Today • 7:00 PM
+          </Text>
+        </View>
+
+        <Pressable className="bg-[#1D1D1D] border border-[#2A2A2A] rounded-full py-2.5 px-4 flex-row items-center gap-1.5 active:opacity-80">
+          <Text className="text-white text-xs font-semibold">View Schedule</Text>
+          <ArrowRight size={14} color="#D7FF00" />
+        </Pressable>
+      </View>
+    </ScrollView>
   );
 }

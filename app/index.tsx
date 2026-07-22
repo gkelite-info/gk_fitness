@@ -1,5 +1,6 @@
 import { Redirect } from 'expo-router';
 
 export default function Index() {
-  return <Redirect href="/(customer)/home" />;
+  // @ts-ignore: Suppress typed routes error for dynamic/unregistered path
+  return <Redirect href="/(superadmin)/dashboard" />;
 }

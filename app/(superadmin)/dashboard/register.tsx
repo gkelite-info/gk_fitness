@@ -127,14 +127,16 @@ export default function RegisterGymScreen() {
           showsVerticalScrollIndicator={false}>
           <View className="mb-4">
             <View className="flex-row items-center gap-2 mb-1">
-              <Pressable
-                onPress={() => router.back()}
-                className="w-8 h-8 rounded-full bg-[#111622] border border-[#1F293D] items-center justify-center">
-                <ArrowLeft size={16} color="#FFFFFF" />
-              </Pressable>
+              {router.canGoBack() && (
+                <Pressable
+                  onPress={() => router.back()}
+                  className="w-8 h-8 rounded-full bg-[#111622] border border-[#1F293D] items-center justify-center">
+                  <ArrowLeft size={16} color="#FFFFFF" />
+                </Pressable>
+              )}
               <Text className="text-2xl font-semibold text-white">Registered Gyms</Text>
             </View>
-            <Text className="text-sm text-[#888888] ml-10">
+            <Text className={`text-sm text-[#888888] ${router.canGoBack() ? 'ml-10' : ''}`}>
               View and manage all registered gyms.
             </Text>
           </View>

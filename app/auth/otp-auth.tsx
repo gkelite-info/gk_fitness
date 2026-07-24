@@ -32,14 +32,14 @@ export default function OtpAuthScreen() {
   const { role, loading: userLoading, refreshUserContext } = useUser();
   const [purpose, setPurpose] = useState<'login' | 'reset_password'>('login');
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
-  
+
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  
+
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
   const [successTitle, setSuccessTitle] = useState('');
   const [successBody, setSuccessBody] = useState('');
@@ -65,7 +65,7 @@ export default function OtpAuthScreen() {
     if (!targetEmail && loginMethod === 'email') {
       return Alert.alert('Validation Error', 'Email Address is required.');
     }
-    
+
     if (purpose === 'login') {
       if (!password) return Alert.alert('Validation Error', 'Password is required.');
     }
@@ -83,12 +83,27 @@ export default function OtpAuthScreen() {
           throw authError;
         }
 
-        // Refresh UserContext immediately on successful sign in
-        await refreshUserContext();
+        if (authData?.user?.id) {
+          const fetchedRole = await getUserRole(authData.user.id);
+          console.log('[OtpAuthScreen] Login successful. Direct role check:', fetchedRole);
 
-        setSuccessTitle('Login Successful!');
-        setSuccessBody(`Welcome back, ${authData.user?.email || 'User'}! You are successfully authenticated.`);
-        setVerifiedSuccess(true);
+          // Refresh context in background
+          refreshUserContext();
+
+          if (fetchedRole === 'superadmin') {
+            router.replace('/(superadmin)/dashboard');
+            return;
+          } else if (fetchedRole === 'admin') {
+            router.replace('/(admin)/dashboard');
+            return;
+          } else if (fetchedRole === 'doctor') {
+            router.replace('/(doctor)/patients');
+            return;
+          } else {
+            router.replace('/(customer)/home');
+            return;
+          }
+        }
 
       } else if (purpose === 'reset_password') {
         const { error: authError } = await supabase.auth.resetPasswordForEmail(targetEmail);
@@ -156,8 +171,8 @@ export default function OtpAuthScreen() {
           </Text>
           <Text className="text-[#8E8E93] text-[13px]">
             {purpose === 'reset_password'
-                ? 'Enter your email to receive a reset link'
-                : 'Sign in to continue your fitness journey'}
+              ? 'Enter your email to receive a reset link'
+              : 'Sign in to continue your fitness journey'}
           </Text>
         </View>
 

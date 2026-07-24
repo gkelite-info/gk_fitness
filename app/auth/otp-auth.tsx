@@ -5,7 +5,6 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -15,7 +14,7 @@ import {
   EnvelopeSimple,
   Key,
   ArrowRight,
-  DeviceMobile,
+  // DeviceMobile,
   Eye,
   EyeSlash,
   Barbell,
@@ -25,20 +24,24 @@ import {
 } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
 import { getUserRole, navigateBasedOnRole } from '@/helpers/otpHelper';
-import { Stack, router } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useUser } from '@/context/UserContext';
+import { toast } from '@/lib/toast';
 
 export default function OtpAuthScreen() {
   const { role, loading: userLoading, refreshUserContext } = useUser();
   const [purpose, setPurpose] = useState<'login' | 'reset_password'>('login');
-  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
+  const [loginMethod /* , setLoginMethod */] = useState<'email' | 'phone'>('email');
 
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  // const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // const [phoneStep, setPhoneStep] = useState<'request' | 'verify'>('request');
+  // const [otpCode, setOtpCode] = useState('');
 
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
   const [successTitle, setSuccessTitle] = useState('');
@@ -51,14 +54,48 @@ export default function OtpAuthScreen() {
   }, [role, userLoading]);
 
   const handleAuth = async () => {
+    /*
+    if (loginMethod === 'phone') {
+      if (!phone.trim()) {
+        return Alert.alert('Validation Error', 'Phone number is required.');
+      }
+
+      let formattedPhone = phone.trim();
+      if (!formattedPhone.startsWith('+')) {
+        formattedPhone = '+91' + formattedPhone;
+      }
+
+      setLoading(true);
+      try {
+        const { error } = await supabase.auth.signInWithOtp({
+          phone: formattedPhone,
+        });
+
+        if (error) throw error;
+
+        setPhoneStep('verify');
+        Alert.alert('OTP Sent', 'An OTP has been sent to your phone number.');
+      } catch (err: any) {
+        Alert.alert('Authentication Error', err.message || 'Operation failed.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    */
+
     const targetEmail = email.trim().toLowerCase();
 
     if (!targetEmail && loginMethod === 'email') {
-      return Alert.alert('Validation Error', 'Email Address is required.');
+      toast.error('Email Address is required.');
+      return;
     }
 
     if (purpose === 'login') {
-      if (!password) return Alert.alert('Validation Error', 'Password is required.');
+      if (!password) {
+        toast.error('Password is required.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -86,6 +123,7 @@ export default function OtpAuthScreen() {
           }
         }
 
+        toast.success('Signed in successfully!');
       } else if (purpose === 'reset_password') {
         const { error: authError } = await supabase.auth.resetPasswordForEmail(targetEmail);
 
@@ -98,11 +136,79 @@ export default function OtpAuthScreen() {
         setVerifiedSuccess(true);
       }
     } catch (err: any) {
-      Alert.alert('Authentication Error', err.message || 'Operation failed.');
+      toast.error(err.message || 'Operation failed.');
     } finally {
       setLoading(false);
     }
   };
+
+  /*
+  const handleVerifyOtp = async () => {
+    if (!otpCode.trim()) {
+      return Alert.alert('Validation Error', 'Please enter the OTP.');
+    }
+
+    let formattedPhone = phone.trim();
+    if (!formattedPhone.startsWith('+')) {
+      formattedPhone = '+91' + formattedPhone;
+    }
+
+    setLoading(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+        phone: formattedPhone,
+        token: otpCode.trim(),
+        type: 'sms',
+      });
+
+      if (authError) throw authError;
+
+      if (authData?.user?.id) {
+        // Check if the user exists in public.users
+        const { data: profile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('userId', authData.user.id)
+          .maybeSingle();
+
+        let fetchedRole = profile?.role;
+
+        if (!profile) {
+          // Profile doesn't exist, create it as 'customer'
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert([
+              {
+                userId: authData.user.id,
+                name: 'User',
+                email: authData.user.email || '',
+                phone: formattedPhone,
+                role: 'customer',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ]);
+
+          if (insertError) {
+            console.error('Error creating user profile:', insertError);
+          }
+          fetchedRole = 'customer';
+        }
+
+        // Refresh context in background
+        refreshUserContext();
+
+        if (fetchedRole) {
+          navigateBasedOnRole(fetchedRole);
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Verification Error', err.message || 'Verification failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  */
 
   if (verifiedSuccess) {
     return (
@@ -111,7 +217,7 @@ export default function OtpAuthScreen() {
           <View className="w-16 h-16 rounded-full bg-[#D4FF00]/10 items-center justify-center mb-4 border border-[#D4FF00]/30">
             <CheckCircle size={36} color="#D4FF00" weight="fill" />
           </View>
-          <Text className="text-white text-xl font-bold mb-2">{successTitle}</Text>
+          <Text className="text-white text-xl font-semibold mb-2">{successTitle}</Text>
           <Text className="text-[#8E8E93] text-xs text-center px-4 mb-6 leading-5">
             {successBody}
           </Text>
@@ -123,7 +229,7 @@ export default function OtpAuthScreen() {
             }}
             className="bg-[#D4FF00] rounded-xl py-3 px-6 active:opacity-90 w-full items-center"
           >
-            <Text className="text-black font-bold text-sm">Back to Sign In</Text>
+            <Text className="text-black font-semibold text-sm">Back to Sign In</Text>
           </Pressable>
         </View>
       </View>
@@ -158,7 +264,7 @@ export default function OtpAuthScreen() {
         </View>
 
         <View className="flex-1 px-6">
-          {purpose === 'login' && (
+          {/* {purpose === 'login' && (
             <View className="flex-row bg-[#121212] border border-[#1E1E1E] rounded-xl mb-6 overflow-hidden">
               <Pressable
                 onPress={() => setLoginMethod('email')}
@@ -184,7 +290,7 @@ export default function OtpAuthScreen() {
                 )}
               </Pressable>
             </View>
-          )}
+          )} */}
 
           <View className="gap-3 mb-3">
             {(purpose === 'reset_password' || (purpose === 'login' && loginMethod === 'email')) && (
@@ -202,7 +308,7 @@ export default function OtpAuthScreen() {
               </View>
             )}
 
-            {(purpose === 'login' && loginMethod === 'phone') && (
+            {/* {(purpose === 'login' && loginMethod === 'phone' && phoneStep === 'request') && (
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <DeviceMobile size={18} color="#6B6B6B" />
                 <TextInput
@@ -216,7 +322,27 @@ export default function OtpAuthScreen() {
               </View>
             )}
 
-            {purpose !== 'reset_password' && (
+            {(purpose === 'login' && loginMethod === 'phone' && phoneStep === 'verify') && (
+              <View className="gap-3">
+                <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                  <Key size={18} color="#6B6B6B" />
+                  <TextInput
+                    value={otpCode}
+                    onChangeText={setOtpCode}
+                    placeholder="Enter 6-digit OTP"
+                    placeholderTextColor="#6B6B6B"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    className="flex-1 text-white text-[14px] p-0 font-medium"
+                  />
+                </View>
+                <Pressable onPress={() => setPhoneStep('request')} className="self-end">
+                  <Text className="text-[#D4FF00] text-xs font-medium">Change Phone Number</Text>
+                </Pressable>
+              </View>
+            )} */}
+
+            {purpose !== 'reset_password' && loginMethod === 'email' && (
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <Key size={18} color="#6B6B6B" />
                 <TextInput
@@ -239,11 +365,11 @@ export default function OtpAuthScreen() {
             )}
           </View>
 
-          {purpose === 'login' && (
-            <Pressable onPress={() => setPurpose('reset_password')} className="self-end mb-6">
+          {/* {purpose === 'login' && loginMethod === 'email' && (
+            <Pressable onPress={() => router.push('/auth/forgot-password')} className="self-end mb-6">
               <Text className="text-[#D4FF00] text-xs font-medium">Forgot Password?</Text>
             </Pressable>
-          )}
+          )} */}
 
           <Pressable
             onPress={handleAuth}
@@ -254,7 +380,7 @@ export default function OtpAuthScreen() {
               <ActivityIndicator color="#000000" size="small" />
             ) : (
               <View className="flex-row items-center">
-                <Text className="text-black font-extrabold text-[15px] mr-2">
+                <Text className="text-black font-semibold text-[15px] mr-2">
                   {purpose === 'login' ? 'Sign In' : 'Send Link'}
                 </Text>
                 <ArrowRight size={16} color="#000000" weight="bold" />

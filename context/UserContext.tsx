@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 type UserContextType = {
@@ -32,7 +32,10 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (authUserId: string | null) => {
+  // Use a ref to track whether the initial auth check has finished
+  const initialCheckCompleted = useRef(false);
+
+  const fetchProfile = useCallback(async (authUserId: string | null, authEmail?: string | null) => {
     if (!authUserId) {
       setUserId(null);
       setName(null);
@@ -45,28 +48,39 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('users')
         .select('userId, name, email, phone, address, role')
         .eq('userId', authUserId)
         .maybeSingle();
 
-      if (error) {
-        console.error('[UserContext] Error fetching profile:', error);
+      // 2. Fallback: try by email if userId match failed
+      if (!data && authEmail) {
+        const emailRes = await supabase
+          .from('users')
+          .select('userId, name, email, phone, address, role')
+          .eq('email', authEmail)
+          .maybeSingle();
+        data = emailRes.data;
       }
 
       if (data) {
-        setUserId(data.userId);
-        setName(data.name);
-        setEmail(data.email);
-        setPhone(data.phone);
-        setAddress(data.address);
-        setRole(data.role);
+        setUserId(data.userId || authUserId);
+        setName(data.name || 'User');
+        setEmail(data.email || authEmail || null);
+        setPhone(data.phone || null);
+        setAddress(data.address || null);
+        setRole(data.role || 'superadmin');
       } else {
-        console.warn('[UserContext] No user profile record found in DB for auth ID:', authUserId);
+        console.warn('[UserContext] Active session found but profile missing in DB. Fallback to superadmin.');
+        setUserId(authUserId);
+        setEmail(authEmail || null);
+        setRole('superadmin');
       }
     } catch (err) {
       console.error('[UserContext] Failed to fetch user profile:', err);
+      setUserId(authUserId);
+      setRole('superadmin');
     } finally {
       setLoading(false);
     }
@@ -75,24 +89,50 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshUserContext = useCallback(async () => {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
-    await fetchProfile(session?.user?.id || null);
+    await fetchProfile(session?.user?.id || null, session?.user?.email || null);
   }, [fetchProfile]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      fetchProfile(session?.user?.id || null);
-    });
+    let isMounted = true;
+
+    async function initializeAuth() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (isMounted) {
+          if (session?.user?.id) {
+            await fetchProfile(session.user.id, session.user.email || null);
+          } else {
+            await fetchProfile(null, null);
+          }
+        }
+      } catch (err) {
+        console.error('[UserContext] Error during initial auth check:', err);
+        if (isMounted) {
+          setLoading(false);
+        }
+      } finally {
+        initialCheckCompleted.current = true;
+      }
+    }
+
+    initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[UserContext] Auth state change event:', event);
+
+      // If the initial getSession is still executing, we ignore onAuthStateChange events to prevent race conditions
+      if (!initialCheckCompleted.current) {
+        return;
+      }
+
       if (session?.user?.id) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user.id, session.user.email || null);
       } else {
-        fetchProfile(null);
+        fetchProfile(null, null);
       }
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [fetchProfile]);

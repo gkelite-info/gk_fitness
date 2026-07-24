@@ -24,7 +24,7 @@ import {
   CheckCircle,
 } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
-import { OtpPurpose, getUserRole } from '@/helpers/otpHelper';
+import { getUserRole, navigateBasedOnRole } from '@/helpers/otpHelper';
 import { Stack, router } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 
@@ -46,16 +46,7 @@ export default function OtpAuthScreen() {
 
   React.useEffect(() => {
     if (!userLoading && role) {
-      console.log('[OtpAuthScreen] Active user found in context. Routing role:', role);
-      if (role === 'superadmin') {
-        router.replace('/(superadmin)/dashboard');
-      } else if (role === 'admin') {
-        router.replace('/(admin)/dashboard');
-      } else if (role === 'doctor') {
-        router.replace('/(doctor)/patients');
-      } else {
-        router.replace('/(customer)/home');
-      }
+      navigateBasedOnRole(role);
     }
   }, [role, userLoading]);
 
@@ -84,23 +75,13 @@ export default function OtpAuthScreen() {
         }
 
         if (authData?.user?.id) {
-          const fetchedRole = await getUserRole(authData.user.id);
-          console.log('[OtpAuthScreen] Login successful. Direct role check:', fetchedRole);
+          const fetchedRole = await getUserRole(authData.user.id, targetEmail);
 
           // Refresh context in background
           refreshUserContext();
 
-          if (fetchedRole === 'superadmin') {
-            router.replace('/(superadmin)/dashboard');
-            return;
-          } else if (fetchedRole === 'admin') {
-            router.replace('/(admin)/dashboard');
-            return;
-          } else if (fetchedRole === 'doctor') {
-            router.replace('/(doctor)/patients');
-            return;
-          } else {
-            router.replace('/(customer)/home');
+          if (fetchedRole) {
+            navigateBasedOnRole(fetchedRole);
             return;
           }
         }

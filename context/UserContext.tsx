@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { createUser } from '@/helpers/otpHelper';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 
@@ -66,15 +67,46 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         data = emailRes.data;
       }
 
+      // 3. Fallback: If profile still missing, auto-create from Supabase Auth metadata
+      if (!data && authUserId) {
+        // console.log('[UserContext] Profile missing in DB. Attempting auto-creation from auth session metadata...');
+        const { data: { session } } = await supabase.auth.getSession();
+        const authUser = session?.user;
+
+        if (authUser && authUser.id === authUserId) {
+          const metadata = authUser.user_metadata || {};
+          const userPhone = metadata.phone || '';
+
+          try {
+            const createdProfile = await createUser({
+              userId: authUserId,
+              name: metadata.name || 'User',
+              email: authUser.email || authEmail || '',
+              phone: userPhone,
+              address: metadata.address || '',
+              role: metadata.role || 'customer',
+            });
+
+            if (createdProfile) {
+              // console.log('[UserContext] Auto-creation of user profile succeeded:', createdProfile);
+              data = createdProfile;
+            }
+          } catch (createError) {
+            console.error('[UserContext] Auto-creation of user profile failed:', createError);
+          }
+        }
+      }
+
       if (data) {
+        // console.log('[UserContext] Setting user context with profile role:', data.role);
         setUserId(data.userId || authUserId);
         setName(data.name || 'User');
         setEmail(data.email || authEmail || null);
         setPhone(data.phone || null);
         setAddress(data.address || null);
-        setRole(data.role || 'superadmin');
+        setRole(data.role || 'customer');
       } else {
-        console.warn('[UserContext] Active session found but profile missing in DB. Fallback to superadmin.');
+        console.warn('[UserContext] Active session found but profile missing in DB and auto-creation failed. Fallback to superadmin.');
         setUserId(authUserId);
         setEmail(authEmail || null);
         setRole('superadmin');

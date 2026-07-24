@@ -21,20 +21,25 @@ import {
   ChartLine,
   Heart,
   CheckCircle,
+  User,
+  Phone,
+  MapPin,
 } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
-import { getUserRole, navigateBasedOnRole } from '@/helpers/otpHelper';
+import { navigateBasedOnRole, createUser } from '@/helpers/otpHelper';
 import { Stack } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 
 export default function OtpAuthScreen() {
   const { role, loading: userLoading, refreshUserContext } = useUser();
-  const [purpose, setPurpose] = useState<'login' | 'reset_password'>('login');
+  const [purpose, setPurpose] = useState<'login' | 'signup'>('login');
   const [loginMethod /* , setLoginMethod */] = useState<'email' | 'phone'>('email');
 
   const [email, setEmail] = useState('');
-  // const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -102,17 +107,54 @@ export default function OtpAuthScreen() {
 
     try {
       if (purpose === 'login') {
+        // console.log('[SignIn] Attempting signInWithPassword for email:', targetEmail);
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
           email: targetEmail,
           password: password,
         });
 
         if (authError) {
+          // console.error('[SignIn] Auth error:', authError);
           throw authError;
         }
 
+        // console.log('[SignIn] Auth success, user ID:', authData?.user?.id);
+
         if (authData?.user?.id) {
-          const fetchedRole = await getUserRole(authData.user.id, targetEmail);
+          // Check if the user exists in public.users
+          const { data: profile, error: profileSelectError } = await supabase
+            .from('users')
+            .select('role')
+            .eq('userId', authData.user.id)
+            .maybeSingle();
+
+          if (profileSelectError) {
+            // console.error('[SignIn] Error checking profile in public.users:', profileSelectError);
+          }
+
+          let fetchedRole = profile?.role;
+
+          if (!profile) {
+            // console.log('[SignIn] Profile missing in public.users. Creating profile via createUser helper...');
+            const metadata = authData.user.user_metadata || {};
+            const userPhone = metadata.phone || (phone ? '+91' + phone.replace(/[^0-9]/g, '') : '');
+            try {
+              await createUser({
+                userId: authData.user.id,
+                name: metadata.name || name.trim() || 'User',
+                email: authData.user.email || targetEmail,
+                phone: userPhone,
+                address: metadata.address || address.trim() || '',
+                role: metadata.role || 'customer',
+              });
+              // console.log('[SignIn] Successfully created user profile via createUser:', insertedUser);
+            } catch (insertError) {
+              // console.error('[SignIn] Error creating user profile via createUser:', insertError);
+            }
+            fetchedRole = metadata.role || 'customer';
+          } else {
+            // console.log('[SignIn] Existing user profile found with role:', fetchedRole);
+          }
 
           // Refresh context in background
           refreshUserContext();
@@ -124,18 +166,82 @@ export default function OtpAuthScreen() {
         }
 
         toast.success('Signed in successfully!');
-      } else if (purpose === 'reset_password') {
-        const { error: authError } = await supabase.auth.resetPasswordForEmail(targetEmail);
+      } else if (purpose === 'signup') {
+        if (!name.trim()) {
+          toast.error('Name is required.');
+          return;
+        }
+        if (!phone.trim()) {
+          toast.error('Phone number is required.');
+          return;
+        }
+        const cleanedPhone = phone.replace(/[^0-9]/g, '');
+        if (cleanedPhone.length !== 10) {
+          toast.error('Phone number must be exactly 10 digits.');
+          return;
+        }
+        if (!password) {
+          toast.error('Password is required.');
+          return;
+        }
+
+        const hasMinLength = password.length >= 8;
+        const hasNumber = /\d/.test(password);
+        const hasUpper = /[A-Z]/.test(password);
+        const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+        if (!hasMinLength || !hasNumber || !hasUpper || !hasSpecial) {
+          toast.error('Password must be at least 8 characters, and contain one number, one uppercase letter, and one special character.');
+          return;
+        }
+
+        const fullPhone = '+91' + cleanedPhone;
+        // console.log('[SignUp] Calling supabase.auth.signUp for:', { email: targetEmail, name: name.trim(), phone: fullPhone });
+
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: targetEmail,
+          password: password,
+          options: {
+            data: {
+              name: name.trim(),
+              phone: fullPhone,
+              address: address.trim(),
+              role: 'customer',
+            },
+          },
+        });
 
         if (authError) {
+          // console.error('[SignUp] Auth signUp error:', authError);
           throw authError;
         }
 
-        setSuccessTitle('Reset Link Sent!');
-        setSuccessBody('If the email is registered, you will receive a link to reset your password shortly.');
+        // console.log('[SignUp] Auth signUp success, user ID:', authData?.user?.id, 'Session active:', !!authData?.session);
+
+        // Attempt inserting into public.users immediately via createUser helper
+        if (authData?.user?.id) {
+          // console.log('[SignUp] Attempting immediate insertion into public.users via createUser for userId:', authData.user.id);
+          try {
+            await createUser({
+              userId: authData.user.id,
+              name: name.trim(),
+              email: targetEmail,
+              phone: fullPhone,
+              address: address.trim(),
+              role: 'customer',
+            });
+            // console.log('[SignUp] Immediate insertion via createUser succeeded:', insertedData);
+          } catch (insertError) {
+            // console.error('[SignUp] Immediate insertion via createUser failed (likely RLS if unconfirmed):', insertError);
+          }
+        }
+
+        setSuccessTitle('Verification Email Sent!');
+        setSuccessBody('Please check your email inbox and spam folder to confirm your email address and activate your account.');
         setVerifiedSuccess(true);
       }
     } catch (err: any) {
+      // console.error('[AuthError]', err);
       toast.error(err.message || 'Operation failed.');
     } finally {
       setLoading(false);
@@ -254,11 +360,11 @@ export default function OtpAuthScreen() {
           </View>
 
           <Text className="text-white text-[32px] font-semibold mb-1 tracking-tight">
-            {purpose === 'reset_password' ? 'Reset Password' : 'Welcome Back!'}
+            {purpose === 'signup' ? 'Create Account' : 'Welcome Back!'}
           </Text>
           <Text className="text-[#8E8E93] text-[13px]">
-            {purpose === 'reset_password'
-              ? 'Enter your email to receive a reset link'
+            {purpose === 'signup'
+              ? 'Sign up to start your fitness journey'
               : 'Sign in to continue your fitness journey'}
           </Text>
         </View>
@@ -293,7 +399,47 @@ export default function OtpAuthScreen() {
           )} */}
 
           <View className="gap-3 mb-3">
-            {(purpose === 'reset_password' || (purpose === 'login' && loginMethod === 'email')) && (
+            {/* {purpose === 'signup' && (
+              <>
+                <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                  <User size={18} color="#6B6B6B" />
+                  <TextInput
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Full Name"
+                    placeholderTextColor="#6B6B6B"
+                    autoCapitalize="words"
+                    className="flex-1 text-white text-[14px] p-0 font-medium"
+                  />
+                </View>
+
+                <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                  <Phone size={18} color="#6B6B6B" />
+                  <TextInput
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="Phone Number"
+                    placeholderTextColor="#6B6B6B"
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    className="flex-1 text-white text-[14px] p-0 font-medium"
+                  />
+                </View>
+
+                <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                  <MapPin size={18} color="#6B6B6B" />
+                  <TextInput
+                    value={address}
+                    onChangeText={setAddress}
+                    placeholder="Address (Optional)"
+                    placeholderTextColor="#6B6B6B"
+                    className="flex-1 text-white text-[14px] p-0 font-medium"
+                  />
+                </View>
+              </>
+            )} */}
+
+            {loginMethod === 'email' && (
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <EnvelopeSimple size={18} color="#6B6B6B" />
                 <TextInput
@@ -342,7 +488,7 @@ export default function OtpAuthScreen() {
               </View>
             )} */}
 
-            {purpose !== 'reset_password' && loginMethod === 'email' && (
+            {loginMethod === 'email' && (
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <Key size={18} color="#6B6B6B" />
                 <TextInput
@@ -381,12 +527,26 @@ export default function OtpAuthScreen() {
             ) : (
               <View className="flex-row items-center">
                 <Text className="text-black font-semibold text-[15px] mr-2">
-                  {purpose === 'login' ? 'Sign In' : 'Send Link'}
+                  Sign In
                 </Text>
                 <ArrowRight size={16} color="#000000" weight="bold" />
               </View>
             )}
           </Pressable>
+
+          {/* {purpose === 'login' ? (
+            <Pressable onPress={() => setPurpose('signup')} className="self-center mt-6">
+              <Text className="text-[#8E8E93] text-sm">
+                Don&apos;t have an account? <Text className="text-[#D4FF00] font-semibold">Sign Up</Text>
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => setPurpose('login')} className="self-center mt-6">
+              <Text className="text-[#8E8E93] text-sm">
+                Already have an account? <Text className="text-[#D4FF00] font-semibold">Sign In</Text>
+              </Text>
+            </Pressable>
+          )} */}
 
           {purpose === 'login' && (
             <View className="bg-[#121212] border border-[#1E1E1E] rounded-3xl p-5 mt-6 flex-row justify-between mb-4">

@@ -1,0 +1,188 @@
+import { supabase } from '@/lib/supabase';
+
+export interface GymAttributes {
+  gymId?: string;
+  gymName: string;
+  gymEmail: string;
+  phone: string;
+  alternatePhone?: string | null;
+  address: string;
+  city: string;
+  state: string;
+  pinCode: string;
+  noOfBranches?: number | null;
+  establishYear?: string | null;
+  notes?: string | null;
+  logo?: string | null;
+  isActive?: boolean;
+  is_deleted?: boolean;
+  createdBy: string;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+  deletedAt?: string | Date | null;
+}
+
+export interface SaveGymParams {
+  gymId?: string;
+  gymName: string;
+  gymEmail: string;
+  phone: string;
+  alternatePhone?: string | null;
+  address: string;
+  city: string;
+  state: string;
+  pinCode: string;
+  noOfBranches?: number | null;
+  establishYear?: string | null;
+  notes?: string | null;
+  logo?: string | null;
+  isActive?: boolean;
+  createdBy: string;
+}
+
+
+
+export async function fetchGyms(createdBy?: string) {
+  let query = supabase
+    .from('gyms')
+    .select('*')
+    .eq('is_deleted', false)
+    .order('createdAt', { ascending: false });
+
+  if (createdBy) {
+    query = query.eq('createdBy', createdBy);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('[gymHelper] fetchGyms Error:', error);
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+export async function fetchGymById(gymId: string) {
+  const { data, error } = await supabase
+    .from('gyms')
+    .select('*')
+    .eq('gymId', gymId)
+    .eq('is_deleted', false)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[gymHelper] fetchGymById Error:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function saveGym(gymData: SaveGymParams) {
+  const now = new Date().toISOString();
+
+  if (gymData.gymId) {
+    const { data, error } = await supabase
+      .from('gyms')
+      .update({
+        gymName: gymData.gymName,
+        gymEmail: gymData.gymEmail,
+        phone: gymData.phone,
+        alternatePhone: gymData.alternatePhone,
+        address: gymData.address,
+        city: gymData.city,
+        state: gymData.state,
+        pinCode: gymData.pinCode,
+        noOfBranches: gymData.noOfBranches,
+        establishYear: gymData.establishYear,
+        notes: gymData.notes,
+        logo: gymData.logo,
+        isActive: gymData.isActive ?? true,
+        updatedAt: now,
+      })
+      .eq('gymId', gymData.gymId)
+      .eq('createdBy', gymData.createdBy)
+      .select();
+
+    if (error) {
+      console.error('[gymHelper] saveGym Update Error:', error);
+      throw error;
+    }
+
+    return data ? data[0] : null;
+  } else {
+    const { data, error } = await supabase
+      .from('gyms')
+      .insert([
+        {
+          gymName: gymData.gymName,
+          gymEmail: gymData.gymEmail,
+          phone: gymData.phone,
+          alternatePhone: gymData.alternatePhone || null,
+          address: gymData.address,
+          city: gymData.city,
+          state: gymData.state,
+          pinCode: gymData.pinCode,
+          noOfBranches: gymData.noOfBranches || null,
+          establishYear: gymData.establishYear || null,
+          notes: gymData.notes || null,
+          logo: gymData.logo || null,
+          isActive: gymData.isActive ?? true,
+          is_deleted: false,
+          createdBy: gymData.createdBy,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ])
+      .select();
+
+    if (error) {
+      console.error('[gymHelper] saveGym Insert Error:', error);
+      throw error;
+    }
+
+    return data ? data[0] : null;
+  }
+}
+
+export async function deleteGym(gymId: string) {
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('gyms')
+    .update({
+      is_deleted: true,
+      deletedAt: now,
+      updatedAt: now,
+    })
+    .eq('gymId', gymId)
+    .select();
+
+  if (error) {
+    console.error('[gymHelper] deleteGym Error:', error);
+    throw error;
+  }
+
+  return data ? data[0] : null;
+}
+
+export async function toggleGymActiveStatus(gymId: string, currentStatus: boolean) {
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('gyms')
+    .update({
+      isActive: !currentStatus,
+      updatedAt: now,
+    })
+    .eq('gymId', gymId)
+    .select();
+
+  if (error) {
+    console.error('[gymHelper] toggleGymActiveStatus Error:', error);
+    throw error;
+  }
+
+  return data ? data[0] : null;
+}

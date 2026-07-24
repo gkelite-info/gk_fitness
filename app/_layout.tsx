@@ -30,6 +30,7 @@ export {
 const isIos26 = Platform.select({ default: false, ios: Device.osVersion?.startsWith('26.') });
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { UserProvider } from '@/context/UserContext';
 
 export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();
@@ -57,23 +58,25 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <RNStatusBar
-        barStyle="dark-content"
-        backgroundColor="white"
-        translucent={false}
-      />
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <NavThemeProvider value={NAV_THEME[colorScheme]}>
-          <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="(customer)" options={{ headerShown: false }} />
-            <Stack.Screen name="(admin)" options={{ headerShown: false }} />
-            <Stack.Screen name="(superadmin)" options={{ headerShown: false }} />
-            <Stack.Screen name="(doctor)" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={MODAL_OPTIONS} />
-          </Stack>
-        </NavThemeProvider>
-      </GestureHandlerRootView>
+      <UserProvider>
+        <RNStatusBar
+          barStyle="dark-content"
+          backgroundColor="white"
+          translucent={false}
+        />
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <NavThemeProvider value={NAV_THEME[colorScheme]}>
+            <Stack>
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="(customer)" options={{ headerShown: false }} />
+              <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+              <Stack.Screen name="(superadmin)" options={{ headerShown: false }} />
+              <Stack.Screen name="(doctor)" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={MODAL_OPTIONS} />
+            </Stack>
+          </NavThemeProvider>
+        </GestureHandlerRootView>
+      </UserProvider>
     </SafeAreaProvider>
   );
 }

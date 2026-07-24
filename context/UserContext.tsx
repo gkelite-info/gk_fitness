@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
 
 type UserContextType = {
   userId: string | null;
@@ -91,6 +93,44 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { session } } = await supabase.auth.getSession();
     await fetchProfile(session?.user?.id || null, session?.user?.email || null);
   }, [fetchProfile]);
+
+  useEffect(() => {
+    const handleUrl = async (url: string) => {
+      try {
+        const hash = url.split('#')[1];
+        if (!hash) return;
+
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const type = params.get('type');
+
+        if (accessToken && refreshToken && type === 'recovery') {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (!error) {
+            router.replace('/auth/reset-password');
+          }
+        }
+      } catch (e) {
+        console.error('[UserContext] Error parsing deep link:', e);
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleUrl(event.url);
+    });
+
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl(url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;

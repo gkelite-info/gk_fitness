@@ -2,6 +2,7 @@ import React from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import {
   Buildings,
   CheckCircle,
@@ -29,6 +30,14 @@ const QUICK_ACTIONS_DATA = [
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1500);
+  }, []);
 
   const handleQuickAction = (id: string) => {
     if (id === 'register-gym' || id === 'view-gyms') {
@@ -40,14 +49,17 @@ export default function DashboardScreen() {
     <ScrollView
       className="flex-1 bg-[#0A0A0A]"
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 }}
-      showsVerticalScrollIndicator={false}>
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }>
       <View className="flex-row items-start justify-between mb-6">
         <View className="flex-1 pr-2">
           <Text className="text-2xl font-semibold text-white mb-1">
             Good Morning, Shiva 👋
           </Text>
           <Text className="text-sm text-[#888888] leading-5">
-            Here's what's happening on your{'\n'}platform today.
+            {"Here's"} what{"'"}s happening on your{'\n'}platform today.
           </Text>
         </View>
 

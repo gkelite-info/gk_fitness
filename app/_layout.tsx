@@ -20,6 +20,9 @@ import {
 } from '@expo-google-fonts/sora';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { UserProvider } from '@/context/UserContext';
+import { ToastProvider } from '@/components/ToastProvider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,9 +31,6 @@ export {
 } from 'expo-router';
 
 const isIos26 = Platform.select({ default: false, ios: Device.osVersion?.startsWith('26.') });
-
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { UserProvider } from '@/context/UserContext';
 
 export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();
@@ -74,6 +74,7 @@ export default function RootLayout() {
               <Stack.Screen name="(doctor)" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={MODAL_OPTIONS} />
             </Stack>
+            <ToastProvider />
           </NavThemeProvider>
         </GestureHandlerRootView>
       </UserProvider>

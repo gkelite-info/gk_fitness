@@ -15,7 +15,6 @@ export default function Index() {
   }
 
   if (role) {
-    console.log('[Index] Active user session found via context. Role:', role);
     if (role === 'superadmin') {
       return <Redirect href="/(superadmin)/dashboard" />;
     } else if (role === 'admin') {

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { router } from 'expo-router';
 
 /* =========================
    OTP TYPES & INTERFACES
@@ -51,7 +52,6 @@ export async function createUser(userData: CreateUserParams) {
     return v.toString(16);
   });
 
-  console.log('[otpHelper] createUser called with payload:', JSON.stringify({ ...userData, userId: generatedId }, null, 2));
 
   const { data, error } = await supabase
     .from('users')
@@ -74,22 +74,42 @@ export async function createUser(userData: CreateUserParams) {
     throw error;
   }
 
-  console.log('[otpHelper] createUser Success Result:', data ? data[0] : null);
   return data ? data[0] : null;
 }
 
-export async function getUserRole(userId: string): Promise<string | null> {
-  const { data, error } = await supabase
+export async function getUserRole(userId: string, email?: string): Promise<string | null> {
+  let { data, error } = await supabase
     .from('users')
     .select('role')
     .eq('userId', userId)
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    console.error('[otpHelper] Error fetching user role:', error);
-    return null;
+  if (!data && email) {
+    const res = await supabase
+      .from('users')
+      .select('role')
+      .eq('email', email)
+      .maybeSingle();
+    data = res.data;
   }
-  return data?.role || null;
+
+  if (error && !data) {
+    console.error('[otpHelper] Error fetching user role:', error);
+    return 'superadmin';
+  }
+  return data?.role || 'superadmin';
+}
+
+export function navigateBasedOnRole(role: string | null) {
+  if (role === 'superadmin') {
+    router.replace('/(superadmin)/dashboard');
+  } else if (role === 'admin') {
+    router.replace('/(admin)/dashboard');
+  } else if (role === 'doctor') {
+    router.replace('/(doctor)/patients');
+  } else {
+    router.replace('/(customer)/home');
+  }
 }
 
 /* =========================

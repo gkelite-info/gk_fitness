@@ -46,7 +46,7 @@ export interface CreateUserParams {
 
 export async function createUser(userData: CreateUserParams) {
   // Generate a random UUID v4 if not provided
-  const generatedId = userData.userId || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  const generatedId = userData.userId || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });

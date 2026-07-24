@@ -1,9 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 
-/* =========================
-   OTP TYPES & INTERFACES
-========================= */
+
 export type OtpType = 'email' | 'sms';
 export type OtpPurpose = 'login' | 'register' | 'reset_password';
 
@@ -32,9 +30,6 @@ export interface CreateOtpParams {
   attempts?: number;
 }
 
-/* =========================
-   USER DATABASE HELPERS
-========================= */
 
 export interface CreateUserParams {
   userId?: string;
@@ -46,7 +41,6 @@ export interface CreateUserParams {
 }
 
 export async function createUser(userData: CreateUserParams) {
-  // Generate a random UUID v4 if not provided
   const generatedId = userData.userId || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -77,6 +71,7 @@ export async function createUser(userData: CreateUserParams) {
   return data ? data[0] : null;
 }
 
+
 export async function getUserRole(userId: string, email?: string): Promise<string | null> {
   let { data, error } = await supabase
     .from('users')
@@ -100,6 +95,7 @@ export async function getUserRole(userId: string, email?: string): Promise<strin
   return data?.role || 'superadmin';
 }
 
+
 export function navigateBasedOnRole(role: string | null) {
   if (role === 'superadmin') {
     router.replace('/(superadmin)/dashboard');
@@ -112,13 +108,7 @@ export function navigateBasedOnRole(role: string | null) {
   }
 }
 
-/* =========================
-   OTP DATABASE HELPERS
-========================= */
 
-/**
- * Inserts a new OTP record into the 'otps' table in Supabase.
- */
 export async function createOtp(otpData: CreateOtpParams) {
   const { data, error } = await supabase
     .from('otps')
@@ -140,9 +130,7 @@ export async function createOtp(otpData: CreateOtpParams) {
   return data ? data[0] : null;
 }
 
-/**
- * Fetches all OTP records for a recipient (or all records if no recipient is provided).
- */
+
 export async function fetchOtps(recipient?: string) {
   let query = supabase
     .from('otps')
@@ -159,9 +147,7 @@ export async function fetchOtps(recipient?: string) {
   return data ?? [];
 }
 
-/**
- * Fetches the latest active (non-expired, non-used) OTP for a given recipient and purpose.
- */
+
 export async function fetchActiveOtp(recipient: string, purpose: OtpPurpose = 'login') {
   const now = new Date().toISOString();
 
@@ -179,9 +165,7 @@ export async function fetchActiveOtp(recipient: string, purpose: OtpPurpose = 'l
   return data && data.length > 0 ? data[0] : null;
 }
 
-/**
- * Verifies if an OTP code is correct and active for a recipient and purpose.
- */
+
 export async function verifyOtp(recipient: string, inputOtpCode: string, purpose: OtpPurpose = 'login') {
   const activeOtp = await fetchActiveOtp(recipient, purpose);
 
@@ -190,19 +174,15 @@ export async function verifyOtp(recipient: string, inputOtpCode: string, purpose
   }
 
   if (activeOtp.otpCode !== inputOtpCode) {
-    // Increment attempts count
     await incrementOtpAttempts(activeOtp.optId, (activeOtp.attempts || 0) + 1);
     return { success: false, message: 'Invalid OTP code.' };
   }
 
-  // Mark OTP as used upon successful verification
   await markOtpAsUsed(activeOtp.optId);
   return { success: true, message: 'OTP verified successfully.', data: activeOtp };
 }
 
-/**
- * Marks an OTP record as used (isUsed = true).
- */
+
 export async function markOtpAsUsed(optId: string) {
   const { data, error } = await supabase
     .from('otps')
@@ -214,9 +194,7 @@ export async function markOtpAsUsed(optId: string) {
   return data ? data[0] : null;
 }
 
-/**
- * Increments the attempts counter for a specific OTP.
- */
+
 export async function incrementOtpAttempts(optId: string, attempts: number) {
   const { data, error } = await supabase
     .from('otps')
@@ -228,9 +206,7 @@ export async function incrementOtpAttempts(optId: string, attempts: number) {
   return data ? data[0] : null;
 }
 
-/**
- * Deletes all expired OTP records from the table.
- */
+
 export async function deleteExpiredOtps() {
   const now = new Date().toISOString();
 

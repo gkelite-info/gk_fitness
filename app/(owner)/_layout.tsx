@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { Navbar } from '@/components/Navbar';
 import { CustomTabBar } from '@/components/CustomTabBar';
 
-export default function AdminLayout() {
+export default function OwnerLayout() {
   return (
     <Tabs
       tabBar={(props) => <CustomTabBar {...props} centerRouteName="dashboard" />}

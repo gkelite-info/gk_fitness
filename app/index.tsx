@@ -17,8 +17,8 @@ export default function Index() {
   if (role) {
     if (role === 'superadmin') {
       return <Redirect href="/(superadmin)/dashboard" />;
-    } else if (role === 'admin') {
-      return <Redirect href="/(admin)/dashboard" />;
+    } else if (role === 'owner') {
+      return <Redirect href="/(owner)/dashboard" />;
     } else if (role === 'doctor') {
       return <Redirect href="/(doctor)/patients" />;
     } else {

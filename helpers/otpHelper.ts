@@ -41,26 +41,23 @@ export interface CreateUserParams {
 }
 
 export async function createUser(userData: CreateUserParams) {
-  const generatedId = userData.userId || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+  const insertData: any = {
+    name: userData.name,
+    email: userData.email,
+    phone: userData.phone,
+    address: userData.address || null,
+    role: userData.role || 'customer',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
 
+  if (userData.userId) {
+    insertData.userId = userData.userId;
+  }
 
   const { data, error } = await supabase
     .from('users')
-    .insert([
-      {
-        userId: generatedId,
-        name: userData.name,
-        email: userData.email,
-        phone: userData.phone,
-        address: userData.address || null,
-        role: userData.role || 'customer',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    ])
+    .insert([insertData])
     .select();
 
   if (error) {
@@ -99,8 +96,8 @@ export async function getUserRole(userId: string, email?: string): Promise<strin
 export function navigateBasedOnRole(role: string | null) {
   if (role === 'superadmin') {
     router.replace('/(superadmin)/dashboard');
-  } else if (role === 'admin') {
-    router.replace('/(admin)/dashboard');
+  } else if (role === 'owner') {
+    router.replace('/(owner)/dashboard');
   } else if (role === 'doctor') {
     router.replace('/(doctor)/patients');
   } else {

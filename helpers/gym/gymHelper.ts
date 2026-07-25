@@ -1,4 +1,8 @@
 import { supabase } from '@/lib/supabase';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Crypto from 'expo-crypto';
+import { base64ToArrayBuffer } from '@/components/imageCompressor';
 
 export interface GymAttributes {
   gymId?: string;
@@ -112,10 +116,12 @@ export async function saveGym(gymData: SaveGymParams) {
 
     return data ? data[0] : null;
   } else {
+    const generatedGymId = gymData.gymId || Crypto.randomUUID();
     const { data, error } = await supabase
       .from('gyms')
       .insert([
         {
+          gymId: generatedGymId,
           gymName: gymData.gymName,
           gymEmail: gymData.gymEmail,
           phone: gymData.phone,
@@ -185,4 +191,48 @@ export async function toggleGymActiveStatus(gymId: string, currentStatus: boolea
   }
 
   return data ? data[0] : null;
+}
+
+export async function uploadGymLogo(uri: string): Promise<string | null> {
+  try {
+    // 1. Compress the image using expo-image-manipulator
+    const manipResult = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 500 } }], // Resize to 500px width
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+    );
+
+    // 2. Read the compressed file as base64 string
+    const base64 = await FileSystem.readAsStringAsync(manipResult.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    // 3. Convert base64 to ArrayBuffer
+    const arrayBuffer = base64ToArrayBuffer(base64);
+
+    // 4. Upload to Supabase Storage Bucket 'gym-logos'
+    const fileName = `${Date.now()}_logo.jpg`;
+    
+    const { data, error } = await supabase.storage
+      .from('gym-logos')
+      .upload(fileName, arrayBuffer, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    if (data) {
+      // 5. Get and return public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('gym-logos')
+        .getPublicUrl(fileName);
+      return publicUrlData.publicUrl;
+    }
+    return null;
+  } catch (error: any) {
+    throw error;
+  }
 }

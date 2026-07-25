@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import * as Crypto from 'expo-crypto';
 
 export interface GymOwnerAttributes {
   gymOwnerId?: string;
@@ -92,10 +93,12 @@ export async function saveGymOwner(ownerData: SaveGymOwnerParams) {
 
     return data ? data[0] : null;
   } else {
+    const generatedGymOwnerId = ownerData.gymOwnerId || Crypto.randomUUID();
     const { data, error } = await supabase
       .from('gym_owners')
       .insert([
         {
+          gymOwnerId: generatedGymOwnerId,
           userId: ownerData.userId,
           gymId: ownerData.gymId,
           ownerFullname: ownerData.ownerFullname,

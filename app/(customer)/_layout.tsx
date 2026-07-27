@@ -37,6 +37,49 @@ export default function CustomerLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="edit-profile"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="goals-preferences"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="book-trainer"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="trainer/[id]"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="trainer-request"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="my-trainer"
+        options={{
+          href: null,
+          headerShown: false,
         }}
       />
     </Tabs>

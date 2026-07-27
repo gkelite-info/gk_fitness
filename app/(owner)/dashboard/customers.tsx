@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TextInput, Pressable, Image } from 'react-native';
+import { View, TextInput, Pressable, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import {
   MagnifyingGlass,
@@ -14,37 +14,29 @@ import {
   CaretRight
 } from 'phosphor-react-native';
 import { router } from 'expo-router';
+import { KeyboardDismissView } from '@/components/KeyboardDismissView';
+import { triggerMediumHaptic, triggerSelectionHaptic } from '@/lib/haptics';
+import { AnimatedTabs } from '@/components/AnimatedTabs';
 
 export default function CustomersScreen() {
   const [activeTab, setActiveTab] = useState('customers');
   const [filter, setFilter] = useState('all');
 
   return (
-    <ScrollView className="flex-1 bg-[#0A0A0A]" contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-      {/* Top Tabs */}
-      <View className="flex-row bg-[#161616] rounded-xl p-1 mb-6">
-        <Pressable
-          className={`flex-1 flex-row items-center justify-center py-2.5 rounded-lg ${activeTab === 'customers' ? 'bg-[#C3F400]' : ''}`}
-          onPress={() => setActiveTab('customers')}
-        >
-          <Users size={20} color={activeTab === 'customers' ? '#000' : '#A1A1AA'} weight={activeTab === 'customers' ? 'fill' : 'regular'} />
-          <Text className={`ml-2 font-semibold text-sm ${activeTab === 'customers' ? 'text-black' : 'text-[#A1A1AA]'}`}>Customers</Text>
-        </Pressable>
-        <Pressable
-          className={`flex-1 flex-row items-center justify-center py-2.5 rounded-lg ${activeTab === 'trainers' ? 'bg-[#C3F400]' : ''}`}
-          onPress={() => setActiveTab('trainers')}
-        >
-          <Barbell size={20} color={activeTab === 'trainers' ? '#000' : '#A1A1AA'} />
-          <Text className={`ml-2 font-semibold text-sm ${activeTab === 'trainers' ? 'text-black' : 'text-[#A1A1AA]'}`}>Trainers</Text>
-        </Pressable>
-        <Pressable
-          className={`flex-1 flex-row items-center justify-center py-2.5 rounded-lg ${activeTab === 'doctors' ? 'bg-[#C3F400]' : ''}`}
-          onPress={() => setActiveTab('doctors')}
-        >
-          <FirstAidKit size={20} color={activeTab === 'doctors' ? '#000' : '#A1A1AA'} />
-          <Text className={`ml-2 font-semibold text-sm ${activeTab === 'doctors' ? 'text-black' : 'text-[#A1A1AA]'}`}>Doctors</Text>
-        </Pressable>
-      </View>
+    <KeyboardDismissView className="flex-1 bg-[#0A0A0A]" contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      {/* Top Tabs with Native Reanimated Gliding Selection */}
+      <AnimatedTabs
+        tabs={[
+          { id: 'customers', label: 'Customers', icon: Users },
+          { id: 'trainers', label: 'Trainers', icon: Barbell },
+          { id: 'doctors', label: 'Doctors', icon: FirstAidKit, disabled: true },
+        ]}
+        activeTab={activeTab}
+        onTabChange={(id) => {
+          setActiveTab(id);
+        }}
+        containerClassName="mb-6"
+      />
 
       {/* Search and Filter */}
       <View className="flex-row mb-6 gap-3">
@@ -53,6 +45,7 @@ export default function CustomersScreen() {
           <TextInput
             placeholder="Search by name, phone or ID..."
             placeholderTextColor="#A1A1AA"
+            clearButtonMode="while-editing"
             className="flex-1 text-white ml-2"
           />
         </View>
@@ -68,7 +61,10 @@ export default function CustomersScreen() {
           <Text className="text-[#CCF200] text-3xl font-semibold">324</Text>
         </View>
         <Pressable 
-          onPress={() => router.push('/(owner)/dashboard/add-customer')}
+          onPress={() => {
+            triggerMediumHaptic();
+            router.push('/(owner)/dashboard/add-customer');
+          }}
           className="flex-row items-center bg-[#CCF200] px-5 py-3 rounded-full active:opacity-80">
           <Plus size={18} color="#000" weight="bold" />
           <Text className="text-black font-semibold ml-1">Register Customer</Text>
@@ -78,20 +74,35 @@ export default function CustomersScreen() {
       <View className="flex-row gap-3 mb-6">
         <Pressable
           className={`px-5 py-2 rounded-full border ${filter === 'all' ? 'bg-[#CCF200] border-[#CCF200]' : 'bg-[#161616] border-[#242424]'}`}
-          onPress={() => setFilter('all')}
+          onPress={() => {
+            if (filter !== 'all') {
+              triggerSelectionHaptic();
+              setFilter('all');
+            }
+          }}
         >
           <Text className={`font-semibold ${filter === 'all' ? 'text-black' : 'text-white'}`}>All</Text>
         </Pressable>
         <Pressable
           className={`flex-row items-center px-4 py-2 rounded-full border bg-[#161616] border-[#242424]`}
-          onPress={() => setFilter('active')}
+          onPress={() => {
+            if (filter !== 'active') {
+              triggerSelectionHaptic();
+              setFilter('active');
+            }
+          }}
         >
           <View className="w-2 h-2 rounded-full bg-[#CCF200] mr-2" />
           <Text className="text-[#E5E5E5] font-medium">Active</Text>
         </Pressable>
         <Pressable
           className={`flex-row items-center px-4 py-2 rounded-full border bg-[#161616] border-[#242424]`}
-          onPress={() => setFilter('expired')}
+          onPress={() => {
+            if (filter !== 'expired') {
+              triggerSelectionHaptic();
+              setFilter('expired');
+            }
+          }}
         >
           <View className="w-2 h-2 rounded-full bg-[#FFB6C1] mr-2" />
           <Text className="text-[#E5E5E5] font-medium">Expired</Text>
@@ -149,6 +160,6 @@ export default function CustomersScreen() {
           </Text>
         </View>
       </View>
-    </ScrollView>
+    </KeyboardDismissView>
   );
 }

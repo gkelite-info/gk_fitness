@@ -22,6 +22,7 @@ import {
   CaretRight,
   CaretDown,
 } from 'phosphor-react-native';
+import { triggerMediumHaptic } from '@/lib/haptics';
 
 const OVERVIEW_ITEMS = [
   { id: 'active-customers', icon: Users, label: 'ACTIVE CUSTOMERS', value: '1,036' },
@@ -82,6 +83,7 @@ export default function OwnerDashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(() => {
+    triggerMediumHaptic();
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
@@ -93,6 +95,7 @@ export default function OwnerDashboardScreen() {
       className="flex-1 bg-[#0A0A0A]"
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 100 }}
       showsVerticalScrollIndicator={false}
+      scrollEventThrottle={16}
       refreshControl={
         <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }>

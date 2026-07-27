@@ -22,7 +22,6 @@ function ProfileView({ data }: { data: typeof mockProfileData }) {
   
   return (
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
-      {/* Header */}
       <View className="flex-row justify-between items-center px-5 py-4">
         <Text className="text-white text-3xl font-bold">Profile</Text>
         <Pressable>
@@ -31,7 +30,6 @@ function ProfileView({ data }: { data: typeof mockProfileData }) {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        {/* Profile Card */}
         <View className="bg-[#1A1A1A] rounded-3xl p-5 flex-row items-center mt-2 border border-[#27272A]">
           <Image 
             source={{ uri: data.user.avatarUrl }} 
@@ -50,7 +48,6 @@ function ProfileView({ data }: { data: typeof mockProfileData }) {
           </View>
         </View>
 
-        {/* Your Progress Overview */}
         <Text className="text-white text-lg font-bold mt-8 mb-4">Your Progress Overview</Text>
         <View className="flex-row justify-between gap-x-3">
           <ProgressCard 
@@ -78,7 +75,6 @@ function ProfileView({ data }: { data: typeof mockProfileData }) {
           />
         </View>
 
-        {/* Manage Your Account */}
         <Text className="text-white text-lg font-bold mt-8 mb-4">Manage Your Account</Text>
         <View className="bg-[#1A1A1A] rounded-3xl overflow-hidden border border-[#27272A]">
           <MenuItem icon={<User size={20} color="#D4FF00" />} title="Personal Information" subtitle="Update your personal details" onPress={() => router.push('/(customer)/edit-profile')} />

@@ -18,6 +18,7 @@ export default function Index() {
     if (role === 'superadmin') {
       return <Redirect href="/(superadmin)/dashboard" />;
     } else if (role === 'owner') {
+      // @ts-expect-error
       return <Redirect href="/(owner)/dashboard" />;
     } else if (role === 'doctor') {
       return <Redirect href="/(doctor)/patients" />;

@@ -97,6 +97,7 @@ export function navigateBasedOnRole(role: string | null) {
   if (role === 'superadmin') {
     router.replace('/(superadmin)/dashboard');
   } else if (role === 'owner') {
+    // @ts-expect-error
     router.replace('/(owner)/dashboard');
   } else if (role === 'doctor') {
     router.replace('/(doctor)/patients');

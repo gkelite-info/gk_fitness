@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
+
 const customStorage = {
   getItem: async (key: string) => {
     if (Platform.OS === 'web') {

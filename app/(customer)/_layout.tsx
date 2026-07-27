@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Navbar } from '@/components/Navbar';
 import { CustomTabBar } from '@/components/CustomTabBar';
+import { Icon } from '@/components/nativewindui/Icon';
 
 export default function CustomerLayout() {
   return (
@@ -37,6 +38,50 @@ export default function CustomerLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          headerShown: false,
+          tabBarIcon: ({ color }) => <Icon name="person.circle" color={color} size={24} />,
+        }}
+      />
+      <Tabs.Screen
+        name="edit-profile"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="goals-preferences"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="book-trainer"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="trainer/[id]"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="trainer-request"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="my-trainer"
+        options={{
+          href: null,
+          headerShown: false,
         }}
       />
     </Tabs>

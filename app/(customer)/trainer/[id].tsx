@@ -47,19 +47,19 @@ export default function TrainerProfileScreen() {
 
         <View className="flex-row mx-4 mb-4 bg-[#1A1A1A] rounded-2xl p-4 border border-[#27272A] justify-between">
           <View className="items-center flex-1">
-            <Medal size={24} color="#D4FF00" weight="regular" className="mb-2" />
+            <Medal size={24} color="#D4FF00" weight="regular" style={{ marginBottom: 8 }} />
             <Text className="text-white font-bold">{trainer.experience.split('+')[0]}</Text>
             <Text className="text-[#8E8E93] text-[10px] mt-1">YEARS EXP.</Text>
           </View>
           <View className="w-[1px] h-full bg-[#27272A]" />
           <View className="items-center flex-1">
-            <Users size={24} color="#5E5CE6" weight="regular" className="mb-2" />
+            <Users size={24} color="#5E5CE6" weight="regular" style={{ marginBottom: 8 }} />
             <Text className="text-white font-bold">{trainer.clients}</Text>
             <Text className="text-[#8E8E93] text-[10px] mt-1">CLIENTS</Text>
           </View>
           <View className="w-[1px] h-full bg-[#27272A]" />
           <View className="items-center flex-1">
-            <Medal size={24} color="#FF9F0A" weight="regular" className="mb-2" />
+            <Medal size={24} color="#FF9F0A" weight="regular" style={{ marginBottom: 8 }} />
             <Text className="text-white font-bold">{trainer.certifications?.[0]?.name || 'Cert'}</Text>
             <Text className="text-[#8E8E93] text-[10px] mt-1">CERTIFIED</Text>
           </View>
@@ -77,7 +77,7 @@ export default function TrainerProfileScreen() {
           </View>
           <View className="w-[1px] h-8 bg-[#27272A] mx-4" />
           <View className="flex-row items-center flex-1 justify-center">
-            <Users size={16} color="#8E8E93" weight="regular" className="mr-2" />
+            <Users size={16} color="#8E8E93" weight="regular" style={{ marginRight: 8 }} />
             <View>
               <Text className="text-white text-xs font-bold">{trainer.membersTraining} Members</Text>
               <Text className="text-[#8E8E93] text-[10px]">training with him</Text>
@@ -104,7 +104,7 @@ export default function TrainerProfileScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
             {trainer.expertise?.map((exp, index) => (
               <View key={index} className="bg-[#1A1A1A] border border-[#27272A] rounded-2xl p-4 items-center justify-center w-[100px] h-[100px]">
-                <Medal size={24} color="#D4FF00" weight="regular" className="mb-2" />
+                <Medal size={24} color="#D4FF00" weight="regular" style={{ marginBottom: 8 }} />
                 <Text className="text-[#8E8E93] text-[10px] text-center font-medium leading-tight">{exp}</Text>
               </View>
             ))}
@@ -167,7 +167,7 @@ export default function TrainerProfileScreen() {
                     <Text className="text-white font-bold text-sm">{trainer.review.name}</Text>
                     <View className="flex-row mt-1">
                       {[1, 2, 3, 4, 5].map(star => (
-                        <Star key={star} size={10} color="#D4FF00" weight="fill" className="mr-0.5" />
+                        <Star key={star} size={10} color="#D4FF00" weight="fill" style={{ marginRight: 2 }} />
                       ))}
                     </View>
                   </View>

@@ -5,8 +5,10 @@ export default function DashboardLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="customers" />
-      <Stack.Screen name="add-customer" options={{ animation: 'none' }} />
-      <Stack.Screen name="add-trainer" options={{ animation: 'none' }} />
+      <Stack.Screen name="add-customer" />
+      <Stack.Screen name="add-trainer" />
+      <Stack.Screen name="manage-inventory" />
+      <Stack.Screen name="add-equipment" />
     </Stack>
   );
 }

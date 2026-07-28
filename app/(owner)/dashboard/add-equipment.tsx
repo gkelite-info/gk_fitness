@@ -79,7 +79,6 @@ export default function AddEquipmentScreen() {
 
   return (
     <View className="flex-1 bg-[#0A0A0A]">
-      {/* Header */}
       <View className="px-5 pt-6 pb-4 flex-row items-center border-b border-[#161616]">
         <Pressable
           onPress={() => router.back()}

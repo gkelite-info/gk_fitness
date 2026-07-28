@@ -100,17 +100,15 @@ export default function OwnerDashboardScreen() {
         <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }>
 
-      {/* Header Section */}
       <View className="mb-6">
         <Text className="text-2xl font-semibold text-white mb-0.5">
-          Good Morning, {name || 'Alex'} 👋
+          Good Morning, {name || 'User'} 👋
         </Text>
         <Text className="text-sm font-medium" style={{ color: '#C5C9AC' }}>
           Monday, 20 July
         </Text>
       </View>
 
-      {/* Section 1: Today's Overview */}
       <View className="flex-row items-center justify-between mb-3">
         <Text className="text-base font-semibold text-white">Today's Overview</Text>
         <Pressable className="flex-row items-center gap-1 px-3 py-1.5 rounded-lg bg-[#161616] border border-[#242424] active:opacity-75">
@@ -139,7 +137,6 @@ export default function OwnerDashboardScreen() {
         })}
       </View>
 
-      {/* Section 2: Quick Actions */}
       <Text className="text-base font-semibold text-white mb-3">Quick Actions</Text>
       <View className="flex-row flex-wrap justify-between gap-y-3 mb-6">
         {QUICK_ACTIONS.map((action) => {
@@ -150,6 +147,8 @@ export default function OwnerDashboardScreen() {
               onPress={() => {
                 if (action.id === 'add-customer') {
                   router.push('/(owner)/dashboard/customers');
+                } else if (action.id === 'manage-inventory') {
+                  router.push('/(owner)/dashboard/manage-inventory');
                 }
               }}
               className="w-[48.5%] bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 items-center justify-center active:opacity-80 min-h-[120px]">
@@ -166,7 +165,6 @@ export default function OwnerDashboardScreen() {
         })}
       </View>
 
-      {/* Section 3: Today's Operations */}
       <Text className="text-base font-semibold text-white mb-3">Today's Operations</Text>
       <View className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 flex-row justify-between mb-6">
         {OPERATIONS.map((op, index) => {

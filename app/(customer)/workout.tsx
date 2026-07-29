@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, Image, Pressable, TextInput } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { ArrowRightIcon, CaretRightIcon, ClockIcon, HandWavingIcon, Check, Bell, LightningIcon, CalendarIcon, StarIcon, CheckCircleIcon, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass } from 'phosphor-react-native';
+import { ArrowRightIcon, CaretRightIcon, ClockIcon, HandWavingIcon, Check, Bell, LightningIcon, CalendarIcon, StarIcon, CheckCircleIcon, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass, Robot, CalendarPlus, Sparkle, XCircle } from 'phosphor-react-native';
 import { BlurView } from 'expo-blur';
-import { useNavigation } from 'expo-router';
+import { useNavigation, router } from 'expo-router';
+import { useUser } from '@/context/UserContext';
 
 export default function CustomerWorkout() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const navigation = useNavigation();
+  const { name } = useUser();
 
   useEffect(() => {
     const unsubscribe = (navigation as any).addListener('tabPress', () => {
@@ -40,9 +42,9 @@ export default function CustomerWorkout() {
 
   return (
     <ScrollView className="flex-1 bg-[#0A0A0A]" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-      <View className="items-start justify-start p-5 gap-3">
+      <View className="items-start justify-start p-5 gap-3 pb-20">
         <Text className="text-foreground text-sm text-[#8E8E8E]">
-          Hi User <HandWavingIcon size={20} color='#FFCB3F' weight='fill' />
+          Hi {name || 'User'} <HandWavingIcon size={20} color='#FFCB3F' weight='fill' />
         </Text>
         <Text className="text-foreground text-sm text-white">
           Let's crush your <Text className='text-base font-semibold text-[#C4EF00]'>Muscle Gain</Text> goal today!
@@ -57,7 +59,7 @@ export default function CustomerWorkout() {
           <CaretRightIcon size={17} color='white' />
         </View>
 
-        <View className="w-full mt-5">
+        {/* <View className="w-full mt-5">
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -76,14 +78,70 @@ export default function CustomerWorkout() {
               );
             })}
           </ScrollView>
-        </View>
+        </View> */}
 
-        {activeTab === 'Muscle Group' ? (
+        {/* {activeTab === 'Muscle Group' ? (
           <MuscleGroupView />
         ) : activeTab === 'Equipment' ? (
           <EquipmentView />
-        ) : !activeTab ? (
-          <>
+        ) : !activeTab ? ( */}
+        <>
+          {/* NEW NO WORKOUT PLAN UI */}
+          <View className="mt-5 w-full">
+            <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider mb-3 uppercase'>Weekly Workout Plan</Text>
+            <View className="w-full border border-[#27272A] bg-[#111111] rounded-3xl p-5 items-center pb-6">
+              <View className="bg-[#242A00] p-3 rounded-2xl mb-4 relative">
+                <CalendarIcon size={32} color="#C4EF00" weight="regular" />
+                <View className="absolute -bottom-1 -right-1 bg-black rounded-full border border-[#27272A]">
+                  <XCircle size={14} color="#8E8E8E" weight="fill" />
+                </View>
+              </View>
+
+              <Text className="text-white text-2xl font-semibold mb-2">No Workout Plan Yet</Text>
+              <Text className="text-[#8E8E8E] text-center text-sm px-4 mb-6">
+                Create a personalized weekly plan based on your fitness goal.
+              </Text>
+
+              {/* <Pressable className="w-full bg-[#C4EF00] rounded-2xl p-4 flex-row items-center active:opacity-80">
+                  <View className="bg-black/10 p-3 rounded-xl mr-3">
+                    <Robot size={24} color="black" weight="regular" />
+                  </View>
+                  <View className="flex-1 justify-center">
+                    <Text className="text-black font-semibold text-lg mb-0.5">Generate with AI</Text>
+                    <Text className="text-black/70 text-xs pr-2">Creates a plan using your onboarding preferences.</Text>
+                  </View>
+                  <CaretRightIcon size={20} color="black" />
+                </Pressable>
+
+                <View className="w-full flex-row items-center my-5">
+                  <View className="flex-1 h-[1px] bg-[#27272A]" />
+                  <Text className="text-[#8E8E8E] text-xs font-semibold px-3">OR</Text>
+                  <View className="flex-1 h-[1px] bg-[#27272A]" />
+                </View> */}
+
+              <Pressable
+                onPress={() => router.push('/(customer)/workoutPlan' as any)}
+                className="w-full bg-[#111111] border border-[#27272A] rounded-2xl p-4 flex-row items-center active:opacity-80 mb-5"
+              >
+                <View className="bg-[#1A1A1A] p-3 rounded-xl mr-3 border border-[#27272A]">
+                  <CalendarPlus size={24} color="white" weight="regular" />
+                </View>
+                <View className="flex-1 justify-center">
+                  <Text className="text-white font-semibold text-lg mb-0.5">Build My Own Plan</Text>
+                  <Text className="text-[#8E8E8E] text-xs pr-2">Choose workouts and schedule them manually.</Text>
+                </View>
+                <CaretRightIcon size={20} color="#8E8E8E" />
+              </Pressable>
+
+              <View className="flex-row items-center justify-center gap-1.5">
+                <Sparkle size={14} color="#C4EF00" weight="fill" />
+                <Text className="text-[#8E8E8E] text-xs font-medium">Uses your onboarding preferences</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* OLD TODAY'S WORKOUT AND WEEKLY PLAN */}
+          {/* 
             <View className='flex flex-row items-center justify-between gap-2 w-full mt-5 bg-[#191919] p-3 pb-0 rounded-xl'>
               <View className='w-[50%] h-full gap-3'>
                 <Text className='text-[#C4EF00] text-xs'>TODAY'S WORKOUT</Text>
@@ -105,12 +163,13 @@ export default function CustomerWorkout() {
 
             <View className='mt-5 w-full flex-row items-center justify-between'>
               <Text className='text-[#C4EF00] font-semibold'>WEEKLY WORKOUT PLAN</Text>
-              <View className='flex-row items-center gap-2'>
+              <Pressable
+                onPress={() => router.push('/(customer)/workoutPlan' as any)}
+                className='flex-row items-center gap-2 active:opacity-70'
+              >
                 <Text className='text-[#8E8E8E] text-sm'>View Full Plan</Text>
-                <Pressable>
-                  <CaretRightIcon size={15} color='#8E8E8E' />
-                </Pressable>
-              </View>
+                <CaretRightIcon size={15} color='#8E8E8E' />
+              </Pressable>
             </View>
 
             <View className='w-full mt-3'>
@@ -166,87 +225,88 @@ export default function CustomerWorkout() {
                 <View className="h-full bg-[#C4EF00] rounded-full" style={{ width: '85%' }} />
               </View>
             </View>
+            */}
 
-            <View className='mt-5 w-full'>
-              <Text className='text-white font-semibold'>QUICK START</Text>
-              <View className='mt-3 flex-wrap flex-row justify-between'>
-                {quikStartCards.map((item, index) => {
-                  return (
-                    <View className='bg-[#111111] w-[48%] mb-3 p-3 flex-row items-center rounded-xl border border-[#1D1D1D]' key={index}>
-                      <View className='bg-[#C4EF00] h-9 w-9 rounded-xl items-center justify-center'>
-                        {item.icon}
-                      </View>
-                      <View className='flex-1 px-2'>
-                        <Text className='text-xs text-white font-semibold' numberOfLines={2}>{item.text}</Text>
-                      </View>
-                      <CaretRightIcon size={16} color='white' />
+          <View className='mt-5 w-full'>
+            <Text className='text-white font-semibold'>QUICK START</Text>
+            <View className='mt-3 flex-wrap flex-row justify-between'>
+              {quikStartCards.map((item, index) => {
+                return (
+                  <View className='bg-[#111111] w-[48%] mb-3 p-3 flex-row items-center rounded-xl border border-[#1D1D1D]' key={index}>
+                    <View className='bg-[#C4EF00] h-9 w-9 rounded-xl items-center justify-center'>
+                      {item.icon}
                     </View>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View className='mt-5 w-full flex-row items-center justify-between'>
-              <View className='bg-[#111111] w-[48%] p-3 rounded-xl gap-1 border border-[#1D1D1D]'>
-                <Text className='text-[#C4EF00] font-semibold text-sm'>FEATURED PROGRAM</Text>
-                <Text className='text-white font-semibold text-lg w-[80%]'>8 Week Mass Builder</Text>
-                <View className='flex-row items-center gap-1'>
-                  <LightningIcon size={13} color='#8E8E8E' />
-                  <Text className='text-[#8E8E8E] text-sm'>Intermediate</Text>
-                </View>
-                <View className='flex-row items-center gap-1'>
-                  <CalendarIcon size={13} color='#8E8E8E' />
-                  <Text className='text-[#8E8E8E] text-sm'>4 Days/Week</Text>
-                </View>
-                <View className='flex-row justify-center items-center bg-green-00'>
-                  <Pressable className='mt-2 bg-[#1D1D1D] px-4 py-2 rounded-lg'>
-                    <Text className='text-white text-sm font-semibold'>View Program</Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              <View className='bg-[#111111] w-[48%] p-3 rounded-xl gap-1 border border-[#1D1D1D]'>
-                <Text className='text-[#C4EF00] font-semibold text-sm'>DAILY CHALLENGE</Text>
-                <Text className='text-white font-semibold text-lg w-[80%]'>Plank Hold Challenge</Text>
-                <View className='flex-row items-center gap-1'>
-                  <ClockIcon size={13} color='#8E8E8E' />
-                  <Text className='text-[#8E8E8E] text-sm'>Hold for 2 min</Text>
-                </View>
-                <View className='flex-row items-center gap-1'>
-                  <StarIcon size={13} color='#8E8E8E' />
-                  <Text className='text-[#8E8E8E] text-xs'>Complete & earn 50 XP</Text>
-                </View>
-                <View className='flex-row justify-center items-center bg-green-00'>
-                  <Pressable className='flex-row items-center gap-1 mt-2 bg-[#C4EF00] px-4 py-2 rounded-lg'>
-                    <Text className='text-black text-sm font-semibold'>View Program</Text>
-                    <CaretRightIcon size={15} />
-                  </Pressable>
-                </View>
-              </View>
-            </View>
-
-            <View className='bg-[#111111] border border-[#1D1D1D] mt-5 w-full p-4 rounded-lg flex flex-row justify-between'>
-              <View className='bg-yellow-00 flex-row items-center justify-start'>
-                <Image
-                  source={require('../../assets/workout.png')}
-                  style={{ height: 120, width: 120 }}
-                  resizeMode='contain'
-                />
-                <View>
-                  <Text className='text-white font-semibold'>Back & Biceps</Text>
-                  <View className='flex-row justify-between gap-2'>
-                    <Text className='text-xs text-[#8E8E8E]'>42 mins</Text>
-                    <Text className='text-xs text-[#8E8E8E]'>6 Exercises</Text>
+                    <View className='flex-1 px-2'>
+                      <Text className='text-xs text-white font-semibold' numberOfLines={2}>{item.text}</Text>
+                    </View>
+                    <CaretRightIcon size={16} color='white' />
                   </View>
-                </View>
+                );
+              })}
+            </View>
+          </View>
+
+          <View className='mt-5 w-full flex-row items-center justify-between'>
+            <View className='bg-[#111111] w-[48%] p-3 rounded-xl gap-1 border border-[#1D1D1D]'>
+              <Text className='text-[#C4EF00] font-semibold text-sm'>FEATURED PROGRAM</Text>
+              <Text className='text-white font-semibold text-lg w-[80%]'>8 Week Mass Builder</Text>
+              <View className='flex-row items-center gap-1'>
+                <LightningIcon size={13} color='#8E8E8E' />
+                <Text className='text-[#8E8E8E] text-sm'>Intermediate</Text>
               </View>
-              <View className='bg-blue-00 flex flex-col items-center justify-center gap-1'>
-                <Text className='text-[#8E8E8E] text-sm'>Yesterday</Text>
-                <CheckCircleIcon size={25} weight='fill' color='#C4EF00' />
+              <View className='flex-row items-center gap-1'>
+                <CalendarIcon size={13} color='#8E8E8E' />
+                <Text className='text-[#8E8E8E] text-sm'>4 Days/Week</Text>
+              </View>
+              <View className='flex-row justify-center items-center bg-green-00'>
+                <Pressable className='mt-2 bg-[#1D1D1D] px-4 py-2 rounded-lg'>
+                  <Text className='text-white text-sm font-semibold'>View Program</Text>
+                </Pressable>
               </View>
             </View>
-          </>
-        ) : null}
+
+            <View className='bg-[#111111] w-[48%] p-3 rounded-xl gap-1 border border-[#1D1D1D]'>
+              <Text className='text-[#C4EF00] font-semibold text-sm'>DAILY CHALLENGE</Text>
+              <Text className='text-white font-semibold text-lg w-[80%]'>Plank Hold Challenge</Text>
+              <View className='flex-row items-center gap-1'>
+                <ClockIcon size={13} color='#8E8E8E' />
+                <Text className='text-[#8E8E8E] text-sm'>Hold for 2 min</Text>
+              </View>
+              <View className='flex-row items-center gap-1'>
+                <StarIcon size={13} color='#8E8E8E' />
+                <Text className='text-[#8E8E8E] text-xs'>Complete & earn 50 XP</Text>
+              </View>
+              <View className='flex-row justify-center items-center bg-green-00'>
+                <Pressable className='flex-row items-center gap-1 mt-2 bg-[#C4EF00] px-4 py-2 rounded-lg'>
+                  <Text className='text-black text-sm font-semibold'>View Program</Text>
+                  <CaretRightIcon size={15} />
+                </Pressable>
+              </View>
+            </View>
+          </View>
+
+          <View className='bg-[#111111] border border-[#1D1D1D] mt-5 w-full p-4 rounded-lg flex flex-row justify-between'>
+            <View className='bg-yellow-00 flex-row items-center justify-start'>
+              <Image
+                source={require('../../assets/workout.png')}
+                style={{ height: 120, width: 120 }}
+                resizeMode='contain'
+              />
+              <View>
+                <Text className='text-white font-semibold'>Back & Biceps</Text>
+                <View className='flex-row justify-between gap-2'>
+                  <Text className='text-xs text-[#8E8E8E]'>42 mins</Text>
+                  <Text className='text-xs text-[#8E8E8E]'>6 Exercises</Text>
+                </View>
+              </View>
+            </View>
+            <View className='bg-blue-00 flex flex-col items-center justify-center gap-1'>
+              <Text className='text-[#8E8E8E] text-sm'>Yesterday</Text>
+              <CheckCircleIcon size={25} weight='fill' color='#C4EF00' />
+            </View>
+          </View>
+        </>
+        {/* ) : null} */}
       </View>
     </ScrollView>
   );

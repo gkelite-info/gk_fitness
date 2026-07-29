@@ -82,6 +82,13 @@ export default function CustomerLayout() {
           headerShown: false,
         }}
       />
+      <Tabs.Screen
+        name="workoutPlan"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
     </Tabs>
   );
 }

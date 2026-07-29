@@ -41,86 +41,92 @@ export function CustomTabBar({
         className="flex-row absolute left-0 right-0 items-center justify-between"
         style={{ height: 58, bottom: bottomInset }}
       >
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
-          const { options } = descriptors[route.key];
+        {state.routes
+          .filter((route) => {
+            const { options } = descriptors[route.key];
+            const isHidden = options.tabBarItemStyle && (options.tabBarItemStyle as any).display === 'none';
+            return !isHidden;
+          })
+          .map((route) => {
+            const isFocused = state.routes[state.index]?.key === route.key;
+            const { options } = descriptors[route.key];
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
+            const onPress = () => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
 
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(route.name);
+              }
+            };
+
+            const isCenter = route.name === centerRouteName;
+            const activeColor = '#C4EF00';
+            const inactiveColor = '#71717A';
+            const iconColor = isFocused ? activeColor : inactiveColor;
+            const iconSize = 22;
+
+            if (isCenter) {
+              return (
+                <View key={route.key} className="flex-1 items-center justify-center">
+                  <TouchableWithoutFeedback onPress={onPress}>
+                    <View
+                      className="absolute -top-[60px] w-[65px] h-[65px] rounded-full bg-[#C4EF00] items-center justify-center border-[4px] border-[#09090B]"
+                      style={{
+                        shadowColor: '#C4EF00',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.45,
+                        shadowRadius: 6,
+                        elevation: 8,
+                      }}
+                    >
+                      <House size={26} color="#000000" weight="fill" />
+                    </View>
+                  </TouchableWithoutFeedback>
+                </View>
+              );
             }
-          };
 
-          const isCenter = route.name === centerRouteName;
-          const activeColor = '#C4EF00';
-          const inactiveColor = '#71717A';
-          const iconColor = isFocused ? activeColor : inactiveColor;
-          const iconSize = 22;
+            const renderIcon = () => {
+              const name = route.name.toLowerCase();
+              if (name.includes('gym')) return <Buildings size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('owner')) return <Users size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('support')) return <Headphones size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('profile')) return <User size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('user')) return <Users size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('analytic')) return <ChartLineUp size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('setting')) return <Gear size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('workout')) return <Barbell size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('progress')) return <ChartLineUp size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('community')) return <Users size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('schedule')) return <Calendar size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('message')) return <ChatCircle size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('patient')) return <ClipboardText size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              return <User size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+            };
 
-          if (isCenter) {
+            const label = options.title !== undefined ? options.title : route.name;
+
             return (
-              <View key={route.key} className="flex-1 items-center justify-center">
-                <TouchableWithoutFeedback onPress={onPress}>
-                  <View
-                    className="absolute -top-[60px] w-[65px] h-[65px] rounded-full bg-[#C4EF00] items-center justify-center border-[4px] border-[#09090B]"
-                    style={{
-                      shadowColor: '#C4EF00',
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.45,
-                      shadowRadius: 6,
-                      elevation: 8,
-                    }}
-                  >
-                    <House size={26} color="#000000" weight="fill" />
-                  </View>
-                </TouchableWithoutFeedback>
-              </View>
-            );
-          }
-
-          const renderIcon = () => {
-            const name = route.name.toLowerCase();
-            if (name.includes('gym')) return <Buildings size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('owner')) return <Users size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('support')) return <Headphones size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('profile')) return <User size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('user')) return <Users size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('analytic')) return <ChartLineUp size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('setting')) return <Gear size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('workout')) return <Barbell size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('progress')) return <ChartLineUp size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('community')) return <Users size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('schedule')) return <Calendar size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('message')) return <ChatCircle size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            if (name.includes('patient')) return <ClipboardText size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-            return <User size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
-          };
-
-          const label = options.title !== undefined ? options.title : route.name;
-
-          return (
-            <TouchableOpacity
-              key={route.key}
-              onPress={onPress}
-              activeOpacity={0.7}
-              className="flex-1 items-center justify-center pt-1"
-            >
-              {renderIcon()}
-              <Text
-                className={`text-[10px] mt-1 font-medium tracking-wider ${isFocused ? 'text-[#C4EF00]' : 'text-[#71717A]'
-                  }`}
+              <TouchableOpacity
+                key={route.key}
+                onPress={onPress}
+                activeOpacity={0.7}
+                className="flex-1 items-center justify-center pt-1"
               >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+                {renderIcon()}
+                <Text
+                  className={`text-[10px] mt-1 font-medium tracking-wider ${isFocused ? 'text-[#C4EF00]' : 'text-[#71717A]'
+                    }`}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
       </View>
     </View>
   );

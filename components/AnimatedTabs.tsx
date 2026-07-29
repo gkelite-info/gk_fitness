@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Pressable, LayoutChangeEvent } from 'react-native';
+import { View, Pressable, LayoutChangeEvent, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -35,42 +35,60 @@ export function AnimatedTabs({
   activeBgColor = '#C3F400',
 }: AnimatedTabsProps) {
   const [containerWidth, setContainerWidth] = useState(0);
-  const isInitialized = useRef(false);
+  const [containerHeight, setContainerHeight] = useState(0);
+  const sharedContainerWidth = useSharedValue(0);
+  const sharedContainerHeight = useSharedValue(0);
   const selectedIndex = tabs.findIndex((t) => t.id === activeTab);
   const tabCount = tabs.length || 1;
-  const tabWidth = containerWidth / tabCount;
-  const translateX = useSharedValue(0);
+  const selectedIndexShared = useSharedValue(selectedIndex);
+  const isInitializedShared = useSharedValue(false);
 
   useEffect(() => {
-    if (containerWidth > 0 && selectedIndex !== -1) {
-      const targetX = selectedIndex * tabWidth;
-      if (!isInitialized.current) {
-        translateX.value = targetX;
-        isInitialized.current = true;
-      } else {
-        translateX.value = withSpring(targetX, {
-          damping: 16,
-          stiffness: 160,
-          mass: 0.8,
-        });
-      }
-    }
-  }, [selectedIndex, containerWidth, tabWidth]);
+    selectedIndexShared.value = selectedIndex;
+  }, [selectedIndex]);
 
   const animatedIndicatorStyle = useAnimatedStyle(() => {
+    if (sharedContainerWidth.value === 0 || sharedContainerHeight.value === 0) {
+      return {
+        width: 0,
+        opacity: 0,
+      };
+    }
+
+    const targetWidth = sharedContainerWidth.value / tabCount;
+    const targetX = selectedIndexShared.value * targetWidth;
+
+    // Run physics animation entirely on the native UI thread using shared value gating
+    const animatedX = isInitializedShared.value
+      ? withSpring(targetX, {
+        damping: 18,
+        stiffness: 150,
+        mass: 0.9,
+      })
+      : targetX;
+
     return {
-      width: containerWidth / tabCount,
-      transform: [{ translateX: translateX.value }],
+      width: targetWidth,
+      height: sharedContainerHeight.value,
+      transform: [{ translateX: animatedX }],
+      opacity: 1,
     };
   });
 
   const handleLayout = (e: LayoutChangeEvent) => {
-    const width = e.nativeEvent.layout.width - 8; // account for container padding p-1 (4px * 2)
-    if (width > 0 && width !== containerWidth) {
-      setContainerWidth(width);
-      if (!isInitialized.current && selectedIndex !== -1) {
-        translateX.value = selectedIndex * (width / tabCount);
-      }
+    const { width, height } = e.nativeEvent.layout;
+    const paddingWidth = width - 8; // account for container padding p-1 (4px * 2)
+    const paddingHeight = height - 8; // account for container padding p-1 (4px * 2)
+
+    if (paddingWidth > 0 && paddingWidth !== containerWidth) {
+      setContainerWidth(paddingWidth);
+      sharedContainerWidth.value = paddingWidth;
+    }
+    if (paddingHeight > 0 && paddingHeight !== containerHeight) {
+      setContainerHeight(paddingHeight);
+      sharedContainerHeight.value = paddingHeight;
+      // Mark as initialized immediately on the UI thread
+      isInitializedShared.value = true;
     }
   };
 
@@ -80,13 +98,12 @@ export function AnimatedTabs({
       className={`flex-row bg-[#161616] rounded-xl p-1 relative overflow-hidden ${containerClassName}`}
     >
       {/* Sliding Active Pill Indicator */}
-      {containerWidth > 0 && selectedIndex !== -1 && !tabs[selectedIndex]?.disabled && (
+      {containerWidth > 0 && containerHeight > 0 && selectedIndex !== -1 && !tabs[selectedIndex]?.disabled && (
         <Animated.View
           style={[
             {
               position: 'absolute',
               top: 4,
-              bottom: 4,
               left: 4,
               backgroundColor: activeBgColor,
               borderRadius: 8,
@@ -113,15 +130,14 @@ export function AnimatedTabs({
                 onTabChange(tab.id);
               }
             }}
-            className={`flex-1 flex-row items-center justify-center py-2.5 rounded-lg z-10 ${
-              tab.disabled ? 'opacity-40' : ''
-            }`}
+            className={`flex-1 flex-row items-center justify-center py-2.5 rounded-lg z-10 ${tab.disabled ? 'opacity-40' : ''
+              }`}
           >
             {IconComp && <IconComp size={18} color={tab.disabled ? '#A1A1AA' : iconColor} weight={iconWeight} />}
             <Text
-              className={`ml-2 font-semibold text-xs ${
-                tab.disabled ? 'text-[#A1A1AA]' : isActive ? 'text-black font-bold' : 'text-[#A1A1AA]'
-              }`}
+              style={Platform.OS === 'android' ? { fontWeight: 'normal' } : undefined}
+              className={`ml-2 text-xs ${tab.disabled ? 'font-semibold text-[#A1A1AA]' : isActive ? 'font-semibold text-black' : 'font-semibold text-[#A1A1AA]'
+                }`}
             >
               {tab.label}
             </Text>

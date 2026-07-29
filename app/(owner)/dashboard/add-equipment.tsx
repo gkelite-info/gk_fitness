@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform, Image, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { toast } from '@/lib/toast';
@@ -13,17 +13,19 @@ import {
   CalendarBlank,
   CaretRight,
   FileText,
-  X
+  X,
+  WarningCircle
 } from 'phosphor-react-native';
+import ConfirmModal from '@/components/ConfirmModal';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { base64ToArrayBuffer } from '@/components/imageCompressor';
-import { saveGymInventory, uploadEquipmentImage } from '@/helpers/gymInventory/gymInventory';
-import * as FileSystem from 'expo-file-system/legacy';
+import { saveGymInventory, uploadEquipmentImage, fetchGymInventoryById, deleteEquipmentImage, removeEquipmentImageFromDb } from '@/helpers/gymInventory/gymInventory';
 import * as Crypto from 'expo-crypto';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 export default function AddEquipmentScreen() {
+  const { id } = useLocalSearchParams();
   const { userId } = useUser();
   const [image, setImage] = useState<string | null>(null);
   const [equipmentName, setEquipmentName] = useState('');
@@ -32,6 +34,43 @@ export default function AddEquipmentScreen() {
   const [purchaseDate, setPurchaseDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(!!id);
+  const [removeImageModalVisible, setRemoveImageModalVisible] = useState(false);
+  const [initialImageUrl, setInitialImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (id) {
+      loadEquipmentData();
+    }
+  }, [id]);
+
+  const loadEquipmentData = async () => {
+    try {
+      const data = await fetchGymInventoryById(id as string);
+      if (data) {
+        setEquipmentName(data.equipmentName);
+        setQuantity(data.quantity);
+        setNotes(data.notes || '');
+        setPurchaseDate(new Date(data.purchaseDate));
+        if (data.image) {
+          setImage(data.image);
+          setInitialImageUrl(data.image);
+        }
+      }
+    } catch (error) {
+      toast.error('Failed to load equipment data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
+        <ActivityIndicator color="#D4F01E" size="large" />
+      </View>
+    );
+  }
 
   const formatDate = (date: Date) => {
     const day = date.getDate();
@@ -114,24 +153,33 @@ export default function AddEquipmentScreen() {
       }
 
       const gymId = gymOwner.gymId;
-      const gymInventoryId = Crypto.randomUUID();
-      let imageUrl = null;
+      const gymInventoryId = (id as string) || Crypto.randomUUID();
+      let imageUrl = image && image.startsWith('http') ? image : null;
 
-      if (image) {
+      if (image && !image.startsWith('http')) {
         const manipResult = await ImageManipulator.manipulateAsync(
           image,
           [{ resize: { width: 800 } }],
-          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+          { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
         );
 
-        const base64 = await FileSystem.readAsStringAsync(manipResult.uri, {
-          encoding: 'base64',
-        });
-        const arrayBuffer = base64ToArrayBuffer(base64);
+        const response = await fetch(manipResult.uri);
+        const arrayBuffer = await response.arrayBuffer();
+
         const fileExt = 'jpg';
-        const fileName = `${gymInventoryId}.${fileExt}`;
+        const fileName = `${gymInventoryId}_${Date.now()}.${fileExt}`;
 
         imageUrl = await uploadEquipmentImage(arrayBuffer, fileName);
+
+        if (initialImageUrl && initialImageUrl.startsWith('http')) {
+          try {
+            const urlParts = initialImageUrl.split('/');
+            const oldFileName = urlParts[urlParts.length - 1];
+            await deleteEquipmentImage(oldFileName);
+          } catch (e) {
+            console.error('Failed to delete old image from bucket:', e);
+          }
+        }
       }
 
       const payload = {
@@ -147,7 +195,7 @@ export default function AddEquipmentScreen() {
 
       await saveGymInventory(payload);
 
-      toast.success('Equipment added successfully');
+      toast.success(id ? 'Equipment updated successfully' : 'Equipment added successfully');
       router.back();
     } catch (error) {
       toast.error('Failed to save equipment');
@@ -166,8 +214,8 @@ export default function AddEquipmentScreen() {
           <CaretLeft size={20} color="#fff" />
         </Pressable>
         <View>
-          <Text className="text-xl font-semibold text-white mb-0.5">Add Equipment</Text>
-          <Text className="text-xs text-[#888]">Add new equipment to your inventory</Text>
+          <Text className="text-xl font-semibold text-white mb-0.5">{id ? 'Update Equipment' : 'Add Equipment'}</Text>
+          <Text className="text-xs text-[#888]">{id ? 'Update equipment details' : 'Add new equipment to your inventory'}</Text>
         </View>
       </View>
 
@@ -182,7 +230,7 @@ export default function AddEquipmentScreen() {
               <View className="border border-[#242424] rounded-2xl min-h-[160px] bg-[#0A0A0A] overflow-hidden relative">
                 <Image source={{ uri: image }} className="w-full h-full absolute" resizeMode="cover" />
                 <Pressable
-                  onPress={() => setImage(null)}
+                  onPress={() => setRemoveImageModalVisible(true)}
                   className="absolute top-3 right-3 w-8 h-8 bg-black/60 rounded-full items-center justify-center active:opacity-70"
                 >
                   <X size={16} color="#fff" weight="bold" />
@@ -219,17 +267,17 @@ export default function AddEquipmentScreen() {
           <View className="mb-8">
             <Text className="text-white text-sm mb-3">Quantity (Total Units) <Text className="text-[#EF4444]">*</Text></Text>
             <View className="flex-row items-center">
-              <View className="bg-[#161616] flex-row items-center border border-[#242424] rounded-xl px-4 py-2">
-                <Pressable onPress={handleMinus} className="p-2 active:opacity-70">
+              <View className={`bg-[#161616] flex-row items-center border ${id ? 'border-[#242424]/40 bg-[#161616]/60' : 'border-[#242424]'} rounded-xl px-4 py-2`}>
+                <Pressable onPress={id ? undefined : handleMinus} className={`p-2 ${id ? 'opacity-20' : 'active:opacity-70'}`}>
                   <Minus size={16} color="#888" />
                 </Pressable>
-                <Text className="text-white text-lg font-semibold mx-6 w-6 text-center">{quantity}</Text>
-                <Pressable onPress={handlePlus} className="p-2 active:opacity-70">
-                  <Plus size={16} color="#D4F129" weight="bold" />
+                <Text className={`text-lg font-semibold mx-6 w-6 text-center ${id ? 'text-[#666]' : 'text-white'}`}>{quantity}</Text>
+                <Pressable onPress={id ? undefined : handlePlus} className={`p-2 ${id ? 'opacity-20' : 'active:opacity-70'}`}>
+                  <Plus size={16} color={id ? '#888' : '#D4F129'} weight={id ? 'regular' : 'bold'} />
                 </Pressable>
               </View>
               <Text className="text-[#666] text-[10px] ml-4 flex-1">
-                Total number of this equipment in your gym
+                {id ? 'To change total units, use the "Update Stock" button on the equipment details screen.' : 'Total number of this equipment in your gym'}
               </Text>
             </View>
           </View>
@@ -304,7 +352,7 @@ export default function AddEquipmentScreen() {
               onPress={() => router.back()}
               className="flex-1 items-center justify-center py-4 rounded-full border border-[#242424] bg-[#161616] active:opacity-80 disabled:opacity-40"
             >
-              <Text className="text-white font-semibold">CANCEL</Text>
+              <Text className="text-white font-semibold text-sm">CANCEL</Text>
             </Pressable>
             <Pressable
               disabled={isSubmitting}
@@ -312,11 +360,42 @@ export default function AddEquipmentScreen() {
               className="flex-[1.5] flex-row gap-2 items-center justify-center py-4 rounded-full bg-[#D4F129] active:opacity-80 disabled:opacity-50"
             >
               {isSubmitting && <ActivityIndicator color="#000" size="small" />}
-              <Text className="text-black font-semibold">SAVE EQUIPMENT</Text>
+              <Text className="text-black font-semibold text-sm">{id ? 'UPDATE EQUIPMENT' : 'SAVE EQUIPMENT'}</Text>
             </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <ConfirmModal
+        visible={removeImageModalVisible}
+        onClose={() => setRemoveImageModalVisible(false)}
+        onConfirm={async () => {
+          if (image && image.startsWith('http')) {
+            try {
+              const urlParts = image.split('/');
+              const fileName = urlParts[urlParts.length - 1];
+              await deleteEquipmentImage(fileName);
+              if (id) {
+                await removeEquipmentImageFromDb(id as string);
+              }
+              toast.success('Image removed');
+            } catch (error) {
+              toast.error('Failed to remove image from bucket');
+              return;
+            }
+          }
+          setImage(null);
+          setRemoveImageModalVisible(false);
+        }}
+        title="Remove Image"
+        description="Are you sure you want to remove this equipment image? This action will delete it permanently."
+        confirmText="Remove"
+        icon={
+          <View className="w-12 h-12 rounded-full bg-red-500/10 items-center justify-center border border-red-500/20">
+            <WarningCircle size={28} color="#EF4444" weight="fill" />
+          </View>
+        }
+      />
     </View>
   );
 }

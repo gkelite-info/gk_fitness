@@ -44,7 +44,46 @@ export default function ManageInventoryScreen() {
       }
 
       const data = await fetchGymInventories(gymOwner.gymId);
-      setEquipmentList(data);
+      
+      if (data && data.length > 0) {
+        const inventoryIds = data.map((item: any) => item.gymInventoryId);
+        const { data: historyData, error: historyError } = await supabase
+          .from('gym_inventory_histories')
+          .select('*')
+          .in('gymInventoryId', inventoryIds);
+
+        if (!historyError && historyData) {
+          const mappedEquipment = data.map((item: any) => {
+            let itemMaint = 0;
+            let itemOS = 0;
+            
+            const itemLogs = historyData.filter(log => log.gymInventoryId === item.gymInventoryId);
+            itemLogs.forEach(log => {
+              if (log.action === 'maintenance') {
+                itemMaint += log.quantity;
+              } else if (log.action === 'out_of_service') {
+                itemOS += log.quantity;
+              } else if (log.action === 'restore_maintenance') {
+                itemMaint = Math.max(0, itemMaint - log.quantity);
+              } else if (log.action === 'restore_out_of_service') {
+                itemOS = Math.max(0, itemOS - log.quantity);
+              }
+            });
+            
+            return {
+              ...item,
+              underMaint: itemMaint,
+              outOfService: itemOS,
+              available: Math.max(0, (item.quantity || 0) - itemMaint - itemOS)
+            };
+          });
+          setEquipmentList(mappedEquipment);
+        } else {
+          setEquipmentList(data.map((item: any) => ({ ...item, underMaint: 0, outOfService: 0, available: item.quantity || 0 })));
+        }
+      } else {
+        setEquipmentList([]);
+      }
     } catch (err) {
       console.error('[ManageInventory] Error loading inventory:', err);
     } finally {
@@ -60,8 +99,8 @@ export default function ManageInventoryScreen() {
 
   const totalEquipment = equipmentList.length;
   const totalUnits = equipmentList.reduce((acc, item) => acc + (item.quantity || 0), 0);
-  const underMaint = 0;
-  const outOfService = 0;
+  const underMaint = equipmentList.reduce((acc, item) => acc + (item.underMaint || 0), 0);
+  const outOfService = equipmentList.reduce((acc, item) => acc + (item.outOfService || 0), 0);
 
   const summaryCards = [
     { id: '1', title: 'Total\nEquipment', value: totalEquipment.toString(), icon: Package, iconColor: '#D4F129' },
@@ -154,7 +193,11 @@ export default function ManageInventoryScreen() {
             </View>
           ) : (
             filteredList.map((item) => (
-              <Pressable key={item.gymInventoryId} className="bg-[#161616] rounded-2xl p-4 border border-[#242424] active:opacity-80">
+              <Pressable 
+                key={item.gymInventoryId} 
+                className="bg-[#161616] rounded-2xl p-4 border border-[#242424] active:opacity-80"
+                onPress={() => router.push({ pathname: '/(owner)/dashboard/equipment/[id]', params: { id: item.gymInventoryId } })}
+              >
                 <View className="flex-row mb-4">
                   {item.image ? (
                     <Image
@@ -182,15 +225,15 @@ export default function ManageInventoryScreen() {
                   </View>
                   <View className="flex-1 items-center border-r border-[#242424]">
                     <Text className="text-[10px] text-[#666] mb-1 text-center">Available</Text>
-                    <Text className="text-base font-semibold text-[#22C55E]">{item.quantity}</Text>
+                    <Text className="text-base font-semibold text-[#22C55E]">{item.available ?? item.quantity}</Text>
                   </View>
                   <View className="flex-1 items-center border-r border-[#242424]">
                     <Text className="text-[10px] text-[#666] mb-1 text-center">Under Maint.</Text>
-                    <Text className="text-base font-semibold text-[#F59E0B]">0</Text>
+                    <Text className="text-base font-semibold text-[#F59E0B]">{item.underMaint ?? 0}</Text>
                   </View>
                   <View className="flex-1 items-center">
                     <Text className="text-[10px] text-[#666] mb-1 text-center">Out of Service</Text>
-                    <Text className="text-base font-semibold text-[#EF4444]">0</Text>
+                    <Text className="text-base font-semibold text-[#EF4444]">{item.outOfService ?? 0}</Text>
                   </View>
                 </View>
 

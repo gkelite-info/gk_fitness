@@ -24,7 +24,6 @@ export default function CustomersScreen() {
 
   return (
     <KeyboardDismissView className="flex-1 bg-[#0A0A0A]" contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-      {/* Top Tabs with Native Reanimated Gliding Selection */}
       <AnimatedTabs
         tabs={[
           { id: 'customers', label: 'Customers', icon: Users },
@@ -38,7 +37,6 @@ export default function CustomersScreen() {
         containerClassName="mb-6"
       />
 
-      {/* Search and Filter */}
       <View className="flex-row mb-6 gap-3">
         <View className="flex-1 flex-row items-center bg-[#161616] border border-[#242424] rounded-xl px-3 py-3">
           <MagnifyingGlass size={20} color="#A1A1AA" />
@@ -60,7 +58,7 @@ export default function CustomersScreen() {
           <Text className="text-[#A1A1AA] text-[10px] font-semibold tracking-wider mb-1 uppercase">TOTAL CUSTOMERS</Text>
           <Text className="text-[#CCF200] text-3xl font-semibold">324</Text>
         </View>
-        <Pressable 
+        <Pressable
           onPress={() => {
             triggerMediumHaptic();
             router.push('/(owner)/dashboard/add-customer');
@@ -109,9 +107,7 @@ export default function CustomersScreen() {
         </Pressable>
       </View>
 
-      {/* Customer List Card */}
       <View className="bg-[#161616] border border-[#242424] rounded-2xl p-4">
-        {/* User Info Row */}
         <View className="flex-row justify-between items-start mb-4">
           <View className="flex-row">
             <View className="relative">
@@ -136,7 +132,6 @@ export default function CustomersScreen() {
 
         <View className="h-[1px] bg-[#242424] w-full mb-4" />
 
-        {/* Details */}
         <View className="gap-y-3 pl-1">
           <View className="flex-row items-center">
             <Phone size={18} color="#A1A1AA" />

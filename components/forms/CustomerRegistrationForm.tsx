@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, Pressable, Alert, ActionSheetIOS, Platform, ActivityIndicator } from 'react-native';
+import { View, TextInput, Pressable, Alert, ActionSheetIOS, Platform, ActivityIndicator, Keyboard } from 'react-native';
+import { ActionSheet } from '@/components/ActionSheet';
 import { Text } from '@/components/nativewindui/Text';
 import {
   User,
@@ -35,6 +36,9 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
   const [fullName, setFullName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [gender, setGender] = useState('Select gender');
+  const [genderModalVisible, setGenderModalVisible] = useState(false);
+  const [relationshipModalVisible, setRelationshipModalVisible] = useState(false);
+  const [planModalVisible, setPlanModalVisible] = useState(false);
 
   const [phoneCode, setPhoneCode] = useState('+91');
   const [phone, setPhone] = useState('');
@@ -64,6 +68,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
   };
 
   const handleGenderSelect = () => {
+    Keyboard.dismiss();
     clearError('gender');
     const options = ['Cancel', 'Male', 'Female', 'Other'];
     if (Platform.OS === 'ios') {
@@ -76,16 +81,12 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
         }
       );
     } else {
-      Alert.alert('Select Gender', 'Choose gender', [
-        { text: 'Male', onPress: () => setGender('Male') },
-        { text: 'Female', onPress: () => setGender('Female') },
-        { text: 'Other', onPress: () => setGender('Other') },
-        { text: 'Cancel', style: 'cancel' }
-      ]);
+      setGenderModalVisible(true);
     }
   };
 
   const handleRelationshipSelect = () => {
+    Keyboard.dismiss();
     clearError('emergencyRelationship');
     const options = ['Cancel', 'Parent', 'Spouse', 'Sibling', 'Friend', 'Other'];
     if (Platform.OS === 'ios') {
@@ -96,17 +97,12 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
         }
       );
     } else {
-      Alert.alert('Select Relationship', 'Choose emergency contact relationship', [
-        { text: 'Parent', onPress: () => setEmergencyRelationship('Parent') },
-        { text: 'Spouse', onPress: () => setEmergencyRelationship('Spouse') },
-        { text: 'Sibling', onPress: () => setEmergencyRelationship('Sibling') },
-        { text: 'Friend', onPress: () => setEmergencyRelationship('Friend') },
-        { text: 'Cancel', style: 'cancel' }
-      ]);
+      setRelationshipModalVisible(true);
     }
   };
 
   const handlePlanSelect = () => {
+    Keyboard.dismiss();
     clearError('plan');
     const options = ['Cancel', 'Monthly Plan (1 Month)', 'Quarterly Plan (3 Months)', 'Annual Plan (12 Months)'];
     if (Platform.OS === 'ios') {
@@ -128,12 +124,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
         }
       );
     } else {
-      Alert.alert('Select Plan', 'Choose membership duration', [
-        { text: 'Monthly Plan', onPress: () => { setPlan('Monthly Plan'); updateExpiry(1); } },
-        { text: 'Quarterly Plan', onPress: () => { setPlan('Quarterly Plan'); updateExpiry(3); } },
-        { text: 'Annual Plan', onPress: () => { setPlan('Annual Plan'); updateExpiry(12); } },
-        { text: 'Cancel', style: 'cancel' }
-      ]);
+      setPlanModalVisible(true);
     }
   };
 
@@ -228,7 +219,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
 
       const cleanPhoneVal = `${phoneCode} ${phone.trim()}`;
       const fallbackEmail = email.trim() || `customer.${Crypto.randomUUID().slice(0, 8)}@gkfitness.local`;
-      
+
       await createUser({
         userId: Crypto.randomUUID(),
         name: fullName.trim(),
@@ -304,7 +295,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
       <View className="mb-8">
         <View className="flex-row items-center mb-4">
           <User size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-bold tracking-wider ml-2 uppercase text-sm">Personal Information</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Personal Information</Text>
         </View>
 
         <View className="mb-4">
@@ -350,8 +341,8 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
 
           <View className="flex-1">
             <Text className="text-white text-xs mb-2">Gender *</Text>
-            <Pressable 
-              onPress={handleGenderSelect} 
+            <Pressable
+              onPress={handleGenderSelect}
               className={`flex-row items-center justify-between px-3.5 py-3.5 rounded-xl border active:opacity-80 ${errors.gender ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
             >
               <Text className={gender === 'Select gender' ? 'text-[#666] text-xs' : 'text-white text-xs font-medium'}>{gender}</Text>
@@ -370,13 +361,13 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
       <View className="mb-8">
         <View className="flex-row items-center mb-4">
           <Phone size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-bold tracking-wider ml-2 uppercase text-sm">Contact Information</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Contact Information</Text>
         </View>
 
         <View className="flex-row gap-4">
           <View className="flex-[1.2]">
             <Text className="text-white text-xs mb-2">Phone Number *</Text>
-            <View className="flex-row gap-1.5">
+            <View className="flex-row gap-4">
               <Pressable className="bg-[#161616] flex-row items-center px-3 py-3.5 rounded-xl border border-[#242424]">
                 <Text className="text-white mr-1">{phoneCode}</Text>
                 <CaretDown size={12} color="#A1A1AA" />
@@ -402,35 +393,36 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
             )}
           </View>
 
-          <View className="flex-1">
-            <Text className="text-white text-xs mb-2">Email Address</Text>
-            <TextInput
-              placeholder="customer@email.com"
-              placeholderTextColor="#666"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              clearButtonMode="while-editing"
-              value={email}
-              onChangeText={(txt) => {
-                clearError('email');
-                setEmail(txt);
-              }}
-              className={`text-white px-3 py-3.5 rounded-xl border ${errors.email ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
-            />
-            {errors.email && (
-              <View className="flex-row items-center mt-1 ml-1">
-                <WarningCircle size={12} color="#EF4444" />
-                <Text className="text-red-400 text-[10px] ml-1">{errors.email}</Text>
-              </View>
-            )}
-          </View>
+        </View>
+
+        <View className="flex-1 mt-6">
+          <Text className="text-white text-xs mb-2">Email Address</Text>
+          <TextInput
+            placeholder="customer@email.com"
+            placeholderTextColor="#666"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+            value={email}
+            onChangeText={(txt) => {
+              clearError('email');
+              setEmail(txt);
+            }}
+            className={`text-white px-3 py-3.5 rounded-xl border ${errors.email ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
+          />
+          {errors.email && (
+            <View className="flex-row items-center mt-1 ml-1">
+              <WarningCircle size={12} color="#EF4444" />
+              <Text className="text-red-400 text-[10px] ml-1">{errors.email}</Text>
+            </View>
+          )}
         </View>
       </View>
 
       <View className="mb-8">
         <View className="flex-row items-center mb-4">
           <ShieldCheck size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-bold tracking-wider ml-2 uppercase text-sm">Emergency Contact *</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Emergency Contact *</Text>
         </View>
 
         <View className="flex-row gap-4 mb-4">
@@ -455,25 +447,25 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
             )}
           </View>
 
-          <View className="flex-1">
-            <Text className="text-white text-xs mb-2">Relationship *</Text>
-            <Pressable 
-              onPress={handleRelationshipSelect}
-              className={`flex-row items-center justify-between px-3.5 py-3.5 rounded-xl border active:opacity-80 ${errors.emergencyRelationship ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
-            >
-              <Text className={emergencyRelationship === 'Select relationship' ? 'text-[#666] text-xs' : 'text-white text-xs font-medium'}>{emergencyRelationship}</Text>
-              <CaretDown size={16} color={errors.emergencyRelationship ? '#EF4444' : '#A1A1AA'} />
-            </Pressable>
-            {errors.emergencyRelationship && (
-              <View className="flex-row items-center mt-1 ml-1">
-                <WarningCircle size={12} color="#EF4444" />
-                <Text className="text-red-400 text-[10px] ml-1">{errors.emergencyRelationship}</Text>
-              </View>
-            )}
-          </View>
+        </View>
+        <View className="flex-1">
+          <Text className="text-white text-xs mb-2">Relationship *</Text>
+          <Pressable
+            onPress={handleRelationshipSelect}
+            className={`flex-row items-center justify-between px-3.5 py-3.5 rounded-xl border active:opacity-80 ${errors.emergencyRelationship ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
+          >
+            <Text className={emergencyRelationship === 'Select relationship' ? 'text-[#666] text-xs' : 'text-white text-xs font-medium'}>{emergencyRelationship}</Text>
+            <CaretDown size={16} color={errors.emergencyRelationship ? '#EF4444' : '#A1A1AA'} />
+          </Pressable>
+          {errors.emergencyRelationship && (
+            <View className="flex-row items-center mt-1 ml-1">
+              <WarningCircle size={12} color="#EF4444" />
+              <Text className="text-red-400 text-[10px] ml-1">{errors.emergencyRelationship}</Text>
+            </View>
+          )}
         </View>
 
-        <View className="w-[60%] pr-2">
+        <View className="w-[60%] pr-2 mt-6">
           <Text className="text-white text-xs mb-2">Contact Phone *</Text>
           <View className="flex-row gap-2">
             <Pressable className="bg-[#161616] flex-row items-center px-3 py-3.5 rounded-xl border border-[#242424]">
@@ -505,13 +497,13 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
       <View className="mb-8">
         <View className="flex-row items-center mb-4">
           <IdentificationCard size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-bold tracking-wider ml-2 uppercase text-sm">Customership Information *</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Customership Information *</Text>
         </View>
 
         <View className="mb-4">
           <Text className="text-white text-xs mb-2">Customership Plan *</Text>
-          <Pressable 
-            onPress={handlePlanSelect} 
+          <Pressable
+            onPress={handlePlanSelect}
             className={`flex-row items-center justify-between px-4 py-3.5 rounded-xl border active:opacity-80 ${errors.plan ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
           >
             <Text className={plan === 'Select customership plan' ? 'text-[#666]' : 'text-white font-medium'}>{plan}</Text>
@@ -568,7 +560,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
       <View className="mb-6">
         <View className="flex-row items-center mb-4">
           <LockKey size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-bold tracking-wider ml-2 uppercase text-sm">Account Information</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Account Information</Text>
         </View>
 
         <View className="flex-row items-start p-4 border border-dashed border-[#242424] rounded-xl bg-[#0A0A0A]">
@@ -591,11 +583,55 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
           ) : (
             <Check size={24} color="#000" weight="bold" />
           )}
-          <Text className="text-[#000] font-black text-base uppercase tracking-wider">
+          <Text className="text-[#000] text-base font-semibold uppercase tracking-wider">
             {loading ? 'CREATING PROFILE...' : 'SAVE & CREATE CUSTOMER'}
           </Text>
         </Pressable>
       </View>
+
+      <ActionSheet
+        visible={genderModalVisible}
+        onClose={() => setGenderModalVisible(false)}
+        title="Select Gender"
+        options={['Male', 'Female', 'Other']}
+        onSelect={(idx) => {
+          if (idx === 0) setGender('Male');
+          if (idx === 1) setGender('Female');
+          if (idx === 2) setGender('Other');
+        }}
+      />
+
+      <ActionSheet
+        visible={relationshipModalVisible}
+        onClose={() => setRelationshipModalVisible(false)}
+        title="Select Relationship"
+        options={['Parent', 'Spouse', 'Sibling', 'Friend', 'Other']}
+        onSelect={(idx) => {
+          const list = ['Parent', 'Spouse', 'Sibling', 'Friend', 'Other'];
+          setEmergencyRelationship(list[idx]);
+        }}
+      />
+
+      <ActionSheet
+        visible={planModalVisible}
+        onClose={() => setPlanModalVisible(false)}
+        title="Select Plan"
+        options={['Monthly Plan (1 Month)', 'Quarterly Plan (3 Months)', 'Annual Plan (12 Months)']}
+        onSelect={(idx) => {
+          if (idx === 0) {
+            setPlan('Monthly Plan');
+            updateExpiry(1);
+          }
+          if (idx === 1) {
+            setPlan('Quarterly Plan');
+            updateExpiry(3);
+          }
+          if (idx === 2) {
+            setPlan('Annual Plan');
+            updateExpiry(12);
+          }
+        }}
+      />
     </View>
   );
 }

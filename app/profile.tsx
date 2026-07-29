@@ -5,6 +5,7 @@ import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { User, SignOut, WarningCircle } from 'phosphor-react-native';
 import { router } from 'expo-router';
+import ConfirmModal from '@/components/ConfirmModal';
 
 export default function ProfileScreen() {
   const { name, email, role } = useUser();
@@ -79,39 +80,19 @@ export default function ProfileScreen() {
         )}
       </Pressable>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <ConfirmModal
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View className="flex-1 bg-black/70 justify-center items-center px-6">
-          <View className="bg-[#121214] border border-[#27272A] w-full max-w-[340px] rounded-3xl p-6 items-center shadow-2xl">
-            <View className="w-12 h-12 rounded-full bg-red-500/10 items-center justify-center mb-4 border border-red-500/20">
-              <WarningCircle size={28} color="#EF4444" weight="fill" />
-            </View>
-            <Text className="text-white text-lg font-semibold mb-2">Sign Out</Text>
-            <Text className="text-[#8E8E93] text-sm text-center mb-6 leading-5">
-              Are you sure you want to sign out of your account? You will need to log in again to access the platform.
-            </Text>
-
-            <View className="flex-row gap-3 w-full">
-              <Pressable
-                onPress={() => setModalVisible(false)}
-                className="flex-1 bg-[#1C1C1E] rounded-xl py-3 items-center active:opacity-90"
-              >
-                <Text className="text-white font-semibold text-sm">Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleSignOut}
-                className="flex-1 bg-red-500 rounded-xl py-3 items-center active:opacity-90"
-              >
-                <Text className="text-white font-semibold text-sm">Sign Out</Text>
-              </Pressable>
-            </View>
+        onClose={() => setModalVisible(false)}
+        onConfirm={handleSignOut}
+        title="Sign Out"
+        description="Are you sure you want to sign out of your account? You will need to log in again to access the platform."
+        confirmText="Sign Out"
+        icon={
+          <View className="w-12 h-12 rounded-full bg-red-500/10 items-center justify-center border border-red-500/20">
+            <WarningCircle size={28} color="#EF4444" weight="fill" />
           </View>
-        </View>
-      </Modal>
+        }
+      />
     </ScrollView>
   );
 }

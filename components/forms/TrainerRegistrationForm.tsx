@@ -9,8 +9,10 @@ import {
   ActivityIndicator,
   Clipboard,
   Share,
-  Linking
+  Linking,
+  Keyboard
 } from 'react-native';
+import { ActionSheet } from '@/components/ActionSheet';
 import { Text } from '@/components/nativewindui/Text';
 import {
   User,
@@ -62,6 +64,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
   const [fullName, setFullName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [gender, setGender] = useState<'Male' | 'Female' | 'Other' | 'Select gender'>('Select gender');
+  const [genderModalVisible, setGenderModalVisible] = useState(false);
   const [phoneCode, setPhoneCode] = useState('+91');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -100,6 +103,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
   };
 
   const handleGenderSelect = () => {
+    Keyboard.dismiss();
     clearError('gender');
     const options = ['Cancel', 'Male', 'Female', 'Other'];
     if (Platform.OS === 'ios') {
@@ -112,12 +116,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
         }
       );
     } else {
-      Alert.alert('Select Gender', 'Choose trainer gender', [
-        { text: 'Male', onPress: () => setGender('Male') },
-        { text: 'Female', onPress: () => setGender('Female') },
-        { text: 'Other', onPress: () => setGender('Other') },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+      setGenderModalVisible(true);
     }
   };
 
@@ -297,7 +296,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
               <Barbell size={28} color="#C3F400" weight="duotone" />
             </View>
             <View className="flex-1">
-              <Text className="text-lg font-bold text-white leading-5">{createdCredentials.fullName}</Text>
+              <Text className="text-lg font-semibold text-white leading-5">{createdCredentials.fullName}</Text>
               <Text className="text-xs text-[#C3F400] mt-0.5 font-semibold">{createdCredentials.specialization}</Text>
               <Text className="text-[11px] text-[#888888] mt-1">Joined: {createdCredentials.dateOfJoining}</Text>
             </View>
@@ -308,7 +307,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
 
           <View className="h-[1px] bg-[#1F293D] my-3.5" />
 
-          <Text className="text-xs font-bold text-[#C3F400] tracking-wider uppercase mb-3">Trainer Contact Details</Text>
+          <Text className="text-xs font-semibold text-[#C3F400] tracking-wider uppercase mb-3">Trainer Contact Details</Text>
           <View className="flex-row justify-between mb-2">
             <Text className="text-xs text-[#888888]">Email Address</Text>
             <Text className="text-xs text-white font-medium">{createdCredentials.email}</Text>
@@ -320,16 +319,16 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
         </View>
 
         <View className="bg-[#111622] border border-[#1F293D] rounded-2xl p-5 mb-6 shadow-xl">
-          <Text className="text-xs font-bold text-[#C3F400] tracking-wider uppercase mb-4">Login Credentials</Text>
+          <Text className="text-xs font-semibold text-[#C3F400] tracking-wider uppercase mb-4">Login Credentials</Text>
 
-          <Text className="text-[10px] text-[#888888] mb-1.5 font-bold tracking-wider uppercase">Email / Username</Text>
+          <Text className="text-[10px] text-[#888888] mb-1.5 font-semibold tracking-wider uppercase">Email / Username</Text>
           <View className="bg-[#0A0E17] border border-[#1F293D] rounded-xl p-3.5 mb-4">
             <Text className="text-white text-sm font-medium">{createdCredentials.email}</Text>
           </View>
 
-          <Text className="text-[10px] text-[#888888] mb-1.5 font-bold tracking-wider uppercase">Temporary Password</Text>
+          <Text className="text-[10px] text-[#888888] mb-1.5 font-semibold tracking-wider uppercase">Temporary Password</Text>
           <View className="bg-[#0A0E17] border border-[#1F293D] rounded-xl p-3.5 flex-row items-center justify-between">
-            <Text className="text-[#C3F400] text-base font-mono font-bold">{createdCredentials.temporaryPassword}</Text>
+            <Text className="text-[#C3F400] text-base font-mono font-semibold">{createdCredentials.temporaryPassword}</Text>
             <Pressable onPress={handleCopyCredentials} className="active:opacity-75 p-1">
               <ClipboardText size={20} color="#C3F400" />
             </Pressable>
@@ -351,7 +350,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
             className="flex-1 bg-[#111622] border border-[#1F293D] rounded-2xl py-4 items-center justify-center active:opacity-75"
           >
             <Copy size={22} color="#FFFFFF" />
-            <Text className="text-[#A1A1AA] text-[10px] font-bold tracking-wider uppercase mt-1.5">COPY</Text>
+            <Text className="text-[#A1A1AA] text-[10px] font-semibold tracking-wider uppercase mt-1.5">COPY</Text>
           </Pressable>
 
           <Pressable
@@ -359,7 +358,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
             className="flex-1 bg-[#111622] border border-[#1F293D] rounded-2xl py-4 items-center justify-center active:opacity-75"
           >
             <ShareNetwork size={22} color="#FFFFFF" />
-            <Text className="text-[#A1A1AA] text-[10px] font-bold tracking-wider uppercase mt-1.5">SHARE</Text>
+            <Text className="text-[#A1A1AA] text-[10px] font-semibold tracking-wider uppercase mt-1.5">SHARE</Text>
           </Pressable>
 
           <Pressable
@@ -367,7 +366,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
             className="flex-1 bg-[#111622] border border-[#1F293D] rounded-2xl py-4 items-center justify-center active:opacity-75"
           >
             <EnvelopeSimple size={22} color="#FFFFFF" />
-            <Text className="text-[#A1A1AA] text-[10px] font-bold tracking-wider uppercase mt-1.5">EMAIL</Text>
+            <Text className="text-[#A1A1AA] text-[10px] font-semibold tracking-wider uppercase mt-1.5">EMAIL</Text>
           </Pressable>
         </View>
 
@@ -410,9 +409,9 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
       <View className="mb-8">
         <View className="flex-row items-center mb-4">
           <User size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-bold tracking-wider ml-2 uppercase text-sm">Personal Information</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Personal Information</Text>
         </View>
-        
+
         <View className="mb-4">
           <Text className="text-white text-xs mb-2">Full Name *</Text>
           <TextInput
@@ -433,7 +432,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
             </View>
           )}
         </View>
-        
+
         <View className="mb-4">
           <Text className="text-white text-xs mb-2">Date of Birth *</Text>
           <Pressable
@@ -452,11 +451,11 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
             </View>
           )}
         </View>
-        
+
         <View className="mb-4">
           <Text className="text-white text-xs mb-2">Gender *</Text>
-          <Pressable 
-            onPress={handleGenderSelect} 
+          <Pressable
+            onPress={handleGenderSelect}
             className={`flex-row items-center justify-between px-4 py-3.5 rounded-xl border active:opacity-80 ${errors.gender ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
           >
             <Text className={gender === 'Select gender' ? 'text-[#666]' : 'text-white font-medium'}>{gender}</Text>
@@ -474,9 +473,9 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
       <View className="mb-8">
         <View className="flex-row items-center mb-4">
           <Phone size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-bold tracking-wider ml-2 uppercase text-sm">Contact Information</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Contact Information</Text>
         </View>
-        
+
         <View className="mb-4">
           <Text className="text-white text-xs mb-2">Phone Number *</Text>
           <View className="flex-row gap-2">
@@ -532,25 +531,25 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
       <View className="mb-8">
         <View className="flex-row items-center mb-4">
           <Briefcase size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-bold tracking-wider ml-2 uppercase text-sm">Professional Information</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Professional Information</Text>
         </View>
-        
+
         <View className="mb-4">
           <Text className="text-white text-xs mb-2">Specialization</Text>
           <View className="flex-row flex-wrap gap-2">
-            <Pressable 
+            <Pressable
               onPress={() => setActiveSpec('strength')}
               className={`px-4 py-2 rounded-full border ${activeSpec === 'strength' ? 'bg-[#C3F400] border-[#C3F400]' : 'border-[#242424]'}`}
             >
               <Text className={`text-xs ${activeSpec === 'strength' ? 'text-black font-semibold' : 'text-[#888]'}`}>Strength Training</Text>
             </Pressable>
-            <Pressable 
+            <Pressable
               onPress={() => setActiveSpec('fatloss')}
               className={`px-4 py-2 rounded-full border ${activeSpec === 'fatloss' ? 'bg-[#C3F400] border-[#C3F400]' : 'border-[#242424]'}`}
             >
               <Text className={`text-xs ${activeSpec === 'fatloss' ? 'text-black font-semibold' : 'text-[#888]'}`}>Fat Loss</Text>
             </Pressable>
-            <Pressable 
+            <Pressable
               onPress={() => setActiveSpec('crossfit')}
               className={`px-4 py-2 rounded-full border ${activeSpec === 'crossfit' ? 'bg-[#C3F400] border-[#C3F400]' : 'border-[#242424]'}`}
             >
@@ -558,7 +557,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
             </Pressable>
           </View>
         </View>
-        
+
         <View className="flex-row gap-4 mb-4">
           <View className="flex-1">
             <Text className="text-white text-xs mb-2">Experience (Years)</Text>
@@ -588,7 +587,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
             </Pressable>
           </View>
         </View>
-        
+
         <View className="mb-4">
           <Text className="text-white text-xs mb-2">Qualification / Certification</Text>
           <TextInput
@@ -605,37 +604,37 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
       <View className="mb-8">
         <View className="flex-row items-center mb-4">
           <Clock size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-bold tracking-wider ml-2 uppercase text-sm">Working Schedule</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Working Schedule</Text>
         </View>
-        
+
         <View className="bg-[#161616] border border-[#242424] rounded-xl p-4">
           <Text className="text-white text-xs mb-3">Shift Preference</Text>
-          
+
           <Pressable className="flex-row items-center mb-3" onPress={() => setActiveShift('morning')}>
             <View className="w-5 h-5 rounded-full border border-[#242424] items-center justify-center mr-3">
               {activeShift === 'morning' && <View className="w-3 h-3 rounded-full bg-[#C3F400]" />}
             </View>
             <Text className="text-[#A1A1AA] text-sm">Morning (06:00 AM – 02:00 PM)</Text>
           </Pressable>
-          
+
           <Pressable className="flex-row items-center mb-5" onPress={() => setActiveShift('evening')}>
             <View className="w-5 h-5 rounded-full border border-[#242424] items-center justify-center mr-3">
               {activeShift === 'evening' && <View className="w-3 h-3 rounded-full bg-[#C3F400]" />}
             </View>
             <Text className="text-[#A1A1AA] text-sm">Evening (02:00 PM – 10:00 PM)</Text>
           </Pressable>
-          
+
           <Text className="text-white text-xs mb-3">Working Days</Text>
           <View className="flex-row flex-wrap gap-2">
             {['mon', 'tue', 'wed', 'thu', 'fri', 'sat'].map((day) => {
               const isActive = activeDays.includes(day);
               return (
-                <Pressable 
+                <Pressable
                   key={day}
                   onPress={() => toggleDay(day)}
                   className={`w-[45px] h-9 items-center justify-center rounded border ${isActive ? 'bg-[#C3F400] border-[#C3F400]' : 'border-[#242424]'}`}
                 >
-                  <Text className={`text-[10px] font-bold uppercase ${isActive ? 'text-black' : 'text-[#888]'}`}>{day}</Text>
+                  <Text className={`text-[10px] font-semibold uppercase ${isActive ? 'text-black' : 'text-[#888]'}`}>{day}</Text>
                 </Pressable>
               );
             })}
@@ -646,9 +645,9 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
       <View className="mb-8">
         <View className="flex-row items-center mb-4">
           <FileText size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-bold tracking-wider ml-2 uppercase text-sm">Additional Information</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Additional Information</Text>
         </View>
-        
+
         <View className="mb-4">
           <Text className="text-white text-xs mb-2">Bio / About Trainer</Text>
           <TextInput
@@ -662,7 +661,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
             className="bg-[#161616] text-white px-4 py-3.5 rounded-xl border border-[#242424] min-h-[100px]"
           />
         </View>
-        
+
         <View className="mb-4">
           <Text className="text-white text-xs mb-2">Languages Spoken (comma separated)</Text>
           <TextInput
@@ -678,9 +677,9 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
       <View className="mb-6">
         <View className="flex-row items-center mb-4">
           <LockKey size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-bold tracking-wider ml-2 uppercase text-sm">Account Information</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Account Information</Text>
         </View>
-        
+
         <View className="flex-row items-start p-4 border border-dashed border-[#242424] rounded-xl bg-[#0A0A0A]">
           <Info size={18} color="#C3F400" style={{ marginTop: 2 }} />
           <Text className="text-[#888] text-xs ml-3 flex-1 leading-5">
@@ -706,6 +705,18 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
           </Text>
         </Pressable>
       </View>
+
+      <ActionSheet
+        visible={genderModalVisible}
+        onClose={() => setGenderModalVisible(false)}
+        title="Select Gender"
+        options={['Male', 'Female', 'Other']}
+        onSelect={(idx) => {
+          if (idx === 0) setGender('Male');
+          if (idx === 1) setGender('Female');
+          if (idx === 2) setGender('Other');
+        }}
+      />
     </View>
   );
 }

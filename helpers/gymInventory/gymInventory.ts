@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
+import { logGymInventoryHistory } from './inventoryHistory';
 
 export interface GymInventoryAttributes {
   gymInventoryId?: string;
@@ -29,6 +30,20 @@ export interface SaveGymInventoryParams {
   is_Active?: boolean;
 }
 
+export function getEquipmentImageUrl(imageNameOrUrl?: string | null): string | null {
+  if (!imageNameOrUrl) return null;
+  if (
+    imageNameOrUrl.startsWith('http://') ||
+    imageNameOrUrl.startsWith('https://') ||
+    imageNameOrUrl.startsWith('file://') ||
+    imageNameOrUrl.startsWith('content://')
+  ) {
+    return imageNameOrUrl;
+  }
+  const { data } = supabase.storage.from('equipment').getPublicUrl(imageNameOrUrl);
+  return data?.publicUrl || null;
+}
+
 export async function fetchGymInventories(gymId?: string) {
   let query = supabase
     .from('gym_inventories')
@@ -47,7 +62,10 @@ export async function fetchGymInventories(gymId?: string) {
     throw error;
   }
 
-  return data ?? [];
+  return (data ?? []).map((item) => ({
+    ...item,
+    image: getEquipmentImageUrl(item.image),
+  }));
 }
 
 export async function fetchGymInventoryById(gymInventoryId: string) {
@@ -63,23 +81,38 @@ export async function fetchGymInventoryById(gymInventoryId: string) {
     throw error;
   }
 
-  return data;
+  if (data) {
+    return {
+      ...data,
+      image: getEquipmentImageUrl(data.image),
+    };
+  }
+
+  return null;
 }
 
 export async function saveGymInventory(inventoryData: SaveGymInventoryParams) {
   const now = new Date().toISOString();
 
+  let imageFileName = inventoryData.image || null;
+  if (imageFileName && (imageFileName.startsWith('http://') || imageFileName.startsWith('https://'))) {
+    const urlParts = imageFileName.split('/');
+    imageFileName = urlParts[urlParts.length - 1];
+  }
+
   let isUpdate = false;
+  let oldQty = 0;
   if (inventoryData.gymInventoryId) {
     const { data } = await supabase
       .from('gym_inventories')
-      .select('gymInventoryId')
+      .select('gymInventoryId, quantity')
       .eq('gymInventoryId', inventoryData.gymInventoryId)
       .eq('is_deleted', false)
       .maybeSingle();
       
     if (data) {
       isUpdate = true;
+      oldQty = data.quantity || 0;
     }
   }
 
@@ -92,7 +125,7 @@ export async function saveGymInventory(inventoryData: SaveGymInventoryParams) {
         quantity: inventoryData.quantity,
         purchaseDate: inventoryData.purchaseDate,
         notes: inventoryData.notes,
-        image: inventoryData.image,
+        image: imageFileName,
         is_Active: inventoryData.is_Active ?? true,
         updatedAt: now,
       })
@@ -102,6 +135,23 @@ export async function saveGymInventory(inventoryData: SaveGymInventoryParams) {
 
     if (error) {
       throw error;
+    }
+
+    const diff = inventoryData.quantity - oldQty;
+    if (diff > 0) {
+      await logGymInventoryHistory({
+        gymInventoryId: inventoryData.gymInventoryId,
+        action: 'added',
+        quantity: diff,
+        createdBy: inventoryData.createdBy,
+      });
+    } else if (diff < 0) {
+      await logGymInventoryHistory({
+        gymInventoryId: inventoryData.gymInventoryId,
+        action: 'reduced',
+        quantity: Math.abs(diff),
+        createdBy: inventoryData.createdBy,
+      });
     }
 
     return data ? data[0] : null;
@@ -114,7 +164,7 @@ export async function saveGymInventory(inventoryData: SaveGymInventoryParams) {
       quantity: inventoryData.quantity,
       purchaseDate: inventoryData.purchaseDate,
       notes: inventoryData.notes || null,
-      image: inventoryData.image || null,
+      image: imageFileName,
       createdBy: inventoryData.createdBy,
       is_Active: inventoryData.is_Active ?? true,
       is_deleted: false,
@@ -128,6 +178,15 @@ export async function saveGymInventory(inventoryData: SaveGymInventoryParams) {
 
     if (error) {
       throw error;
+    }
+
+    if (data && data[0]) {
+      await logGymInventoryHistory({
+        gymInventoryId: generatedGymInventoryId,
+        action: 'added',
+        quantity: inventoryData.quantity,
+        createdBy: inventoryData.createdBy,
+      });
     }
 
     return data ? data[0] : null;
@@ -185,20 +244,17 @@ export async function uploadEquipmentImage(fileData: ArrayBuffer | Blob, fileNam
       throw error;
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from('equipment')
-      .getPublicUrl(data.path);
-
-    return publicUrlData.publicUrl;
+    return fileName;
   } catch (error) {
     throw error;
   }
 }
 
 export async function deleteEquipmentImage(imagePath: string) {
+  const fileName = imagePath.includes('/') ? imagePath.split('/').pop()! : imagePath;
   const { data, error } = await supabase.storage
     .from('equipment')
-    .remove([imagePath]);
+    .remove([fileName]);
 
   if (error) {
     console.error('[gymInventoryHelper] deleteEquipmentImage Error:', error);
@@ -207,3 +263,24 @@ export async function deleteEquipmentImage(imagePath: string) {
 
   return data;
 }
+
+export async function removeEquipmentImageFromDb(gymInventoryId: string) {
+  const now = new Date().toISOString();
+  
+  const { data, error } = await supabase
+    .from('gym_inventories')
+    .update({
+      image: null,
+      updatedAt: now,
+    })
+    .eq('gymInventoryId', gymInventoryId)
+    .select();
+
+  if (error) {
+    console.error('[gymInventoryHelper] removeEquipmentImageFromDb Error:', error);
+    throw error;
+  }
+
+  return data ? data[0] : null;
+}
+

@@ -6,6 +6,9 @@ import { Link, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, Pressable, StatusBar as RNStatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { queryClient, asyncStoragePersister } from '@/lib/react-query';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
 
 import { Icon } from '@/components/nativewindui/Icon';
 import { cn } from '@/lib/cn';
@@ -58,9 +61,13 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <UserProvider>
-        <RNStatusBar
-          barStyle="dark-content"
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{ persister: asyncStoragePersister }}
+      >
+        <UserProvider>
+          <RNStatusBar
+            barStyle="dark-content"
           backgroundColor="white"
           translucent={false}
         />
@@ -75,9 +82,11 @@ export default function RootLayout() {
               <Stack.Screen name="modal" options={MODAL_OPTIONS} />
             </Stack>
             <ToastProvider />
+            <OfflineIndicator />
           </NavThemeProvider>
         </GestureHandlerRootView>
       </UserProvider>
+      </PersistQueryClientProvider>
     </SafeAreaProvider>
   );
 }

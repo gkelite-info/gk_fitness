@@ -34,9 +34,10 @@ export function KeyboardDismissView({
   if (!scrollable) {
     return (
       <KeyboardAvoidingView
-        style={style}
+        style={[{ flex: 1 }, style]}
         behavior={behavior}
         keyboardVerticalOffset={keyboardVerticalOffset}
+        {...otherProps}
       >
         {children}
       </KeyboardAvoidingView>

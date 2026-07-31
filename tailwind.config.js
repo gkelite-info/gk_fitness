@@ -42,6 +42,7 @@ module.exports = {
           DEFAULT: withOpacity('card'),
           foreground: withOpacity('card-foreground'),
         },
+        neon: '#d4ff00',
       },
       fontFamily: {
         sans: ['Sora_400Regular'],

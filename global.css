@@ -23,6 +23,7 @@
     --border: 230 230 235;
     --input: 210 210 215;
     --ring: 230 230 235;
+    --neon: 212 255 0;
 
     --android-background: 255 255 255;
     --android-foreground: 0 0 0;
@@ -43,6 +44,7 @@
     --android-border: 215 217 228;
     --android-input: 210 210 215;
     --android-ring: 215 217 228;
+    --android-neon: 212 255 0;
   }
 
   .dark {
@@ -65,6 +67,7 @@
     --border: 40 40 42;
     --input: 55 55 57;
     --ring: 40 40 42;
+    --neon: 212 255 0;
 
     --android-background: 10 10 10;
     --android-foreground: 255 255 255;
@@ -85,5 +88,6 @@
     --android-border: 39 42 50;
     --android-input: 55 55 57;
     --android-ring: 39 42 50;
+    --android-neon: 212 255 0;
   }
 }

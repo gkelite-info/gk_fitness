@@ -108,11 +108,6 @@ export default function BookTrainerScreen() {
                 </View>
 
                 <View className="flex-row items-end justify-between mt-2">
-                  <View className="flex-row items-center">
-                    <Tag size={12} color="#D4FF00" weight="bold" />
-                    <Text className="text-[#D4FF00] text-sm font-bold ml-1">{trainer.price}</Text>
-                    <Text className="text-[#8E8E93] text-[10px] ml-1 mb-0.5">/ session</Text>
-                  </View>
                   
                   <Pressable className="flex-row items-center border border-[#445000] rounded-full px-3 py-1.5">
                     <Text className="text-[#D4FF00] text-[10px] font-bold mr-1">View Profile</Text>

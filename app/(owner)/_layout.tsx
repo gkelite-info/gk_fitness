@@ -39,6 +39,13 @@ export default function OwnerLayout() {
           title: 'Profile',
         }}
       />
+      <Tabs.Screen
+        name="membership"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
     </Tabs>
   );
 }

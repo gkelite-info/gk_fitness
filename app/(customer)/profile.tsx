@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GearSix, PencilSimple, Scales, Fire, CalendarBlank,
-  User, Target, BookOpen, Star, Bell, ShieldCheck, Question, SignOut, CaretRight
+  User, Target, BookOpen, Star, Bell, ShieldCheck, Question, SignOut, CaretRight, ClipboardText
 } from 'phosphor-react-native';
 
 import { mockProfileData } from '@/constants/mockProfileData';
@@ -112,6 +112,16 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
 
         <Text className="text-white text-lg font-bold mt-8 mb-4">Manage Your Account</Text>
         <View className="bg-[#1A1A1A] rounded-3xl overflow-hidden border border-[#27272A]">
+          {!loading && !onboardingData && (
+            <MenuItem 
+              icon={<ClipboardText size={20} color="#000000" weight="bold" />} 
+              title="Complete Onboarding" 
+              subtitle="Finish setting up your personalized plan" 
+              isNew={true} 
+              iconContainerStyle="bg-[#FF9F0A]" 
+              onPress={() => router.push('/(customer)/(onboarding)/step1')} 
+            />
+          )}
           <MenuItem icon={<User size={20} color="#D4FF00" />} title="Personal Information" subtitle="Update your personal details" onPress={() => router.push('/(customer)/edit-profile')} />
           <MenuItem icon={<Target size={20} color="#D4FF00" />} title="Goals & Preferences" subtitle="Manage your fitness goals and preferences" onPress={() => router.push('/(customer)/goals-preferences')} />
           {status === 'approved' ? (

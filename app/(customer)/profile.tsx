@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, ScrollView, Pressable, Image } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, ScrollView, Pressable, Image, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GearSix, PencilSimple, Scales, Fire, CalendarBlank,
@@ -10,16 +10,42 @@ import {
 
 import { mockProfileData } from '@/constants/mockProfileData';
 import { useTrainerStore } from '@/constants/trainerStore';
+import { useUser } from '@/context/UserContext';
+import { supabase } from '@/lib/supabase';
+import { toast } from '@/lib/toast';
+import { useCustomerProfile } from '@/hooks/useCustomerProfile';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function ProfileScreen() {
-  return <ProfileView data={mockProfileData} />;
+  const userContext = useUser();
+  const userId = userContext.userId;
+  const { data, isLoading } = useCustomerProfile(userId);
+
+  return <ProfileView 
+    data={mockProfileData} 
+    customerData={data?.customerData} 
+    onboardingData={data?.onboardingData} 
+    loading={isLoading} 
+    fallbackUser={userContext} 
+  />;
 }
 
-function ProfileView({ data }: { data: typeof mockProfileData }) {
+function ProfileView({ data, customerData, onboardingData, loading, fallbackUser }: { data: typeof mockProfileData, customerData: any, onboardingData: any, loading: boolean, fallbackUser: any }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { status, trainer } = useTrainerStore();
   
+  const displayFullName = customerData?.fullName || fallbackUser?.name || data.user.fullName;
+  const displayEmail = customerData?.email || fallbackUser?.email || data.user.email;
+  
+  //mock avatar 
+  const displayAvatar = data.user.avatarUrl;
+  
+  const displayWeight = onboardingData?.weight || data.progress.currentWeight;
+  const displayActiveSince = customerData?.createdAt 
+    ? new Date(customerData.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) 
+    : data.progress.activeSince;
+
   return (
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
       <View className="flex-row justify-between items-center px-5 py-4">
@@ -29,15 +55,24 @@ function ProfileView({ data }: { data: typeof mockProfileData }) {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
         <View className="bg-[#1A1A1A] rounded-3xl p-5 flex-row items-center mt-2 border border-[#27272A]">
           <Image 
-            source={{ uri: data.user.avatarUrl }} 
+            source={{ uri: displayAvatar }} 
             className="w-20 h-20 rounded-full bg-[#27272A]" 
           />
-          <View className="ml-4 flex-1">
-            <Text className="text-white text-xl font-bold">{data.user.fullName}</Text>
-            <Text className="text-[#A1A1AA] text-sm mt-1">{data.user.email}</Text>
+          <View className="ml-4 flex-1 justify-center">
+            {loading ? (
+              <>
+                <Skeleton className="w-40 h-6 mb-2" />
+                <Skeleton className="w-32 h-4" />
+              </>
+            ) : (
+              <>
+                <Text className="text-white text-xl font-bold">{displayFullName}</Text>
+                <Text className="text-[#A1A1AA] text-sm mt-1">{displayEmail}</Text>
+              </>
+            )}
             <Pressable 
               onPress={() => router.push('/(customer)/edit-profile')}
               className="mt-3 flex-row items-center border border-[#D4FF00] rounded-full px-4 py-1.5 self-start"
@@ -53,8 +88,8 @@ function ProfileView({ data }: { data: typeof mockProfileData }) {
           <ProgressCard 
             icon={<Scales size={24} color="#D4FF00" />}
             title="Current Weight"
-            value={data.progress.currentWeight}
-            subtitle={data.progress.weightChange}
+            value={displayWeight}
+            subtitle={onboardingData ? "Current" : data.progress.weightChange}
             subtitleColor="#D4FF00"
           />
           <ProgressCard 
@@ -69,8 +104,8 @@ function ProfileView({ data }: { data: typeof mockProfileData }) {
           <ProgressCard 
             icon={<CalendarBlank size={24} color="#D4FF00" />}
             title="Active Since"
-            value={data.progress.activeSince}
-            subtitle={data.progress.activeSinceSubtitle}
+            value={displayActiveSince}
+            subtitle={onboardingData ? "Joined" : data.progress.activeSinceSubtitle}
             subtitleColor="#D4FF00"
           />
         </View>

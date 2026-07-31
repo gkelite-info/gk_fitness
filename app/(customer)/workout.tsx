@@ -5,11 +5,90 @@ import { ArrowRightIcon, CaretRightIcon, ClockIcon, HandWavingIcon, Check, Bell,
 import { BlurView } from 'expo-blur';
 import { useNavigation, router } from 'expo-router';
 import { useUser } from '@/context/UserContext';
+import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
+import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
+import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 
 export default function CustomerWorkout() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const navigation = useNavigation();
-  const { name } = useUser();
+  const { name, userId } = useUser();
+
+  const [hasPlan, setHasPlan] = useState<boolean | null>(null);
+  const [isLoadingPlan, setIsLoadingPlan] = useState(true);
+  const [weeklyPlanDays, setWeeklyPlanDays] = useState<any[]>([]);
+  const [todayWorkout, setTodayWorkout] = useState<any>(null);
+  const [yesterdayWorkout, setYesterdayWorkout] = useState<any>(null);
+
+  useEffect(() => {
+    async function loadPlan() {
+      if (!userId) return;
+      setIsLoadingPlan(true);
+      try {
+        const plans = await fetchCustomerWorkoutPlans(userId);
+        const activePlan = plans.find((p: any) => p.isActive);
+
+        if (activePlan) {
+          const days = await fetchWorkoutPlanDays(activePlan.planId);
+
+          const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+          const currentDayIndex = new Date().getDay();
+          const todayIndex = currentDayIndex === 0 ? 6 : currentDayIndex - 1;
+          const todayString = dayOrder[todayIndex];
+
+          const formattedDays = dayOrder.map(dayStr => {
+            const dayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === dayStr);
+            const isToday = dayStr === todayString;
+
+            const dayIdx = dayOrder.indexOf(dayStr);
+            let status = 'rest';
+            if (isToday) {
+              status = 'active';
+            } else if (dayData && dayData.workoutType !== 'Rest') {
+              status = dayIdx < todayIndex ? 'completed' : 'pending';
+            }
+
+            return {
+              dayStr,
+              dayAbbr: dayStr.charAt(0).toUpperCase() + dayStr.slice(1, 3),
+              type: dayData && dayData.workoutType !== 'Rest' ? dayData.workoutType : 'Rest',
+              status: status,
+              duration: dayData?.durationMinutes || 45,
+              exercisesCount: 0,
+            };
+          });
+
+          setWeeklyPlanDays(formattedDays);
+          setTodayWorkout(formattedDays.find(d => d.dayStr === todayString));
+
+          const yesterdayIndex = todayIndex === 0 ? 6 : todayIndex - 1;
+          const yesterdayString = dayOrder[yesterdayIndex];
+          const yesterdayFormatted = formattedDays.find(d => d.dayStr === yesterdayString);
+
+          if (yesterdayFormatted && yesterdayFormatted.type !== 'Rest') {
+            const rawYesterdayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === yesterdayString);
+            if (rawYesterdayData) {
+              const exs = await fetchWorkoutPlanDayExercises(rawYesterdayData.planDayId);
+              yesterdayFormatted.exercisesCount = exs?.length || 0;
+            }
+          }
+          setYesterdayWorkout(yesterdayFormatted);
+
+          setHasPlan(true);
+        } else {
+          setHasPlan(false);
+          setYesterdayWorkout(null);
+        }
+      } catch (error) {
+        console.error('Error loading workout plan:', error);
+        setHasPlan(false);
+      } finally {
+        setIsLoadingPlan(false);
+      }
+    }
+
+    loadPlan();
+  }, [userId]);
 
   useEffect(() => {
     const unsubscribe = (navigation as any).addListener('tabPress', () => {
@@ -34,10 +113,10 @@ export default function CustomerWorkout() {
   ];
 
   const quikStartCards = [
-    { icon: "", text: "Full Body Workout" },
-    { icon: "", text: "Upper Body Workout" },
-    { icon: "", text: "Lower Body Workout" },
-    { icon: "", text: "Abs Workout" }
+    { image: require('../../assets/workout_fullbody.jpg'), text: "Full Body Workout" },
+    { image: require('../../assets/workout_upperbody.jpg'), text: "Upper Body Workout" },
+    { image: require('../../assets/workout_legs.jpg'), text: "Lower Body Workout" },
+    { image: require('../../assets/workout_abs.jpg'), text: "Abs Workout" }
   ];
 
   return (
@@ -86,146 +165,163 @@ export default function CustomerWorkout() {
           <EquipmentView />
         ) : !activeTab ? ( */}
         <>
-          {/* NEW NO WORKOUT PLAN UI */}
-          <View className="mt-5 w-full">
-            <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider mb-3 uppercase'>Weekly Workout Plan</Text>
-            <View className="w-full border border-[#27272A] bg-[#111111] rounded-3xl p-5 items-center pb-6">
-              <View className="bg-[#242A00] p-3 rounded-2xl mb-4 relative">
-                <CalendarIcon size={32} color="#C4EF00" weight="regular" />
-                <View className="absolute -bottom-1 -right-1 bg-black rounded-full border border-[#27272A]">
-                  <XCircle size={14} color="#8E8E8E" weight="fill" />
-                </View>
+          {isLoadingPlan ? (
+            <View className="mt-5 w-full">
+              <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider mb-3 uppercase'>Weekly Workout Plan</Text>
+              <View className="w-full border border-[#27272A] bg-[#111111] rounded-3xl p-5 items-center pb-6">
+                <View className="bg-[#242A00] rounded-2xl mb-4 h-14 w-14 animate-pulse" />
+                <View className="h-6 w-48 bg-[#27272A] rounded animate-pulse mb-3" />
+                <View className="h-4 w-64 bg-[#27272A] rounded animate-pulse mb-6" />
+                <View className="w-full h-16 bg-[#1A1A1A] border border-[#27272A] rounded-2xl animate-pulse mb-5" />
               </View>
+            </View>
+          ) : !hasPlan ? (
+            <View className="mt-5 w-full">
+              <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider mb-3 uppercase'>Weekly Workout Plan</Text>
+              <View className="w-full border border-[#27272A] bg-[#111111] rounded-3xl p-5 items-center pb-6">
+                <View className="bg-[#242A00] p-3 rounded-2xl mb-4 relative">
+                  <CalendarIcon size={32} color="#C4EF00" weight="regular" />
+                  <View className="absolute -bottom-1 -right-1 bg-black rounded-full border border-[#27272A]">
+                    <XCircle size={14} color="#8E8E8E" weight="fill" />
+                  </View>
+                </View>
 
-              <Text className="text-white text-2xl font-semibold mb-2">No Workout Plan Yet</Text>
-              <Text className="text-[#8E8E8E] text-center text-sm px-4 mb-6">
-                Create a personalized weekly plan based on your fitness goal.
-              </Text>
+                <Text className="text-white text-2xl font-semibold mb-2">No Workout Plan Yet</Text>
+                <Text className="text-[#8E8E8E] text-center text-sm px-4 mb-6">
+                  Create a personalized weekly plan based on your fitness goal.
+                </Text>
 
-              {/* <Pressable className="w-full bg-[#C4EF00] rounded-2xl p-4 flex-row items-center active:opacity-80">
-                  <View className="bg-black/10 p-3 rounded-xl mr-3">
-                    <Robot size={24} color="black" weight="regular" />
+                <Pressable
+                  onPress={() => router.push('/(customer)/workoutPlan' as any)}
+                  className="w-full bg-[#111111] border border-[#27272A] rounded-2xl p-4 flex-row items-center active:opacity-80 mb-5"
+                >
+                  <View className="bg-[#1A1A1A] p-3 rounded-xl mr-3 border border-[#27272A]">
+                    <CalendarPlus size={24} color="white" weight="regular" />
                   </View>
                   <View className="flex-1 justify-center">
-                    <Text className="text-black font-semibold text-lg mb-0.5">Generate with AI</Text>
-                    <Text className="text-black/70 text-xs pr-2">Creates a plan using your onboarding preferences.</Text>
+                    <Text className="text-white font-semibold text-lg mb-0.5">Build My Own Plan</Text>
+                    <Text className="text-[#8E8E8E] text-xs pr-2">Choose workouts and schedule them manually.</Text>
                   </View>
-                  <CaretRightIcon size={20} color="black" />
+                  <CaretRightIcon size={20} color="#8E8E8E" />
                 </Pressable>
 
-                <View className="w-full flex-row items-center my-5">
-                  <View className="flex-1 h-[1px] bg-[#27272A]" />
-                  <Text className="text-[#8E8E8E] text-xs font-semibold px-3">OR</Text>
-                  <View className="flex-1 h-[1px] bg-[#27272A]" />
-                </View> */}
-
-              <Pressable
-                onPress={() => router.push('/(customer)/workoutPlan' as any)}
-                className="w-full bg-[#111111] border border-[#27272A] rounded-2xl p-4 flex-row items-center active:opacity-80 mb-5"
-              >
-                <View className="bg-[#1A1A1A] p-3 rounded-xl mr-3 border border-[#27272A]">
-                  <CalendarPlus size={24} color="white" weight="regular" />
-                </View>
-                <View className="flex-1 justify-center">
-                  <Text className="text-white font-semibold text-lg mb-0.5">Build My Own Plan</Text>
-                  <Text className="text-[#8E8E8E] text-xs pr-2">Choose workouts and schedule them manually.</Text>
-                </View>
-                <CaretRightIcon size={20} color="#8E8E8E" />
-              </Pressable>
-
-              <View className="flex-row items-center justify-center gap-1.5">
-                <Sparkle size={14} color="#C4EF00" weight="fill" />
-                <Text className="text-[#8E8E8E] text-xs font-medium">Uses your onboarding preferences</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* OLD TODAY'S WORKOUT AND WEEKLY PLAN */}
-          {/* 
-            <View className='flex flex-row items-center justify-between gap-2 w-full mt-5 bg-[#191919] p-3 pb-0 rounded-xl'>
-              <View className='w-[50%] h-full gap-3'>
-                <Text className='text-[#C4EF00] text-xs'>TODAY'S WORKOUT</Text>
-                <Text className='text-xl text-white'>Back & Biceps</Text>
-                <View className='flex-row items-center gap-1'><ClockIcon size={15} color='#8E8E8E' /><Text className='text-[#8E8E8E] text-sm'>45 Mins</Text></View>
-                <View className='flex-row items-center gap-1'><View className='h-2 w-2 rounded-full bg-[#C4EF00]'></View><Text className='text-[#8E8E8E] text-sm'>6 Exercises</Text></View>
-                <View className='bg-[#C4EF00] p-2 flex-row items-center justify-center gap-3 w-fit rounded-lg'>
-                  <Text className='font-semibold'>Start Workout</Text><ArrowRightIcon size={17} />
+                <View className="flex-row items-center justify-center gap-1.5">
+                  <Sparkle size={14} color="#C4EF00" weight="fill" />
+                  <Text className="text-[#8E8E8E] text-xs font-medium">Uses your onboarding preferences</Text>
                 </View>
               </View>
-              <View className='w-[50%]'>
-                <Image
-                  source={require('../../assets/fit-1.png')}
-                  style={{ width: 180, height: 180 }}
-                  resizeMode='contain'
-                />
-              </View>
             </View>
+          ) : (
+            <>
+              <View className='flex flex-row items-center justify-between gap-2 w-full mt-5 bg-[#191919] p-3 pb-0 rounded-xl'>
+                <View className='w-[50%] h-full gap-3 pb-4'>
+                  <Text className='text-[#C4EF00] text-xs font-semibold tracking-wider'>TODAY'S WORKOUT</Text>
+                  <Text className='text-xl text-white font-semibold'>{todayWorkout?.type || 'Rest Day'}</Text>
 
-            <View className='mt-5 w-full flex-row items-center justify-between'>
-              <Text className='text-[#C4EF00] font-semibold'>WEEKLY WORKOUT PLAN</Text>
-              <Pressable
-                onPress={() => router.push('/(customer)/workoutPlan' as any)}
-                className='flex-row items-center gap-2 active:opacity-70'
-              >
-                <Text className='text-[#8E8E8E] text-sm'>View Full Plan</Text>
-                <CaretRightIcon size={15} color='#8E8E8E' />
-              </Pressable>
-            </View>
-
-            <View className='w-full mt-3'>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 12, paddingVertical: 4, paddingRight: 20 }}
-              >
-                {weeklyPlan.map((item, index) => {
-                  const isActive = item.status === 'active';
-                  const isRest = item.status === 'rest';
-
-                  return (
-                    <View
-                      key={index}
-                      className={`items-center justify-center rounded-xl p-2 w-[85px] gap-3 ${isActive ? 'bg-[#C4EF00]' : 'border border-[#27272A] bg-[#111111]'
-                        }`}
-                    >
-                      <Text className={`font-semibold text-base ${isActive ? 'text-black' : 'text-[#8E8E8E]'}`}>
-                        {item.day}
-                      </Text>
-
-                      {isActive && (
-                        <View className="h-8 w-8 rounded-full bg-black items-center justify-center">
-                          <Check size={16} color="white" weight="bold" />
-                        </View>
-                      )}
-
-                      {!isActive && !isRest && (
-                        <View className="h-8 w-8 rounded-full bg-[#242A00] items-center justify-center">
-                          <Check size={16} color="#C4EF00" weight="bold" />
-                        </View>
-                      )}
-
-                      {isRest && (
-                        <View className="h-8 w-8 rounded-full items-center justify-center">
-                          <Bell size={20} color="#8E8E8E" weight="fill" />
-                        </View>
-                      )}
-
-                      <Text className={`font-semibold text-base ${isActive ? 'text-black' : isRest ? 'text-[#8E8E8E]' : 'text-white'}`}>
-                        {item.type}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-              <View className="flex-row items-center justify-between mt-3">
-                <Text className="text-[#8E8E8E] text-xs font-medium mb-1">6 of 7 completed</Text>
-                <Text className="text-white text-xs font-semibold mb-1">85%</Text>
+                  {todayWorkout?.type !== 'Rest' && (
+                    <>
+                      <View className='flex-row items-center gap-1'>
+                        <ClockIcon size={15} color='#8E8E8E' />
+                        <Text className='text-[#8E8E8E] text-sm'>{todayWorkout?.duration} Mins</Text>
+                      </View>
+                      <View className='flex-row items-center gap-1'>
+                        <View className='h-2 w-2 rounded-full bg-[#C4EF00]'></View>
+                        <Text className='text-[#8E8E8E] text-sm'>Exercises</Text>
+                      </View>
+                      <View className='bg-[#C4EF00] p-2 px-3 mt-1 flex-row items-center justify-center gap-2 w-fit rounded-xl'>
+                        <Text className='font-semibold text-black'>Start Workout</Text>
+                        <ArrowRightIcon size={15} color='black' weight='bold' />
+                      </View>
+                    </>
+                  )}
+                  {todayWorkout?.type === 'Rest' && (
+                    <Text className='text-[#8E8E8E] text-sm mt-1'>Take it easy and recover for tomorrow.</Text>
+                  )}
+                </View>
+                <View className='w-[50%] items-end justify-end'>
+                  {todayWorkout?.type !== 'Rest' && (
+                    <Image
+                      source={require('../../assets/fit-1.png')}
+                      style={{ width: 160, height: 160, marginRight: -10, marginBottom: -10 }}
+                      resizeMode='contain'
+                    />
+                  )}
+                </View>
               </View>
-              <View className="w-full h-1.5 bg-[#27272A] rounded-full mt-1">
-                <View className="h-full bg-[#C4EF00] rounded-full" style={{ width: '85%' }} />
+
+              <View className='mt-8 w-full flex-row items-center justify-between'>
+                <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider uppercase'>Weekly Workout Plan</Text>
+                <Pressable
+                  onPress={() => router.push('/(customer)/weeklyWorkoutPlan' as any)}
+                  className='flex-row items-center gap-1 active:opacity-70'
+                >
+                  <Text className='text-[#8E8E8E] text-sm'>View Full Plan</Text>
+                  <CaretRightIcon size={14} color='#8E8E8E' />
+                </Pressable>
               </View>
-            </View>
-            */}
+
+              <View className='w-full mt-4'>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 12, paddingVertical: 4, paddingRight: 20 }}
+                >
+                  {weeklyPlanDays.map((item, index) => {
+                    const isActive = item.status === 'active';
+                    const isRest = item.type === 'Rest';
+                    const isCompleted = item.status === 'completed';
+
+                    return (
+                      <View
+                        key={index}
+                        className={`items-center justify-center rounded-2xl py-3 px-1 w-[85px] gap-2.5 ${isActive ? 'bg-[#C4EF00]' : 'border border-[#27272A] bg-[#111111]'
+                          }`}
+                      >
+                        <Text className={`font-semibold text-sm ${isActive ? 'text-black' : 'text-[#8E8E8E]'}`}>
+                          {item.dayAbbr}
+                        </Text>
+
+                        {isActive && (
+                          <View className="h-9 w-9 rounded-full bg-black items-center justify-center">
+                            <Check size={18} color="white" weight="bold" />
+                          </View>
+                        )}
+
+                        {isCompleted && !isRest && (
+                          <View className="h-9 w-9 rounded-full bg-[#242A00] items-center justify-center">
+                            <Check size={18} color="#C4EF00" weight="bold" />
+                          </View>
+                        )}
+
+                        {!isActive && !isCompleted && !isRest && (
+                          <View className="h-9 w-9 rounded-full bg-[#1A1A1A] items-center justify-center border border-[#27272A]">
+                            <Barbell size={18} color="#555" weight="fill" />
+                          </View>
+                        )}
+
+                        {isRest && !isActive && (
+                          <View className="h-9 w-9 rounded-full bg-[#1A1A1A] items-center justify-center border border-[#27272A]">
+                            <Bell size={18} color="#555" weight="fill" />
+                          </View>
+                        )}
+
+                        <Text className={`font-semibold text-[11px] uppercase ${isActive ? 'text-black' : isRest ? 'text-[#555]' : 'text-white'}`}>
+                          {item.type}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+                <View className="flex-row items-center justify-between mt-5">
+                  <Text className="text-[#8E8E8E] text-xs font-medium mb-1">Weekly Progress</Text>
+                  <Text className="text-white text-xs font-semibold mb-1">0%</Text>
+                </View>
+                <View className="w-full h-1.5 bg-[#27272A] rounded-full mt-1">
+                  <View className="h-full bg-[#C4EF00] rounded-full" style={{ width: '0%' }} />
+                </View>
+              </View>
+            </>
+          )}
 
           <View className='mt-5 w-full'>
             <Text className='text-white font-semibold'>QUICK START</Text>
@@ -233,8 +329,8 @@ export default function CustomerWorkout() {
               {quikStartCards.map((item, index) => {
                 return (
                   <View className='bg-[#111111] w-[48%] mb-3 p-3 flex-row items-center rounded-xl border border-[#1D1D1D]' key={index}>
-                    <View className='bg-[#C4EF00] h-9 w-9 rounded-xl items-center justify-center'>
-                      {item.icon}
+                    <View className='h-9 w-9 rounded-xl overflow-hidden bg-[#242424]'>
+                      <Image source={item.image} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     </View>
                     <View className='flex-1 px-2'>
                       <Text className='text-xs text-white font-semibold' numberOfLines={2}>{item.text}</Text>
@@ -285,26 +381,28 @@ export default function CustomerWorkout() {
             </View>
           </View>
 
-          <View className='bg-[#111111] border border-[#1D1D1D] mt-5 w-full p-4 rounded-lg flex flex-row justify-between'>
-            <View className='bg-yellow-00 flex-row items-center justify-start'>
-              <Image
-                source={require('../../assets/workout.png')}
-                style={{ height: 120, width: 120 }}
-                resizeMode='contain'
-              />
-              <View>
-                <Text className='text-white font-semibold'>Back & Biceps</Text>
-                <View className='flex-row justify-between gap-2'>
-                  <Text className='text-xs text-[#8E8E8E]'>42 mins</Text>
-                  <Text className='text-xs text-[#8E8E8E]'>6 Exercises</Text>
+          {yesterdayWorkout && yesterdayWorkout.type !== 'Rest' && (
+            <View className='bg-[#111111] border border-[#1D1D1D] mt-5 w-full p-4 rounded-lg flex flex-row justify-between'>
+              <View className='bg-yellow-00 flex-row items-center justify-start'>
+                <Image
+                  source={require('../../assets/workout.png')}
+                  style={{ height: 120, width: 120 }}
+                  resizeMode='contain'
+                />
+                <View>
+                  <Text className='text-white font-semibold'>{yesterdayWorkout.type}</Text>
+                  <View className='flex-row justify-between gap-2 mt-1'>
+                    <Text className='text-xs text-[#8E8E8E]'>{yesterdayWorkout.duration} mins</Text>
+                    <Text className='text-xs text-[#8E8E8E]'>{yesterdayWorkout.exercisesCount || 0} Exercises</Text>
+                  </View>
                 </View>
               </View>
+              <View className='bg-blue-00 flex flex-col items-center justify-center gap-1'>
+                <Text className='text-[#8E8E8E] text-sm'>Yesterday</Text>
+                <CheckCircleIcon size={25} weight='fill' color='#C4EF00' />
+              </View>
             </View>
-            <View className='bg-blue-00 flex flex-col items-center justify-center gap-1'>
-              <Text className='text-[#8E8E8E] text-sm'>Yesterday</Text>
-              <CheckCircleIcon size={25} weight='fill' color='#C4EF00' />
-            </View>
-          </View>
+          )}
         </>
         {/* ) : null} */}
       </View>

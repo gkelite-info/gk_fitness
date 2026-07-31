@@ -1,9 +1,38 @@
-import React from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, ScrollView, Pressable, Animated } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, CaretRight, Robot, Lightbulb, Calendar, Check } from 'phosphor-react-native';
 import { useWorkoutPlan } from './_layout';
+import { useUser } from '@/context/UserContext';
+import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
+import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
+import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
+
+const ShimmerBox = () => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ opacity }} className="w-[22%] aspect-square rounded-2xl bg-[#2A2A2A] mb-3 border border-[#333]" />
+  );
+};
 
 const DAYS_OF_WEEK = [
   'Monday',
@@ -16,19 +45,72 @@ const DAYS_OF_WEEK = [
 ];
 
 export default function BuildWeeklyPlan() {
-  const { selectedDays, setSelectedDays } = useWorkoutPlan();
+  const { selectedDays, setSelectedDays, setPlanDays } = useWorkoutPlan();
+  const { existingDays, targetDay } = useLocalSearchParams<{ existingDays?: string, targetDay?: string }>();
+  const { userId } = useUser();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const existingDaysList = React.useMemo(() => existingDays ? existingDays.split(',') : [], [existingDays]);
+
+  useEffect(() => {
+    if (existingDaysList.length > 0 && selectedDays.length === 0 && userId) {
+      setIsLoading(true);
+      const loadExistingData = async () => {
+        try {
+          const plans = await fetchCustomerWorkoutPlans(userId);
+          const activePlan = plans?.find(p => p.isActive);
+          if (activePlan) {
+            const days = await fetchWorkoutPlanDays(activePlan.planId);
+            const loadedPlanDays: any = {};
+            for (const d of days) {
+              if (d.workoutType && d.workoutType !== 'Rest') {
+                const exs = await fetchWorkoutPlanDayExercises(d.planDayId);
+                loadedPlanDays[d.dayOfWeek] = {
+                  dayOfWeek: d.dayOfWeek,
+                  workoutType: d.workoutType,
+                  durationMinutes: d.durationMinutes,
+                  exercises: exs
+                };
+              }
+            }
+            setPlanDays(loadedPlanDays);
+          }
+        } catch (error) {
+          console.error("Error loading existing plan data:", error);
+        } finally {
+          setIsLoading(false);
+        }
+
+        const map: any = { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday', SUN: 'Sunday' };
+        const targetFull = targetDay ? map[targetDay] : null;
+
+        const toSelect = [...existingDaysList];
+        setSelectedDays(toSelect);
+      };
+
+      loadExistingData();
+    }
+  }, [existingDaysList, targetDay, selectedDays.length, userId]);
 
   const handleToggleDay = (day: string) => {
-    if (selectedDays.includes(day)) {
-      setSelectedDays(selectedDays.filter(d => d !== day));
-    } else {
-      setSelectedDays([...selectedDays, day]);
+    try {
+      if (selectedDays.includes(day)) {
+        setSelectedDays(selectedDays.filter(d => d !== day));
+      } else {
+        setSelectedDays([...selectedDays, day]);
+      }
+    } catch (error) {
+      console.error('[BuildWeeklyPlan] handleToggleDay Error:', error);
     }
   };
 
   const handleContinue = () => {
-    if (selectedDays.length > 0) {
-      router.push('/(customer)/workoutPlan/assign-days');
+    try {
+      if (selectedDays.length > 0) {
+        router.push('/(customer)/workoutPlan/assign-days');
+      }
+    } catch (error) {
+      console.error('[BuildWeeklyPlan] handleContinue Error:', error);
     }
   };
 
@@ -62,31 +144,37 @@ export default function BuildWeeklyPlan() {
         </View>
 
         <View className="flex-row flex-wrap justify-between w-full mb-8">
-          {DAYS_OF_WEEK.map((day) => {
-            const isSelected = selectedDays.includes(day);
-            const shortName = day.substring(0, 3);
-            return (
-              <Pressable
-                key={day}
-                onPress={() => handleToggleDay(day)}
-                className={`w-[22%] aspect-square rounded-2xl items-center justify-center mb-3 border ${isSelected
-                  ? 'border-[#C4EF00] bg-[#1a1a1a]'
-                  : 'border-[#27272A] bg-[#111111]'
-                  }`}
-              >
-                <Text className={`font-semibold text-base mb-2 ${isSelected ? 'text-[#C4EF00]' : 'text-[#8E8E8E]'}`}>
-                  {shortName}
-                </Text>
+          {isLoading ? (
+            DAYS_OF_WEEK.map((day) => (
+              <ShimmerBox key={day} />
+            ))
+          ) : (
+            DAYS_OF_WEEK.map((day) => {
+              const isSelected = selectedDays.includes(day);
+              const isExisting = existingDaysList.includes(day);
+              const shortName = day.substring(0, 3);
+              return (
+                <Pressable
+                  key={day}
+                  onPress={() => {
+                    if (isExisting) return;
+                    handleToggleDay(day);
+                  }}
+                  className={`w-[22%] aspect-square rounded-2xl items-center justify-center mb-3 border ${isSelected ? 'border-[#C4EF00] bg-[#1a1a1a]' : 'border-[#27272A] bg-[#111111]'
+                    } ${isExisting ? 'opacity-50' : ''}`}
+                >
+                  <Text className={`font-semibold text-base mb-2 ${isSelected ? 'text-[#C4EF00]' : 'text-[#8E8E8E]'}`}>
+                    {shortName}
+                  </Text>
 
-                <View className={`w-6 h-6 rounded-full border items-center justify-center ${isSelected
-                  ? 'border-[#C4EF00] bg-[#C4EF00]'
-                  : 'border-[#27272A]'
-                  }`}>
-                  {isSelected && <Check size={12} color="#000" weight="bold" />}
-                </View>
-              </Pressable>
-            );
-          })}
+                  <View className={`w-6 h-6 rounded-full border items-center justify-center ${isSelected ? 'border-[#C4EF00] bg-[#C4EF00]' : 'border-[#27272A]'
+                    }`}>
+                    {isSelected && <Check size={12} color="#000" weight="bold" />}
+                  </View>
+                </Pressable>
+              );
+            })
+          )}
         </View>
 
         <View className="flex-row bg-[#161616] p-4 rounded-2xl border border-[#242424] items-center w-full mb-6">

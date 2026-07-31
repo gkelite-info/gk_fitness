@@ -86,7 +86,12 @@ export default function CustomerLayout() {
         name="workoutPlan"
         options={{
           href: null,
-          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="weeklyWorkoutPlan"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

@@ -44,7 +44,9 @@ export function CustomTabBar({
         {state.routes
           .filter((route) => {
             const { options } = descriptors[route.key];
-            const isHidden = options.tabBarItemStyle && (options.tabBarItemStyle as any).display === 'none';
+            const isHidden = 
+              (options.tabBarItemStyle && (options.tabBarItemStyle as any).display === 'none') || 
+              (options as any).href === null;
             return !isHidden;
           })
           .map((route) => {

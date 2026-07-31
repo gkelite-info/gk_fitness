@@ -24,23 +24,27 @@ export default function ChooseMuscleGroup() {
   const selectedType = currentPlan?.workoutType;
 
   const handleSelectMuscle = (type: typeof MUSCLE_GROUPS[number]['id']) => {
-    if (!day) return;
+    try {
+      if (!day) return;
 
-    // Save to the context
-    setPlanDays(prev => ({
-      ...prev,
-      [day]: {
-        dayOfWeek: day,
-        workoutType: type,
-        exercises: prev[day]?.exercises || []
-      }
-    }));
+      // Save to the context
+      setPlanDays(prev => ({
+        ...prev,
+        [day]: {
+          dayOfWeek: day,
+          workoutType: type,
+          exercises: prev[day]?.exercises || []
+        }
+      }));
 
-    // Move to customize screen
-    router.push({
-      pathname: '/(customer)/workoutPlan/customize-workout',
-      params: { day, muscleGroup: type }
-    });
+      // Move to customize screen
+      router.push({
+        pathname: '/(customer)/workoutPlan/customize-workout',
+        params: { day, muscleGroup: type }
+      });
+    } catch (error) {
+      console.error('[ChooseMuscleGroup] handleSelectMuscle Error:', error);
+    }
   };
 
   return (

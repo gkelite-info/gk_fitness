@@ -27,7 +27,7 @@ export default function CustomerHome() {
   return (
     <ScrollView
       className="flex-1 bg-[#0A0A0A]"
-      contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+      contentContainerStyle={{ padding: 20, paddingBottom: 140 }}
       showsVerticalScrollIndicator={false}
     >
       <View className="mb-5">

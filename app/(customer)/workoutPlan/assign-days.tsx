@@ -3,12 +3,11 @@ import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { router } from 'expo-router';
 import { ArrowLeft, CaretRight, Calendar, Lightbulb } from 'phosphor-react-native';
-import { useWorkoutPlan, WorkoutDay } from './_layout';
+import { useWorkoutPlan } from './_layout';
 
 export default function AssignDays() {
   const { selectedDays, planDays, setPlanDays } = useWorkoutPlan();
 
-  // If no days were selected, navigate back to selection
   useEffect(() => {
     if (selectedDays.length === 0) {
       router.replace('/(customer)/workoutPlan' as any);
@@ -16,48 +15,58 @@ export default function AssignDays() {
   }, [selectedDays]);
 
   const handleSelectDay = (day: string) => {
-    router.push({
-      pathname: '/(customer)/workoutPlan/choose-muscle' as any,
-      params: { day }
-    });
+    try {
+      router.push({
+        pathname: '/(customer)/workoutPlan/choose-muscle' as any,
+        params: { day }
+      });
+    } catch (error) {
+      console.error('[AssignDays] handleSelectDay Error:', error);
+    }
   };
 
   const handleGetSuggestions = () => {
-    // A clean heuristic to auto-assign splits based on the number of chosen days
-    const count = selectedDays.length;
-    const newPlanDays = { ...planDays };
-    type WorkoutTypeOption = "Chest" | "Back" | "Legs" | "Arms" | "Shoulders" | "Core" | "Cardio" | "Yoga" | "Rest";
+    try {
+      const count = selectedDays.length;
+      const newPlanDays = { ...planDays };
+      type WorkoutTypeOption = "Chest" | "Back" | "Legs" | "Arms" | "Shoulders" | "Core" | "Cardio" | "Yoga" | "Rest";
 
-    selectedDays.forEach((day, index) => {
-      let workoutType: WorkoutTypeOption = "Rest";
+      selectedDays.forEach((day, index) => {
+        let workoutType: WorkoutTypeOption = "Rest";
 
-      if (count === 3) {
-        // Push, Pull, Legs split
-        const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs"];
-        workoutType = split[index % 3];
-      } else if (count === 4) {
-        const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs", "Shoulders"];
-        workoutType = split[index % 4];
-      } else if (count === 5) {
-        const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs", "Arms", "Shoulders"];
-        workoutType = split[index % 5];
-      } else {
-        const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs", "Arms", "Shoulders", "Core", "Cardio"];
-        workoutType = split[index % split.length];
-      }
+        if (count === 3) {
+          const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs"];
+          workoutType = split[index % 3];
+        } else if (count === 4) {
+          const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs", "Shoulders"];
+          workoutType = split[index % 4];
+        } else if (count === 5) {
+          const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs", "Arms", "Shoulders"];
+          workoutType = split[index % 5];
+        } else {
+          const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs", "Arms", "Shoulders", "Core", "Cardio"];
+          workoutType = split[index % split.length];
+        }
 
-      newPlanDays[day] = {
-        dayOfWeek: day,
-        workoutType,
-        exercises: newPlanDays[day]?.exercises || []
-      };
-    });
+        newPlanDays[day] = {
+          dayOfWeek: day,
+          workoutType,
+          exercises: newPlanDays[day]?.exercises || []
+        };
+      });
 
-    setPlanDays(newPlanDays);
+      setPlanDays(newPlanDays);
+    } catch (error) {
+      console.error('[AssignDays] handleGetSuggestions Error:', error);
+    }
   };
 
   const handleNext = () => {
-    router.push('/(customer)/workoutPlan/review-plan' as any);
+    try {
+      router.push('/(customer)/workoutPlan/review-plan' as any);
+    } catch (error) {
+      console.error('[AssignDays] handleNext Error:', error);
+    }
   };
 
   return (

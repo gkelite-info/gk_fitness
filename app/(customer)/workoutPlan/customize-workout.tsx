@@ -134,40 +134,52 @@ export default function CustomizeWorkout() {
   };
 
   const handleToggleRecommended = (name: string, category: string, reps: string) => {
-    if (isChecked(name)) {
-      setSelectedExercises(selectedExercises.filter(ex => ex.exerciseName !== name));
-    } else {
-      setSelectedExercises([
-        ...selectedExercises,
-        { exerciseName: name, category, reps, order: selectedExercises.length }
-      ]);
+    try {
+      if (isChecked(name)) {
+        setSelectedExercises(selectedExercises.filter(ex => ex.exerciseName !== name));
+      } else {
+        setSelectedExercises([
+          ...selectedExercises,
+          { exerciseName: name, category, reps, order: selectedExercises.length }
+        ]);
+      }
+    } catch (error) {
+      console.error('[CustomizeWorkout] handleToggleRecommended Error:', error);
     }
   };
 
   const handleAddOther = (name: string, category: string, reps: string) => {
-    if (!isChecked(name)) {
-      setSelectedExercises([
-        ...selectedExercises,
-        { exerciseName: name, category, reps, order: selectedExercises.length }
-      ]);
+    try {
+      if (!isChecked(name)) {
+        setSelectedExercises([
+          ...selectedExercises,
+          { exerciseName: name, category, reps, order: selectedExercises.length }
+        ]);
+      }
+    } catch (error) {
+      console.error('[CustomizeWorkout] handleAddOther Error:', error);
     }
   };
 
   const handleSaveWorkout = () => {
-    if (!day) return;
+    try {
+      if (!day) return;
 
-    setPlanDays(prev => ({
-      ...prev,
-      [day]: {
-        dayOfWeek: day,
-        workoutType: muscleGroup as any,
-        exercises: selectedExercises,
-        // Set standard 45-minute duration, or dynamic based on exercise count
-        durationMinutes: selectedExercises.length * 8 + 5
-      }
-    }));
+      setPlanDays(prev => ({
+        ...prev,
+        [day]: {
+          dayOfWeek: day,
+          workoutType: muscleGroup as any,
+          exercises: selectedExercises,
+          // Set standard 45-minute duration, or dynamic based on exercise count
+          durationMinutes: selectedExercises.length * 8 + 5
+        }
+      }));
 
-    router.push('/(customer)/workoutPlan/assign-days');
+      router.push('/(customer)/workoutPlan/assign-days');
+    } catch (error) {
+      console.error('[CustomizeWorkout] handleSaveWorkout Error:', error);
+    }
   };
 
   const exerciseImage = IMAGE_MAP[muscleGroup || ''] || IMAGE_MAP.default;

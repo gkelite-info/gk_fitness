@@ -27,6 +27,13 @@ export function CustomTabBar({
   const insets = useSafeAreaInsets();
   const bottomInset = insets.bottom || 0;
 
+  const focusedRoute = state.routes[state.index];
+  const isFocusedOnboarding = focusedRoute.name === '(onboarding)' || focusedRoute.name.includes('step');
+
+  if (isFocusedOnboarding) {
+    return null;
+  }
+
   return (
     <View
       className="absolute bottom-0 bg-transparent"

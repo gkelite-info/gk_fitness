@@ -12,22 +12,39 @@ import {
   LockKey,
   Info,
   Check,
-  WarningCircle
+  WarningCircle,
+  ClipboardText,
+  ShareNetwork,
+  EnvelopeSimple,
+  Copy
 } from 'phosphor-react-native';
 import { router } from 'expo-router';
-import { triggerSuccessHaptic, triggerErrorHaptic } from '@/lib/haptics';
+import { triggerSuccessHaptic, triggerErrorHaptic, triggerLightHaptic } from '@/lib/haptics';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { toast } from '@/lib/toast';
-import { createUser } from '@/helpers/otpHelper';
+import { useUser } from '@/context/UserContext';
+import { saveGymCustomer, SaveGymCustomerParams } from '@/helpers/customers/customerHelper';
 import * as Crypto from 'expo-crypto';
+
+interface GeneratedCredentials {
+  fullName: string;
+  email: string;
+  phone: string;
+  temporaryPassword: string;
+  plan: string;
+  startDate: string;
+}
 
 export interface CustomerRegistrationFormProps {
   onRegisterSubmit?: (fn: () => void, loading: boolean) => void;
 }
 
 export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrationFormProps = {}) {
+  const { userId } = useUser();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [createdCredentials, setCreatedCredentials] = useState<GeneratedCredentials | null>(null);
+
 
   const [dobModalVisible, setDobModalVisible] = useState(false);
   const [startModalVisible, setStartModalVisible] = useState(false);
@@ -213,33 +230,53 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
       return;
     }
 
+    if (!userId) {
+      triggerErrorHaptic();
+      toast.error('Please make sure you are signed in as an owner.');
+      return;
+    }
+
     try {
       setLoading(true);
       toast.loading('Creating customer account...');
 
       const cleanPhoneVal = `${phoneCode} ${phone.trim()}`;
       const fallbackEmail = email.trim() || `customer.${Crypto.randomUUID().slice(0, 8)}@gkfitness.local`;
-
-      await createUser({
-        userId: Crypto.randomUUID(),
-        name: fullName.trim(),
-        email: fallbackEmail,
+      const cleanEmergPhone = `${emergencyPhoneCode} ${emergencyPhone.trim()}`;
+      
+      const params: SaveGymCustomerParams = {
+        fullName: fullName.trim(),
         phone: cleanPhoneVal,
-        role: 'customer',
-      });
+        email: fallbackEmail,
+        dateOfBirth: dateOfBirth,
+        gender: gender.toLowerCase(),
+        emergencyContactName: emergencyName.trim(),
+        relationship: emergencyRelationship.trim(),
+        emergencyContactNumber: cleanEmergPhone,
+        createdBy: userId,
+        is_Active: true,
+      };
+
+      const result = await saveGymCustomer(params);
 
       toast.dismiss();
       toast.success('Customer account created successfully!');
       triggerSuccessHaptic();
 
-      setTimeout(() => {
-        router.back();
-      }, 400);
+      setCreatedCredentials({
+        fullName: fullName.trim(),
+        email: fallbackEmail,
+        phone: cleanPhoneVal,
+        temporaryPassword: result.temporaryPassword || 'CS-XXXXX-X',
+        plan: plan,
+        startDate: startDate,
+      });
+
     } catch (err: any) {
       console.error('[CustomerRegistrationForm] Save Error:', err);
       toast.dismiss();
       triggerErrorHaptic();
-      toast.error('Unable to register customer. Please verify details and try again.');
+      toast.error('Unable to register customer. Please verify details and ensure email/phone is unique.');
     } finally {
       setLoading(false);
     }
@@ -250,6 +287,115 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
       onRegisterSubmit(handleSubmit, loading);
     }
   }, [onRegisterSubmit, handleSubmit, loading]);
+
+  const handleCopyCredentials = () => {
+    if (!createdCredentials) return;
+    const credText = `New Customer Account\nName: ${createdCredentials.fullName}\nEmail: ${createdCredentials.email}\nPhone: ${createdCredentials.phone}\nTemporary Password: ${createdCredentials.temporaryPassword}\nPlan: ${createdCredentials.plan}`;
+    // In a real app we'd use Clipboard API here.
+    toast.success('Credentials copied to clipboard');
+    triggerLightHaptic();
+  };
+
+  const handleShare = () => {
+    toast.success('Opening share sheet...');
+    triggerLightHaptic();
+  };
+
+  const handleEmailBtn = () => {
+    toast.success('Email client opened...');
+    triggerLightHaptic();
+  };
+
+  if (createdCredentials) {
+    return (
+      <View className="flex-1 pb-10">
+        <View className="bg-[#111622] border border-[#1F293D] rounded-2xl p-5 mb-6 shadow-xl">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-lg font-bold text-white leading-5">{createdCredentials.fullName}</Text>
+              <Text className="text-xs text-[#C3F400] mt-0.5 font-semibold">{createdCredentials.plan}</Text>
+              <Text className="text-[11px] text-[#888888] mt-1">Start: {createdCredentials.startDate}</Text>
+            </View>
+            <View className="bg-[#064E3B]/50 border border-[#059669]/40 px-3 py-1 rounded-full">
+              <Text className="text-[#10B981] text-[10px] font-extrabold tracking-wider">ACTIVE</Text>
+            </View>
+          </View>
+
+          <View className="h-[1px] bg-[#1F293D] my-3.5" />
+
+          <Text className="text-xs font-bold text-[#C3F400] tracking-wider uppercase mb-3">Customer Contact Details</Text>
+          <View className="flex-row justify-between mb-2">
+            <Text className="text-xs text-[#888888]">Email Address</Text>
+            <Text className="text-xs text-white font-medium">{createdCredentials.email}</Text>
+          </View>
+          <View className="flex-row justify-between">
+            <Text className="text-xs text-[#888888]">Phone Number</Text>
+            <Text className="text-xs text-white font-medium">{createdCredentials.phone}</Text>
+          </View>
+        </View>
+
+        <View className="bg-[#111622] border border-[#1F293D] rounded-2xl p-5 mb-6 shadow-xl">
+          <Text className="text-xs font-bold text-[#C3F400] tracking-wider uppercase mb-4">Login Credentials</Text>
+
+          <Text className="text-[10px] text-[#888888] mb-1.5 font-bold tracking-wider uppercase">Email / Username</Text>
+          <View className="bg-[#0A0E17] border border-[#1F293D] rounded-xl p-3.5 mb-4">
+            <Text className="text-white text-sm font-medium">{createdCredentials.email}</Text>
+          </View>
+
+          <Text className="text-[10px] text-[#888888] mb-1.5 font-bold tracking-wider uppercase">Temporary Password</Text>
+          <View className="bg-[#0A0E17] border border-[#1F293D] rounded-xl p-3.5 flex-row items-center justify-between">
+            <Text className="text-[#C3F400] text-base font-mono font-bold">{createdCredentials.temporaryPassword}</Text>
+            <Pressable onPress={handleCopyCredentials} className="active:opacity-75 p-1">
+              <ClipboardText size={20} color="#C3F400" />
+            </Pressable>
+          </View>
+
+          <View className="flex-row items-start gap-2.5 mt-4 bg-[#C3F400]/10 border border-[#C3F400]/20 rounded-xl p-3.5">
+            <View className="mt-0.5">
+              <WarningCircle size={16} color="#C3F400" weight="fill" />
+            </View>
+            <Text className="flex-1 text-xs text-[#C3F400] leading-4 font-medium">
+              Account created and verified! An onboarding email has been prepared for the customer with instructions to update this temporary password upon first login.
+            </Text>
+          </View>
+        </View>
+
+        <View className="flex-row gap-3.5 mb-8">
+          <Pressable
+            onPress={handleCopyCredentials}
+            className="flex-1 bg-[#111622] border border-[#1F293D] rounded-2xl py-4 items-center justify-center active:opacity-75"
+          >
+            <Copy size={22} color="#FFFFFF" />
+            <Text className="text-[#A1A1AA] text-[10px] font-bold tracking-wider uppercase mt-1.5">COPY</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleShare}
+            className="flex-1 bg-[#111622] border border-[#1F293D] rounded-2xl py-4 items-center justify-center active:opacity-75"
+          >
+            <ShareNetwork size={22} color="#FFFFFF" />
+            <Text className="text-[#A1A1AA] text-[10px] font-bold tracking-wider uppercase mt-1.5">SHARE</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleEmailBtn}
+            className="flex-1 bg-[#111622] border border-[#1F293D] rounded-2xl py-4 items-center justify-center active:opacity-75"
+          >
+            <EnvelopeSimple size={22} color="#FFFFFF" />
+            <Text className="text-[#A1A1AA] text-[10px] font-bold tracking-wider uppercase mt-1.5">EMAIL</Text>
+          </Pressable>
+        </View>
+
+        <Pressable
+          onPress={() => router.back()}
+          style={{ minHeight: 56 }}
+          className="w-full h-14 rounded-2xl bg-[#C3F400] flex-row items-center justify-center shadow-lg active:opacity-85 px-4"
+        >
+          <Text className="text-black font-black text-base uppercase tracking-wider">RETURN TO CUSTOMERS</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View>

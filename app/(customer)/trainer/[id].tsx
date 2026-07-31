@@ -66,16 +66,7 @@ export default function TrainerProfileScreen() {
         </View>
 
         <View className="flex-row mx-4 mb-8 bg-[#1A1A1A] rounded-2xl p-4 border border-[#27272A] justify-between items-center">
-          <View className="flex-row items-center flex-1">
-            <View className="bg-[#2D3319] p-2 rounded-lg mr-3">
-              <Tag size={20} color="#D4FF00" weight="fill" />
-            </View>
-            <View className="flex-row items-baseline">
-              <Text className="text-[#D4FF00] text-xl font-bold">₹{trainer.price}</Text>
-              <Text className="text-[#8E8E93] text-xs ml-1">/ session</Text>
-            </View>
-          </View>
-          <View className="w-[1px] h-8 bg-[#27272A] mx-4" />
+      
           <View className="flex-row items-center flex-1 justify-center">
             <Users size={16} color="#8E8E93" weight="regular" style={{ marginRight: 8 }} />
             <View>

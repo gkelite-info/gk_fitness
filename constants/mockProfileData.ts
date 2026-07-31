@@ -5,7 +5,7 @@ export const mockProfileData = {
     phone: '+91 98765 43210',
     gender: 'Male',
     dateOfBirth: '15 May 1996',
-    avatarUrl: 'https://i.pravatar.cc/150?img=13',
+    avatarUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTf_AV7kMeQfsrrdA6ZJEZCgHHojouRbV5SQtSmkcuGao5WuOeE-LcBDuLl&s=10',
   },
   progress: {
     currentWeight: '72.5 kg',

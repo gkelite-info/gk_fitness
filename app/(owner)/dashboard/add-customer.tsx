@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import {
   CaretLeft,
   Users,
@@ -14,7 +14,15 @@ import { CustomerRegistrationForm } from '@/components/forms/CustomerRegistratio
 import { TrainerRegistrationForm } from '@/components/forms/TrainerRegistrationForm';
 
 export default function AddCustomerScreen() {
-  const [activeTab, setActiveTab] = useState('customers');
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const [activeTab, setActiveTab] = useState(tab || 'customers');
+  
+  useEffect(() => {
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, [tab]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitFnRef = useRef<(() => void) | null>(null);
   const isTrainer = activeTab === 'trainers';

@@ -1,6 +1,10 @@
-import React from 'react';
-import { View, ScrollView, Image, Pressable } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ScrollView, Image, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
+import { useUser } from '@/context/UserContext';
+import { useRouter } from 'expo-router';
+import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Star,
   QrCode,
@@ -13,7 +17,61 @@ import {
   Lightning,
 } from 'phosphor-react-native';
 
+export const sessionSkippedUsers = new Set<string>();
+
 export default function CustomerHome() {
+  const { name, userId } = useUser();
+  const firstName = name?.split(' ')[0] || 'Customer';
+  const router = useRouter();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    async function checkOnboarding() {
+      if (!userId) {
+        setChecking(false);
+        return;
+      }
+      
+      if (sessionSkippedUsers.has(userId)) {
+        setChecking(false);
+        return;
+      }
+      
+      try {
+        const skipped = await AsyncStorage.getItem(`@onboarding_skipped_${userId}`);
+        if (skipped === 'true') {
+          setChecking(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('customer_onboarding')
+          .select('onboardingId')
+          .eq('createdBy', userId)
+          .maybeSingle();
+
+        if (!data) {
+          router.replace('/(customer)/(onboarding)/step1');
+        } else {
+          setChecking(false);
+        }
+      } catch (err) {
+        console.error('Error checking onboarding status', err);
+        setChecking(false);
+      }
+    }
+
+    checkOnboarding();
+  }, [userId, router]);
+
+  if (checking) {
+    return (
+      <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
+        <ActivityIndicator size="large" color="#d4ff00" />
+      </View>
+    );
+  }
+
   const weeklyBars = [
     { day: 'M', height: 45, active: true },
     { day: 'T', height: 75, active: true },
@@ -32,7 +90,7 @@ export default function CustomerHome() {
     >
       <View className="mb-5">
         <Text className="text-[#8E8E93] text-sm font-medium">
-          Hi Emon 👋
+          Hi {firstName} 👋
         </Text>
         <Text className="text-white text-lg font-semibold mt-1">
           Every rep. Every step. <Text className="text-[#D7FF00]">Better than yesterday.</Text>
@@ -199,25 +257,6 @@ export default function CustomerHome() {
             ))}
           </View>
         </View>
-      </View>
-
-      <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 flex-row items-center justify-between">
-        <View className="flex-1 pr-2">
-          <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider mb-1">
-            UPCOMING SESSION
-          </Text>
-          <Text className="text-white text-base font-semibold mb-1">
-            Personal Training
-          </Text>
-          <Text className="text-[#8E8E93] text-xs font-medium">
-            Today • 7:00 PM
-          </Text>
-        </View>
-
-        <Pressable className="bg-[#1D1D1D] border border-[#2A2A2A] rounded-full py-2.5 px-4 flex-row items-center gap-1.5 active:opacity-80">
-          <Text className="text-white text-xs font-semibold">View Schedule</Text>
-          <ArrowRight size={14} color="#D7FF00" />
-        </Pressable>
       </View>
     </ScrollView>
   );

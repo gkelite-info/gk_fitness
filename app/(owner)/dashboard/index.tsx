@@ -93,7 +93,7 @@ export default function OwnerDashboardScreen() {
   return (
     <ScrollView
       className="flex-1 bg-[#0A0A0A]"
-      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 100 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 140 }}
       showsVerticalScrollIndicator={false}
       scrollEventThrottle={16}
       refreshControl={

@@ -55,6 +55,7 @@ export default function CustomerWorkout() {
               status: status,
               duration: dayData?.durationMinutes || 45,
               exercisesCount: 0,
+              dayId: dayData?.planDayId,
             };
           });
 
@@ -213,42 +214,6 @@ export default function CustomerWorkout() {
             </View>
           ) : (
             <>
-              <View className='flex flex-row items-center justify-between gap-2 w-full mt-5 bg-[#191919] p-3 pb-0 rounded-xl'>
-                <View className='w-[50%] h-full gap-3 pb-4'>
-                  <Text className='text-[#C4EF00] text-xs font-semibold tracking-wider'>TODAY'S WORKOUT</Text>
-                  <Text className='text-xl text-white font-semibold'>{todayWorkout?.type || 'Rest Day'}</Text>
-
-                  {todayWorkout?.type !== 'Rest' && (
-                    <>
-                      <View className='flex-row items-center gap-1'>
-                        <ClockIcon size={15} color='#8E8E8E' />
-                        <Text className='text-[#8E8E8E] text-sm'>{todayWorkout?.duration} Mins</Text>
-                      </View>
-                      <View className='flex-row items-center gap-1'>
-                        <View className='h-2 w-2 rounded-full bg-[#C4EF00]'></View>
-                        <Text className='text-[#8E8E8E] text-sm'>Exercises</Text>
-                      </View>
-                      <View className='bg-[#C4EF00] p-2 px-3 mt-1 flex-row items-center justify-center gap-2 w-fit rounded-xl'>
-                        <Text className='font-semibold text-black'>Start Workout</Text>
-                        <ArrowRightIcon size={15} color='black' weight='bold' />
-                      </View>
-                    </>
-                  )}
-                  {todayWorkout?.type === 'Rest' && (
-                    <Text className='text-[#8E8E8E] text-sm mt-1'>Take it easy and recover for tomorrow.</Text>
-                  )}
-                </View>
-                <View className='w-[50%] items-end justify-end'>
-                  {todayWorkout?.type !== 'Rest' && (
-                    <Image
-                      source={require('../../assets/fit-1.png')}
-                      style={{ width: 160, height: 160, marginRight: -10, marginBottom: -10 }}
-                      resizeMode='contain'
-                    />
-                  )}
-                </View>
-              </View>
-
               <View className='mt-8 w-full flex-row items-center justify-between'>
                 <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider uppercase'>Weekly Workout Plan</Text>
                 <Pressable
@@ -320,11 +285,62 @@ export default function CustomerWorkout() {
                   <View className="h-full bg-[#C4EF00] rounded-full" style={{ width: '0%' }} />
                 </View>
               </View>
+
+              <View className='flex flex-row items-center justify-between gap-2 w-full mt-5 bg-[#191919] p-3 pb-0 rounded-xl'>
+                <View className='w-[50%] h-full gap-3 pb-4'>
+                  <Text className='text-[#C4EF00] text-xs font-semibold tracking-wider'>TODAY'S WORKOUT</Text>
+                  <Text className='text-xl text-white font-semibold'>{todayWorkout?.type || 'Rest Day'}</Text>
+
+                  {todayWorkout?.type !== 'Rest' && (
+                    <>
+                      <View className='flex-row items-center gap-1'>
+                        <ClockIcon size={15} color='#8E8E8E' />
+                        <Text className='text-[#8E8E8E] text-sm'>{todayWorkout?.duration} Mins</Text>
+                      </View>
+                      <View className='flex-row items-center gap-1'>
+                        <View className='h-2 w-2 rounded-full bg-[#C4EF00]'></View>
+                        <Text className='text-[#8E8E8E] text-sm'>Exercises</Text>
+                      </View>
+                      <Pressable
+                        onPress={() => {
+                          if (todayWorkout?.dayId) {
+                            router.push({
+                              pathname: '/(customer)/workout-countdown',
+                              params: {
+                                dayId: todayWorkout.dayId,
+                                workoutType: todayWorkout.type,
+                                duration: todayWorkout.duration,
+                                exercisesCount: todayWorkout.exercisesCount || 5
+                              }
+                            });
+                          }
+                        }}
+                        className='bg-[#C4EF00] p-2 px-3 mt-1 flex-row items-center justify-center gap-2 w-fit rounded-xl'
+                      >
+                        <Text className='font-semibold text-black'>Start Workout</Text>
+                        <ArrowRightIcon size={15} color='black' weight='bold' />
+                      </Pressable>
+                    </>
+                  )}
+                  {todayWorkout?.type === 'Rest' && (
+                    <Text className='text-[#8E8E8E] text-sm mt-1'>Take it easy and recover for tomorrow.</Text>
+                  )}
+                </View>
+                <View className='w-[50%] items-end justify-end'>
+                  {todayWorkout?.type !== 'Rest' && (
+                    <Image
+                      source={require('../../assets/fit-1.png')}
+                      style={{ width: 160, height: 160, marginRight: -10, marginBottom: -10 }}
+                      resizeMode='contain'
+                    />
+                  )}
+                </View>
+              </View>
             </>
           )}
 
           <View className='mt-5 w-full'>
-            <Text className='text-white font-semibold'>QUICK START</Text>
+            <Text className='text-white font-semibold'>EXPLORE MORE</Text>
             <View className='mt-3 flex-wrap flex-row justify-between'>
               {quikStartCards.map((item, index) => {
                 return (

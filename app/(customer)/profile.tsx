@@ -1,20 +1,34 @@
+<<<<<<< Updated upstream
 import React, { useState, useCallback } from 'react';
 import { View, ScrollView, Pressable, Image, ActivityIndicator } from 'react-native';
+=======
+import React, { useState } from 'react';
+import { View, ScrollView, Pressable, Image, Alert } from 'react-native';
+>>>>>>> Stashed changes
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GearSix, PencilSimple, Scales, Fire, CalendarBlank,
+<<<<<<< Updated upstream
   User, Target, BookOpen, Star, Bell, ShieldCheck, Question, SignOut, CaretRight, ClipboardText
+=======
+  User, Target, BookOpen, Star, Bell, ShieldCheck, Question, SignOut, CaretRight, WarningCircle
+>>>>>>> Stashed changes
 } from 'phosphor-react-native';
 
 import { mockProfileData } from '@/constants/mockProfileData';
 import { useTrainerStore } from '@/constants/trainerStore';
+<<<<<<< Updated upstream
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 import { useCustomerProfile } from '@/hooks/useCustomerProfile';
 import { Skeleton } from '@/components/ui/Skeleton';
+=======
+import { supabase } from '@/lib/supabase';
+import ConfirmModal from '@/components/ConfirmModal';
+>>>>>>> Stashed changes
 
 export default function ProfileScreen() {
   const userContext = useUser();
@@ -34,6 +48,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { status, trainer } = useTrainerStore();
+<<<<<<< Updated upstream
   
   const displayFullName = customerData?.fullName || fallbackUser?.name || data.user.fullName;
   const displayEmail = customerData?.email || fallbackUser?.email || data.user.email;
@@ -45,11 +60,33 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
   const displayActiveSince = customerData?.createdAt 
     ? new Date(customerData.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) 
     : data.progress.activeSince;
+=======
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    setModalVisible(false);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        Alert.alert('Sign Out Error', error.message);
+      } else {
+        router.replace('/auth/otp-auth');
+      }
+    } catch (err: any) {
+      Alert.alert('Sign Out Error', err.message || 'An error occurred.');
+    } finally {
+      setSigningOut(false);
+    }
+  };
+>>>>>>> Stashed changes
 
   return (
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
       <View className="flex-row justify-between items-center px-5 py-4">
-        <Text className="text-white text-3xl font-bold">Profile</Text>
+        <Text className="text-white text-3xl font-semibold">Profile</Text>
         <Pressable>
           <GearSix size={28} color="#FFFFFF" weight="regular" />
         </Pressable>
@@ -57,6 +94,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
         <View className="bg-[#1A1A1A] rounded-3xl p-5 flex-row items-center mt-2 border border-[#27272A]">
+<<<<<<< Updated upstream
           <Image 
             source={{ uri: displayAvatar }} 
             className="w-20 h-20 rounded-full bg-[#27272A]" 
@@ -74,6 +112,16 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
               </>
             )}
             <Pressable 
+=======
+          <Image
+            source={{ uri: data.user.avatarUrl }}
+            className="w-20 h-20 rounded-full bg-[#27272A]"
+          />
+          <View className="ml-4 flex-1">
+            <Text className="text-white text-xl font-semibold">{data.user.fullName}</Text>
+            <Text className="text-[#A1A1AA] text-sm mt-1">{data.user.email}</Text>
+            <Pressable
+>>>>>>> Stashed changes
               onPress={() => router.push('/(customer)/edit-profile')}
               className="mt-3 flex-row items-center border border-[#D4FF00] rounded-full px-4 py-1.5 self-start"
             >
@@ -83,16 +131,16 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
           </View>
         </View>
 
-        <Text className="text-white text-lg font-bold mt-8 mb-4">Your Progress Overview</Text>
+        <Text className="text-white text-lg font-semibold mt-8 mb-4">Your Progress Overview</Text>
         <View className="flex-row justify-between gap-x-3">
-          <ProgressCard 
+          <ProgressCard
             icon={<Scales size={24} color="#D4FF00" />}
             title="Current Weight"
             value={displayWeight}
             subtitle={onboardingData ? "Current" : data.progress.weightChange}
             subtitleColor="#D4FF00"
           />
-          <ProgressCard 
+          <ProgressCard
             icon={<Fire size={24} color="#D4FF00" />}
             title="Workout Streak"
             value={data.progress.workoutStreak}
@@ -101,7 +149,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
             valueHighlight={data.progress.workoutStreak}
             valueSuffix={data.progress.streakSuffix}
           />
-          <ProgressCard 
+          <ProgressCard
             icon={<CalendarBlank size={24} color="#D4FF00" />}
             title="Active Since"
             value={displayActiveSince}
@@ -110,7 +158,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
           />
         </View>
 
-        <Text className="text-white text-lg font-bold mt-8 mb-4">Manage Your Account</Text>
+        <Text className="text-white text-lg font-semibold mt-8 mb-4">Manage Your Account</Text>
         <View className="bg-[#1A1A1A] rounded-3xl overflow-hidden border border-[#27272A]">
           {!loading && !onboardingData && (
             <MenuItem 
@@ -125,38 +173,60 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
           <MenuItem icon={<User size={20} color="#D4FF00" />} title="Personal Information" subtitle="Update your personal details" onPress={() => router.push('/(customer)/edit-profile')} />
           <MenuItem icon={<Target size={20} color="#D4FF00" />} title="Goals & Preferences" subtitle="Manage your fitness goals and preferences" onPress={() => router.push('/(customer)/goals-preferences')} />
           {status === 'approved' ? (
-            <MenuItem 
-              icon={<User size={20} color="#000000" weight="bold" />} 
-              title="My Trainer" 
-              subtitle={`Training with ${trainer.name}`} 
-              iconContainerStyle="bg-[#D4FF00]" 
-              onPress={() => router.push('/(customer)/my-trainer')} 
+            <MenuItem
+              icon={<User size={20} color="#000000" weight="bold" />}
+              title="My Trainer"
+              subtitle={`Training with ${trainer.name}`}
+              iconContainerStyle="bg-[#D4FF00]"
+              onPress={() => router.push('/(customer)/my-trainer')}
             />
           ) : status === 'pending' ? (
-            <MenuItem 
-              icon={<BookOpen size={20} color="#000000" weight="bold" />} 
-              title="Trainer Request" 
-              subtitle="Request pending gym approval" 
-              iconContainerStyle="bg-[#FF9F0A]" 
-              onPress={() => router.push('/(customer)/trainer-request')} 
+            <MenuItem
+              icon={<BookOpen size={20} color="#000000" weight="bold" />}
+              title="Trainer Request"
+              subtitle="Request pending gym approval"
+              iconContainerStyle="bg-[#FF9F0A]"
+              onPress={() => router.push('/(customer)/trainer-request')}
             />
           ) : (
-            <MenuItem 
-              icon={<BookOpen size={20} color="#000000" weight="bold" />} 
-              title="Book Trainer" 
-              subtitle="Find and book a personal trainer" 
-              isNew={true} 
-              iconContainerStyle="bg-[#D4FF00]" 
-              onPress={() => router.push('/(customer)/book-trainer')} 
+            <MenuItem
+              icon={<BookOpen size={20} color="#000000" weight="bold" />}
+              title="Book Trainer"
+              subtitle="Find and book a personal trainer"
+              isNew={true}
+              iconContainerStyle="bg-[#D4FF00]"
+              onPress={() => router.push('/(customer)/book-trainer')}
             />
           )}
           <MenuItem icon={<Star size={20} color="#D4FF00" />} title="Membership & Subscription" subtitle="Manage your plan and billing" />
           <MenuItem icon={<Bell size={20} color="#D4FF00" />} title="Notifications" subtitle="Manage your notification preferences" />
           <MenuItem icon={<ShieldCheck size={20} color="#D4FF00" />} title="Privacy & Security" subtitle="Manage your privacy and security settings" />
           <MenuItem icon={<Question size={20} color="#D4FF00" />} title="Help & Support" subtitle="Get help and support" />
-          <MenuItem icon={<SignOut size={20} color="#FF3B30" />} title="Logout" subtitle="Sign out from your account" titleColor="#FF3B30" hideBorder={true} iconContainerStyle="bg-[#2A1515]" />
+          <MenuItem
+            icon={<SignOut size={20} color="#FF3B30" />}
+            title={signingOut ? "Signing Out..." : "Logout"}
+            subtitle="Sign out from your account"
+            titleColor="#FF3B30"
+            hideBorder={true}
+            iconContainerStyle="bg-[#2A1515]"
+            onPress={() => setModalVisible(true)}
+          />
         </View>
       </ScrollView>
+
+      <ConfirmModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onConfirm={handleSignOut}
+        title="Sign Out"
+        description="Are you sure you want to sign out of your account? You will need to log in again to access the platform."
+        confirmText="Sign Out"
+        icon={
+          <View className="w-12 h-12 rounded-full bg-red-500/10 items-center justify-center border border-red-500/20">
+            <WarningCircle size={28} color="#EF4444" weight="fill" />
+          </View>
+        }
+      />
     </View>
   );
 }
@@ -170,11 +240,11 @@ function ProgressCard({ icon, title, value, subtitle, subtitleColor, valueHighli
       <Text className="text-[#8E8E93] text-[10px] mb-2 font-medium">{title}</Text>
       {valueHighlight ? (
         <View className="flex-row items-baseline mb-2">
-          <Text className="text-white text-xl font-bold">{valueHighlight}</Text>
+          <Text className="text-white text-xl font-semibold">{valueHighlight}</Text>
           <Text className="text-white text-[10px] ml-1">{valueSuffix}</Text>
         </View>
       ) : (
-        <Text className="text-white text-base font-bold text-center mb-2">{value}</Text>
+        <Text className="text-white text-base font-semibold text-center mb-2">{value}</Text>
       )}
       <Text className="text-[9px] text-center font-semibold" style={{ color: subtitleColor }}>{subtitle}</Text>
     </View>
@@ -193,7 +263,7 @@ function MenuItem({ icon, title, subtitle, isNew, hideBorder, titleColor, onPres
       </View>
       {isNew && (
         <View className="bg-[#D4FF00] rounded-full px-2 py-0.5 mr-3">
-          <Text className="text-black text-[10px] font-bold">New</Text>
+          <Text className="text-black text-[10px] font-semibold">New</Text>
         </View>
       )}
       <CaretRight size={16} color="#48484A" weight="bold" />

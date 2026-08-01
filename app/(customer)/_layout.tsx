@@ -95,9 +95,13 @@ export default function CustomerLayout() {
         }}
       />
       <Tabs.Screen
-<<<<<<< Updated upstream
         name="(onboarding)"
-=======
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
         name="workout-countdown"
         options={{
           href: null,
@@ -113,7 +117,6 @@ export default function CustomerLayout() {
       />
       <Tabs.Screen
         name="exercise-detail"
->>>>>>> Stashed changes
         options={{
           href: null,
           headerShown: false,

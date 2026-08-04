@@ -125,7 +125,7 @@ export function DatePickerModal({
           <View className="flex-row items-center justify-between pb-4 border-b border-[#242424] mb-4">
             <View className="flex-row items-center gap-2">
               <CalendarBlank size={22} color="#C3F400" weight="fill" />
-              <Text className="text-white text-lg font-bold">{title}</Text>
+              <Text className="text-white text-lg font-semibold">{title}</Text>
             </View>
             <Pressable
               onPress={() => {
@@ -148,7 +148,7 @@ export function DatePickerModal({
                 }}
                 className={`px-3 py-1.5 rounded-lg border ${viewMode === 'month' ? 'bg-[#C3F400] border-[#C3F400]' : 'border-[#383838] bg-[#1A1A1A]'}`}
               >
-                <Text className={`font-bold text-sm ${viewMode === 'month' ? 'text-black' : 'text-white'}`}>
+                <Text className={`font-semibold text-sm ${viewMode === 'month' ? 'text-black' : 'text-white'}`}>
                   {MONTH_NAMES[month]}
                 </Text>
               </Pressable>
@@ -160,7 +160,7 @@ export function DatePickerModal({
                 }}
                 className={`px-3 py-1.5 rounded-lg border ${viewMode === 'year' ? 'bg-[#C3F400] border-[#C3F400]' : 'border-[#383838] bg-[#1A1A1A]'}`}
               >
-                <Text className={`font-bold text-sm ${viewMode === 'year' ? 'text-black' : 'text-white'}`}>
+                <Text className={`font-semibold text-sm ${viewMode === 'year' ? 'text-black' : 'text-white'}`}>
                   {year}
                 </Text>
               </Pressable>
@@ -190,7 +190,7 @@ export function DatePickerModal({
               {/* Day Headers */}
               <View className="flex-row justify-around mb-2">
                 {SHORT_DAYS.map((dayName) => (
-                  <Text key={dayName} className="text-[#A1A1AA] font-bold text-xs w-10 text-center uppercase">
+                  <Text key={dayName} className="text-[#A1A1AA] font-semibold text-xs w-10 text-center uppercase">
                     {dayName}
                   </Text>
                 ))}
@@ -214,11 +214,10 @@ export function DatePickerModal({
                       className="w-[14.28%] h-11 items-center justify-center p-0.5"
                     >
                       <View
-                        className={`w-9 h-9 rounded-full items-center justify-center ${
-                          isSelected ? 'bg-[#C3F400]' : 'bg-transparent'
-                        }`}
+                        className={`w-9 h-9 rounded-full items-center justify-center ${isSelected ? 'bg-[#C3F400]' : 'bg-transparent'
+                          }`}
                       >
-                        <Text className={`font-semibold text-sm ${isSelected ? 'text-black font-bold' : 'text-white'}`}>
+                        <Text className={`font-semibold text-sm ${isSelected ? 'text-black font-semibold' : 'text-white'}`}>
                           {dayNum}
                         </Text>
                       </View>
@@ -238,11 +237,10 @@ export function DatePickerModal({
                   <Pressable
                     key={mName}
                     onPress={() => handleMonthSelect(index)}
-                    className={`w-[31%] py-3 rounded-xl border items-center justify-center ${
-                      isSelected ? 'bg-[#C3F400] border-[#C3F400]' : 'bg-[#202020] border-[#2C2C2C]'
-                    }`}
+                    className={`w-[31%] py-3 rounded-xl border items-center justify-center ${isSelected ? 'bg-[#C3F400] border-[#C3F400]' : 'bg-[#202020] border-[#2C2C2C]'
+                      }`}
                   >
-                    <Text className={`text-xs font-bold ${isSelected ? 'text-black' : 'text-white'}`}>
+                    <Text className={`text-xs font-semibold ${isSelected ? 'text-black' : 'text-white'}`}>
                       {mName.slice(0, 3).toUpperCase()}
                     </Text>
                   </Pressable>
@@ -261,11 +259,10 @@ export function DatePickerModal({
                     <Pressable
                       key={y}
                       onPress={() => handleYearSelect(y)}
-                      className={`w-[31%] py-2.5 rounded-xl border items-center justify-center ${
-                        isSelected ? 'bg-[#C3F400] border-[#C3F400]' : 'bg-[#202020] border-[#2C2C2C]'
-                      }`}
+                      className={`w-[31%] py-2.5 rounded-xl border items-center justify-center ${isSelected ? 'bg-[#C3F400] border-[#C3F400]' : 'bg-[#202020] border-[#2C2C2C]'
+                        }`}
                     >
-                      <Text className={`text-xs font-bold ${isSelected ? 'text-black' : 'text-white'}`}>
+                      <Text className={`text-xs font-semibold ${isSelected ? 'text-black' : 'text-white'}`}>
                         {y}
                       </Text>
                     </Pressable>
@@ -322,14 +319,14 @@ export function DatePickerModal({
               }}
               className="flex-1 py-3.5 rounded-full border border-[#333] bg-[#222] items-center justify-center active:opacity-75"
             >
-              <Text className="text-white font-bold text-xs uppercase tracking-wider">Cancel</Text>
+              <Text className="text-white font-semibold text-xs uppercase tracking-wider">Cancel</Text>
             </Pressable>
             <Pressable
               onPress={handleConfirm}
               className="flex-[1.5] py-3.5 rounded-full bg-[#C3F400] flex-row items-center justify-center gap-1.5 active:opacity-85"
             >
               <Check size={18} color="#000" weight="bold" />
-              <Text className="text-black font-bold text-xs uppercase tracking-wider">Confirm Date</Text>
+              <Text className="text-black font-semibold text-xs uppercase tracking-wider">Confirm Date</Text>
             </Pressable>
           </View>
         </View>

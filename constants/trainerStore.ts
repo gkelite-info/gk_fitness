@@ -25,7 +25,7 @@ let state: TrainerState = {
   simulationTimeLeft: 15,
 };
 
-let simulationInterval: NodeJS.Timeout | null = null;
+let simulationInterval: ReturnType<typeof setInterval> | null = null;
 type Listener = (state: TrainerState) => void;
 const listeners = new Set<Listener>();
 

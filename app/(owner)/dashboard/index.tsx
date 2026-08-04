@@ -149,6 +149,8 @@ export default function OwnerDashboardScreen() {
                   router.push('/(owner)/dashboard/customers');
                 } else if (action.id === 'manage-inventory') {
                   router.push('/(owner)/dashboard/manage-inventory');
+                } else if (action.id === 'record-payment') {
+                  router.push('/(owner)/dashboard/payments');
                 }
               }}
               className="w-[48.5%] bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 items-center justify-center active:opacity-80 min-h-[120px]">

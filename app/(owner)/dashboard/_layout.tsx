@@ -9,6 +9,7 @@ export default function DashboardLayout() {
       <Stack.Screen name="add-trainer" />
       <Stack.Screen name="manage-inventory" />
       <Stack.Screen name="add-equipment" />
+      <Stack.Screen name="payments" />
     </Stack>
   );
 }

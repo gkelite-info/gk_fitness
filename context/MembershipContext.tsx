@@ -1,56 +1,85 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { 
-  MembershipPlan, 
-  DraftPlan, 
-  MOCK_OWNER_PLANS, 
-  MOCK_SELECTABLE_FEATURES 
-} from '@/constants/membershipMockData';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { MembershipPlan, DraftPlan, MembershipFeatureItem } from '@/constants/membershipMockData';
+import { useUser } from '@/context/UserContext';
+import { getOwnerGymId } from '@/helpers/trainers/trainerHelper';
+import { fetchFeatures, fetchGymMembershipPlans, upsertMembershipPlans, deleteMembershipPlan } from '@/helpers/membershipHelper';
 
 interface MembershipContextType {
   plans: MembershipPlan[];
   drafts: DraftPlan[];
+  availableFeatures: MembershipFeatureItem[];
   isEditingExisting: boolean;
+  isLoading: boolean;
   setDrafts: React.Dispatch<React.SetStateAction<DraftPlan[]>>;
   startCreateFlow: () => void;
   startEditFlow: (plan: MembershipPlan) => void;
-  publishPlans: (finalDrafts: DraftPlan[]) => void;
+  publishPlans: (finalDrafts: DraftPlan[]) => Promise<void>;
+  deletePlan: (planId: string) => Promise<void>;
+  refreshPlans: () => Promise<void>;
 }
 
 const MembershipContext = createContext<MembershipContextType | undefined>(undefined);
 
 export function MembershipProvider({ children }: { children: ReactNode }) {
-  const [plans, setPlans] = useState<MembershipPlan[]>(MOCK_OWNER_PLANS);
+  const { userId } = useUser();
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [drafts, setDrafts] = useState<DraftPlan[]>([]);
+  const [availableFeatures, setAvailableFeatures] = useState<MembershipFeatureItem[]>([]);
   const [isEditingExisting, setIsEditingExisting] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [gymId, setGymId] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    if (!userId) return;
+    setIsLoading(true);
+    try {
+      const gId = await getOwnerGymId(userId);
+      setGymId(gId);
+      
+      if (gId) {
+        const [fetchedFeatures, fetchedPlans] = await Promise.all([
+          fetchFeatures(),
+          fetchGymMembershipPlans(gId)
+        ]);
+        setAvailableFeatures(fetchedFeatures);
+        setPlans(fetchedPlans);
+      }
+    } catch (error) {
+      console.error("Failed to load membership data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const startCreateFlow = () => {
     setIsEditingExisting(false);
-    // Initialize with one default customizable draft plan
     const newPlanId = `plan-${Date.now()}`;
+    const defaultFeatureIds = availableFeatures.slice(0, 4).map(f => f.id);
     setDrafts([{
       id: newPlanId,
       planNumberLabel: 'PLAN 1',
       name: 'Standard Membership',
       price: '999',
       duration: '1 Month',
-      selectedFeatureIds: MOCK_SELECTABLE_FEATURES.map(f => f.id),
+      selectedFeatureIds: defaultFeatureIds,
       isExpanded: true,
     }]);
   };
 
   const startEditFlow = (plan: MembershipPlan) => {
     setIsEditingExisting(true);
-    // Map existing plan features back to feature IDs for interactive toggling
-    const mappedIds = MOCK_SELECTABLE_FEATURES
+    const mappedIds = availableFeatures
       .filter(f => plan.features.some(feat => 
         f.title.toLowerCase().includes(feat.toLowerCase()) || 
-        feat.toLowerCase().includes(f.title.toLowerCase()) ||
-        (feat.includes('All Premium') && f.id !== 'ai_recommendations')
+        feat.toLowerCase().includes(f.title.toLowerCase())
       ))
       .map(f => f.id);
     
-    // If no explicit match, default to checked standard features
-    const activeFeatureIds = mappedIds.length > 0 ? mappedIds : MOCK_SELECTABLE_FEATURES.slice(0, 5).map(f => f.id);
+    const activeFeatureIds = mappedIds.length > 0 ? mappedIds : availableFeatures.slice(0, 5).map(f => f.id);
 
     setDrafts([{
       id: plan.id,
@@ -63,56 +92,44 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
     }]);
   };
 
-  const publishPlans = (finalDrafts: DraftPlan[]) => {
-    setPlans(prevPlans => {
-      let updatedPlans = [...prevPlans];
-      
-      finalDrafts.forEach(draft => {
-        const mappedFeatures = MOCK_SELECTABLE_FEATURES
-          .filter(f => draft.selectedFeatureIds.includes(f.id))
-          .map(f => f.title);
+  const publishPlans = async (finalDrafts: DraftPlan[]) => {
+    if (!gymId || !userId) return;
+    setIsLoading(true);
+    try {
+      await upsertMembershipPlans(gymId, userId, finalDrafts);
+      await loadData();
+    } catch (error) {
+      console.error("Failed to publish plans:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        const priceNum = draft.price || '0';
-        const formattedPrice = priceNum.startsWith('₹') ? priceNum : `₹${priceNum}`;
-
-        const nextPlanObject: MembershipPlan = {
-          id: draft.id,
-          name: draft.name || 'Membership Plan',
-          priceFormatted: formattedPrice,
-          priceNumeric: priceNum.replace(/[^0-9]/g, ''),
-          billingCycle: draft.duration.toLowerCase().includes('year') ? '/ Year' : '/ Month',
-          duration: draft.duration || '1 Month',
-          membersCount: 0,
-          membersText: '0 Members',
-          features: mappedFeatures.length > 0 ? mappedFeatures : ['Standard Gym Access', 'Attendance'],
-          twoColumnLayout: mappedFeatures.length >= 6,
-        };
-
-        const existingIndex = updatedPlans.findIndex(p => p.id === draft.id);
-        if (existingIndex !== -1) {
-          // Keep existing members count and update details in place
-          nextPlanObject.membersCount = updatedPlans[existingIndex].membersCount;
-          nextPlanObject.membersText = updatedPlans[existingIndex].membersText;
-          updatedPlans[existingIndex] = nextPlanObject;
-        } else {
-          // Append newly created membership plan to the live list
-          updatedPlans.push(nextPlanObject);
-        }
-      });
-
-      return updatedPlans;
-    });
+  const deletePlan = async (planId: string) => {
+    setIsLoading(true);
+    try {
+      await deleteMembershipPlan(planId);
+      await loadData();
+    } catch (error) {
+      console.error("Failed to delete plan:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <MembershipContext.Provider value={{
       plans,
       drafts,
+      availableFeatures,
       isEditingExisting,
+      isLoading,
       setDrafts,
       startCreateFlow,
       startEditFlow,
       publishPlans,
+      deletePlan,
+      refreshPlans: loadData,
     }}>
       {children}
     </MembershipContext.Provider>

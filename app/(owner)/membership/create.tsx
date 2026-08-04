@@ -12,7 +12,6 @@ import {
 } from 'phosphor-react-native';
 import { 
   MOCK_DRAFT_PLANS, 
-  MOCK_SELECTABLE_FEATURES, 
   DraftPlan, 
   MembershipFeatureItem 
 } from '@/constants/membershipMockData';
@@ -33,8 +32,8 @@ export interface CreateMembershipPlansViewProps {
 }
 
 export function CreateMembershipPlansView({
-  initialPlans = [MOCK_DRAFT_PLANS[0]], // Defaults to Plan 1 as in Screenshot 3
-  availableFeatures = MOCK_SELECTABLE_FEATURES,
+  initialPlans = [MOCK_DRAFT_PLANS[0]],
+  availableFeatures = [],
   headerTitle = 'Create Membership Plans',
   pageHeading = 'Name your membership plans',
   pageSubtitle = 'Give a name to each plan.\nYou can change the names later anytime.',
@@ -85,7 +84,6 @@ export function CreateMembershipPlansView({
 
   return (
     <View className="flex-1 bg-[#09090B]" style={{ paddingTop: insets.top }}>
-      {/* Header Bar */}
       <View className="flex-row items-center px-5 py-3 mb-2">
         <Pressable 
           onPress={onBack} 
@@ -101,18 +99,15 @@ export function CreateMembershipPlansView({
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 160 + (insets.bottom || 0) }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Page Heading & Subtitle */}
         <Text className="text-2xl font-black text-white mb-2 leading-8">{pageHeading}</Text>
         <Text className="text-xs font-medium text-[#8E8E93] leading-5 mb-7">{pageSubtitle}</Text>
 
-        {/* Dynamic Plan List */}
         {drafts.map((plan) => {
           const isFocused = plan.id === activePlanId;
           const charCount = plan.name.length;
 
           return (
             <View key={plan.id} className="mb-4">
-              {/* Plan Input Card */}
               <Pressable 
                 onPress={() => setActivePlanId(plan.id)}
                 className={`bg-[#141418] rounded-[24px] p-5 mb-5 border ${isFocused ? 'border-[#D4FF00]' : 'border-[#222226]'}`}
@@ -140,12 +135,10 @@ export function CreateMembershipPlansView({
                 </Text>
               </Pressable>
 
-              {/* Clean INCLUDED FEATURES Section Label (No extra circles) */}
               <Text className="text-xs font-extrabold text-[#94949C] tracking-widest uppercase px-1 mb-3.5">
                 INCLUDED FEATURES
               </Text>
 
-              {/* Selectable Feature Checkbox Cards */}
               <View className="mt-1">
                 {availableFeatures.map((feature) => {
                   const isChecked = plan.selectedFeatureIds.includes(feature.id);
@@ -172,7 +165,6 @@ export function CreateMembershipPlansView({
           );
         })}
 
-        {/* Smaller Circular Plus (+) Button below features */}
         <View className="items-end my-2 mr-1">
           <Pressable
             onPress={handleAddPlan}
@@ -183,7 +175,6 @@ export function CreateMembershipPlansView({
           </Pressable>
         </View>
 
-        {/* Info Callout Card */}
         <View className="bg-[#141418] border border-[#202025] rounded-[24px] p-4 flex-row items-start mt-4 mb-6">
           <View className="mr-3.5 mt-0.5">
             <Info size={22} color="#D4FF00" weight="fill" />
@@ -194,10 +185,9 @@ export function CreateMembershipPlansView({
           </View>
         </View>
 
-        {/* Continue Button */}
         <Pressable
           onPress={() => onContinue?.(drafts)}
-          className="bg-[#D4FF00] rounded-2xl h-14 flex-row items-center justify-center active:opacity-90 shadow-lg min-h-[56px] mb-4"
+          className="bg-[#D4FF00] rounded-2xl h-14 flex-row items-center justify-center active:opacity-90 min-h-[56px] mb-4"
         >
           <Text className="text-black font-extrabold text-base tracking-wide mr-2">
             {continueButtonText}
@@ -211,7 +201,7 @@ export function CreateMembershipPlansView({
 
 export default function CreateMembershipPlansScreen() {
   const router = useRouter();
-  const { drafts, setDrafts } = useMembership();
+  const { drafts, setDrafts, availableFeatures } = useMembership();
 
   const handleContinue = (updatedDrafts: DraftPlan[]) => {
     setDrafts(updatedDrafts);
@@ -221,6 +211,7 @@ export default function CreateMembershipPlansScreen() {
   return (
     <CreateMembershipPlansView 
       initialPlans={drafts.length > 0 ? drafts : [MOCK_DRAFT_PLANS[0]]}
+      availableFeatures={availableFeatures}
       onContinue={handleContinue}
       onBack={() => router.back()} 
     />

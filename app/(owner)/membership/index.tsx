@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +28,7 @@ export interface MembershipPlansListViewProps {
   onEdit?: (plan: MembershipPlan) => void;
   onCreate?: () => void;
   onBack?: () => void;
+  isLoading?: boolean;
 }
 
 export function MembershipPlansListView({
@@ -41,6 +42,7 @@ export function MembershipPlansListView({
   onEdit,
   onCreate,
   onBack,
+  isLoading = false,
 }: MembershipPlansListViewProps) {
   const insets = useSafeAreaInsets();
   const hasPlans = plans && plans.length > 0;
@@ -57,7 +59,6 @@ export function MembershipPlansListView({
 
   return (
     <View className="flex-1 bg-[#09090B]" style={{ paddingTop: insets.top }}>
-      {/* Top Title Banner */}
       <View className="flex-row items-center justify-center py-4 bg-black border-b border-[#1A1A1E] px-4 relative">
         {onBack && (
           <Pressable 
@@ -75,19 +76,21 @@ export function MembershipPlansListView({
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Section Header */}
         <Text className="text-base font-bold text-white mb-1">{sectionTitle}</Text>
         <Text className="text-xs text-[#8E8E93] mb-6">{sectionSubtitle}</Text>
 
-        {hasPlans ? (
-          /* Existing Plans List (Screenshot 1) */
+        {isLoading ? (
+          <View className="flex-1 items-center justify-center mt-20">
+            <ActivityIndicator size="large" color="#D4FF00" />
+            <Text className="text-[#8E8E93] mt-4">Loading plans...</Text>
+          </View>
+        ) : hasPlans ? (
           <View>
             {plans.map((plan) => (
               <View 
                 key={plan.id} 
-                className="bg-[#121215] border border-[#202024] rounded-[28px] p-5 mb-5 shadow-sm"
+                className="bg-[#121215] border border-[#202024] rounded-[28px] p-5 mb-5"
               >
-                {/* Header: Crown Icon & Price */}
                 <View className="flex-row items-center">
                   <View className="w-12 h-12 rounded-full bg-[#1A1C16] border border-[#282C18] items-center justify-center mr-4">
                     <Crown size={24} color="#D4FF00" weight="fill" />
@@ -101,7 +104,6 @@ export function MembershipPlansListView({
                   </View>
                 </View>
 
-                {/* INCLUDED Section */}
                 <Text className="text-[11px] font-extrabold text-[#71717A] tracking-widest uppercase mt-6 mb-3">
                   INCLUDES
                 </Text>
@@ -127,10 +129,8 @@ export function MembershipPlansListView({
                   )}
                 </View>
 
-                {/* Divider */}
                 <View className="h-[1px] bg-[#1C1C20] my-4" />
 
-                {/* Duration & Members Counts */}
                 <View className="flex-row justify-between items-center mb-1">
                   <View className="flex-1 flex-row items-center">
                     <CalendarBlank size={18} color="#8E8E93" weight="regular" />
@@ -149,7 +149,6 @@ export function MembershipPlansListView({
                   </View>
                 </View>
 
-                {/* Edit Button */}
                 <Pressable
                   onPress={() => handleEditPress(plan)}
                   className="mt-5 border border-[#D4FF00] bg-[#151518] rounded-2xl h-12 flex-row items-center justify-center active:opacity-80"
@@ -161,8 +160,7 @@ export function MembershipPlansListView({
             ))}
           </View>
         ) : (
-          /* Empty State / No More Plans Yet Card (Screenshot 2) when no plans exist */
-          <View className="bg-[#121215] border border-[#202024] rounded-[28px] p-7 items-center my-4 shadow-sm">
+          <View className="bg-[#121215] border border-[#202024] rounded-[28px] p-7 items-center my-4">
             <View className="w-20 h-20 rounded-full bg-[#1A1B16] border border-[#252818] items-center justify-center mb-5">
               <ClipboardText size={36} color="#D4FF00" weight="regular" />
             </View>
@@ -173,7 +171,7 @@ export function MembershipPlansListView({
             
             <Pressable
               onPress={handleCreatePress}
-              className="bg-[#D4FF00] rounded-2xl px-6 py-4 items-center justify-center w-full max-w-[280px] active:opacity-90 shadow-md"
+              className="bg-[#D4FF00] rounded-2xl px-6 py-4 items-center justify-center w-full max-w-[280px] active:opacity-90"
               style={{ minHeight: 52 }}
             >
               <Text className="text-black font-black text-base tracking-wide text-center">
@@ -184,7 +182,6 @@ export function MembershipPlansListView({
         )}
       </ScrollView>
 
-      {/* Glowing Floating Plus (+) Button above bottom task bar */}
       {hasPlans && (
         <View 
           className="absolute items-center justify-center"
@@ -196,7 +193,6 @@ export function MembershipPlansListView({
             zIndex: 999 
           }}
         >
-          {/* Glowing Circle Background */}
           <View 
             className="absolute rounded-full bg-[#D4FF00]" 
             style={{ 
@@ -211,7 +207,6 @@ export function MembershipPlansListView({
               elevation: 25,
             }} 
           />
-          {/* Interactive Plus (+) Button */}
           <Pressable
             onPress={handleCreatePress}
             className="rounded-full bg-[#D4FF00] items-center justify-center active:opacity-90"
@@ -235,7 +230,7 @@ export function MembershipPlansListView({
 
 export default function MembershipPlansScreen() {
   const router = useRouter();
-  const { plans, startCreateFlow, startEditFlow } = useMembership();
+  const { plans, startCreateFlow, startEditFlow, isLoading } = useMembership();
 
   const handleEdit = (plan: MembershipPlan) => {
     startEditFlow(plan);
@@ -250,6 +245,7 @@ export default function MembershipPlansScreen() {
   return (
     <MembershipPlansListView
       plans={plans}
+      isLoading={isLoading}
       onEdit={handleEdit}
       onCreate={handleCreate}
       onBack={() => router.back()}

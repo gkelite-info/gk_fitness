@@ -113,6 +113,18 @@ export default function ExerciseDetail() {
     localVideoSource = require('../../assets/videos/cable_fly_video.mp4');
   } else if (normalizedTitle.includes('push')) {
     localVideoSource = require('../../assets/videos/pushup_video.mp4');
+  } else if (normalizedTitle.includes('romanian deadlift') || normalizedTitle.includes('rdl')) {
+    localVideoSource = require('../../assets/videos/romanian_deadlift_video.mp4');
+  } else if (normalizedTitle.includes('deadlift')) {
+    localVideoSource = require('../../assets/videos/deadlift_back_workout_video.mp4');
+  } else if (normalizedTitle.includes('squat')) {
+    localVideoSource = require('../../assets/videos/squat_exercise_video.mp4');
+  } else if (normalizedTitle.includes('leg press')) {
+    localVideoSource = require('../../assets/videos/legpress_exercise_video.mp4');
+  } else if (normalizedTitle.includes('lat pulldown') || normalizedTitle.includes('pulldown')) {
+    localVideoSource = require('../../assets/videos/lat_pulldown_video.mp4');
+  } else if (normalizedTitle.includes('seated row')) {
+    localVideoSource = require('../../assets/videos/back_seated_row_video.mp4');
   }
 
   return (

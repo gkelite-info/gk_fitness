@@ -60,7 +60,16 @@ export default function CustomerWorkout() {
           });
 
           setWeeklyPlanDays(formattedDays);
-          setTodayWorkout(formattedDays.find(d => d.dayStr === todayString));
+          
+          const todayFormatted = formattedDays.find(d => d.dayStr === todayString);
+          if (todayFormatted && todayFormatted.type !== 'Rest') {
+            const rawTodayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === todayString);
+            if (rawTodayData) {
+              const exs = await fetchWorkoutPlanDayExercises(rawTodayData.planDayId);
+              todayFormatted.exercisesCount = exs?.length || 0;
+            }
+          }
+          setTodayWorkout(todayFormatted);
 
           const yesterdayIndex = todayIndex === 0 ? 6 : todayIndex - 1;
           const yesterdayString = dayOrder[yesterdayIndex];
@@ -310,7 +319,7 @@ export default function CustomerWorkout() {
                                 dayId: todayWorkout.dayId,
                                 workoutType: todayWorkout.type,
                                 duration: todayWorkout.duration,
-                                exercisesCount: todayWorkout.exercisesCount || 5
+                                exercisesCount: todayWorkout.exercisesCount || 0
                               }
                             });
                           }

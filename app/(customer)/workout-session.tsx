@@ -11,6 +11,7 @@ export default function WorkoutSession() {
   const [dayData, setDayData] = useState<any>(null);
   const [exercises, setExercises] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isTipVisible, setIsTipVisible] = useState(true);
 
   const [daysList, setDaysList] = useState<any[]>([
     { name: 'MON', label: 'Chest', active: true },
@@ -184,18 +185,22 @@ export default function WorkoutSession() {
           )}
         </View>
 
-        <View className="bg-[#18181B] rounded-xl border border-[#DFFF00] p-4 flex-row items-start mb-6">
-          <Lightbulb size={20} color="#DFFF00" weight="fill" style={{ marginRight: 12, marginTop: 2 }} />
-          <View className="flex-1">
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[#DFFF00] font-semibold text-sm">Tip</Text>
-              <Text className="text-[#555] text-xs">✕</Text>
+        {isTipVisible && (
+          <View className="bg-[#18181B] rounded-xl border border-[#DFFF00] p-4 flex-row items-start mb-6">
+            <Lightbulb size={20} color="#DFFF00" weight="fill" style={{ marginRight: 12, marginTop: 2 }} />
+            <View className="flex-1">
+              <View className="flex-row items-center justify-between mb-1">
+                <Text className="text-[#DFFF00] font-semibold text-sm">Tip</Text>
+                <Pressable onPress={() => setIsTipVisible(false)} hitSlop={10}>
+                  <Text className="text-[#555] text-xs">✕</Text>
+                </Pressable>
+              </View>
+              <Text className="text-[#8E8E8E] text-xs leading-5">
+                Warm up for 5-10 minutes before starting your workout to prevent injury.
+              </Text>
             </View>
-            <Text className="text-[#8E8E8E] text-xs leading-5">
-              Warm up for 5-10 minutes before starting your workout to prevent injury.
-            </Text>
           </View>
-        </View>
+        )}
 
         <Pressable className="bg-[#DFFF00] w-full rounded-2xl p-4 flex-row items-center justify-center">
           <Text className="text-black font-semibold text-lg mr-2">Start Workout</Text>

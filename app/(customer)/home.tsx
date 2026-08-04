@@ -3,8 +3,12 @@ import { View, ScrollView, Image, Pressable, ActivityIndicator } from 'react-nat
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
+import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
+import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 import {
   Star,
   QrCode,
@@ -24,6 +28,49 @@ export default function CustomerHome() {
   const firstName = name?.split(' ')[0] || 'Customer';
   const router = useRouter();
   const [checking, setChecking] = useState(true);
+  const [todayWorkoutDayId, setTodayWorkoutDayId] = useState<string | null>(null);
+  const [todayWorkoutType, setTodayWorkoutType] = useState('Back & Biceps');
+  const [todayDuration, setTodayDuration] = useState('50');
+  const [todayExercisesCount, setTodayExercisesCount] = useState('0');
+
+  const openCamera = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (permissionResult.granted === false) {
+        alert("You've refused to allow this app to access your camera!");
+        return;
+      }
+      await ImagePicker.launchCameraAsync();
+    } catch (error) {
+      console.log('Error opening camera:', error);
+    }
+  };
+
+  useEffect(() => {
+    async function fetchTodayWorkout() {
+      if (!userId) return;
+      try {
+        const plans = await fetchCustomerWorkoutPlans(userId);
+        const activePlan = plans.find((p: any) => p.isActive);
+        if (activePlan) {
+          const days = await fetchWorkoutPlanDays(activePlan.planId);
+          const dayOrder = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+          const todayString = dayOrder[new Date().getDay()];
+          const todayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === todayString);
+          if (todayData && todayData.workoutType !== 'Rest') {
+            setTodayWorkoutDayId(todayData.planDayId);
+            setTodayWorkoutType(todayData.workoutType);
+            setTodayDuration(todayData.durationMinutes?.toString() || '45');
+            const exs = await fetchWorkoutPlanDayExercises(todayData.planDayId);
+            setTodayExercisesCount(exs?.length?.toString() || '0');
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching today workout', err);
+      }
+    }
+    fetchTodayWorkout();
+  }, [userId]);
 
   useEffect(() => {
     async function checkOnboarding() {
@@ -31,12 +78,12 @@ export default function CustomerHome() {
         setChecking(false);
         return;
       }
-      
+
       if (sessionSkippedUsers.has(userId)) {
         setChecking(false);
         return;
       }
-      
+
       try {
         const skipped = await AsyncStorage.getItem(`@onboarding_skipped_${userId}`);
         if (skipped === 'true') {
@@ -120,7 +167,7 @@ export default function CustomerHome() {
 
         <View className="w-[1px] h-16 bg-[#262626] mx-2" />
 
-        <Pressable className="items-center justify-center pl-2 active:opacity-80">
+        <Pressable onPress={openCamera} className="items-center justify-center pl-2 active:opacity-80">
           <View className="w-12 h-12 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] items-center justify-center mb-1">
             <QrCode size={26} color="#D7FF00" />
           </View>
@@ -135,21 +182,38 @@ export default function CustomerHome() {
             TODAY'S WORKOUT
           </Text>
           <Text className="text-white text-2xl font-semibold mb-2">
-            Back & Biceps
+            {todayWorkoutType}
           </Text>
 
           <View className="flex-row items-center gap-3 mb-4">
             <View className="flex-row items-center gap-1.5">
               <Barbell size={16} color="#8E8E93" />
-              <Text className="text-[#8E8E93] text-xs font-medium">6 Exercises</Text>
+              <Text className="text-[#8E8E93] text-xs font-medium">{todayExercisesCount} Exercises</Text>
             </View>
             <View className="flex-row items-center gap-1.5">
               <Clock size={16} color="#8E8E93" />
-              <Text className="text-[#8E8E93] text-xs font-medium">50 min</Text>
+              <Text className="text-[#8E8E93] text-xs font-medium">{todayDuration} min</Text>
             </View>
           </View>
 
-          <Pressable className="bg-[#D7FF00] rounded-full py-3 px-5 flex-row items-center justify-center self-start active:opacity-90">
+          <Pressable 
+            onPress={() => {
+              if (todayWorkoutDayId) {
+                router.push({
+                  pathname: '/(customer)/workout-countdown',
+                  params: {
+                    dayId: todayWorkoutDayId,
+                    workoutType: todayWorkoutType,
+                    duration: todayDuration,
+                    exercisesCount: todayExercisesCount
+                  }
+                });
+              } else {
+                alert("You don't have an active workout scheduled for today.");
+              }
+            }}
+            className="bg-[#D7FF00] rounded-full py-3 px-5 flex-row items-center justify-center self-start active:opacity-90"
+          >
             <Text className="text-black font-semibold text-sm mr-2">Start Workout</Text>
             <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
               <ArrowRight size={14} color="#000000" weight="bold" />

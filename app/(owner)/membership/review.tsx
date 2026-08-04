@@ -7,11 +7,11 @@ import {
   CaretLeft,
   CaretDown,
   CheckCircle,
-  PencilSimple
+  PencilSimple,
+  Trash
 } from 'phosphor-react-native';
 import { 
   MOCK_DRAFT_PLANS, 
-  MOCK_SELECTABLE_FEATURES, 
   DraftPlan, 
   MembershipFeatureItem 
 } from '@/constants/membershipMockData';
@@ -29,21 +29,25 @@ export interface ReviewAndPublishPlansViewProps {
   pageSubtitle?: string;
   publishButtonText?: string;
   publishHelperText?: string;
+  isEditingExisting?: boolean;
   onPublish?: (updatedPlans: DraftPlan[]) => void;
   onEditFeatures?: (planId: string, currentDrafts: DraftPlan[]) => void;
+  onDelete?: (planId: string) => void;
   onBack?: () => void;
 }
 
 export function ReviewAndPublishPlansView({
   plans: initialPlans = MOCK_DRAFT_PLANS,
-  availableFeatures = MOCK_SELECTABLE_FEATURES,
+  availableFeatures = [],
   headerTitle = 'Create Membership Plans',
   pageHeading = 'Review & Publish Your Plans',
   pageSubtitle = 'Review the details of all plans before publishing.\nYou can edit any plan if needed.',
   publishButtonText = 'Publish Plans',
   publishHelperText = 'Plans will be visible to your members after publishing.',
+  isEditingExisting = false,
   onPublish,
   onEditFeatures,
+  onDelete,
   onBack,
 }: ReviewAndPublishPlansViewProps) {
   const insets = useSafeAreaInsets();
@@ -99,7 +103,24 @@ export function ReviewAndPublishPlansView({
     }
   };
 
-  // Helper to map tab names neatly
+  const handleDeleteClick = () => {
+    Alert.alert(
+      'Delete Plan',
+      'Are you sure you want to delete this membership plan? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: () => {
+            triggerLightHaptic();
+            if (onDelete) onDelete(activePlan.id);
+          }
+        },
+      ]
+    );
+  };
+
   const getTabLabel = (plan: DraftPlan, index: number) => {
     if (index === 0) return plan.name;
     return plan.name.replace(/\s+Membership$/i, '');
@@ -107,7 +128,6 @@ export function ReviewAndPublishPlansView({
 
   return (
     <View className="flex-1 bg-[#09090B]" style={{ paddingTop: insets.top }}>
-      {/* Header Bar */}
       <View className="flex-row items-center px-5 py-3 mb-2">
         <Pressable 
           onPress={onBack} 
@@ -123,12 +143,10 @@ export function ReviewAndPublishPlansView({
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 160 + (insets.bottom || 0) }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Main Heading & Subtitle */}
         <Text className="text-2xl font-black text-white mb-2 leading-8">{pageHeading}</Text>
         <Text className="text-xs font-medium text-[#8E8E93] leading-5 mb-6">{pageSubtitle}</Text>
 
-        {/* Horizontal Plan Tab Selector */}
-        <View className="bg-[#121216] border border-[#1D1D22] rounded-[24px] p-2 flex-row items-center mb-8 shadow-sm">
+        <View className="bg-[#121216] border border-[#1D1D22] rounded-[24px] p-2 flex-row items-center mb-8">
           {plans.map((plan, idx) => {
             const isSelected = plan.id === activePlanId;
             const label = getTabLabel(plan, idx);
@@ -150,7 +168,6 @@ export function ReviewAndPublishPlansView({
           })}
         </View>
 
-        {/* Price Section */}
         <View className="mb-8">
           <View className="flex-row items-baseline mb-2">
             <Text className="text-4xl font-black text-[#D4FF00]">₹</Text>
@@ -172,7 +189,6 @@ export function ReviewAndPublishPlansView({
           </Text>
         </View>
 
-        {/* Billing Cycle Selector */}
         <View className="mb-9">
           <Text className="text-xs font-extrabold text-white mb-2 tracking-wide">
             BILLING CYCLE
@@ -186,7 +202,6 @@ export function ReviewAndPublishPlansView({
           </Pressable>
         </View>
 
-        {/* Included Features Section Header */}
         <View className="flex-row items-center justify-between mb-5">
           <Text className="text-base font-extrabold text-white">Included Features</Text>
           
@@ -199,7 +214,6 @@ export function ReviewAndPublishPlansView({
           </Pressable>
         </View>
 
-        {/* Feature List */}
         <View className="mb-6">
           {availableFeatures
             .filter(f => activePlan.selectedFeatureIds.includes(f.id))
@@ -213,19 +227,30 @@ export function ReviewAndPublishPlansView({
             ))}
         </View>
 
-        {/* Footer CTA Button & Notice */}
         <View className="mt-4">
           <Pressable
             onPress={handlePublishClick}
-            className="bg-[#D4FF00] rounded-[24px] h-14 items-center justify-center mb-3.5 active:opacity-90 shadow-xl min-h-[56px]"
+            className="bg-[#D4FF00] rounded-[24px] h-14 items-center justify-center mb-3.5 active:opacity-90 min-h-[56px]"
           >
             <Text className="text-black font-black text-base tracking-wide">
               {publishButtonText}
             </Text>
           </Pressable>
-          <Text className="text-[11px] font-semibold text-[#71717A] text-center mb-8">
+          <Text className="text-[11px] font-semibold text-[#71717A] text-center mb-4">
             {publishHelperText}
           </Text>
+          
+          {isEditingExisting && (
+            <Pressable
+              onPress={handleDeleteClick}
+              className="bg-transparent border border-red-500 rounded-[24px] h-14 flex-row items-center justify-center mb-6 active:opacity-60 min-h-[56px]"
+            >
+              <Trash size={18} color="#EF4444" weight="bold" />
+              <Text className="text-red-500 font-bold text-base ml-2">
+                Delete Plan
+              </Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -234,10 +259,10 @@ export function ReviewAndPublishPlansView({
 
 export default function ReviewMembershipPlansScreen() {
   const router = useRouter();
-  const { drafts, setDrafts, publishPlans, isEditingExisting } = useMembership();
+  const { drafts, setDrafts, publishPlans, deletePlan, isEditingExisting, availableFeatures } = useMembership();
 
-  const handlePublish = (updatedPlans: DraftPlan[]) => {
-    publishPlans(updatedPlans);
+  const handlePublish = async (finalDrafts: DraftPlan[]) => {
+    await publishPlans(finalDrafts);
     if (isEditingExisting) {
       toast.success('Membership plan updated successfully!');
     } else {
@@ -251,14 +276,23 @@ export default function ReviewMembershipPlansScreen() {
     router.push('/(owner)/membership/create');
   };
 
+  const handleDelete = async (planId: string) => {
+    await deletePlan(planId);
+    toast.success('Membership plan deleted successfully!');
+    router.push('/(owner)/membership');
+  };
+
   return (
     <ReviewAndPublishPlansView
-      plans={drafts.length > 0 ? drafts : MOCK_DRAFT_PLANS}
+      plans={drafts}
+      availableFeatures={availableFeatures}
+      isEditingExisting={isEditingExisting}
       headerTitle={isEditingExisting ? 'Edit Membership Plan' : 'Create Membership Plans'}
-      pageHeading={isEditingExisting ? 'Edit Plan Details' : 'Review & Publish Your Plans'}
+      pageHeading={isEditingExisting ? 'Review Plan Details' : 'Review & Publish Your Plans'}
       publishButtonText={isEditingExisting ? 'Save Changes' : 'Publish Plans'}
       onPublish={handlePublish}
       onEditFeatures={handleEditFeatures}
+      onDelete={handleDelete}
       onBack={() => router.back()}
     />
   );

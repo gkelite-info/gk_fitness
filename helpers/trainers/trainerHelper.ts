@@ -217,7 +217,7 @@ export async function fetchTrainerById(gymTrainerId: string) {
 export async function saveGymTrainer(params: SaveGymTrainerParams) {
   const now = new Date().toISOString();
   
-  let resolvedGymId = params.gymId;
+  let resolvedGymId: string | null | undefined = params.gymId;
   if (!resolvedGymId) {
     resolvedGymId = await getOwnerGymId(params.createdBy);
     if (!resolvedGymId) {

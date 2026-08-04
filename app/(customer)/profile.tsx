@@ -1,11 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, ScrollView, Pressable, Image, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, Image, ActivityIndicator, Modal, Alert } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GearSix, PencilSimple, Scales, Fire, CalendarBlank,
-  User, Target, BookOpen, Star, Bell, ShieldCheck, Question, SignOut, CaretRight, ClipboardText
+  User, Target, BookOpen, Star, Bell, ShieldCheck, Question, SignOut, CaretRight, ClipboardText, WarningCircle
 } from 'phosphor-react-native';
 
 import { mockProfileData } from '@/constants/mockProfileData';
@@ -35,6 +35,27 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
   const insets = useSafeAreaInsets();
   const { status, trainer } = useTrainerStore();
 
+  
+  const [modalVisible, setModalVisible] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    setModalVisible(false);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        Alert.alert('Sign Out Error', error.message);
+      } else {
+        router.replace('/auth/otp-auth');
+      }
+    } catch (err: any) {
+      Alert.alert('Sign Out Error', err.message || 'An error occurred.');
+    } finally {
+      setSigningOut(false);
+    }
+  };
+  
   const displayFullName = customerData?.fullName || fallbackUser?.name || data.user.fullName;
   const displayEmail = customerData?.email || fallbackUser?.email || data.user.email;
 
@@ -154,9 +175,57 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
           <MenuItem icon={<Bell size={20} color="#D4FF00" />} title="Notifications" subtitle="Manage your notification preferences" />
           <MenuItem icon={<ShieldCheck size={20} color="#D4FF00" />} title="Privacy & Security" subtitle="Manage your privacy and security settings" />
           <MenuItem icon={<Question size={20} color="#D4FF00" />} title="Help & Support" subtitle="Get help and support" />
-          <MenuItem icon={<SignOut size={20} color="#FF3B30" />} title="Logout" subtitle="Sign out from your account" titleColor="#FF3B30" hideBorder={true} iconContainerStyle="bg-[#2A1515]" />
+          <MenuItem 
+            icon={<SignOut size={20} color="#FF3B30" />} 
+            title="Logout" 
+            subtitle="Sign out from your account" 
+            titleColor="#FF3B30" 
+            hideBorder={true} 
+            iconContainerStyle="bg-[#2A1515]" 
+            onPress={() => setModalVisible(true)}
+          />
         </View>
       </ScrollView>
+
+      {/* Sign Out Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View className="flex-1 bg-black/70 justify-center items-center px-6">
+          <View className="bg-[#1A1A1A] border border-[#27272A] w-full max-w-[340px] rounded-3xl p-6 items-center shadow-2xl">
+            <View className="w-12 h-12 rounded-full bg-red-500/10 items-center justify-center mb-4 border border-red-500/20">
+              <WarningCircle size={28} color="#EF4444" weight="fill" />
+            </View>
+            <Text className="text-white text-lg font-semibold mb-2">Sign Out</Text>
+            <Text className="text-[#8E8E93] text-sm text-center mb-6 leading-5">
+              Are you sure you want to sign out of your account? You will need to log in again to access the platform.
+            </Text>
+
+            <View className="flex-row gap-3 w-full">
+              <Pressable
+                onPress={() => setModalVisible(false)}
+                className="flex-1 bg-[#27272A] rounded-2xl py-3.5 items-center active:opacity-80"
+              >
+                <Text className="text-white font-semibold">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSignOut}
+                disabled={signingOut}
+                className="flex-1 bg-red-500 rounded-2xl py-3.5 items-center active:opacity-80 flex-row justify-center gap-2"
+              >
+                {signingOut ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text className="text-white font-semibold">Sign Out</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

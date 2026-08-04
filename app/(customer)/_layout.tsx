@@ -1,14 +1,16 @@
 import { Tabs } from 'expo-router';
 import { Navbar } from '@/components/Navbar';
 import { CustomTabBar } from '@/components/CustomTabBar';
+import { PedometerProvider } from '@/hooks/usePedometer';
 
 export default function CustomerLayout() {
   return (
-    <Tabs
-      tabBar={(props) => <CustomTabBar {...props} centerRouteName="home" />}
-      screenOptions={{
-        header: () => <Navbar />,
-      }}>
+    <PedometerProvider>
+      <Tabs
+        tabBar={(props) => <CustomTabBar {...props} centerRouteName="home" />}
+        screenOptions={{
+          header: () => <Navbar />,
+        }}>
       <Tabs.Screen
         name="workout"
         options={{
@@ -122,6 +124,28 @@ export default function CustomerLayout() {
           headerShown: false,
         }}
       />
-    </Tabs>
+      <Tabs.Screen
+        name="fitness/steps"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="fitness/calories"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="fitness/water"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      </Tabs>
+    </PedometerProvider>
   );
 }

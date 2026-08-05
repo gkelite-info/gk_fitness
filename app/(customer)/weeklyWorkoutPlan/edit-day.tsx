@@ -4,11 +4,12 @@ import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { CaretLeft, Trash, MagnifyingGlass, Plus, Clock, Barbell } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
-import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
-import { fetchWorkoutPlanDayById, fetchWorkoutPlanDays, saveWorkoutPlanDay } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
-import { fetchWorkoutPlanDayExercises, saveWorkoutPlanDayExercise, deleteWorkoutPlanDayExercise } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
-import ConfirmModal from '@/components/ConfirmModal';
 import { toast } from '@/lib/toast';
+import { useCustomerWeeklyPlan } from '@/hooks/workout/useCustomerWeeklyPlan';
+import { useWorkoutPlanDayById } from '@/hooks/workout/useWorkoutPlanDayById';
+import { useWorkoutPlanDayExercises } from '@/hooks/workout/useWorkoutPlanDayExercises';
+import { useSaveWorkoutDayExercises, useMakeRestDay } from '@/hooks/workout/useMutateCustomerWorkoutPlan';
+import ConfirmModal from '@/components/ConfirmModal';
 
 const ADDITIONAL_EXERCISES = [
   { id: 'add_1', name: 'Dumbbell Chest Press', category: 'Chest', image: require('../../../assets/workout.png') },
@@ -23,74 +24,56 @@ export default function EditWorkoutDay() {
   const [dayInfo, setDayInfo] = useState<any>(null);
   const [exercises, setExercises] = useState<any[]>([]);
   const [deletedExerciseIds, setDeletedExerciseIds] = useState<string[]>([]);
-  const [currentPlanDayId, setCurrentPlanDayId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [exerciseToDelete, setExerciseToDelete] = useState<{ index: number, ex: any } | null>(null);
   const [restModalVisible, setRestModalVisible] = useState(false);
   const [isMakingRest, setIsMakingRest] = useState(false);
 
+  const isUUID = day ? day.includes('-') : false;
+  
+  const { data: dayById, isLoading: isLoadingDayById } = useWorkoutPlanDayById(isUUID ? day : null);
+  const { data: weeklyPlan, isLoading: isLoadingWeeklyPlan } = useCustomerWeeklyPlan(!isUUID ? userId : null);
+
+  const dayData = isUUID ? dayById : (weeklyPlan ? weeklyPlan[day] : null);
+  const dayStr = isUUID && dayById ? dayById.dayOfWeek : day;
+  const currentPlanDayId = isUUID ? day : (dayData?.planDayId || null);
+
+  const { data: fetchedExercises, isLoading: isLoadingExercises } = useWorkoutPlanDayExercises(currentPlanDayId);
+  const saveExercisesMutation = useSaveWorkoutDayExercises();
+  const makeRestMutation = useMakeRestDay();
+
+  const isLoading = isLoadingDayById || isLoadingWeeklyPlan || isLoadingExercises;
+
   useEffect(() => {
-    async function loadData() {
-      if (!userId || !day) return;
-      setIsLoading(true);
-      try {
-        let planDayId = day;
-        let dayStr = day;
-        let dayData: any = null;
-
-        const isUUID = day.includes('-');
-
-        if (isUUID) {
-          dayData = await fetchWorkoutPlanDayById(day);
-          if (dayData) dayStr = dayData.dayOfWeek;
-        } else {
-          const plans = await fetchCustomerWorkoutPlans(userId);
-          const activePlan = plans.find((p: any) => p.isActive);
-          if (activePlan) {
-            const days = await fetchWorkoutPlanDays(activePlan.planId);
-            dayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === day.toLowerCase());
-            if (dayData) planDayId = dayData.planDayId;
-          }
-        }
-
-        if (dayData && dayData.planDayId) {
-          setCurrentPlanDayId(dayData.planDayId);
-          const fetchedExercises = await fetchWorkoutPlanDayExercises(dayData.planDayId);
-          setExercises(fetchedExercises);
-        } else {
-          setExercises([]);
-        }
-
-        const current = new Date();
-        const currentDayOfWeek = current.getDay();
-        const diff = current.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
-        const monday = new Date(current.setDate(diff));
-
-        const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-        const dayIndex = dayOrder.indexOf(dayStr.toLowerCase());
-        const targetDate = new Date(monday);
-        if (dayIndex !== -1) {
-          targetDate.setDate(monday.getDate() + dayIndex);
-        }
-
-        setDayInfo({
-          name: dayStr.charAt(0).toUpperCase() + dayStr.slice(1),
-          abbr: dayStr.substring(0, 3).toUpperCase(),
-          dateStr: targetDate.getDate().toString().padStart(2, '0'),
-          type: dayData && dayData.workoutType !== 'Rest' ? dayData.workoutType : 'Rest Day',
-          duration: dayData?.durationMinutes || 0
-        });
-
-      } catch (error) {
-        console.error('Error fetching edit day data:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    if (fetchedExercises) {
+      setExercises(fetchedExercises);
     }
-    loadData();
-  }, [day, userId]);
+  }, [fetchedExercises]);
+
+  useEffect(() => {
+    if (dayStr) {
+      const current = new Date();
+      const currentDayOfWeek = current.getDay();
+      const diff = current.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
+      const monday = new Date(current.setDate(diff));
+
+      const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const dayIndex = dayOrder.indexOf(dayStr.toLowerCase());
+      const targetDate = new Date(monday);
+      if (dayIndex !== -1) {
+        targetDate.setDate(monday.getDate() + dayIndex);
+      }
+
+      setDayInfo({
+        name: dayStr.charAt(0).toUpperCase() + dayStr.slice(1),
+        abbr: dayStr.substring(0, 3).toUpperCase(),
+        dateStr: targetDate.getDate().toString().padStart(2, '0'),
+        type: dayData && dayData.workoutType !== 'Rest' ? dayData.workoutType : 'Rest Day',
+        duration: dayData?.durationMinutes || 0
+      });
+    }
+  }, [dayStr, dayData]);
 
   const handleAddExercise = (ex: any) => {
     if (exercises.some(e => e.exerciseName === ex.name)) return;
@@ -124,72 +107,41 @@ export default function EditWorkoutDay() {
     setExerciseToDelete(null);
   };
 
-  const handleSave = async () => {
-    if (!currentPlanDayId) {
-      return;
-    }
+  const handleSave = () => {
+    if (!currentPlanDayId) return;
 
-    setIsSaving(true);
-    try {
-      for (const id of deletedExerciseIds) {
-        await deleteWorkoutPlanDayExercise(id);
+    const newExs = exercises.filter(ex => ex.isNew);
+    
+    saveExercisesMutation.mutate({
+      deletedExerciseIds,
+      newExercises: newExs,
+      currentPlanDayId
+    }, {
+      onSuccess: () => {
+        setDeletedExerciseIds([]);
+        toast.success('Day updated successfully!');
+        router.back();
+      },
+      onError: (err) => {
+        toast.error('Failed to save exercises');
       }
-
-      const newExs = exercises.filter(ex => ex.isNew);
-      for (const ex of newExs) {
-        await saveWorkoutPlanDayExercise({
-          planDayId: currentPlanDayId,
-          exerciseName: ex.exerciseName,
-          category: ex.category,
-          reps: ex.reps,
-          order: ex.order,
-        });
-      }
-
-      setDeletedExerciseIds([]);
-      const fetchedExercises = await fetchWorkoutPlanDayExercises(currentPlanDayId);
-      setExercises(fetchedExercises);
-
-      toast.success('Exercises saved successfully!');
-      router.back();
-    } catch (error) {
-      console.error('Error saving exercises:', error);
-      toast.error('Failed to save exercises.');
-    } finally {
-      setIsSaving(false);
-    }
+    });
   };
 
-  const handleMakeRestDay = async () => {
-    if (!currentPlanDayId || !dayInfo) return;
-    setRestModalVisible(false);
-    setIsMakingRest(true);
-    try {
-      for (const ex of exercises) {
-        if (ex.dayExerciseId) {
-          await deleteWorkoutPlanDayExercise(ex.dayExerciseId);
-        }
+  const confirmMakeRestDay = () => {
+    if (!currentPlanDayId || !dayData) return;
+    
+    makeRestMutation.mutate({ planDayId: currentPlanDayId, planId: dayData.planId, dayOfWeek: dayData.dayOfWeek }, {
+      onSuccess: () => {
+        setRestModalVisible(false);
+        toast.success('Marked as Rest Day!');
+        router.back();
+      },
+      onError: () => {
+        setRestModalVisible(false);
+        toast.error('Failed to mark as Rest Day');
       }
-
-      const dayData = await fetchWorkoutPlanDayById(currentPlanDayId);
-      if (dayData) {
-        await saveWorkoutPlanDay({
-          planDayId: currentPlanDayId,
-          planId: dayData.planId,
-          dayOfWeek: dayData.dayOfWeek,
-          workoutType: 'Rest',
-          durationMinutes: 0
-        });
-      }
-
-      toast.success('Day marked as Rest Day!');
-      router.back();
-    } catch (error) {
-      console.error('Error making rest day:', error);
-      toast.error('Failed to make rest day.');
-    } finally {
-      setIsMakingRest(false);
-    }
+    });
   };
 
   return (
@@ -240,35 +192,40 @@ export default function EditWorkoutDay() {
               </View>
             </View>
 
-            <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-widest mb-4 uppercase">
-              Selected Exercises ({exercises.length})
-            </Text>
+            <View className="mb-8">
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-white text-lg font-bold">Planned Exercises</Text>
+                {exercises.length > 0 && (
+                  <Text className="text-[#8E8E8E] text-xs font-semibold">{exercises.length} Items</Text>
+                )}
+              </View>
 
-            <View className="gap-3 mb-8">
-              {exercises.length === 0 ? (
-                <Text className="text-[#8E8E8E] text-sm text-center py-5">No exercises added for this day yet.</Text>
-              ) : (
-                exercises.map((ex, index) => (
-                  <View
-                    key={ex.dayExerciseId || index.toString()}
-                    className="flex-row bg-[#111111] border border-[#242424] rounded-2xl p-4 items-center"
-                  >
-                    <View className="w-6 items-center mr-2">
-                      <Text className="text-[#D7FF00] text-[11px] font-semibold">{index + 1}</Text>
+              <View className="gap-3">
+                {exercises.length === 0 ? (
+                  <Text className="text-[#8E8E8E] text-sm text-center py-5">No exercises added for this day yet.</Text>
+                ) : (
+                  exercises.map((ex, index) => (
+                    <View
+                      key={ex.dayExerciseId || index.toString()}
+                      className="flex-row bg-[#111111] border border-[#242424] rounded-2xl p-4 items-center"
+                    >
+                      <View className="w-6 items-center mr-2">
+                        <Text className="text-[#D7FF00] text-[11px] font-semibold">{index + 1}</Text>
+                      </View>
+                      <View className="flex-1 pr-2">
+                        <Text className="text-white text-base font-semibold mb-1">{ex.exerciseName}</Text>
+                        <Text className="text-[#8E8E8E] text-[10px]">{ex.category}</Text>
+                      </View>
+                      <View className="items-end mr-4">
+                        <Text className="text-[#D7FF00] text-[11px] font-semibold mb-1">{ex.reps}</Text>
+                      </View>
+                      <Pressable onPress={() => openDeleteModal(index, ex)} className="p-1">
+                        <Trash size={20} color="#FF453A" />
+                      </Pressable>
                     </View>
-                    <View className="flex-1 pr-2">
-                      <Text className="text-white text-base font-semibold mb-1">{ex.exerciseName}</Text>
-                      <Text className="text-[#8E8E8E] text-[10px]">{ex.category}</Text>
-                    </View>
-                    <View className="items-end mr-4">
-                      <Text className="text-[#D7FF00] text-[11px] font-semibold mb-1">{ex.reps}</Text>
-                    </View>
-                    <Pressable onPress={() => openDeleteModal(index, ex)} className="p-1">
-                      <Trash size={20} color="#FF453A" />
-                    </Pressable>
-                  </View>
-                ))
-              )}
+                  ))
+                )}
+              </View>
             </View>
 
             <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-widest mb-4 uppercase">
@@ -316,7 +273,7 @@ export default function EditWorkoutDay() {
                 ))}
             </View>
 
-            <View className="mt-8 mb-4">
+            <View className="mt-8 mb-4 flex-row gap-3">
               <Pressable
                 onPress={handleSave}
                 disabled={isSaving || (!exercises.some(e => e.isNew) && deletedExerciseIds.length === 0)}
@@ -368,7 +325,7 @@ export default function EditWorkoutDay() {
         visible={restModalVisible}
         title="Make Rest Day"
         description="Are you sure you want to make this a rest day? All exercises for this day will be removed."
-        onConfirm={handleMakeRestDay}
+        onConfirm={confirmMakeRestDay}
         onClose={() => setRestModalVisible(false)}
         confirmText="Confirm"
       />

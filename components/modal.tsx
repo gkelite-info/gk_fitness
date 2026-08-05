@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Pressable, Modal, ActivityIndicator, ScrollView } from 'react-native';
-import { updateGymInventoryStock } from '@/helpers/gymInventory/inventoryHistory';
+import { useUpdateGymInventoryStock } from '@/hooks/inventory/useMutateGymInventory';
 import { toast } from '@/lib/toast';
 import { Text } from '@/components/nativewindui/Text';
 import {
@@ -33,6 +33,24 @@ export default function ReusableModal({ visible, onClose, gymInventoryId, userId
   const [renderModal, setRenderModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [restoreSource, setRestoreSource] = useState<'maintenance' | 'out_of_service'>('maintenance');
+  
+  const updateMutation = useUpdateGymInventoryStock();
+
+  const handleConfirm = () => {
+    updateMutation.mutate({
+      gymInventoryId,
+      userId,
+      action: selectedAction,
+      quantity: stockQuantity,
+      restoreSource: selectedAction === 'restore' ? restoreSource : undefined
+    }, {
+      onSuccess: () => {
+        toast.success('Stock updated');
+        onSuccess?.();
+        onClose();
+      }
+    });
+  };
 
   const getQuantityLimit = () => {
     const availableCount = Math.max(0, totalCount - underMaintCount - outOfServiceCount);
@@ -262,37 +280,12 @@ export default function ReusableModal({ visible, onClose, gymInventoryId, userId
               </View>
 
               <Pressable
-                disabled={submitting || stockQuantity === 0}
-                className="w-full bg-[#D4F01E] py-4 rounded-xl items-center flex-row justify-center mb-4 active:opacity-80 disabled:opacity-50"
-                onPress={async () => {
-                  if (submitting) return;
-                  try {
-                    const submitAction = selectedAction === 'restore'
-                      ? (restoreSource === 'maintenance' ? 'restore_maintenance' : 'restore_out_of_service')
-                      : selectedAction;
-
-                    setSubmitting(true);
-                    await updateGymInventoryStock({
-                      gymInventoryId,
-                      action: submitAction as any,
-                      quantity: stockQuantity,
-                      createdBy: userId,
-                    });
-                    toast.success('Stock updated successfully');
-                    onClose();
-                    if (onSuccess) {
-                      onSuccess();
-                    }
-                  } catch (error) {
-                    console.error('[ReusableModal] Error updating stock:', error);
-                    toast.error('Failed to update stock');
-                  } finally {
-                    setSubmitting(false);
-                  }
-                }}
+                onPress={handleConfirm}
+                disabled={stockQuantity < 1 || updateMutation.isPending}
+                className={`w-full ${stockQuantity < 1 || updateMutation.isPending ? 'bg-[#D4F01E]/50' : 'bg-[#D4F01E] active:opacity-75'} rounded-xl py-4 items-center justify-center flex-row mb-4`}
               >
-                {submitting ? (
-                  <ActivityIndicator color="#000" />
+                {updateMutation.isPending ? (
+                  <ActivityIndicator color="black" />
                 ) : (
                   <>
                     <Package size={20} color="#000" weight="fill" />

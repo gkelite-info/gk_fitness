@@ -13,88 +13,24 @@ import {
   CalendarBlank
 } from 'phosphor-react-native';
 
-import { useUser } from '@/context/UserContext';
-import { supabase } from '@/lib/supabase';
-import { fetchGymInventories } from '@/helpers/gymInventory/gymInventory';
-import { useFocusEffect } from '@react-navigation/native';
 import { useState, useCallback } from 'react';
 import { ActivityIndicator } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useUser } from '@/context/UserContext';
+import { useOwnerGymId } from '@/hooks/auth/useOwnerGymId';
+import { useGymInventoryList } from '@/hooks/inventory/useGymInventory';
 
 export default function ManageInventoryScreen() {
   const { userId } = useUser();
-  const [equipmentList, setEquipmentList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  const loadInventory = useCallback(async () => {
-    if (!userId) return;
-    try {
-      setLoading(true);
-      const { data: gymOwner, error: gymOwnerError } = await supabase
-        .from('gym_owners')
-        .select('gymId')
-        .eq('userId', userId)
-        .eq('is_deleted', false)
-        .maybeSingle();
-
-      if (gymOwnerError || !gymOwner?.gymId) {
-        console.error('[ManageInventory] Error fetching gymId:', gymOwnerError);
-        setLoading(false);
-        return;
-      }
-
-      const data = await fetchGymInventories(gymOwner.gymId);
-      
-      if (data && data.length > 0) {
-        const inventoryIds = data.map((item: any) => item.gymInventoryId);
-        const { data: historyData, error: historyError } = await supabase
-          .from('gym_inventory_histories')
-          .select('*')
-          .in('gymInventoryId', inventoryIds);
-
-        if (!historyError && historyData) {
-          const mappedEquipment = data.map((item: any) => {
-            let itemMaint = 0;
-            let itemOS = 0;
-            
-            const itemLogs = historyData.filter(log => log.gymInventoryId === item.gymInventoryId);
-            itemLogs.forEach(log => {
-              if (log.action === 'maintenance') {
-                itemMaint += log.quantity;
-              } else if (log.action === 'out_of_service') {
-                itemOS += log.quantity;
-              } else if (log.action === 'restore_maintenance') {
-                itemMaint = Math.max(0, itemMaint - log.quantity);
-              } else if (log.action === 'restore_out_of_service') {
-                itemOS = Math.max(0, itemOS - log.quantity);
-              }
-            });
-            
-            return {
-              ...item,
-              underMaint: itemMaint,
-              outOfService: itemOS,
-              available: Math.max(0, (item.quantity || 0) - itemMaint - itemOS)
-            };
-          });
-          setEquipmentList(mappedEquipment);
-        } else {
-          setEquipmentList(data.map((item: any) => ({ ...item, underMaint: 0, outOfService: 0, available: item.quantity || 0 })));
-        }
-      } else {
-        setEquipmentList([]);
-      }
-    } catch (err) {
-      console.error('[ManageInventory] Error loading inventory:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
+  
+  const { data: gymId } = useOwnerGymId(userId);
+  const { data: equipmentList = [], isLoading: loading, refetch } = useGymInventoryList(gymId);
 
   useFocusEffect(
     useCallback(() => {
-      loadInventory();
-    }, [loadInventory])
+      refetch();
+    }, [refetch])
   );
 
   const totalEquipment = equipmentList.length;

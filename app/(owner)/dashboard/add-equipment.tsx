@@ -19,8 +19,8 @@ import {
 import ConfirmModal from '@/components/ConfirmModal';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
-import { base64ToArrayBuffer } from '@/components/imageCompressor';
-import { saveGymInventory, uploadEquipmentImage, fetchGymInventoryById, deleteEquipmentImage, removeEquipmentImageFromDb } from '@/helpers/gymInventory/gymInventory';
+import { useSaveGymInventory } from '@/hooks/inventory/useMutateGymInventory';
+import { uploadEquipmentImage, fetchGymInventoryById, deleteEquipmentImage, removeEquipmentImageFromDb } from '@/helpers/gymInventory/gymInventory';
 import * as Crypto from 'expo-crypto';
 import * as ImageManipulator from 'expo-image-manipulator';
 
@@ -37,6 +37,8 @@ export default function AddEquipmentScreen() {
   const [isLoading, setIsLoading] = useState(!!id);
   const [removeImageModalVisible, setRemoveImageModalVisible] = useState(false);
   const [initialImageUrl, setInitialImageUrl] = useState<string | null>(null);
+
+  const saveMutation = useSaveGymInventory();
 
   useEffect(() => {
     if (id) {
@@ -193,13 +195,20 @@ export default function AddEquipmentScreen() {
         image: imageUrl,
       };
 
-      await saveGymInventory(payload);
-
-      toast.success(id ? 'Equipment updated successfully' : 'Equipment added successfully');
-      router.back();
+      saveMutation.mutate(payload, {
+        onSuccess: () => {
+          toast.success(id ? 'Equipment updated successfully' : 'Equipment added successfully');
+          router.back();
+        },
+        onError: () => {
+          toast.error('Failed to save equipment');
+        },
+        onSettled: () => {
+          setIsSubmitting(false);
+        }
+      });
     } catch (error) {
-      toast.error('Failed to save equipment');
-    } finally {
+      toast.error('Failed to process image');
       setIsSubmitting(false);
     }
   };
@@ -348,18 +357,18 @@ export default function AddEquipmentScreen() {
 
           <View className="flex-row gap-3 p-4 bg-[#0A0A0A] border-t border-[#161616]">
             <Pressable
-              disabled={isSubmitting}
+              disabled={isSubmitting || saveMutation.isPending}
               onPress={() => router.back()}
               className="flex-1 items-center justify-center py-4 rounded-full border border-[#242424] bg-[#161616] active:opacity-80 disabled:opacity-40"
             >
               <Text className="text-white font-semibold text-sm">CANCEL</Text>
             </Pressable>
             <Pressable
-              disabled={isSubmitting}
+              disabled={isSubmitting || saveMutation.isPending || !equipmentName.trim()}
               onPress={handleSave}
-              className="flex-[1.5] flex-row gap-2 items-center justify-center py-4 rounded-full bg-[#D4F129] active:opacity-80 disabled:opacity-50"
+              className={`flex-[1.5] flex-row gap-2 items-center justify-center py-4 rounded-full ${isSubmitting || saveMutation.isPending || !equipmentName.trim() ? 'bg-[#D4F129]/50' : 'bg-[#D4F129]'} active:opacity-80`}
             >
-              {isSubmitting && <ActivityIndicator color="#000" size="small" />}
+              {(isSubmitting || saveMutation.isPending) && <ActivityIndicator color="#000" size="small" />}
               <Text className="text-black font-semibold text-sm">{id ? 'UPDATE EQUIPMENT' : 'SAVE EQUIPMENT'}</Text>
             </Pressable>
           </View>

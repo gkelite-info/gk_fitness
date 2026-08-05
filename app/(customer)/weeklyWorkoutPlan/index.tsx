@@ -8,75 +8,58 @@ import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/custom
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 
+import { useCustomerWeeklyPlan } from '@/hooks/workout/useCustomerWeeklyPlan';
+
 export default function WeeklyWorkoutPlan() {
   const { userId } = useUser();
-  const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: loadedPlanDays, isLoading, refetch } = useCustomerWeeklyPlan(userId);
 
   useFocusEffect(
     React.useCallback(() => {
-      async function loadData() {
-        if (!userId) return;
-        setIsLoading(true);
-        try {
-          const plans = await fetchCustomerWorkoutPlans(userId);
-          const activePlan = plans.find((p: any) => p.isActive);
-
-          if (activePlan) {
-            const days = await fetchWorkoutPlanDays(activePlan.planId);
-
-            const current = new Date();
-            const currentDayOfWeek = current.getDay();
-            const currentDayIndex = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
-
-            const diff = current.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
-            const monday = new Date(current.setDate(diff));
-
-            const dates: string[] = [];
-            for (let i = 0; i < 7; i++) {
-              const nextDate = new Date(monday);
-              nextDate.setDate(monday.getDate() + i);
-              dates.push(nextDate.getDate().toString().padStart(2, '0'));
-            }
-
-            const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-            const formattedPlan = await Promise.all(dayOrder.map(async (dayStr, index) => {
-              const dayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === dayStr);
-              const isToday = index === currentDayIndex;
-              const isRest = !dayData || dayData.workoutType === 'Rest';
-
-              let exercisesCount = 0;
-              if (dayData && !isRest) {
-                const exs = await fetchWorkoutPlanDayExercises(dayData.planDayId);
-                exercisesCount = exs?.length || 0;
-              }
-
-              return {
-                id: dayData?.planDayId || dayStr,
-                dayAbbr: dayStr.substring(0, 3).toUpperCase(),
-                date: dates[index],
-                type: isRest ? 'Rest Day' : dayData.workoutType,
-                exercises: exercisesCount,
-                duration: dayData?.durationMinutes || (exercisesCount > 0 ? (exercisesCount * 5) + 10 : 0),
-                isRest: isRest,
-                isToday: isToday,
-                subtitle: isRest ? 'Recovery & relax' : null
-              };
-            }));
-
-            setWeeklyPlan(formattedPlan);
-          }
-        } catch (error) {
-          console.error('Error fetching weekly plan:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-
-      loadData();
-    }, [userId])
+      refetch();
+    }, [refetch])
   );
+
+  const weeklyPlan = React.useMemo(() => {
+    if (!loadedPlanDays) return [];
+
+    const current = new Date();
+    const currentDayOfWeek = current.getDay();
+    const currentDayIndex = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+    const diff = current.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
+    const monday = new Date(current.setDate(diff));
+
+    const dates: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const nextDate = new Date(monday);
+      nextDate.setDate(monday.getDate() + i);
+      dates.push(nextDate.getDate().toString().padStart(2, '0'));
+    }
+
+    const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    return dayOrder.map((dayStr, index) => {
+      const dayData = loadedPlanDays[dayStr];
+      const isToday = index === currentDayIndex;
+      const isRest = !dayData || dayData.workoutType === 'Rest';
+
+      const exercisesCount = dayData?.exercises?.length || 0;
+
+      return {
+        id: dayStr, // use day name as ID for routing if planDayId is not present
+        dayAbbr: dayStr.substring(0, 3).toUpperCase(),
+        date: dates[index],
+        type: isRest ? 'Rest Day' : dayData.workoutType,
+        exercises: exercisesCount,
+        duration: dayData?.durationMinutes || (exercisesCount > 0 ? (exercisesCount * 5) + 10 : 0),
+        isRest: isRest,
+        isToday: isToday,
+        subtitle: isRest ? 'Recovery & relax' : null
+      };
+    });
+  }, [loadedPlanDays]);
+
+
 
   const handleEdit = (dayId: string) => {
     router.push({

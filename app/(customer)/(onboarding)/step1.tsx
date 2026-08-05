@@ -4,10 +4,10 @@ import { router } from 'expo-router';
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { User, CalendarBlank, Info, GenderMale, GenderFemale, GenderIntersex } from 'phosphor-react-native';
 import { SelectableCard } from '@/components/onboarding/SelectableCard';
-import { useOnboarding } from './OnboardingContext';
+import { useOnboarding } from './_OnboardingContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from '@/context/UserContext';
-import { sessionSkippedUsers } from '../home';
+import { useCustomerOnboardingStatus, sessionSkippedUsers } from '@/hooks/auth/useCustomerOnboardingStatus';
 
 export default function Step1() {
   const { data, updateData } = useOnboarding();

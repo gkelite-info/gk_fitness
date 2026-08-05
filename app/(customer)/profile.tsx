@@ -13,7 +13,8 @@ import { useTrainerStore } from '@/constants/trainerStore';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
-import { useCustomerProfile } from '@/hooks/useCustomerProfile';
+import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { queryClient } from '@/lib/react-query';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function ProfileScreen() {
@@ -41,16 +42,19 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
 
   const handleSignOut = async () => {
     setSigningOut(true);
-    setModalVisible(false);
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
         Alert.alert('Sign Out Error', error.message);
+        setModalVisible(false);
       } else {
+        queryClient.clear();
+        setModalVisible(false);
         router.replace('/auth/otp-auth');
       }
     } catch (err: any) {
       Alert.alert('Sign Out Error', err.message || 'An error occurred.');
+      setModalVisible(false);
     } finally {
       setSigningOut(false);
     }

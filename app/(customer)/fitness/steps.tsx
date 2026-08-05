@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView, Pressable, Linking } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { usePedometer } from '@/hooks/usePedometer';
+import { usePedometer } from '@/hooks/fitness/usePedometer';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Flame, Footprints, Clock, Trophy } from 'phosphor-react-native';
 import { ProgressRing } from '@/components/fitness/ProgressRing';
@@ -10,7 +10,7 @@ const DAILY_STEP_GOAL = 10000;
 
 export default function StepsScreen() {
   const router = useRouter();
-  const { steps, calories, isAvailable } = usePedometer();
+  const { steps, calories, isAvailable, debugInfo } = usePedometer();
   const progress = steps / DAILY_STEP_GOAL;
 
   const weeklyData = [
@@ -112,8 +112,14 @@ export default function StepsScreen() {
         {!isAvailable && (
           <View className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mt-2">
             <Text className="text-red-400 text-sm text-center">
-              Pedometer sensor is not available on this device. Showing mock data.
+              Pedometer sensor is not available on this device.
             </Text>
+            <Pressable
+              onPress={() => Linking.openSettings()}
+              className="mt-4 bg-red-500/20 py-3 rounded-xl border border-red-500/30 active:opacity-70"
+            >
+              <Text className="text-red-400 font-bold text-center">Open Device Settings</Text>
+            </Pressable>
           </View>
         )}
       </ScrollView>

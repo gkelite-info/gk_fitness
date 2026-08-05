@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
+import { queryClient } from '@/lib/react-query';
 import {
   GearSix,
   User,
@@ -27,16 +28,19 @@ export default function OwnerProfileScreen() {
 
   const handleSignOut = async () => {
     setSigningOut(true);
-    setModalVisible(false);
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
         Alert.alert('Sign Out Error', error.message);
+        setModalVisible(false);
       } else {
+        queryClient.clear();
+        setModalVisible(false);
         router.replace('/auth/otp-auth');
       }
     } catch (err: any) {
       Alert.alert('Sign Out Error', err.message || 'An error occurred.');
+      setModalVisible(false);
     } finally {
       setSigningOut(false);
     }

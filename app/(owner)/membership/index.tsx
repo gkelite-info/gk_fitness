@@ -29,6 +29,7 @@ export interface MembershipPlansListViewProps {
   onCreate?: () => void;
   onBack?: () => void;
   isLoading?: boolean;
+  refreshControl?: any;
 }
 
 export function MembershipPlansListView({
@@ -43,6 +44,7 @@ export function MembershipPlansListView({
   onCreate,
   onBack,
   isLoading = false,
+  refreshControl,
 }: MembershipPlansListViewProps) {
   const insets = useSafeAreaInsets();
   const hasPlans = plans && plans.length > 0;
@@ -75,6 +77,7 @@ export function MembershipPlansListView({
         className="flex-1" 
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={refreshControl}
       >
         <Text className="text-base font-bold text-white mb-1">{sectionTitle}</Text>
         <Text className="text-xs text-[#8E8E93] mb-6">{sectionSubtitle}</Text>
@@ -228,17 +231,35 @@ export function MembershipPlansListView({
   );
 }
 
+import { useUser } from '@/context/UserContext';
+import { useOwnerGymId } from '@/hooks/auth/useOwnerGymId';
+import { useMembershipPlans } from '@/hooks/membership/useMembershipPlans';
+import { useMembershipFeatures } from '@/hooks/membership/useMembershipFeatures';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+
 export default function MembershipPlansScreen() {
   const router = useRouter();
-  const { plans, startCreateFlow, startEditFlow, isLoading } = useMembership();
+  const { userId } = useUser();
+  const { data: gymId } = useOwnerGymId(userId);
+  const { data: features = [] } = useMembershipFeatures();
+  const { data: plans = [], isLoading, refetch } = useMembershipPlans(gymId ?? null);
+  const { startCreateFlow, startEditFlow } = useMembership();
+  
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   const handleEdit = (plan: MembershipPlan) => {
-    startEditFlow(plan);
+    startEditFlow(plan, features);
     router.push('/(owner)/membership/review');
   };
 
   const handleCreate = () => {
-    startCreateFlow();
+    startCreateFlow(features);
     router.push('/(owner)/membership/create');
   };
 
@@ -249,6 +270,9 @@ export default function MembershipPlansScreen() {
       onEdit={handleEdit}
       onCreate={handleCreate}
       onBack={() => router.back()}
+      refreshControl={
+        <CustomRefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+      }
     />
   );
 }

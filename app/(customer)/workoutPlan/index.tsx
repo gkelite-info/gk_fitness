@@ -8,6 +8,7 @@ import { useUser } from '@/context/UserContext';
 import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
+import { useCustomerWeeklyPlan } from '@/hooks/workout/useCustomerWeeklyPlan';
 
 const ShimmerBox = () => {
   const opacity = useRef(new Animated.Value(0.3)).current;
@@ -49,48 +50,32 @@ export default function BuildWeeklyPlan() {
   const { existingDays, targetDay } = useLocalSearchParams<{ existingDays?: string, targetDay?: string }>();
   const { userId } = useUser();
   const [isLoading, setIsLoading] = useState(false);
-
+  
   const existingDaysList = React.useMemo(() => existingDays ? existingDays.split(',') : [], [existingDays]);
+  
+  const { data: loadedPlanDays, isLoading: isQueryLoading } = useCustomerWeeklyPlan(
+    (existingDaysList.length > 0 && selectedDays.length === 0) ? userId : null
+  );
 
   useEffect(() => {
     if (existingDaysList.length > 0 && selectedDays.length === 0 && userId) {
-      setIsLoading(true);
-      const loadExistingData = async () => {
-        try {
-          const plans = await fetchCustomerWorkoutPlans(userId);
-          const activePlan = plans?.find(p => p.isActive);
-          if (activePlan) {
-            const days = await fetchWorkoutPlanDays(activePlan.planId);
-            const loadedPlanDays: any = {};
-            for (const d of days) {
-              if (d.workoutType && d.workoutType !== 'Rest') {
-                const exs = await fetchWorkoutPlanDayExercises(d.planDayId);
-                loadedPlanDays[d.dayOfWeek] = {
-                  dayOfWeek: d.dayOfWeek,
-                  workoutType: d.workoutType,
-                  durationMinutes: d.durationMinutes,
-                  exercises: exs
-                };
-              }
-            }
-            setPlanDays(loadedPlanDays);
-          }
-        } catch (error) {
-          console.error("Error loading existing plan data:", error);
-        } finally {
-          setIsLoading(false);
-        }
+      if (isQueryLoading) {
+        setIsLoading(true);
+        return;
+      }
+      
+      setIsLoading(false);
+      
+      if (loadedPlanDays) {
+        setPlanDays(loadedPlanDays);
+      }
 
-        const map: any = { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday', SUN: 'Sunday' };
-        const targetFull = targetDay ? map[targetDay] : null;
-
-        const toSelect = [...existingDaysList];
-        setSelectedDays(toSelect);
-      };
-
-      loadExistingData();
+      const map: any = { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday', SUN: 'Sunday' };
+      const targetFull = targetDay ? map[targetDay] : null;
+      const toSelect = [...existingDaysList];
+      setSelectedDays(toSelect);
     }
-  }, [existingDaysList, targetDay, selectedDays.length, userId]);
+  }, [existingDaysList, targetDay, selectedDays.length, userId, loadedPlanDays, isQueryLoading]);
 
   const handleToggleDay = (day: string) => {
     try {

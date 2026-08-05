@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { usePedometer } from '@/hooks/usePedometer';
+import { usePedometer } from '@/hooks/fitness/usePedometer';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Flame, Lightning } from 'phosphor-react-native';
 import { ProgressRing } from '@/components/fitness/ProgressRing';

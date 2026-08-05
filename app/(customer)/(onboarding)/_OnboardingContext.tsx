@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 
@@ -56,40 +57,20 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   const [data, setData] = useState<OnboardingData>(initialData);
   const [loading, setLoading] = useState(true);
 
+  const { data: profile, isLoading } = useCustomerProfile(userId);
+
   useEffect(() => {
-    async function fetchCustomerDetails() {
-      if (!userId) return;
-
-      try {
-        const { data: customerData, error } = await supabase
-          .from('gym_customers')
-          .select('fullName, gender, dateOfBirth, gymId')
-          .eq('customerId', userId)
-          .maybeSingle();
-
-        if (error) {
-          console.error('[OnboardingContext] Error fetching gym_customers:', error);
-          return;
-        }
-
-        if (customerData) {
-          setData((prev) => ({
-            ...prev,
-            fullName: customerData.fullName || '',
-            gender: customerData.gender || '',
-            dateOfBirth: customerData.dateOfBirth || '',
-            gymId: customerData.gymId || '',
-          }));
-        }
-      } catch (err) {
-        console.error('[OnboardingContext] Exception fetching customer data:', err);
-      } finally {
-        setLoading(false);
-      }
+    if (profile?.customerData) {
+      setData((prev) => ({
+        ...prev,
+        fullName: profile.customerData.fullName || '',
+        gender: profile.customerData.gender || '',
+        dateOfBirth: profile.customerData.dateOfBirth || '',
+        gymId: profile.customerData.gymId || '',
+      }));
     }
-
-    fetchCustomerDetails();
-  }, [userId]);
+    setLoading(isLoading);
+  }, [profile, isLoading]);
 
   const updateData = (updates: Partial<OnboardingData>) => {
     setData((prev) => ({ ...prev, ...updates }));

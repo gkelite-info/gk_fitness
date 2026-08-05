@@ -6,12 +6,21 @@ import { ArrowLeft, Star, Clock, Info, X } from 'phosphor-react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { fetchWorkoutPlanDayById } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
+import { useWorkoutPlanDayById } from '@/hooks/workout/useWorkoutPlanDayById';
+import { useWorkoutPlanDayExercises } from '@/hooks/workout/useWorkoutPlanDayExercises';
 
 export default function ViewDay() {
   const { dayId } = useLocalSearchParams<{ dayId: string }>();
-  const [dayData, setDayData] = useState<any>(null);
-  const [exercises, setExercises] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  const { data: dayData, isLoading: isLoadingDay } = useWorkoutPlanDayById(dayId);
+  const { data: eData, isLoading: isLoadingExercises } = useWorkoutPlanDayExercises(dayId);
+  
+  const exercises = React.useMemo(() => {
+    return eData ? [...eData].sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : [];
+  }, [eData]);
+  
+  const isLoading = isLoadingDay || isLoadingExercises;
+
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [videoTitle, setVideoTitle] = useState('');
@@ -51,27 +60,7 @@ export default function ViewDay() {
     }
   };
 
-  useEffect(() => {
-    async function loadData() {
-      if (!dayId) return;
-      setIsLoading(true);
-      try {
-        const dData = await fetchWorkoutPlanDayById(dayId);
-        if (dData) {
-          setDayData(dData);
-          const eData = await fetchWorkoutPlanDayExercises(dayId);
-          if (eData) {
-            setExercises(eData.sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching view-day data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadData();
-  }, [dayId]);
+
 
   return (
     <View className="flex-1 bg-[#0A0A0A] pt-12 pb-28 px-4">

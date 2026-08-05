@@ -21,8 +21,8 @@ import { AnimatedTabs } from '@/components/AnimatedTabs';
 import { useUser } from '@/context/UserContext';
 import { getOwnerGymId } from '@/helpers/trainers/trainerHelper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCustomers } from '@/hooks/useCustomers';
-import { useTrainers } from '@/hooks/useTrainers';
+import { useCustomers } from '@/hooks/users/useCustomers';
+import { useTrainers } from '@/hooks/users/useTrainers';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 const ShimmerCard = () => {

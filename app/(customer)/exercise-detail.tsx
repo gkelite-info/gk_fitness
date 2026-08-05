@@ -4,8 +4,8 @@ import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Info, Play, Barbell, Lightbulb, CaretLeft, CaretRight, CheckCircle, Pause, ArrowCounterClockwise } from 'phosphor-react-native';
 import { Video, ResizeMode } from 'expo-av';
-import { fetchWorkoutPlanDayById } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
-import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
+import { useWorkoutPlanDayById } from '@/hooks/workout/useWorkoutPlanDayById';
+import { useWorkoutPlanDayExercises } from '@/hooks/workout/useWorkoutPlanDayExercises';
 
 export default function ExerciseDetail() {
   const params = useLocalSearchParams<{
@@ -16,12 +16,17 @@ export default function ExerciseDetail() {
   const initialIndex = parseInt(params.exerciseIndex || '0');
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const [dayData, setDayData] = useState<any>(null);
-  const [exercises, setExercises] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
   const videoRef = useRef<Video>(null);
   const [isPlaying, setIsPlaying] = useState(true);
+
+  const { data: dayData, isLoading: isLoadingDay } = useWorkoutPlanDayById(params.dayId);
+  const { data: eData, isLoading: isLoadingExercises } = useWorkoutPlanDayExercises(params.dayId);
+  
+  const exercises = React.useMemo(() => {
+    return eData ? [...eData].sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : [];
+  }, [eData]);
+
+  const isLoading = isLoadingDay || isLoadingExercises;
 
   const togglePlayPause = () => {
     if (isPlaying) {
@@ -36,29 +41,6 @@ export default function ExerciseDetail() {
     videoRef.current?.replayAsync();
     setIsPlaying(true);
   };
-
-  useEffect(() => {
-    async function loadData() {
-      if (!params.dayId) {
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const dData = await fetchWorkoutPlanDayById(params.dayId);
-        if (dData) setDayData(dData);
-
-        const eData = await fetchWorkoutPlanDayExercises(params.dayId);
-        if (eData) {
-          setExercises(eData.sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
-        }
-      } catch (error) {
-        console.error('Error fetching exercise details:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadData();
-  }, [params.dayId]);
 
   // Handle navigation between exercises
   const handleNext = () => {

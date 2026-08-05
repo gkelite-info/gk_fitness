@@ -4,196 +4,80 @@ import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, ArrowsDownUp, Info, Clock } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
-import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
-import { fetchWorkoutPlanDays, saveWorkoutPlanDay, fetchWorkoutPlanDayById } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
-import { fetchWorkoutPlanDayExercises, saveWorkoutPlanDayExercise } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
+import { useCustomerWorkoutPlans } from '@/hooks/workout/useCustomerWorkoutPlans';
+import { useCustomerWeeklyPlan } from '@/hooks/workout/useCustomerWeeklyPlan';
+import { useSwapWorkoutDays } from '@/hooks/workout/useMutateCustomerWorkoutPlan';
 import { toast } from '@/lib/toast';
 
 export default function SwapDay() {
   const { dayId } = useLocalSearchParams<{ dayId: string }>();
   const { userId } = useUser();
   const [selectedDayId, setSelectedDayId] = useState(''); 
-  const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSwapping, setIsSwapping] = useState(false);
-  const [activePlanId, setActivePlanId] = useState<string | null>(null);
+  const { data: plans } = useCustomerWorkoutPlans(userId);
+  const activePlanId = plans?.find((p: any) => p.isActive)?.planId || null;
+  const { data: loadedPlanDays, isLoading: isQueryLoading } = useCustomerWeeklyPlan(userId);
+  const swapMutation = useSwapWorkoutDays();
 
-  useEffect(() => {
-    async function loadData() {
-      if (!userId) return;
-      setIsLoading(true);
-      try {
-        const plans = await fetchCustomerWorkoutPlans(userId);
-        const activePlan = plans.find((p: any) => p.isActive);
+  const weeklyPlan = React.useMemo(() => {
+    if (!loadedPlanDays) return [];
 
-        if (activePlan) {
-          setActivePlanId(activePlan.planId);
-          const days = await fetchWorkoutPlanDays(activePlan.planId);
+    const current = new Date();
+    const currentDayOfWeek = current.getDay();
+    const currentDayIndex = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+    const diff = current.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
+    const monday = new Date(current.setDate(diff));
 
-          const current = new Date();
-          const currentDayOfWeek = current.getDay();
-          const currentDayIndex = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
-          const diff = current.getDate() - currentDayOfWeek + (currentDayOfWeek === 0 ? -6 : 1);
-          const monday = new Date(current.setDate(diff));
-
-          const dates: string[] = [];
-          for (let i = 0; i < 7; i++) {
-            const nextDate = new Date(monday);
-            nextDate.setDate(monday.getDate() + i);
-            dates.push(nextDate.getDate().toString().padStart(2, '0'));
-          }
-
-          const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-          const formattedPlan = await Promise.all(dayOrder.map(async (dayStr, index) => {
-            const dayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === dayStr);
-            const isRest = !dayData || dayData.workoutType === 'Rest';
-            let exercisesCount = 0;
-            if (dayData && !isRest) {
-              const exs = await fetchWorkoutPlanDayExercises(dayData.planDayId);
-              exercisesCount = exs?.length || 0;
-            }
-
-            return {
-              id: dayData?.planDayId || dayStr,
-              dayOfWeek: dayStr,
-              dayAbbr: dayStr.substring(0, 3).toUpperCase(),
-              date: dates[index],
-              title: isRest ? 'Rest Day' : dayData.workoutType,
-              subtitle: isRest ? 'Recovery & relax' : (dayData.workoutType || ''),
-              exercises: exercisesCount,
-              duration: dayData?.durationMinutes || (exercisesCount > 0 ? (exercisesCount * 5) + 10 : 0),
-              isRest: isRest,
-              planDayId: dayData?.planDayId || null,
-            };
-          }));
-
-          setWeeklyPlan(formattedPlan);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    const dates: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const nextDate = new Date(monday);
+      nextDate.setDate(monday.getDate() + i);
+      dates.push(nextDate.getDate().toString().padStart(2, '0'));
     }
 
-    loadData();
-  }, [userId]);
+    const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  const handleConfirmSwap = async () => {
+    return dayOrder.map((dayStr, index) => {
+      const dayData = loadedPlanDays[dayStr];
+      const isRest = !dayData || dayData.workoutType === 'Rest';
+
+      const exercisesCount = dayData?.exercises?.length || 0;
+
+      return {
+        id: dayData?.planDayId || dayStr,
+        dayOfWeek: dayStr,
+        dayAbbr: dayStr.substring(0, 3).toUpperCase(),
+        date: dates[index],
+        title: isRest ? 'Rest Day' : dayData.workoutType,
+        subtitle: isRest ? 'Recovery & relax' : (dayData.workoutType || ''),
+        exercises: exercisesCount,
+        duration: dayData?.durationMinutes || (exercisesCount > 0 ? (exercisesCount * 5) + 10 : 0),
+        isRest: isRest,
+        planDayId: dayData?.planDayId || null,
+      };
+    });
+  }, [loadedPlanDays]);
+
+  const isLoading = isQueryLoading;
+
+  const handleConfirmSwap = () => {
     if (!selectedDayId || !currentWorkout || !targetWorkout || !activePlanId) return;
-    setIsSwapping(true);
-    try {
-      const sourcePlanDayId = currentWorkout.planDayId;
-      const targetPlanDayId = targetWorkout.planDayId;
-      
-      const sourceDayOfWeek = currentWorkout.dayOfWeek.charAt(0).toUpperCase() + currentWorkout.dayOfWeek.slice(1);
-      const targetDayOfWeek = targetWorkout.dayOfWeek.charAt(0).toUpperCase() + targetWorkout.dayOfWeek.slice(1);
 
-      if (sourcePlanDayId && targetPlanDayId) {
-        // Both days exist in DB. Swap their contents to avoid dayOfWeek unique constraint.
-        const sourceData = await fetchWorkoutPlanDayById(sourcePlanDayId);
-        const targetData = await fetchWorkoutPlanDayById(targetPlanDayId);
-        
-        const sourceExs = await fetchWorkoutPlanDayExercises(sourcePlanDayId) || [];
-        const targetExs = await fetchWorkoutPlanDayExercises(targetPlanDayId) || [];
-
-        if (sourceData && targetData) {
-          // Swap properties
-          await saveWorkoutPlanDay({
-            ...sourceData,
-            planDayId: sourcePlanDayId,
-            workoutType: targetData.workoutType,
-            durationMinutes: targetData.durationMinutes,
-          });
-
-          await saveWorkoutPlanDay({
-            ...targetData,
-            planDayId: targetPlanDayId,
-            workoutType: sourceData.workoutType,
-            durationMinutes: sourceData.durationMinutes,
-          });
-
-          // Swap exercises
-          for (const ex of sourceExs) {
-            await saveWorkoutPlanDayExercise({
-              ...ex,
-              planDayId: targetPlanDayId,
-            });
-          }
-          for (const ex of targetExs) {
-            await saveWorkoutPlanDayExercise({
-              ...ex,
-              planDayId: sourcePlanDayId,
-            });
-          }
-        }
-      } else if (sourcePlanDayId && !targetPlanDayId) {
-        const sourceData = await fetchWorkoutPlanDayById(sourcePlanDayId);
-        const sourceExs = await fetchWorkoutPlanDayExercises(sourcePlanDayId) || [];
-
-        if (sourceData) {
-          const newTarget = await saveWorkoutPlanDay({
-            planId: activePlanId,
-            dayOfWeek: targetDayOfWeek,
-            workoutType: sourceData.workoutType,
-            durationMinutes: sourceData.durationMinutes,
-          });
-
-          await saveWorkoutPlanDay({
-            ...sourceData,
-            planDayId: sourcePlanDayId,
-            workoutType: 'Rest',
-            durationMinutes: 0,
-          });
-
-          if (newTarget) {
-            for (const ex of sourceExs) {
-              await saveWorkoutPlanDayExercise({
-                ...ex,
-                planDayId: newTarget.planDayId,
-              });
-            }
-          }
-        }
-      } else if (!sourcePlanDayId && targetPlanDayId) {
-        const targetData = await fetchWorkoutPlanDayById(targetPlanDayId);
-        const targetExs = await fetchWorkoutPlanDayExercises(targetPlanDayId) || [];
-
-        if (targetData) {
-          const newSource = await saveWorkoutPlanDay({
-            planId: activePlanId,
-            dayOfWeek: sourceDayOfWeek,
-            workoutType: targetData.workoutType,
-            durationMinutes: targetData.durationMinutes,
-          });
-
-          await saveWorkoutPlanDay({
-            ...targetData,
-            planDayId: targetPlanDayId,
-            workoutType: 'Rest',
-            durationMinutes: 0,
-          });
-
-          if (newSource) {
-            for (const ex of targetExs) {
-              await saveWorkoutPlanDayExercise({
-                ...ex,
-                planDayId: newSource.planDayId,
-              });
-            }
-          }
-        }
+    swapMutation.mutate({
+      sourcePlanDayId: currentWorkout.planDayId,
+      targetPlanDayId: targetWorkout.planDayId,
+      sourceDayOfWeek: currentWorkout.dayOfWeek,
+      targetDayOfWeek: targetWorkout.dayOfWeek,
+      activePlanId
+    }, {
+      onSuccess: () => {
+        toast.success(`Swapped ${currentWorkout.title} with ${targetWorkout.title}`);
+        router.back();
+      },
+      onError: (err) => {
+        console.error('Swap error:', err);
+        toast.error('Failed to swap days');
       }
-
-      toast.success('Workout days swapped successfully!');
-      router.back();
-    } catch (error) {
-      console.error('Swap Error:', error);
-      toast.error('Failed to swap workout days.');
-    } finally {
-      setIsSwapping(false);
-    }
+    });
   };
 
   const currentWorkout = weeklyPlan.find(d => d.id === dayId);
@@ -315,21 +199,22 @@ export default function SwapDay() {
         </View>
 
         <View className="absolute bottom-0 left-0 right-0 bg-[#0A0A0A] px-5 pt-4 pb-8 border-t border-[#161616]">
-          <Pressable 
+          <Pressable
             onPress={handleConfirmSwap}
-            disabled={!selectedDayId || isSwapping}
-            className={`w-full h-14 bg-[#D4FF00] rounded-2xl items-center justify-center flex-row active:opacity-90 mb-3 ${(!selectedDayId || isSwapping) ? 'opacity-50' : ''}`}
+            disabled={!selectedDayId || swapMutation.isPending}
+            className={`flex-1 rounded-2xl items-center justify-center h-14 flex-row gap-2 ${!selectedDayId || swapMutation.isPending ? 'bg-[#D4FF00]/50' : 'bg-[#D4FF00] active:opacity-90'
+              }`}
           >
-            {isSwapping ? (
-              <ActivityIndicator color="black" />
+            {swapMutation.isPending ? (
+              <ActivityIndicator size="small" color="#000" />
             ) : (
               <>
-                <Text className="text-black text-base font-semibold mr-2">Confirm Swap</Text>
+                <Text className="text-black font-semibold text-base">Confirm Swap</Text>
                 <ArrowsDownUp size={16} color="#000" weight="bold" />
               </>
             )}
           </Pressable>
-          <Pressable onPress={() => router.back()} className="w-full h-12 items-center justify-center active:opacity-70">
+          <Pressable onPress={() => router.back()} className="w-full h-12 items-center justify-center active:opacity-70 mt-2">
             <Text className="text-white text-base font-semibold">Cancel</Text>
           </Pressable>
         </View>

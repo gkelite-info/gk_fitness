@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, TextInput, ActionSheetIOS, Platform, Alert } from 'react-native';
+import { View, ScrollView, Pressable, TextInput, ActionSheetIOS, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,6 +34,8 @@ export interface ReviewAndPublishPlansViewProps {
   onEditFeatures?: (planId: string, currentDrafts: DraftPlan[]) => void;
   onDelete?: (planId: string) => void;
   onBack?: () => void;
+  isPublishing?: boolean;
+  isDeleting?: boolean;
 }
 
 export function ReviewAndPublishPlansView({
@@ -49,6 +51,8 @@ export function ReviewAndPublishPlansView({
   onEditFeatures,
   onDelete,
   onBack,
+  isPublishing = false,
+  isDeleting = false,
 }: ReviewAndPublishPlansViewProps) {
   const insets = useSafeAreaInsets();
   const [plans, setPlans] = useState<DraftPlan[]>(initialPlans);
@@ -230,10 +234,12 @@ export function ReviewAndPublishPlansView({
         <View className="mt-4">
           <Pressable
             onPress={handlePublishClick}
-            className="bg-[#D4FF00] rounded-[24px] h-14 items-center justify-center mb-3.5 active:opacity-90 min-h-[56px]"
+            disabled={isPublishing || isDeleting}
+            className="bg-[#D4FF00] rounded-[24px] h-14 items-center justify-center mb-3.5 active:opacity-90 min-h-[56px] flex-row gap-2"
           >
+            {isPublishing && <ActivityIndicator size="small" color="#000000" />}
             <Text className="text-black font-black text-base tracking-wide">
-              {publishButtonText}
+              {isPublishing ? 'Publishing...' : publishButtonText}
             </Text>
           </Pressable>
           <Text className="text-[11px] font-semibold text-[#71717A] text-center mb-4">
@@ -243,11 +249,12 @@ export function ReviewAndPublishPlansView({
           {isEditingExisting && (
             <Pressable
               onPress={handleDeleteClick}
+              disabled={isDeleting || isPublishing}
               className="bg-transparent border border-red-500 rounded-[24px] h-14 flex-row items-center justify-center mb-6 active:opacity-60 min-h-[56px]"
             >
-              <Trash size={18} color="#EF4444" weight="bold" />
+              {isDeleting ? <ActivityIndicator size="small" color="#EF4444" /> : <Trash size={18} color="#EF4444" weight="bold" />}
               <Text className="text-red-500 font-bold text-base ml-2">
-                Delete Plan
+                {isDeleting ? 'Deleting...' : 'Delete Plan'}
               </Text>
             </Pressable>
           )}
@@ -257,18 +264,41 @@ export function ReviewAndPublishPlansView({
   );
 }
 
+import { useMembershipFeatures } from '@/hooks/membership/useMembershipFeatures';
+import { useUpsertMembershipPlans, useDeleteMembershipPlan } from '@/hooks/membership/useMutateMembershipPlan';
+import { useUser } from '@/context/UserContext';
+import { useOwnerGymId } from '@/hooks/auth/useOwnerGymId';
+
 export default function ReviewMembershipPlansScreen() {
   const router = useRouter();
-  const { drafts, setDrafts, publishPlans, deletePlan, isEditingExisting, availableFeatures } = useMembership();
+  const { drafts, setDrafts, isEditingExisting } = useMembership();
+  
+  const { userId } = useUser();
+  const { data: gymId } = useOwnerGymId(userId);
+  const { data: availableFeatures = [] } = useMembershipFeatures();
+  
+  const upsertMutation = useUpsertMembershipPlans();
+  const deleteMutation = useDeleteMembershipPlan();
 
-  const handlePublish = async (finalDrafts: DraftPlan[]) => {
-    await publishPlans(finalDrafts);
-    if (isEditingExisting) {
-      toast.success('Membership plan updated successfully!');
-    } else {
-      toast.success('Membership plans published successfully!');
+  const handlePublish = (finalDrafts: DraftPlan[]) => {
+    if (!gymId || !userId) {
+      toast.error('Missing gym or user context.');
+      return;
     }
-    router.push('/(owner)/membership');
+    
+    upsertMutation.mutate({ gymId, userId, plans: finalDrafts }, {
+      onSuccess: () => {
+        if (isEditingExisting) {
+          toast.success('Membership plan updated successfully!');
+        } else {
+          toast.success('Membership plans published successfully!');
+        }
+        router.push('/(owner)/membership');
+      },
+      onError: (error) => {
+        toast.error('Failed to save plans: ' + error.message);
+      }
+    });
   };
 
   const handleEditFeatures = (planId: string, currentDrafts: DraftPlan[]) => {
@@ -276,10 +306,16 @@ export default function ReviewMembershipPlansScreen() {
     router.push('/(owner)/membership/create');
   };
 
-  const handleDelete = async (planId: string) => {
-    await deletePlan(planId);
-    toast.success('Membership plan deleted successfully!');
-    router.push('/(owner)/membership');
+  const handleDelete = (planId: string) => {
+    deleteMutation.mutate(planId, {
+      onSuccess: () => {
+        toast.success('Membership plan deleted successfully!');
+        router.push('/(owner)/membership');
+      },
+      onError: (error) => {
+        toast.error('Failed to delete plan: ' + error.message);
+      }
+    });
   };
 
   return (
@@ -287,6 +323,8 @@ export default function ReviewMembershipPlansScreen() {
       plans={drafts}
       availableFeatures={availableFeatures}
       isEditingExisting={isEditingExisting}
+      isPublishing={upsertMutation.isPending}
+      isDeleting={deleteMutation.isPending}
       headerTitle={isEditingExisting ? 'Edit Membership Plan' : 'Create Membership Plans'}
       pageHeading={isEditingExisting ? 'Review Plan Details' : 'Review & Publish Your Plans'}
       publishButtonText={isEditingExisting ? 'Save Changes' : 'Publish Plans'}

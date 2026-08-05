@@ -9,7 +9,9 @@ export interface UserProfile {
   address: string | null;
   role: string | null;
 
+  // Role-specific IDs
   gymOwnerId?: string | null;
+  gymId?: string | null;
   customerId?: string | null;
   trainerId?: string | null;
   doctorId?: string | null;
@@ -85,17 +87,18 @@ export async function fetchUserAndRoleProfile(
         case 'owner': {
           const { data: ownerData } = await supabase
             .from('gym_owners')
-            .select('gymOwnerId')
+            .select('gymOwnerId, gymId')
             .eq('userId', profile.userId)
             .maybeSingle();
           profile.gymOwnerId = ownerData?.gymOwnerId || null;
+          profile.gymId = ownerData?.gymId || null;
           break;
         }
         case 'customer': {
           const { data: customerData } = await supabase
             .from('gym_customers')
             .select('customerId')
-            .eq('userId', profile.userId)
+            .eq('customerId', profile.userId)
             .maybeSingle();
           profile.customerId = customerData?.customerId || null;
           break;

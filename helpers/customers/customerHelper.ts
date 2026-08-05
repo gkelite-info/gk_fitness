@@ -61,7 +61,7 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
   }
 
   const now = new Date().toISOString();
-  
+
   // Try to resolve active gym if not passed
   let resolvedGymId = params.gymId;
   if (!resolvedGymId) {
@@ -70,13 +70,29 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
       resolvedGymId = fetchedGymId;
     }
   }
-  
+
   if (!resolvedGymId) {
     throw new Error('Failed to identify active Gym for this owner. Cannot register customer.');
   }
 
   const cleanEmail = params.email.trim().toLowerCase();
   const cleanPhone = params.phone.trim();
+
+  if (!params.customerId) {
+    const { data: existingCheck } = await supabase
+      .from('users')
+      .select('userId, email, phone')
+      .or(`email.eq.${cleanEmail},phone.eq.${cleanPhone}`)
+      .maybeSingle();
+
+    if (existingCheck) {
+      if (existingCheck.email === cleanEmail) {
+        throw new Error('User already exists with this email address.');
+      } else {
+        throw new Error('User already exists with this phone number.');
+      }
+    }
+  }
 
   // Generate temporary password (format CS-XXXXX-X)
   const uuid = Crypto.randomUUID();
@@ -203,7 +219,7 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
       .select('userId')
       .eq('userId', targetUserId)
       .maybeSingle();
-      
+
     // Verify Table 2 (gym_customers)
     const { data: verCustomer, error: verCustomerErr } = await supabase
       .from('gym_customers')
@@ -229,7 +245,7 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
 
   } catch (error: any) {
     console.error('[customerHelper] Atomic Transaction Error or Verification Failure. Rolling back across 2 tables...', error);
-    
+
     // ATOMIC ROLLBACK: Remove any records written during this attempt if any step failed
     if (targetUserId) {
       try {

@@ -48,7 +48,7 @@ const initialData: OnboardingData = {
 
 const OnboardingContext = createContext<OnboardingContextType>({
   data: initialData,
-  updateData: () => {},
+  updateData: () => { },
   loading: true,
 });
 

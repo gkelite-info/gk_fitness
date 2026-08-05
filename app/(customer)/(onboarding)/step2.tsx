@@ -30,7 +30,7 @@ export default function Step2() {
   const isFormValid = data.primaryGoal !== '' && isValidOptionalNumber(data.targetWeight);
 
   const Title = (
-    <Text className="text-white text-3xl font-bold mb-2">
+    <Text className="text-white text-3xl font-semibold mb-2">
       What's your{'\n'}<Text className="text-neon">fitness goal?</Text>
     </Text>
   );
@@ -43,8 +43,8 @@ export default function Step2() {
       onContinue={handleContinue}
       isContinueDisabled={!isFormValid}
     >
-      <Text className="text-white font-bold mb-4">Select your primary goal <Text className="text-red-500">*</Text></Text>
-      
+      <Text className="text-white font-semibold mb-4">Select your primary goal <Text className="text-red-500">*</Text></Text>
+
       <View className="gap-3 mb-8">
         {GOALS.map((g) => (
           <SelectableCard
@@ -58,27 +58,27 @@ export default function Step2() {
                 <g.Icon color={data.primaryGoal === g.id ? '#d4ff00' : '#888'} weight="regular" size={24} />
               </View>
               <View>
-                <Text className="text-white font-bold text-lg mb-1">{g.title}</Text>
-                <Text className="text-gray-400 text-sm">{g.description}</Text>
+                <Text className="text-white font-semibold text-lg mb-1">{g.title}</Text>
+                <Text className="text-gray-400 text-sm font-sans">{g.description}</Text>
               </View>
             </View>
           </SelectableCard>
         ))}
       </View>
 
-      <View className="mb-6">
+      <View className="mb-16">
         <Text className="text-white mb-2 font-medium">Target Weight (Optional)</Text>
-        <Text className="text-gray-500 text-sm mb-2">Set a target weight you want to achieve.</Text>
+        <Text className="text-gray-500 text-xs mb-2 font-sans">Set a target weight you want to achieve.</Text>
         <View className={`border rounded-xl p-4 bg-[#111] flex-row items-center justify-between ${data.targetWeight && !isValidOptionalNumber(data.targetWeight) ? 'border-red-500' : 'border-gray-800'}`}>
           <TextInput
-            className="text-white flex-1"
+            className="text-white flex-1 font-sans"
             placeholder="Enter target weight"
             placeholderTextColor="#666"
             value={data.targetWeight}
             onChangeText={(text) => updateData({ targetWeight: text })}
             keyboardType="numeric"
           />
-          <Text className="text-gray-500">kg</Text>
+          <Text className="text-gray-500 font-sans">kg</Text>
         </View>
         {data.targetWeight && !isValidOptionalNumber(data.targetWeight) ? <Text className="text-red-500 text-xs mt-1">Valid target weight required if provided</Text> : null}
       </View>

@@ -42,7 +42,7 @@ export function DaySelector({ selectedDays, onChange }: DaySelectorProps) {
           >
             <Text
               className={cn(
-                'font-bold text-xs mb-2',
+                'font-semibold text-xs mb-2',
                 isSelected ? 'text-black' : 'text-gray-400'
               )}
             >

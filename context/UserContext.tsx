@@ -13,6 +13,7 @@ type UserContextType = UserProfile & {
 const UserContext = createContext<UserContextType>({
   userId: null,
   gymOwnerId: null,
+  gymId: null,
   customerId: null,
   trainerId: null,
   doctorId: null,
@@ -135,6 +136,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       role: profile?.role || null,
 
       gymOwnerId: profile?.gymOwnerId || null,
+      gymId: profile?.gymId || null,
       customerId: profile?.customerId || null,
       trainerId: profile?.trainerId || null,
       doctorId: profile?.doctorId || null,

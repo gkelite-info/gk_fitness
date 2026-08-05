@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, Pressable, ScrollView, SafeAreaView, Platform } from 'react-native';
 import { Stepper } from './Stepper';
 import { ArrowRight } from 'phosphor-react-native';
 
@@ -26,8 +26,8 @@ export function OnboardingLayout({
 }: OnboardingLayoutProps) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#09090b' }} className="flex-1 bg-[#09090b] dark:bg-[#09090b]">
-      <ScrollView 
-        className="flex-1 px-5 pt-4" 
+      <ScrollView
+        className={`flex-1 px-5 ${Platform.OS === 'android' ? 'pt-14' : 'pt-4'}`}
         contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -38,13 +38,13 @@ export function OnboardingLayout({
         </View>
 
         {title && (
-          <Text className="text-white text-3xl font-bold mb-2">
+          <Text className="text-white text-3xl font-semibold mb-2">
             {title}
           </Text>
         )}
-        
+
         {description && (
-          <Text className="text-gray-400 text-base mb-8">
+          <Text className="text-gray-400 text-base font-sans mb-8">
             {description}
           </Text>
         )}
@@ -58,11 +58,10 @@ export function OnboardingLayout({
         <Pressable
           onPress={onContinue}
           disabled={isContinueDisabled}
-          className={`flex-row items-center justify-center py-4 rounded-xl ${
-            isContinueDisabled ? 'bg-gray-700 opacity-50' : 'bg-neon'
-          }`}
+          className={`flex-row items-center justify-center py-4 rounded-xl ${isContinueDisabled ? 'bg-gray-700 opacity-50' : 'bg-neon'
+            }`}
         >
-          <Text className="text-black font-bold text-lg mr-2">
+          <Text className="text-black font-semibold text-lg mr-2">
             {continueText}
           </Text>
           <ArrowRight weight="bold" color="#000" size={20} />

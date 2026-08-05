@@ -36,7 +36,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
   const insets = useSafeAreaInsets();
   const { status, trainer } = useTrainerStore();
 
-  
+
   const [modalVisible, setModalVisible] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -59,7 +59,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
       setSigningOut(false);
     }
   };
-  
+
   const displayFullName = customerData?.fullName || fallbackUser?.name || data.user.fullName;
   const displayEmail = customerData?.email || fallbackUser?.email || data.user.email;
 
@@ -74,7 +74,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
   return (
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
       <View className="flex-row justify-between items-center px-5 py-4">
-        <Text className="text-white text-3xl font-bold">Profile</Text>
+        <Text className="text-white text-3xl font-semibold">Profile</Text>
         <Pressable>
           <GearSix size={28} color="#FFFFFF" weight="regular" />
         </Pressable>
@@ -94,7 +94,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
               </>
             ) : (
               <>
-                <Text className="text-white text-xl font-bold">{displayFullName}</Text>
+                <Text className="text-white text-xl font-semibold">{displayFullName}</Text>
                 <Text className="text-[#A1A1AA] text-sm mt-1">{displayEmail}</Text>
               </>
             )}
@@ -108,7 +108,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
           </View>
         </View>
 
-        <Text className="text-white text-lg font-bold mt-8 mb-4">Your Progress Overview</Text>
+        <Text className="text-white text-lg font-semibold mt-8 mb-4">Your Progress Overview</Text>
         <View className="flex-row justify-between gap-x-3">
           <ProgressCard
             icon={<Scales size={24} color="#D4FF00" />}
@@ -135,7 +135,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
           />
         </View>
 
-        <Text className="text-white text-lg font-bold mt-8 mb-4">Manage Your Account</Text>
+        <Text className="text-white text-lg font-semibold mt-8 mb-4">Manage Your Account</Text>
         <View className="bg-[#1A1A1A] rounded-3xl overflow-hidden border border-[#27272A]">
           {!loading && !onboardingData && (
             <MenuItem
@@ -177,15 +177,25 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
           )}
           <MenuItem icon={<Star size={20} color="#D4FF00" />} title="Membership & Subscription" subtitle="Manage your plan and billing" />
           <MenuItem icon={<Bell size={20} color="#D4FF00" />} title="Notifications" subtitle="Manage your notification preferences" />
-          <MenuItem icon={<ShieldCheck size={20} color="#D4FF00" />} title="Privacy & Security" subtitle="Manage your privacy and security settings" />
-          <MenuItem icon={<Question size={20} color="#D4FF00" />} title="Help & Support" subtitle="Get help and support" />
           <MenuItem 
-            icon={<SignOut size={20} color="#FF3B30" />} 
-            title="Logout" 
-            subtitle="Sign out from your account" 
-            titleColor="#FF3B30" 
-            hideBorder={true} 
-            iconContainerStyle="bg-[#2A1515]" 
+            icon={<ShieldCheck size={20} color="#D4FF00" />} 
+            title="Privacy & Security" 
+            subtitle="Manage your privacy and security settings" 
+            onPress={() => router.push('/(customer)/privacy-policy')}
+          />
+          <MenuItem 
+            icon={<Question size={20} color="#D4FF00" />} 
+            title="Help & Support" 
+            subtitle="Get help and support" 
+            onPress={() => router.push('/(customer)/help-support')}
+          />
+          <MenuItem
+            icon={<SignOut size={20} color="#FF3B30" />}
+            title="Logout"
+            subtitle="Sign out from your account"
+            titleColor="#FF3B30"
+            hideBorder={true}
+            iconContainerStyle="bg-[#2A1515]"
             onPress={() => setModalVisible(true)}
           />
         </View>
@@ -243,11 +253,11 @@ function ProgressCard({ icon, title, value, subtitle, subtitleColor, valueHighli
       <Text className="text-[#8E8E93] text-[10px] mb-2 font-medium">{title}</Text>
       {valueHighlight ? (
         <View className="flex-row items-baseline mb-2">
-          <Text className="text-white text-xl font-bold">{valueHighlight}</Text>
+          <Text className="text-white text-xl font-semibold">{valueHighlight}</Text>
           <Text className="text-white text-[10px] ml-1">{valueSuffix}</Text>
         </View>
       ) : (
-        <Text className="text-white text-base font-bold text-center mb-2">{value}</Text>
+        <Text className="text-white text-base font-semibold text-center mb-2">{value}</Text>
       )}
       <Text className="text-[9px] text-center font-semibold" style={{ color: subtitleColor }}>{subtitle}</Text>
     </View>
@@ -266,7 +276,7 @@ function MenuItem({ icon, title, subtitle, isNew, hideBorder, titleColor, onPres
       </View>
       {isNew && (
         <View className="bg-[#D4FF00] rounded-full px-2 py-0.5 mr-3">
-          <Text className="text-black text-[10px] font-bold">New</Text>
+          <Text className="text-black text-[10px] font-semibold">New</Text>
         </View>
       )}
       <CaretRight size={16} color="#48484A" weight="bold" />

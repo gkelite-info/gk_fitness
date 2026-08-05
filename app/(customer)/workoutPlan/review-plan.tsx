@@ -191,12 +191,12 @@ export default function ReviewPlan() {
 
           <View className="flex-row justify-around border-b border-[#27272A]/50 pb-4 mb-4">
             <View className="items-center">
-              <Text className="text-[#C4EF00] font-black text-3xl">{workoutsCount}</Text>
+              <Text className="text-[#C4EF00] font-semibold text-3xl">{workoutsCount}</Text>
               <Text className="text-[#8E8E8E] text-[10px] font-semibold tracking-wider mt-0.5">WORKOUTS</Text>
             </View>
             <View className="w-[1px] bg-[#27272A]/50" />
             <View className="items-center">
-              <Text className="text-white font-black text-3xl">{recoveryCount}</Text>
+              <Text className="text-white font-semibold text-3xl">{recoveryCount}</Text>
               <Text className="text-[#8E8E8E] text-[10px] font-semibold tracking-wider mt-0.5">RECOVERY</Text>
             </View>
           </View>

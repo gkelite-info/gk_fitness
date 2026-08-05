@@ -9,96 +9,19 @@ import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/custom
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 
+import { useCustomerDashboardData } from '@/hooks/workout/useCustomerDashboardData';
+
 export default function CustomerWorkout() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const navigation = useNavigation();
   const { name, userId } = useUser();
 
-  const [hasPlan, setHasPlan] = useState<boolean | null>(null);
-  const [isLoadingPlan, setIsLoadingPlan] = useState(true);
-  const [weeklyPlanDays, setWeeklyPlanDays] = useState<any[]>([]);
-  const [todayWorkout, setTodayWorkout] = useState<any>(null);
-  const [yesterdayWorkout, setYesterdayWorkout] = useState<any>(null);
-
-  useEffect(() => {
-    async function loadPlan() {
-      if (!userId) return;
-      setIsLoadingPlan(true);
-      try {
-        const plans = await fetchCustomerWorkoutPlans(userId);
-        const activePlan = plans.find((p: any) => p.isActive);
-
-        if (activePlan) {
-          const days = await fetchWorkoutPlanDays(activePlan.planId);
-
-          const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-          const currentDayIndex = new Date().getDay();
-          const todayIndex = currentDayIndex === 0 ? 6 : currentDayIndex - 1;
-          const todayString = dayOrder[todayIndex];
-
-          const formattedDays = dayOrder.map(dayStr => {
-            const dayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === dayStr);
-            const isToday = dayStr === todayString;
-
-            const dayIdx = dayOrder.indexOf(dayStr);
-            let status = 'rest';
-            if (isToday) {
-              status = 'active';
-            } else if (dayData && dayData.workoutType !== 'Rest') {
-              status = dayIdx < todayIndex ? 'completed' : 'pending';
-            }
-
-            return {
-              dayStr,
-              dayAbbr: dayStr.charAt(0).toUpperCase() + dayStr.slice(1, 3),
-              type: dayData && dayData.workoutType !== 'Rest' ? dayData.workoutType : 'Rest',
-              status: status,
-              duration: dayData?.durationMinutes || 45,
-              exercisesCount: 0,
-              dayId: dayData?.planDayId,
-            };
-          });
-
-          setWeeklyPlanDays(formattedDays);
-          
-          const todayFormatted = formattedDays.find(d => d.dayStr === todayString);
-          if (todayFormatted && todayFormatted.type !== 'Rest') {
-            const rawTodayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === todayString);
-            if (rawTodayData) {
-              const exs = await fetchWorkoutPlanDayExercises(rawTodayData.planDayId);
-              todayFormatted.exercisesCount = exs?.length || 0;
-            }
-          }
-          setTodayWorkout(todayFormatted);
-
-          const yesterdayIndex = todayIndex === 0 ? 6 : todayIndex - 1;
-          const yesterdayString = dayOrder[yesterdayIndex];
-          const yesterdayFormatted = formattedDays.find(d => d.dayStr === yesterdayString);
-
-          if (yesterdayFormatted && yesterdayFormatted.type !== 'Rest') {
-            const rawYesterdayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === yesterdayString);
-            if (rawYesterdayData) {
-              const exs = await fetchWorkoutPlanDayExercises(rawYesterdayData.planDayId);
-              yesterdayFormatted.exercisesCount = exs?.length || 0;
-            }
-          }
-          setYesterdayWorkout(yesterdayFormatted);
-
-          setHasPlan(true);
-        } else {
-          setHasPlan(false);
-          setYesterdayWorkout(null);
-        }
-      } catch (error) {
-        console.error('Error loading workout plan:', error);
-        setHasPlan(false);
-      } finally {
-        setIsLoadingPlan(false);
-      }
-    }
-
-    loadPlan();
-  }, [userId]);
+  const { data: dashboardData, isLoading: isLoadingPlan } = useCustomerDashboardData(userId);
+  
+  const hasPlan = dashboardData?.hasPlan ?? null;
+  const weeklyPlanDays = dashboardData?.weeklyPlanDays ?? [];
+  const todayWorkout = dashboardData?.todayWorkout ?? null;
+  const yesterdayWorkout = dashboardData?.yesterdayWorkout ?? null;
 
   useEffect(() => {
     const unsubscribe = (navigation as any).addListener('tabPress', () => {

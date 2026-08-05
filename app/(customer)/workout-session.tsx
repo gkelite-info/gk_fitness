@@ -3,57 +3,39 @@ import { View, ScrollView, Pressable, Image, StyleSheet } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, CaretDown, CaretRight, Lightbulb, ArrowRight, Barbell } from 'phosphor-react-native';
-import { fetchWorkoutPlanDayById, fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
-import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
+import { useWorkoutPlanDayById } from '@/hooks/workout/useWorkoutPlanDayById';
+import { useWorkoutPlanDayExercises } from '@/hooks/workout/useWorkoutPlanDayExercises';
+import { useWorkoutPlanDays } from '@/hooks/workout/useWorkoutPlanDays';
 
 export default function WorkoutSession() {
   const { dayId } = useLocalSearchParams<{ dayId: string }>();
-  const [dayData, setDayData] = useState<any>(null);
-  const [exercises, setExercises] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isTipVisible, setIsTipVisible] = useState(true);
+  
+  const { data: dayData, isLoading: isLoadingDay } = useWorkoutPlanDayById(dayId);
+  const { data: eData, isLoading: isLoadingExercises } = useWorkoutPlanDayExercises(dayId);
+  const { data: allDays, isLoading: isLoadingAllDays } = useWorkoutPlanDays(dayData?.planId);
 
-  const [daysList, setDaysList] = useState<any[]>([
-    { name: 'MON', label: 'Chest', active: true },
-    { name: 'TUE', label: 'Legs', active: false },
-    { name: 'WED', label: 'Abs', active: false },
-    { name: 'THU', label: 'Rest', active: false },
-    { name: 'FRI', label: 'Back', active: false },
-    { name: 'SAT', label: 'Biceps', active: false },
-  ]);
+  const exercises = React.useMemo(() => {
+    return eData ? [...eData].sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : [];
+  }, [eData]);
 
-  useEffect(() => {
-    async function loadData() {
-      if (!dayId) return;
-      try {
-        const dData = await fetchWorkoutPlanDayById(dayId);
-        if (dData) {
-          setDayData(dData);
-          const eData = await fetchWorkoutPlanDayExercises(dayId);
-          if (eData) {
-            setExercises(eData.sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
-          }
+  const daysList = React.useMemo(() => {
+    if (!allDays) return [
+      { name: 'MON', label: 'Chest', active: true },
+      { name: 'TUE', label: 'Legs', active: false },
+      { name: 'WED', label: 'Abs', active: false },
+      { name: 'THU', label: 'Rest', active: false },
+      { name: 'FRI', label: 'Back', active: false },
+      { name: 'SAT', label: 'Biceps', active: false },
+    ];
+    return allDays.map((d: any) => ({
+      name: (d.dayOfWeek || '').substring(0, 3).toUpperCase(),
+      label: d.workoutType === 'Rest' ? 'Rest' : (d.workoutType || '').split(' ')[0],
+      active: d.planDayId === dayId
+    }));
+  }, [allDays, dayId]);
 
-          if (dData.planId) {
-            const allDays = await fetchWorkoutPlanDays(dData.planId);
-            if (allDays) {
-              const mappedDays = allDays.map((d: any) => ({
-                name: (d.dayOfWeek || '').substring(0, 3).toUpperCase(),
-                label: d.workoutType === 'Rest' ? 'Rest' : (d.workoutType || '').split(' ')[0],
-                active: d.planDayId === dayId
-              }));
-              setDaysList(mappedDays);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching workout session data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadData();
-  }, [dayId]);
+  const isLoading = isLoadingDay || isLoadingExercises || isLoadingAllDays;
 
 
 

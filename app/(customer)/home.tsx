@@ -6,11 +6,10 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
-import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
-import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
-import { usePedometer } from '@/hooks/usePedometer';
-import { useFitnessStats } from '@/hooks/useFitnessStats';
+import { useCustomerDashboardData } from '@/hooks/workout/useCustomerDashboardData';
+import { useCustomerOnboardingStatus, sessionSkippedUsers } from '@/hooks/auth/useCustomerOnboardingStatus';
+import { usePedometer } from '@/hooks/fitness/usePedometer';
+import { useFitnessStats } from '@/hooks/fitness/useFitnessStats';
 import {
   Star,
   QrCode,
@@ -23,17 +22,19 @@ import {
   Lightning,
 } from 'phosphor-react-native';
 
-export const sessionSkippedUsers = new Set<string>();
+
 
 export default function CustomerHome() {
   const { name, userId } = useUser();
   const firstName = name?.split(' ')[0] || 'Customer';
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
-  const [todayWorkoutDayId, setTodayWorkoutDayId] = useState<string | null>(null);
-  const [todayWorkoutType, setTodayWorkoutType] = useState('Back & Biceps');
-  const [todayDuration, setTodayDuration] = useState('50');
-  const [todayExercisesCount, setTodayExercisesCount] = useState('0');
+  const { data: dashboardData, isLoading: isLoadingDashboard } = useCustomerDashboardData(userId);
+  const { data: onboardingStatus, isLoading: isCheckingOnboarding } = useCustomerOnboardingStatus(userId);
+
+  const todayWorkoutDayId = dashboardData?.todayWorkout?.dayId || null;
+  const todayWorkoutType = dashboardData?.todayWorkout?.type || 'Rest';
+  const todayDuration = dashboardData?.todayWorkout?.duration?.toString() || '0';
+  const todayExercisesCount = dashboardData?.todayWorkout?.exercisesCount?.toString() || '0';
 
   const openCamera = async () => {
     try {
@@ -48,31 +49,7 @@ export default function CustomerHome() {
     }
   };
 
-  useEffect(() => {
-    async function fetchTodayWorkout() {
-      if (!userId) return;
-      try {
-        const plans = await fetchCustomerWorkoutPlans(userId);
-        const activePlan = plans.find((p: any) => p.isActive);
-        if (activePlan) {
-          const days = await fetchWorkoutPlanDays(activePlan.planId);
-          const dayOrder = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-          const todayString = dayOrder[new Date().getDay()];
-          const todayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === todayString);
-          if (todayData && todayData.workoutType !== 'Rest') {
-            setTodayWorkoutDayId(todayData.planDayId);
-            setTodayWorkoutType(todayData.workoutType);
-            setTodayDuration(todayData.durationMinutes?.toString() || '45');
-            const exs = await fetchWorkoutPlanDayExercises(todayData.planDayId);
-            setTodayExercisesCount(exs?.length?.toString() || '0');
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching today workout', err);
-      }
-    }
-    fetchTodayWorkout();
-  }, [userId]);
+
 
   const today = new Date().toISOString().split('T')[0];
   const { steps, calories } = usePedometer();
@@ -82,45 +59,14 @@ export default function CustomerHome() {
   const waterTotal = stats?.totalWaterML || 0;
 
   useEffect(() => {
-    async function checkOnboarding() {
-      if (!userId) {
-        setChecking(false);
-        return;
-      }
-
-      if (sessionSkippedUsers.has(userId)) {
-        setChecking(false);
-        return;
-      }
-
-      try {
-        const skipped = await AsyncStorage.getItem(`@onboarding_skipped_${userId}`);
-        if (skipped === 'true') {
-          setChecking(false);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from('customer_onboarding')
-          .select('onboardingId')
-          .eq('createdBy', userId)
-          .maybeSingle();
-
-        if (!data) {
-          router.replace('/(customer)/(onboarding)/step1');
-        } else {
-          setChecking(false);
-        }
-      } catch (err) {
-        console.error('Error checking onboarding status', err);
-        setChecking(false);
+    if (userId && onboardingStatus && !isCheckingOnboarding) {
+      if (!onboardingStatus.isOnboarded && !onboardingStatus.isSkipped) {
+        router.replace('/(customer)/(onboarding)/step1');
       }
     }
+  }, [userId, onboardingStatus, isCheckingOnboarding, router]);
 
-    checkOnboarding();
-  }, [userId, router]);
-
-  if (checking) {
+  if (isCheckingOnboarding || isLoadingDashboard) {
     return (
       <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
         <ActivityIndicator size="large" color="#d4ff00" />

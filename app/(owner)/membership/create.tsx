@@ -199,9 +199,12 @@ export function CreateMembershipPlansView({
   );
 }
 
+import { useMembershipFeatures } from '@/hooks/membership/useMembershipFeatures';
+
 export default function CreateMembershipPlansScreen() {
   const router = useRouter();
-  const { drafts, setDrafts, availableFeatures } = useMembership();
+  const { drafts, setDrafts } = useMembership();
+  const { data: availableFeatures = [] } = useMembershipFeatures();
 
   const handleContinue = (updatedDrafts: DraftPlan[]) => {
     setDrafts(updatedDrafts);

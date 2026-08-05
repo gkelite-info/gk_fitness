@@ -31,23 +31,25 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
     
     const subscribe = async () => {
       try {
-        setDebugInfo('Requesting permissions...');
-        const { status } = await Pedometer.requestPermissionsAsync();
-        
-        if (status !== 'granted') {
-          if (isMounted) {
-            setIsAvailable(false);
-            setDebugInfo(`Permission denied. Status: ${status}`);
+        if (Platform.OS === 'android') {
+          setDebugInfo('Requesting permissions...');
+          const { status } = await Pedometer.requestPermissionsAsync();
+          
+          if (status !== 'granted') {
+            if (isMounted) {
+              setIsAvailable(false);
+              setDebugInfo(`Permission denied. Status: ${status}`);
+            }
+            return;
           }
-          return;
         }
 
-        setDebugInfo(`Permission granted. Checking sensor availability...`);
+        setDebugInfo(`Checking sensor availability...`);
         const available = await Pedometer.isAvailableAsync();
         
         if (isMounted) {
           setIsAvailable(available);
-          setDebugInfo(`Permission: ${status}. Sensor Available: ${available}`);
+          setDebugInfo(`Sensor Available: ${available}`);
         }
 
         if (!available) return;

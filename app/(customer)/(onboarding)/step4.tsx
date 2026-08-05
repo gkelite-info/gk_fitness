@@ -32,7 +32,7 @@ export default function Step4() {
       toast.error('Session expired. Please log in again.');
       return;
     }
-    
+
     setSaving(true);
     try {
       await saveCustomerOnboarding(userId, data, customAllergy);
@@ -56,7 +56,7 @@ export default function Step4() {
   const isFormValid = data.dietType !== '' && data.mealsPerDay !== null && !saving;
 
   const Title = (
-    <Text className="text-white text-3xl font-bold mb-2">
+    <Text className="text-white text-3xl font-semibold mb-2">
       Let's personalize{'\n'}your <Text className="text-neon">nutrition</Text>
     </Text>
   );
@@ -70,8 +70,8 @@ export default function Step4() {
       isContinueDisabled={!isFormValid}
     >
       <View className="mb-8">
-        <Text className="text-white font-bold mb-2">1. Diet Type <Text className="text-red-500">*</Text></Text>
-        <Text className="text-gray-500 text-sm mb-4">Choose the diet you follow</Text>
+        <Text className="text-white font-semibold mb-2">1. Diet Type <Text className="text-red-500">*</Text></Text>
+        <Text className="text-gray-500 text-sm mb-4 font-sans">Choose the diet you follow</Text>
         <View className="flex-row gap-2">
           {DIETS.map((d) => (
             <SelectableCard
@@ -84,15 +84,15 @@ export default function Step4() {
               <View className="mb-3">
                 <d.icon color={data.dietType === d.id ? '#d4ff00' : '#888'} size={28} />
               </View>
-              <Text className={cn('font-bold text-xs text-center', data.dietType === d.id ? 'text-neon' : 'text-gray-400')}>{d.title}</Text>
+              <Text className={cn('font-semibold text-xs text-center', data.dietType === d.id ? 'text-neon' : 'text-gray-400')}>{d.title}</Text>
             </SelectableCard>
           ))}
         </View>
       </View>
 
       <View className="mb-8">
-        <Text className="text-white font-bold mb-2">2. Meals Per Day <Text className="text-red-500">*</Text></Text>
-        <Text className="text-gray-500 text-sm mb-4">How many meals do you usually prefer?</Text>
+        <Text className="text-white font-semibold mb-2">2. Meals Per Day <Text className="text-red-500">*</Text></Text>
+        <Text className="text-gray-500 text-sm mb-4 font-sans">How many meals do you usually prefer?</Text>
         <View className="flex-row gap-3">
           {MEALS.map((m) => (
             <SelectableCard
@@ -102,17 +102,17 @@ export default function Step4() {
               onPress={() => updateData({ mealsPerDay: m })}
               checkPosition="top-right"
             >
-              <Text className="text-white font-bold text-2xl">{m}</Text>
-              <Text className="text-gray-400 text-xs mt-1">Meals</Text>
+              <Text className="text-white font-semibold text-2xl">{m}</Text>
+              <Text className="text-gray-400 text-xs mt-1 font-sans">Meals</Text>
             </SelectableCard>
           ))}
         </View>
       </View>
 
       <View className="mb-8">
-        <Text className="text-white font-bold mb-2">3. Food Allergies (Optional)</Text>
-        <Text className="text-gray-500 text-sm mb-4">Select or add any ingredients you're allergic to</Text>
-        
+        <Text className="text-white font-semibold mb-2">3. Food Allergies (Optional)</Text>
+        <Text className="text-gray-500 text-sm mb-4 font-sans">Select or add any ingredients you're allergic to</Text>
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
           {ALLERGIES.map(a => (
             <Pressable
@@ -123,7 +123,7 @@ export default function Step4() {
                 data.foodAllergies.includes(a) ? 'border-neon bg-neon/10' : 'border-gray-800 bg-[#111]'
               )}
             >
-              <Text className={data.foodAllergies.includes(a) ? 'text-neon' : 'text-gray-400'}>{a}</Text>
+              <Text className={data.foodAllergies.includes(a) ? 'text-neon font-sans' : 'text-gray-400 font-sans'}>{a}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -131,7 +131,7 @@ export default function Step4() {
         <View className="border border-gray-800 rounded-xl p-4 bg-[#111] flex-row items-center">
           <Plus color="#888" size={20} />
           <TextInput
-            className="flex-1 ml-3 text-white"
+            className="flex-1 ml-3 text-white font-sans"
             placeholder="Add custom allergy"
             placeholderTextColor="#666"
             value={customAllergy}
@@ -140,10 +140,10 @@ export default function Step4() {
         </View>
       </View>
 
-      <View className="mb-6">
-        <Text className="text-white font-bold mb-2">4. Daily Water Goal <Text className="text-red-500">*</Text></Text>
-        <Text className="text-gray-500 text-sm mb-4">Set your daily water intake goal</Text>
-        
+      <View className="mb-16">
+        <Text className="text-white font-semibold mb-2">4. Daily Water Goal <Text className="text-red-500">*</Text></Text>
+        <Text className="text-gray-500 text-sm mb-4 font-sans">Set your daily water intake goal</Text>
+
         <View className="border border-gray-800 rounded-2xl p-6 bg-[#111] items-center">
           <View className="flex-row items-center justify-between w-full px-4 mb-4">
             <Pressable
@@ -152,9 +152,9 @@ export default function Step4() {
             >
               <Minus color="#d4ff00" size={24} />
             </Pressable>
-            
-            <Text className="text-white text-3xl font-bold">{data.dailyWaterGoal.toFixed(1)} L</Text>
-            
+
+            <Text className="text-white text-3xl font-semibold">{data.dailyWaterGoal.toFixed(1)} L</Text>
+
             <Pressable
               onPress={() => updateData({ dailyWaterGoal: data.dailyWaterGoal + 0.5 })}
               className="w-12 h-12 rounded-full border border-neon items-center justify-center bg-[#1a1a1a]"
@@ -162,7 +162,7 @@ export default function Step4() {
               <Plus color="#d4ff00" size={24} />
             </Pressable>
           </View>
-          <Text className="text-gray-500 text-xs">Recommended based on your profile.</Text>
+          <Text className="text-gray-500 text-xs font-sans">Recommended based on your profile.</Text>
         </View>
       </View>
     </OnboardingLayout>

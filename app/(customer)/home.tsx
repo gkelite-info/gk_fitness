@@ -8,8 +8,10 @@ import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCustomerDashboardData } from '@/hooks/workout/useCustomerDashboardData';
 import { useCustomerOnboardingStatus, sessionSkippedUsers } from '@/hooks/auth/useCustomerOnboardingStatus';
-import { usePedometer } from '@/hooks/fitness/usePedometer';
-import { useFitnessStats } from '@/hooks/fitness/useFitnessStats';
+import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
+import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
+import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
+import { fetchGymCustomerMembershipPlans } from '@/helpers/gymCustomerMembershipPlans/gymCustomerMembershipPlans';
 import {
   Star,
   QrCode,
@@ -21,6 +23,8 @@ import {
   Drop,
   Lightning,
 } from 'phosphor-react-native';
+import { usePedometer } from '@/hooks/fitness/usePedometer';
+import { useFitnessStats } from '@/hooks/fitness/useFitnessStats';
 
 
 
@@ -35,26 +39,64 @@ export default function CustomerHome() {
   const todayWorkoutType = dashboardData?.todayWorkout?.type || 'Rest';
   const todayDuration = dashboardData?.todayWorkout?.duration?.toString() || '0';
   const todayExercisesCount = dashboardData?.todayWorkout?.exercisesCount?.toString() || '0';
+  
+  const [planName, setPlanName] = useState<string>('MEMBER');
+  const [daysLeft, setDaysLeft] = useState<number | string>('--');
+  const [progressPercentage, setProgressPercentage] = useState<number>(0);
 
-  const openCamera = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      if (permissionResult.granted === false) {
-        alert("You've refused to allow this app to access your camera!");
-        return;
-      }
-      await ImagePicker.launchCameraAsync();
-    } catch (error) {
-      console.log('Error opening camera:', error);
-    }
+  const openCamera = () => {
+    router.push('/(customer)/home/scan');
   };
 
 
 
+  useEffect(() => {
+    async function fetchMembershipInfo() {
+      if (!userId) return;
+      try {
+        const plans = await fetchGymCustomerMembershipPlans(undefined, userId);
+        const activePlan = plans.find((p: any) => p.is_Active && p.endDate);
+        if (activePlan) {
+          const end = new Date(activePlan.endDate);
+          const now = new Date();
+          const diffTime = end.getTime() - now.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const currentDaysLeft = diffDays > 0 ? diffDays : 0;
+          setDaysLeft(currentDaysLeft);
+
+          let percentage = 0;
+          if (activePlan.startDate) {
+            const start = new Date(activePlan.startDate);
+            const totalTime = end.getTime() - start.getTime();
+            const totalDays = Math.ceil(totalTime / (1000 * 60 * 60 * 24));
+            if (totalDays > 0) {
+              percentage = (currentDaysLeft / totalDays) * 100;
+              percentage = Math.min(Math.max(percentage, 0), 100);
+            }
+          }
+          setProgressPercentage(percentage);
+
+          const { data: planDetails } = await supabase
+            .from('gym_membership_plans')
+            .select('planName')
+            .eq('planId', activePlan.planId)
+            .maybeSingle();
+
+          if (planDetails?.planName) {
+            setPlanName(planDetails.planName.toUpperCase());
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching membership info', err);
+      }
+    }
+    fetchMembershipInfo();
+  }, [userId]);
+
   const today = new Date().toISOString().split('T')[0];
   const { steps, calories } = usePedometer();
   const { data: stats } = useFitnessStats(userId, today);
-  
+
   const waterGoal = stats?.waterGoalML || 2500;
   const waterTotal = stats?.totalWaterML || 0;
 
@@ -106,17 +148,17 @@ export default function CustomerHome() {
               <Star size={14} color="#000000" weight="fill" />
             </View>
             <Text className="text-[#D7FF00] text-xs font-semibold tracking-wider">
-              PREMIUM MEMBER
+              {planName}
             </Text>
           </View>
 
           <View className="flex-row items-baseline gap-2 mb-3">
-            <Text className="text-white text-4xl font-semibold">28</Text>
+            <Text className="text-white text-4xl font-semibold">{daysLeft}</Text>
             <Text className="text-[#8E8E93] text-sm font-medium">Days Left</Text>
           </View>
 
           <View className="w-full h-1.5 bg-[#262626] rounded-full overflow-hidden">
-            <View className="h-full bg-[#D7FF00] rounded-full" style={{ width: '45%' }} />
+            <View className="h-full bg-[#D7FF00] rounded-full" style={{ width: `${progressPercentage}%` }} />
           </View>
         </View>
 
@@ -136,44 +178,59 @@ export default function CustomerHome() {
           <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider mb-1">
             TODAY'S WORKOUT
           </Text>
-          <Text className="text-white text-2xl font-semibold mb-2">
-            {todayWorkoutType}
-          </Text>
+          {todayWorkoutDayId && todayWorkoutType ? (
+            <>
+              <Text className="text-white text-2xl font-semibold mb-2">
+                {todayWorkoutType}
+              </Text>
 
-          <View className="flex-row items-center gap-3 mb-4">
-            <View className="flex-row items-center gap-1.5">
-              <Barbell size={16} color="#8E8E93" />
-              <Text className="text-[#8E8E93] text-xs font-medium">{todayExercisesCount} Exercises</Text>
-            </View>
-            <View className="flex-row items-center gap-1.5">
-              <Clock size={16} color="#8E8E93" />
-              <Text className="text-[#8E8E93] text-xs font-medium">{todayDuration} min</Text>
-            </View>
-          </View>
+              <View className="flex-row items-center gap-3 mb-4">
+                <View className="flex-row items-center gap-1.5">
+                  <Barbell size={16} color="#8E8E93" />
+                  <Text className="text-[#8E8E93] text-xs font-medium">{todayExercisesCount} Exercises</Text>
+                </View>
+                <View className="flex-row items-center gap-1.5">
+                  <Clock size={16} color="#8E8E93" />
+                  <Text className="text-[#8E8E93] text-xs font-medium">{todayDuration} min</Text>
+                </View>
+              </View>
 
-          <Pressable 
-            onPress={() => {
-              if (todayWorkoutDayId) {
-                router.push({
-                  pathname: '/(customer)/workout-countdown',
-                  params: {
-                    dayId: todayWorkoutDayId,
-                    workoutType: todayWorkoutType,
-                    duration: todayDuration,
-                    exercisesCount: todayExercisesCount
-                  }
-                });
-              } else {
-                alert("You don't have an active workout scheduled for today.");
-              }
-            }}
-            className="bg-[#D7FF00] rounded-full py-3 px-5 flex-row items-center justify-center self-start active:opacity-90"
-          >
-            <Text className="text-black font-semibold text-sm mr-2">Start Workout</Text>
-            <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
-              <ArrowRight size={14} color="#000000" weight="bold" />
-            </View>
-          </Pressable>
+              <Pressable
+                onPress={() => {
+                  router.push({
+                    pathname: '/(customer)/workout-countdown',
+                    params: {
+                      dayId: todayWorkoutDayId,
+                      workoutType: todayWorkoutType,
+                      duration: todayDuration,
+                      exercisesCount: todayExercisesCount
+                    }
+                  });
+                }}
+                className="bg-[#D7FF00] rounded-full py-3 px-5 flex-row items-center justify-center self-start active:opacity-90"
+              >
+                <Text className="text-black font-semibold text-sm mr-2">Start Workout</Text>
+                <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
+                  <ArrowRight size={14} color="#000000" weight="bold" />
+                </View>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text className="text-white text-lg font-semibold mb-4 leading-tight">
+                No Workout{'\n'}Scheduled
+              </Text>
+              <Pressable
+                onPress={() => router.push('/(customer)/workoutPlan')}
+                className="bg-[#D7FF00] rounded-full py-3 px-5 flex-row items-center justify-center active:opacity-90 mt-1"
+              >
+                <Text className="text-black font-semibold text-sm mr-2">Add workout plan</Text>
+                <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
+                  <ArrowRight size={14} color="#000000" weight="bold" />
+                </View>
+              </Pressable>
+            </>
+          )}
         </View>
 
         <View className="items-end justify-center">
@@ -195,7 +252,7 @@ export default function CustomerHome() {
             CALORIES KCAL
           </Text>
           <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
-            <View className="h-full bg-[#FF453A] rounded-full" style={{ width: `${Math.min((calories/500)*100, 100)}%` }} />
+            <View className="h-full bg-[#FF453A] rounded-full" style={{ width: `${Math.min((calories / 500) * 100, 100)}%` }} />
           </View>
         </Pressable>
 
@@ -208,7 +265,7 @@ export default function CustomerHome() {
             STEPS
           </Text>
           <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
-            <View className="h-full bg-[#C3F400] rounded-full" style={{ width: `${Math.min((steps/10000)*100, 100)}%` }} />
+            <View className="h-full bg-[#C3F400] rounded-full" style={{ width: `${Math.min((steps / 10000) * 100, 100)}%` }} />
           </View>
         </Pressable>
 
@@ -221,7 +278,7 @@ export default function CustomerHome() {
             WATER (LITERS)
           </Text>
           <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
-            <View className="h-full bg-[#00DBE7] rounded-full" style={{ width: `${Math.min((waterTotal/waterGoal)*100, 100)}%` }} />
+            <View className="h-full bg-[#00DBE7] rounded-full" style={{ width: `${Math.min((waterTotal / waterGoal) * 100, 100)}%` }} />
           </View>
         </Pressable>
 

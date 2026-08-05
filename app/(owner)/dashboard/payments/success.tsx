@@ -114,14 +114,14 @@ export default function PaymentSuccessScreen() {
 
         {/* Actions */}
         <TouchableOpacity 
-          onPress={() => router.replace('/(owner)/dashboard/payments')} 
+          onPress={() => (router as any).replace('/(owner)/dashboard/payments')} 
           className="bg-[#CCF200] rounded-xl py-4 items-center mb-4 active:opacity-80"
         >
           <Text className="text-black text-base font-bold">View Payments</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
-          onPress={() => router.replace('/(owner)/dashboard/payments/add')} 
+          onPress={() => (router as any).replace('/(owner)/dashboard/payments/add')} 
           className="bg-transparent border border-[#CCF200] rounded-xl py-4 items-center active:opacity-70 mb-4"
         >
           <Text className="text-[#CCF200] text-base font-bold">Add Another Payment</Text>

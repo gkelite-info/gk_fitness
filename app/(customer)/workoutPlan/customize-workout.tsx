@@ -93,6 +93,7 @@ const IMAGE_MAP: { [key: string]: any } = {
 export default function CustomizeWorkout() {
   const { day, muscleGroup } = useLocalSearchParams<{ day: string; muscleGroup: string }>();
   const { planDays, setPlanDays } = useWorkoutPlan();
+  const [loading, setLoading] = useState(false);
 
   const currentPlan = planDays[day || ''];
 
@@ -164,6 +165,7 @@ export default function CustomizeWorkout() {
   const handleSaveWorkout = () => {
     try {
       if (!day) return;
+      setLoading(true);
 
       setPlanDays(prev => ({
         ...prev,
@@ -171,7 +173,6 @@ export default function CustomizeWorkout() {
           dayOfWeek: day,
           workoutType: muscleGroup as any,
           exercises: selectedExercises,
-          // Set standard 45-minute duration, or dynamic based on exercise count
           durationMinutes: selectedExercises.length * 8 + 5
         }
       }));
@@ -180,13 +181,15 @@ export default function CustomizeWorkout() {
     } catch (error) {
       console.error('[CustomizeWorkout] handleSaveWorkout Error:', error);
     }
+    finally {
+      setLoading(false);
+    }
   };
 
   const exerciseImage = IMAGE_MAP[muscleGroup || ''] || IMAGE_MAP.default;
 
   return (
     <View className="flex-1 bg-[#0A0A0A] px-5 pt-12 pb-28 justify-between">
-      {/* Header */}
       <View className="flex-row items-center justify-between mb-4">
         <Pressable
           onPress={() => router.push({ pathname: '/(customer)/workoutPlan/choose-muscle', params: { day } })}
@@ -199,14 +202,12 @@ export default function CustomizeWorkout() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-        {/* Title */}
         <Text className="text-white text-2xl font-semibold mb-1">Customize {day} -</Text>
-        <Text className="text-[#C4EF00] text-2xl font-extrabold mb-2">{muscleGroup} Workout</Text>
+        <Text className="text-[#C4EF00] text-2xl font-semibold mb-2">{muscleGroup} Workout</Text>
         <Text className="text-[#8E8E8E] text-sm mb-6 leading-5">
           Select and arrange exercises for your workout.
         </Text>
 
-        {/* Highlight Card */}
         <View className="flex-row bg-[#161616] p-4 rounded-2xl border border-[#242424] items-center w-full justify-between mb-6">
           <View className="flex-row items-center flex-1 mr-4">
             <View className="mr-3 bg-[#C4EF00]/10 p-2.5 rounded-xl border border-[#C4EF00]/20">
@@ -220,7 +221,7 @@ export default function CustomizeWorkout() {
             </View>
           </View>
           <View className="bg-[#C4EF00]/10 px-3 py-1.5 rounded-xl border border-[#C4EF00]/20">
-            <Text className="text-[#C4EF00] font-black text-xs">{selectedExercises.length} Selected</Text>
+            <Text className="text-[#C4EF00] font-semibold text-xs">{selectedExercises.length} Selected</Text>
           </View>
         </View>
 
@@ -345,7 +346,9 @@ export default function CustomizeWorkout() {
           onPress={handleSaveWorkout}
           className="w-full py-4 bg-[#C4EF00] rounded-2xl flex-row items-center justify-center gap-2 active:opacity-90 mt-4"
         >
-          <Text className="text-black text-base font-semibold">Save Workout</Text>
+          <Text className="text-black text-base font-semibold">
+            {loading ? 'Saving...' : "Save Workout"}
+          </Text>
         </Pressable>
       </ScrollView>
     </View>

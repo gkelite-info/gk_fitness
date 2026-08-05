@@ -104,6 +104,13 @@ export default function CustomerLayout() {
         }}
       />
       <Tabs.Screen
+        name="home/scan"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
         name="workout-session"
         options={{
           href: null,
@@ -140,6 +147,20 @@ export default function CustomerLayout() {
       />
       <Tabs.Screen
         name="fitness/water"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="privacy-policy"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="help-support"
         options={{
           href: null,
           headerShown: false,

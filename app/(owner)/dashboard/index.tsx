@@ -21,6 +21,7 @@ import {
   EnvelopeSimple,
   CaretRight,
   CaretDown,
+  QrCode,
 } from 'phosphor-react-native';
 import { triggerMediumHaptic } from '@/lib/haptics';
 
@@ -34,6 +35,7 @@ const OVERVIEW_ITEMS = [
 const QUICK_ACTIONS = [
   { id: 'add-customer', icon: UserPlus, label: 'Add Customer' },
   { id: 'create-announcement', icon: Megaphone, label: 'Create Announcement' },
+  { id: 'open-qr', icon: QrCode, label: 'Open Check-In QR' },
   { id: 'manage-inventory', icon: Package, label: 'Manage Inventory' },
   { id: 'record-payment', icon: Wallet, label: 'Record Payment' },
 ];
@@ -147,10 +149,12 @@ export default function OwnerDashboardScreen() {
               onPress={() => {
                 if (action.id === 'add-customer') {
                   router.push('/(owner)/dashboard/customers');
+                } else if (action.id === 'open-qr') {
+                  router.push('/(owner)/dashboard/qr');
                 } else if (action.id === 'manage-inventory') {
                   router.push('/(owner)/dashboard/manage-inventory');
                 } else if (action.id === 'record-payment') {
-                  router.push('/(owner)/dashboard/payments');
+                  router.push('/(owner)/dashboard/payments' as any);
                 }
               }}
               className="w-[48.5%] bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 items-center justify-center active:opacity-80 min-h-[120px]">

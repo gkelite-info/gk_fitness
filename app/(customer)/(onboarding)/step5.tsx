@@ -10,7 +10,7 @@ export default function Step5() {
   };
 
   const Title = (
-    <Text className="text-white text-3xl font-bold mb-2">
+    <Text className="text-white text-3xl font-semibold mb-2">
       You're all <Text className="text-neon">set!</Text>
     </Text>
   );
@@ -27,10 +27,10 @@ export default function Step5() {
         <View className="bg-neon/10 w-32 h-32 rounded-full items-center justify-center mb-6">
           <CheckCircle color="#d4ff00" weight="fill" size={80} />
         </View>
-        <Text className="text-white text-xl font-bold text-center mb-2">
+        <Text className="text-white text-xl font-semibold text-center mb-2">
           Profile Completed
         </Text>
-        <Text className="text-gray-400 text-center px-4">
+        <Text className="text-gray-400 text-center px-4 font-sans">
           Your personalized dashboard is ready. Time to start your fitness journey.
         </Text>
       </View>

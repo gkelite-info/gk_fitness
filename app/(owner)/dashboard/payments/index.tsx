@@ -57,7 +57,7 @@ export default function PaymentsListScreen() {
 
   const renderPaymentItem = ({ item }: { item: PaymentRecord }) => (
     <Pressable
-      onPress={() => router.push(`/(owner)/dashboard/payments/${item.id}`)}
+      onPress={() => (router as any).push(`/(owner)/dashboard/payments/${item.id}`)}
       className="flex-row items-center justify-between py-4 border-b border-[#1A1A1A] active:opacity-70"
     >
       <View className="w-[30%]">

@@ -30,7 +30,7 @@ export default function Step3() {
   const isFormValid = data.workoutLocation !== '' && data.workoutDays.length > 0 && data.preferWorkoutTime !== '';
 
   const Title = (
-    <Text className="text-white text-3xl font-bold mb-2">
+    <Text className="text-white text-3xl font-semibold mb-2">
       Let's personalize{'\n'}your <Text className="text-neon">workouts</Text>
     </Text>
   );
@@ -44,7 +44,7 @@ export default function Step3() {
       isContinueDisabled={!isFormValid}
     >
       <View className="mb-8">
-        <Text className="text-white font-bold mb-4">1. Workout Location <Text className="text-red-500">*</Text></Text>
+        <Text className="text-white font-semibold mb-4">1. Workout Location <Text className="text-red-500">*</Text></Text>
         <View className="flex-row gap-2">
           {LOCATIONS.map((loc) => (
             <SelectableCard
@@ -65,30 +65,30 @@ export default function Step3() {
                   <loc.icon color={data.workoutLocation === loc.id ? '#d4ff00' : '#888'} size={32} />
                 )}
               </View>
-              <Text className={`font-bold mb-1 ${data.workoutLocation === loc.id ? 'text-neon' : 'text-white'}`}>
+              <Text className={`font-semibold mb-1 ${data.workoutLocation === loc.id ? 'text-neon' : 'text-white'}`}>
                 {loc.title}
               </Text>
-              <Text className="text-gray-400 text-xs text-center">{loc.description}</Text>
+              <Text className="text-gray-400 text-xs font-sans text-center">{loc.description}</Text>
             </SelectableCard>
           ))}
         </View>
       </View>
 
       <View className="mb-8">
-        <Text className="text-white font-bold mb-2">2. Workout Days <Text className="text-red-500">*</Text></Text>
-        <Text className="text-gray-500 text-sm mb-4">Select the days you prefer to work out</Text>
+        <Text className="text-white font-semibold mb-2">2. Workout Days <Text className="text-red-500">*</Text></Text>
+        <Text className="text-gray-500 text-xs mb-4 font-sans">Select the days you prefer to work out</Text>
         <DaySelector selectedDays={data.workoutDays} onChange={(days) => updateData({ workoutDays: days })} />
         <View className="bg-[#111] border border-gray-800 p-4 rounded-xl mt-4 flex-row items-center">
           <CalendarBlank color="#d4ff00" size={20} />
-          <Text className="text-gray-400 ml-3">
-            You've selected <Text className="text-neon">{data.workoutDays.length} days</Text> per week
+          <Text className="text-gray-400 ml-3 font-sans">
+            You've selected  <Text className="text-neon font-semibold">{data.workoutDays.length} days</Text>  per week
           </Text>
         </View>
       </View>
 
-      <View className="mb-6">
-        <Text className="text-white font-bold mb-2">3. Preferred Workout Time <Text className="text-red-500">*</Text></Text>
-        <Text className="text-gray-500 text-sm mb-4">When do you usually prefer to workout?</Text>
+      <View className="mb-16">
+        <Text className="text-white font-semibold mb-2">3. Preferred Workout Time <Text className="text-red-500">*</Text></Text>
+        <Text className="text-gray-500 text-xs mb-4 font-sans">When do you usually prefer to workout?</Text>
         <View className="flex-row gap-2">
           {TIMES.map((time) => (
             <SelectableCard
@@ -101,7 +101,7 @@ export default function Step3() {
               <View className="mb-3">
                 <time.icon color={data.preferWorkoutTime === time.id ? '#d4ff00' : '#888'} size={28} />
               </View>
-              <Text className="text-white font-bold text-xs mb-1 text-center">{time.title}</Text>
+              <Text className="text-white font-semibold text-xs mb-1 text-center">{time.title}</Text>
               <Text className="text-gray-400 text-[10px] text-center">{time.desc}</Text>
             </SelectableCard>
           ))}

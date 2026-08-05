@@ -114,14 +114,19 @@ export default function OtpAuthScreen() {
         });
 
         if (authError) {
-          // console.error('[SignIn] Auth error:', authError);
-          throw authError;
+          let errorMessage = authError.message || 'Unable to sign in.';
+          if (errorMessage.includes('sql:') || errorMessage.includes('converting NULL')) {
+            errorMessage = 'Your account is currently recovering. Please try again or contact support.';
+          }
+          toast.error(errorMessage);
+          console.error(errorMessage);
+          setLoading(false);
+          return;
         }
 
         // console.log('[SignIn] Auth success, user ID:', authData?.user?.id);
 
         if (authData?.user?.id) {
-          // Check if the user exists in public.users
           const { data: profile, error: profileSelectError } = await supabase
             .from('users')
             .select('role')

@@ -7,8 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
-import { useCustomerProfile } from '@/hooks/useCustomerProfile';
-import { useUpdateCustomerProfile } from '@/hooks/useUpdateCustomerProfile';
+import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { useUpdateCustomerProfile } from '@/hooks/auth/useUpdateCustomerProfile';
 import { Skeleton } from '@/components/ui/Skeleton';
 import {
   CaretLeft, Info, Camera, CaretRight,

@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Navbar } from '@/components/Navbar';
 import { CustomTabBar } from '@/components/CustomTabBar';
-import { PedometerProvider } from '@/hooks/usePedometer';
+import { PedometerProvider } from '@/hooks/fitness/usePedometer';
 
 export default function CustomerLayout() {
   return (

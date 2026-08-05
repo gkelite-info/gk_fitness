@@ -5,8 +5,8 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, Drop, Plus, Trash } from 'phosphor-react-native';
 import { ProgressRing } from '@/components/fitness/ProgressRing';
 import { useUser } from '@/context/UserContext';
-import { useFitnessStats } from '@/hooks/useFitnessStats';
-import { useWaterTracking } from '@/hooks/useWaterTracking';
+import { useFitnessStats } from '@/hooks/fitness/useFitnessStats';
+import { useWaterTracking } from '@/hooks/fitness/useWaterTracking';
 
 const QUICK_ADD_AMOUNTS = [250, 500, 750];
 

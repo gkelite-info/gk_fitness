@@ -11,6 +11,7 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   confirmButtonColor?: string;
+  confirmTextColor?: string;
   icon?: ReactNode;
 }
 
@@ -23,6 +24,7 @@ export default function ConfirmModal({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   confirmButtonColor = 'bg-red-500',
+  confirmTextColor = 'text-white',
   icon,
 }: ConfirmModalProps) {
   return (
@@ -55,7 +57,7 @@ export default function ConfirmModal({
               onPress={onConfirm}
               className={`flex-1 ${confirmButtonColor} rounded-xl py-3 items-center active:opacity-90`}
             >
-              <Text className="text-white font-semibold text-sm">{confirmText}</Text>
+              <Text className={`${confirmTextColor} font-semibold text-sm`}>{confirmText}</Text>
             </Pressable>
           </View>
         </View>

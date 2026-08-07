@@ -68,6 +68,29 @@ export async function createUser(userData: CreateUserParams) {
   return data ? data[0] : null;
 }
 
+export async function updateUser(userId: string, userData: Partial<CreateUserParams>) {
+  const updateData: any = {
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (userData.name) updateData.name = userData.name;
+  if (userData.phone) updateData.phone = userData.phone;
+  if (userData.address !== undefined) updateData.address = userData.address;
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(updateData)
+    .eq('userId', userId)
+    .select();
+
+  if (error) {
+    console.error('[otpHelper] updateUser Error:', error);
+    throw error;
+  }
+
+  return data ? data[0] : null;
+}
+
 
 export async function getUserRole(userId: string, email?: string): Promise<string | null> {
   let { data, error } = await supabase

@@ -13,12 +13,15 @@ import {
   Headphones,
   Calendar,
 } from 'phosphor-react-native';
+import { useGyms } from '@/hooks/gyms/useGyms';
+import { useUsers } from '@/hooks/users/useUsers';
+import { useUser } from '@/context/UserContext';
 
 const OVERVIEW_DATA = [
   { id: 'total-gyms', icon: Buildings, value: '0', label: 'Total Gyms' },
   { id: 'active-gyms', icon: CheckCircle, value: '0', label: 'Active Gyms' },
   { id: 'new-gyms', icon: PlusCircle, value: '0', label: 'New Gyms\nThis Month' },
-  { id: 'total-owners', icon: Users, value: '0', label: 'Total Owners' },
+  { id: 'total-users', icon: Users, value: '0', label: 'Total Users' },
 ];
 
 const QUICK_ACTIONS_DATA = [
@@ -30,14 +33,48 @@ const QUICK_ACTIONS_DATA = [
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { name, userId } = useUser();
   const [refreshing, setRefreshing] = React.useState(false);
+  const { data: gyms, isLoading: isLoadingGyms, refetch: refetchGyms } = useGyms();
+  const { data: users, refetch: refetchUsers } = useUsers();
 
-  const onRefresh = React.useCallback(() => {
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
-  }, []);
+    await Promise.all([refetchGyms(), refetchUsers()]);
+    setRefreshing(false);
+  }, [refetchGyms, refetchUsers]);
+
+  const overviewData = OVERVIEW_DATA.map((item) => {
+    if (item.id === 'total-gyms') {
+      return { ...item, value: gyms ? gyms.length.toString() : '0' };
+    }
+    if (item.id === 'active-gyms') {
+      const activeCount = gyms ? gyms.filter((g) => g.isActive).length : 0;
+      return { ...item, value: activeCount.toString() };
+    }
+    if (item.id === 'new-gyms') {
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const newGymsCount = gyms ? gyms.filter((g) => {
+        if (!g.createdAt) return false;
+        const createdDate = new Date(g.createdAt);
+        return createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear;
+      }).length : 0;
+      return { ...item, value: newGymsCount.toString() };
+    }
+    if (item.id === 'total-users') {
+      const otherUsersCount = users ? users.filter((u) => u.userId !== userId).length : 0;
+      return { ...item, value: otherUsersCount.toString() };
+    }
+    return item;
+  });
 
   const handleQuickAction = (id: string) => {
     if (id === 'register-gym' || id === 'view-gyms') {
@@ -56,7 +93,7 @@ export default function DashboardScreen() {
       <View className="flex-row items-start justify-between mb-6">
         <View className="flex-1 pr-2">
           <Text className="text-2xl font-semibold text-white mb-1">
-            Good Morning, Shiva 👋
+            {getGreeting()}, {name} 👋
           </Text>
           <Text className="text-sm text-[#888888] leading-5">
             {"Here's"} what{"'"}s happening on your{'\n'}platform today.
@@ -72,7 +109,7 @@ export default function DashboardScreen() {
       <Text className="text-lg font-semibold text-white mb-3">Platform Overview</Text>
 
       <View className="flex-row justify-between gap-2 mb-6">
-        {OVERVIEW_DATA.map((item) => {
+        {overviewData.map((item) => {
           const Icon = item.icon;
           return (
             <View

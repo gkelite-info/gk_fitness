@@ -24,6 +24,8 @@ export interface GymAttributes {
   createdAt?: string | Date;
   updatedAt?: string | Date;
   deletedAt?: string | Date | null;
+  website?: string | null;
+  qrPath?: string | null;
 }
 
 export interface SaveGymParams {
@@ -42,6 +44,8 @@ export interface SaveGymParams {
   logo?: string | null;
   isActive?: boolean;
   createdBy: string;
+  website?: string | null;
+  qrPath?: string | null;
 }
 
 
@@ -102,11 +106,12 @@ export async function saveGym(gymData: SaveGymParams) {
         establishYear: gymData.establishYear,
         notes: gymData.notes,
         logo: gymData.logo,
+        website: gymData.website,
+        qrPath: gymData.qrPath,
         isActive: gymData.isActive ?? true,
         updatedAt: now,
       })
       .eq('gymId', gymData.gymId)
-      .eq('createdBy', gymData.createdBy)
       .select();
 
     if (error) {
@@ -134,6 +139,8 @@ export async function saveGym(gymData: SaveGymParams) {
           establishYear: gymData.establishYear || null,
           notes: gymData.notes || null,
           logo: gymData.logo || null,
+          website: gymData.website || null,
+          qrPath: gymData.qrPath || null,
           isActive: gymData.isActive ?? true,
           is_deleted: false,
           createdBy: gymData.createdBy,
@@ -195,24 +202,20 @@ export async function toggleGymActiveStatus(gymId: string, currentStatus: boolea
 
 export async function uploadGymLogo(uri: string): Promise<string | null> {
   try {
-    // 1. Compress the image using expo-image-manipulator
     const manipResult = await ImageManipulator.manipulateAsync(
       uri,
-      [{ resize: { width: 500 } }], // Resize to 500px width
+      [{ resize: { width: 500 } }],
       { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
     );
 
-    // 2. Read the compressed file as base64 string
     const base64 = await FileSystem.readAsStringAsync(manipResult.uri, {
       encoding: FileSystem.EncodingType.Base64,
     });
 
-    // 3. Convert base64 to ArrayBuffer
     const arrayBuffer = base64ToArrayBuffer(base64);
 
-    // 4. Upload to Supabase Storage Bucket 'gym-logos'
     const fileName = `${Date.now()}_logo.jpg`;
-    
+
     const { data, error } = await supabase.storage
       .from('gym-logos')
       .upload(fileName, arrayBuffer, {
@@ -225,7 +228,6 @@ export async function uploadGymLogo(uri: string): Promise<string | null> {
     }
 
     if (data) {
-      // 5. Get and return public URL
       const { data: publicUrlData } = supabase.storage
         .from('gym-logos')
         .getPublicUrl(fileName);
@@ -236,3 +238,35 @@ export async function uploadGymLogo(uri: string): Promise<string | null> {
     throw error;
   }
 }
+
+export async function uploadGymQR(base64Data: string, gymId: string): Promise<string | null> {
+  try {
+    const base64Str = base64Data.includes('base64,') ? base64Data.split('base64,')[1] : base64Data;
+
+    const arrayBuffer = base64ToArrayBuffer(base64Str);
+
+    const fileName = `${gymId}_qr.png`;
+
+    const { data, error } = await supabase.storage
+      .from('gymsQR')
+      .upload(fileName, arrayBuffer, {
+        contentType: 'image/png',
+        upsert: true,
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    if (data) {
+      const { data: publicUrlData } = supabase.storage
+        .from('gymsQR')
+        .getPublicUrl(fileName);
+      return publicUrlData.publicUrl;
+    }
+    return null;
+  } catch (error: any) {
+    throw error;
+  }
+}
+

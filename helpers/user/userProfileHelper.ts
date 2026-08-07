@@ -16,6 +16,8 @@ export interface UserProfile {
   trainerId?: string | null;
   doctorId?: string | null;
   dieticianId?: string | null;
+
+  isGymSuspended?: boolean;
 }
 
 export async function fetchUserAndRoleProfile(
@@ -125,6 +127,14 @@ export async function fetchUserAndRoleProfile(
         default:
           // Superadmins do not have a specific dependent table ID attached yet
           break;
+      }
+    }
+
+    if (profile.gymId) {
+      const { data: gymData } = await supabase.from('gyms').select('isActive').eq('gymId', profile.gymId).maybeSingle();
+      if (gymData && gymData.isActive === false) {
+        profile.role = null;
+        profile.isGymSuspended = true;
       }
     }
 

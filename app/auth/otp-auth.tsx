@@ -32,7 +32,7 @@ import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 
 export default function OtpAuthScreen() {
-  const { role, loading: userLoading, refreshUserContext } = useUser();
+  const { role, loading: userLoading, refreshUserContext, isGymSuspended } = useUser();
   const [purpose, setPurpose] = useState<'login' | 'signup'>('login');
   const [loginMethod /* , setLoginMethod */] = useState<'email' | 'phone'>('email');
 
@@ -53,10 +53,20 @@ export default function OtpAuthScreen() {
   const [successBody, setSuccessBody] = useState('');
 
   React.useEffect(() => {
-    if (!userLoading && role) {
-      navigateBasedOnRole(role);
-    }
-  }, [role, userLoading]);
+    const checkAndNavigate = async () => {
+      if (!userLoading) {
+        if (isGymSuspended) {
+          await supabase.auth.signOut();
+          toast.error('gym suspended due to subscription');
+          setLoading(false);
+        } else if (role) {
+          navigateBasedOnRole(role);
+        }
+      }
+    };
+
+    checkAndNavigate();
+  }, [role, userLoading, isGymSuspended]);
 
   const handleAuth = async () => {
     /*
@@ -164,10 +174,6 @@ export default function OtpAuthScreen() {
           // Refresh context in background
           refreshUserContext();
 
-          if (fetchedRole) {
-            navigateBasedOnRole(fetchedRole);
-            return;
-          }
         }
 
         toast.success('Signed in successfully!');

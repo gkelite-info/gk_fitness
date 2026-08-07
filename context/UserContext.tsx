@@ -142,6 +142,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       doctorId: profile?.doctorId || null,
       dieticianId: profile?.dieticianId || null,
 
+      isGymSuspended: profile?.isGymSuspended || false,
+
       loading,
       refreshUserContext,
     }),

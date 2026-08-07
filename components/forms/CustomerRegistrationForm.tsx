@@ -480,7 +480,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
               clearError('fullName');
               setFullName(txt);
             }}
-            className={`text-white px-4 py-3.5 rounded-xl border ${errors.fullName ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
+            className={`text-white px-4 py-3.5 rounded-xl border font-sans ${errors.fullName ? 'bg-[#291111] border-red-500 font-sans' : 'bg-[#161616] border-[#242424] font-sans'}`}
           />
           {errors.fullName && (
             <View className="flex-row items-center mt-1.5 ml-1">
@@ -558,7 +558,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
                   }
                   setPhone(cleaned);
                 }}
-                className={`flex-1 text-white px-3 py-3.5 rounded-xl border ${errors.phone ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
+                className={`flex-1 text-white px-3 py-3.5 rounded-xl border font-sans ${errors.phone ? 'bg-[#291111] border-red-500 font-sans' : 'bg-[#161616] border-[#242424] font-sans'}`}
               />
             </View>
             {errors.phone && (
@@ -584,7 +584,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
               clearError('email');
               setEmail(txt);
             }}
-            className={`text-white px-3 py-3.5 rounded-xl border ${errors.email ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
+            className={`text-white px-3 py-3.5 rounded-xl border font-sans ${errors.email ? 'bg-[#291111] border-red-500 font-sans' : 'bg-[#161616] border-[#242424] font-sans'}`}
           />
           {errors.email && (
             <View className="flex-row items-center mt-1 ml-1">
@@ -613,7 +613,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
                 clearError('emergencyName');
                 setEmergencyName(txt);
               }}
-              className={`text-white px-4 py-3.5 rounded-xl border ${errors.emergencyName ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
+              className={`text-white px-4 py-3.5 rounded-xl border font-sans ${errors.emergencyName ? 'bg-[#291111] border-red-500 font-sans' : 'bg-[#161616] border-[#242424] font-sans'}`}
             />
             {errors.emergencyName && (
               <View className="flex-row items-center mt-1 ml-1">
@@ -663,7 +663,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
                 }
                 setEmergencyPhone(cleaned);
               }}
-              className={`flex-1 text-white px-3 py-3.5 rounded-xl border ${errors.emergencyPhone ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
+              className={`flex-1 text-white px-3 py-3.5 rounded-xl border font-sans ${errors.emergencyPhone ? 'bg-[#291111] border-red-500 font-sans' : 'bg-[#161616] border-[#242424] font-sans'}`}
             />
           </View>
           {errors.emergencyPhone && (

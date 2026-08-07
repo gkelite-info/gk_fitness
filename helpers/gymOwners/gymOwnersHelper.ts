@@ -83,7 +83,6 @@ export async function saveGymOwner(ownerData: SaveGymOwnerParams) {
         updatedAt: now,
       })
       .eq('gymOwnerId', ownerData.gymOwnerId)
-      .eq('createdBy', ownerData.createdBy)
       .select();
 
     if (error) {

@@ -7,7 +7,7 @@ export interface SaveGymCustomerParams {
   customerId?: string;
   gymId?: string;
   fullName: string;
-  dateOfBirth: string; // Raw or formatted date string
+  dateOfBirth: string;
   gender: CustomerGender | string;
   phone: string;
   email: string;
@@ -18,9 +18,6 @@ export interface SaveGymCustomerParams {
   is_Active?: boolean;
 }
 
-/**
- * Utility to convert raw dates to PostgreSQL YYYY-MM-DD format.
- */
 export function formatToPgDate(dateStr?: string): string {
   if (!dateStr || !dateStr.trim()) {
     return new Date().toISOString().split('T')[0];
@@ -51,10 +48,6 @@ export function formatToPgDate(dateStr?: string): string {
 
 import { getOwnerGymId } from '@/helpers/trainers/trainerHelper';
 
-/**
- * Saves a gym customer executing an atomic write across `users` and `gym_customers`.
- * If any step fails, it orchestrates a rollback.
- */
 export async function saveGymCustomer(params: SaveGymCustomerParams) {
   if (!params.fullName || !params.phone || !params.email) {
     throw new Error('Missing required fields: fullName, phone, email');
@@ -62,7 +55,6 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
 
   const now = new Date().toISOString();
 
-  // Try to resolve active gym if not passed
   let resolvedGymId = params.gymId;
   if (!resolvedGymId) {
     const fetchedGymId = await getOwnerGymId(params.createdBy);
@@ -94,7 +86,6 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
     }
   }
 
-  // Generate temporary password (format CS-XXXXX-X)
   const uuid = Crypto.randomUUID();
   const temporaryPassword = `CS-${uuid.substring(0, 5).toUpperCase()}-${uuid.substring(9, 10).toUpperCase()}`;
 
@@ -102,7 +93,6 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
   let isNewUser = false;
 
   try {
-    // STEP 1: Supabase Auth Signup & Users Table Insertion
     if (!targetUserId) {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -123,7 +113,6 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
       targetUserId = authData?.user?.id;
 
       if (!targetUserId) {
-        // Fallback check if user exists in db or create manual UUID
         const { data: existingUser } = await supabase
           .from('users')
           .select('userId, role')
@@ -138,7 +127,6 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
       }
     }
 
-    // Insert or update public.users table (Table 1)
     const { data: existingUserRecord } = await supabase
       .from('users')
       .select('userId')
@@ -170,7 +158,6 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
       if (userInsErr) throw new Error(`Table 1 (users) insertion failed: ${userInsErr.message}`);
     }
 
-    // STEP 2: Insert into public.gym_customers (Table 2)
     const customerPayload = {
       customerId: targetUserId,
       gymId: resolvedGymId,
@@ -212,15 +199,12 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
       savedCustomer = data ? data[0] : null;
     }
 
-    // STEP 3: STRICT 2-TABLE VERIFICATION & ATOMIC CHECK
-    // Verify Table 1 (users)
     const { data: verUser, error: verUserErr } = await supabase
       .from('users')
       .select('userId')
       .eq('userId', targetUserId)
       .maybeSingle();
 
-    // Verify Table 2 (gym_customers)
     const { data: verCustomer, error: verCustomerErr } = await supabase
       .from('gym_customers')
       .select('customerId')
@@ -246,7 +230,6 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
   } catch (error: any) {
     console.error('[customerHelper] Atomic Transaction Error or Verification Failure. Rolling back across 2 tables...', error);
 
-    // ATOMIC ROLLBACK: Remove any records written during this attempt if any step failed
     if (targetUserId) {
       try {
         await supabase.from('gym_customers').delete().eq('customerId', targetUserId);
@@ -260,4 +243,23 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
 
     throw new Error(error?.message || 'Failed to complete atomic registration across the 2 tables.');
   }
+}
+
+export async function fetchGymCustomers(gymId?: string) {
+  let query = supabase
+    .from('gym_customers')
+    .select('*')
+    .eq('is_deleted', false)
+    .order('createdAt', { ascending: false });
+
+  if (gymId) {
+    query = query.eq('gymId', gymId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('[customerHelper] fetchGymCustomers Error:', error);
+    throw error;
+  }
+  return data ?? [];
 }

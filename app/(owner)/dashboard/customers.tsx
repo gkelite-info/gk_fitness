@@ -64,7 +64,7 @@ const ShimmerCard = () => {
       </View>
 
       {/* Sweeping Gradient Overlay */}
-      <Animated.View 
+      <Animated.View
         style={{
           position: 'absolute',
           top: 0,
@@ -113,7 +113,7 @@ export default function CustomersScreen() {
 
   const displayData = currentQuery.data?.pages.flatMap(page => page.data) || [];
   const totalCount = currentQuery.data?.pages[0]?.count || 0;
-  
+
   // For Initial loading state
   const loading = currentQuery.isLoading;
   // For infinite scroll
@@ -158,7 +158,7 @@ export default function CustomersScreen() {
             clearButtonMode="while-editing"
             value={search}
             onChangeText={setSearch}
-            className="flex-1 text-white ml-2"
+            className="flex-1 text-white ml-2 font-sans"
           />
         </View>
         <Pressable className="flex-row items-center bg-[#161616] border border-[#242424] rounded-xl px-4 py-3 active:opacity-70">
@@ -245,8 +245,8 @@ export default function CustomersScreen() {
           <Users size={48} color="#242424" weight="fill" />
           <Text className="text-white text-lg font-semibold mt-4">No records found</Text>
           <Text className="text-[#888] text-sm mt-1 text-center px-8">
-            {search 
-              ? 'No matching records for your search query.' 
+            {search
+              ? 'No matching records for your search query.'
               : `You haven't added any ${activeTab} yet. Tap the register button to get started.`}
           </Text>
         </View>
@@ -284,7 +284,7 @@ export default function CustomersScreen() {
             <View className="ml-3 justify-center">
               <Text className="text-white text-lg font-semibold mb-0.5">{item.fullName}</Text>
               <Text className="text-[#A1A1AA] text-xs">
-                {activeTab === 'customers' ? `CUST-${String(index+1).padStart(4, '0')}` : `TRN-${String(index+1).padStart(4, '0')}`}
+                {activeTab === 'customers' ? `CUST-${String(index + 1).padStart(4, '0')}` : `TRN-${String(index + 1).padStart(4, '0')}`}
               </Text>
             </View>
           </View>

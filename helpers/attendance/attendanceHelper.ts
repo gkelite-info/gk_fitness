@@ -3,23 +3,57 @@ import * as Crypto from 'expo-crypto';
 
 export async function markAttendance(qrString: string, customerId: string) {
   try {
-    const parts = qrString.split(':');
-    if (parts.length !== 3 || parts[0] !== 'gkfitness_checkin') {
-      return { success: false, message: 'Invalid QR Code format.' };
+    let gymId: string | null = null;
+
+    if (qrString.startsWith('gkfitness_checkin:')) {
+      const parts = qrString.split(':');
+      if (parts.length !== 3) {
+        return { success: false, message: 'Invalid dynamic QR Code format.' };
+      }
+
+      gymId = parts[1];
+      const timestamp = parseInt(parts[2], 10);
+
+      if (isNaN(timestamp)) {
+        return { success: false, message: 'Corrupted QR Code.' };
+      }
+
+      const now = Date.now();
+      const diff = Math.abs(now - timestamp);
+
+      if (diff > 30000) {
+        return { success: false, message: 'This QR Code has expired. Please scan the current code on the screen.' };
+      }
+    } else {
+      // It's a static QR (likely a UUID)
+      // Check if it matches a gymId directly
+      let { data: gymData } = await supabase
+        .from('gyms')
+        .select('gymId')
+        .eq('gymId', qrString)
+        .eq('is_deleted', false)
+        .maybeSingle();
+
+      // If not found, check if it's the qrCodeId embedded in the qrPath filename
+      if (!gymData) {
+        const { data: pathData } = await supabase
+          .from('gyms')
+          .select('gymId')
+          .ilike('qrPath', `%${qrString}%`)
+          .eq('is_deleted', false)
+          .maybeSingle();
+        gymData = pathData;
+      }
+
+      if (!gymData) {
+        return { success: false, message: 'Invalid or unrecognized QR Code format.' };
+      }
+      
+      gymId = gymData.gymId;
     }
 
-    const gymId = parts[1];
-    const timestamp = parseInt(parts[2], 10);
-
-    if (isNaN(timestamp)) {
-      return { success: false, message: 'Corrupted QR Code.' };
-    }
-
-    const now = Date.now();
-    const diff = Math.abs(now - timestamp);
-
-    if (diff > 30000) {
-      return { success: false, message: 'This QR Code has expired. Please scan the current code on the screen.' };
+    if (!gymId) {
+      return { success: false, message: 'Could not determine gym from QR Code.' };
     }
 
     const { data: membershipData, error: membershipError } = await supabase
@@ -136,3 +170,4 @@ export async function fetchGymAttendanceToday(gymId: string) {
   if (error) throw error;
   return data || [];
 }
+

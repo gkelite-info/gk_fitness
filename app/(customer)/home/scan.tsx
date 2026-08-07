@@ -1,20 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { Camera, CameraView } from 'expo-camera';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useUser } from '@/context/UserContext';
-import { markAttendance } from '@/helpers/attendance/attendanceHelper';
+import { useMarkAttendance } from '@/hooks/attendance/useMarkAttendance';
 import { ArrowLeft, CheckCircle, WarningCircle, Camera as CameraIcon, Lightning } from 'phosphor-react-native';
 import { toast } from '@/lib/toast';
+
 
 export default function CustomerScanScreen() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string } | null>(null);
   const { customerId } = useUser();
+  const { mutateAsync: logAttendance, isPending: isLoggingAttendance } = useMarkAttendance();
 
   useEffect(() => {
     (async () => {
@@ -23,34 +24,29 @@ export default function CustomerScanScreen() {
     })();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      setScanned(false);
+      setScanResult(null);
+    }, [])
+  );
+
   const handleBack = () => {
     router.push('/(customer)/home');
   }
 
   const handleBarCodeScanned = async (event: any) => {
-    console.log('[scan.tsx] handleBarCodeScanned triggered:', event);
-    if (scanned) {
-      console.log('[scan.tsx] Ignored: already scanned');
-      return;
-    }
-    if (loading) {
-      console.log('[scan.tsx] Ignored: currently loading');
-      return;
-    }
     if (!customerId) {
-      console.log('[scan.tsx] Ignored: customerId is null/undefined. User role might not be customer or they are not in a gym.');
       toast.error('Customer ID missing. Please ensure you are registered in a gym.');
       return;
     }
 
     const { type, data } = event;
-    console.log('[scan.tsx] Proceeding with data:', data);
 
     setScanned(true);
-    setLoading(true);
 
     try {
-      const result = await markAttendance(data, customerId);
+      const result = await logAttendance({ qrString: data, customerId });
       setScanResult(result);
       if (result.success) {
         toast.success(result.message);
@@ -59,8 +55,6 @@ export default function CustomerScanScreen() {
       }
     } catch (e: any) {
       setScanResult({ success: false, message: e.message || 'Something went wrong.' });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -113,7 +107,7 @@ export default function CustomerScanScreen() {
         >
           <View className="flex-1 bg-black/40 items-center justify-center">
             <View className="w-64 h-64 border-2 border-[#CCFF00] rounded-3xl items-center justify-center bg-transparent">
-              {loading && <Text className="text-[#CCFF00] font-semibold">Verifying...</Text>}
+              {isLoggingAttendance && <Text className="text-[#CCFF00] font-semibold">Verifying...</Text>}
             </View>
             <View className="absolute bottom-32 items-center">
               <View className="mb-3 opacity-80">

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { supabase, supabaseAdminAuth } from '@/lib/supabase';
 import { View, ScrollView, Pressable, TextInput, Image, Modal, FlatList, Alert, ActivityIndicator, Clipboard, Share, Linking } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import {
   MagnifyingGlass,
   Funnel,
@@ -20,20 +20,24 @@ import {
   ShareNetwork,
   EnvelopeSimple,
   Copy,
+  QrCode,
 } from 'phosphor-react-native';
+import QRCodeSvg from 'react-native-qrcode-svg';
 import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
 import { State } from 'country-state-city';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useUser } from '@/context/UserContext';
-import { createUser } from '@/helpers/otpHelper';
-import { saveGym, uploadGymLogo, fetchGyms } from '@/helpers/gym/gymHelper';
+import { createUser, updateUser } from '@/helpers/otpHelper';
+import { saveGym, uploadGymLogo, fetchGyms, uploadGymQR, fetchGymById } from '@/helpers/gym/gymHelper';
 import { saveGymOwner, fetchGymOwners } from '@/helpers/gymOwners/gymOwnersHelper';
+import { fetchGymCustomers } from '@/helpers/customers/customerHelper';
+import { fetchTrainers } from '@/helpers/trainers/trainerHelper';
 import { toast } from '@/lib/toast';
 
 export default function RegisterGymScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ openForm?: string }>();
+  const params = useLocalSearchParams<{ openForm?: string; editGymId?: string }>();
   const { userId: currentUserId } = useUser();
 
   const [viewMode, setViewMode] = useState<'list' | 'form' | 'success'>('list');
@@ -65,12 +69,32 @@ export default function RegisterGymScreen() {
 
   const [branches, setBranches] = useState('');
   const [establishedYear, setEstablishedYear] = useState('');
+  const [website, setWebsite] = useState('');
   const [notes, setNotes] = useState('');
 
   const [logoUri, setLogoUri] = useState<string | null>(null);
   const [stateModalVisible, setStateModalVisible] = useState(false);
   const [stateSearchQuery, setStateSearchQuery] = useState('');
   const [yearModalVisible, setYearModalVisible] = useState(false);
+  const [createdGymId, setCreatedGymId] = useState<string | null>(null);
+
+  const [qrCodeId, setQrCodeId] = useState<string | null>(null);
+  const qrRef = useRef<any>(null);
+
+  const [editingGymId, setEditingGymId] = useState<string | null>(null);
+  const [editingGymOwnerId, setEditingGymOwnerId] = useState<string | null>(null);
+  const [editingOwnerUserId, setEditingOwnerUserId] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Do nothing on focus
+      return () => {
+        // When screen loses focus (e.g., tab changed), reset the form
+        clearForm();
+        setViewMode('list');
+      };
+    }, [])
+  );
 
   const indianStates = State.getStatesOfCountry('IN');
 
@@ -79,9 +103,14 @@ export default function RegisterGymScreen() {
     try {
       const fetchedGyms = await fetchGyms();
       const fetchedOwners = await fetchGymOwners();
+      const allTrainers = await fetchTrainers();
+      const allCustomers = await fetchGymCustomers();
 
       const mapped = fetchedGyms.map((g: any) => {
         const owner = fetchedOwners.find((o: any) => o.gymId === g.gymId);
+        const gymTrainersCount = allTrainers.filter((t: any) => t.gymId === g.gymId).length;
+        const gymCustomersCount = allCustomers.filter((c: any) => c.gymId === g.gymId).length;
+
         return {
           id: g.gymId,
           name: g.gymName,
@@ -93,9 +122,8 @@ export default function RegisterGymScreen() {
             year: 'numeric'
           }),
           status: g.isActive ? 'ACTIVE' : 'INACTIVE',
-          members: 0,
-          trainers: 0,
-          doctors: 0,
+          members: gymTrainersCount + gymCustomersCount,
+          trainers: gymTrainersCount,
           logo: g.logo,
         };
       });
@@ -110,6 +138,81 @@ export default function RegisterGymScreen() {
   useEffect(() => {
     loadGymsData();
   }, []);
+
+  useEffect(() => {
+    const fetchEditData = async () => {
+      if (params.editGymId) {
+        setSaving(true);
+        try {
+          const gymDetails = await fetchGymById(params.editGymId);
+          if (gymDetails) {
+            setGymName(gymDetails.gymName);
+            setGymEmail(gymDetails.gymEmail);
+
+            if (gymDetails.phone.startsWith('+91')) {
+              setPhoneCode('+91');
+              setPhoneNumber(gymDetails.phone.slice(3));
+            } else {
+              setPhoneNumber(gymDetails.phone);
+            }
+
+            if (gymDetails.alternatePhone) {
+              if (gymDetails.alternatePhone.startsWith('+91')) {
+                setAltPhoneCode('+91');
+                setAltPhoneNumber(gymDetails.alternatePhone.slice(3));
+              } else {
+                setAltPhoneNumber(gymDetails.alternatePhone);
+              }
+            }
+
+            setAddress(gymDetails.address);
+            setCity(gymDetails.city);
+            setStateName(gymDetails.state);
+            setPinCode(gymDetails.pinCode);
+            setBranches(gymDetails.noOfBranches ? gymDetails.noOfBranches.toString() : '');
+            setEstablishedYear(gymDetails.establishYear || '');
+            setWebsite(gymDetails.website || '');
+            setNotes(gymDetails.notes || '');
+            setLogoUri(gymDetails.logo || null);
+            setQrCodeId(params.editGymId); // Set something so QR renders
+
+            const allOwners = await fetchGymOwners(params.editGymId);
+            const owner = allOwners[0];
+            if (owner) {
+              setEditingOwnerUserId(owner.userId);
+              setEditingGymOwnerId(owner.gymOwnerId);
+              setOwnerName(owner.ownerFullname);
+              setOwnerEmail(owner.ownerEmail);
+
+              if (owner.ownerPhone.startsWith('+91')) {
+                setOwnerPhoneCode('+91');
+                setOwnerPhone(owner.ownerPhone.slice(3));
+              } else {
+                setOwnerPhone(owner.ownerPhone);
+              }
+
+              if (owner.ownerAlternatePhone) {
+                if (owner.ownerAlternatePhone.startsWith('+91')) {
+                  setOwnerAltPhoneCode('+91');
+                  setOwnerAltPhone(owner.ownerAlternatePhone.slice(3));
+                } else {
+                  setOwnerAltPhone(owner.ownerAlternatePhone);
+                }
+              }
+            }
+
+            setEditingGymId(params.editGymId);
+            setViewMode('form');
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setSaving(false);
+        }
+      }
+    };
+    fetchEditData();
+  }, [params.editGymId]);
 
   const clearForm = () => {
     setGymName('');
@@ -126,8 +229,17 @@ export default function RegisterGymScreen() {
     setOwnerAltPhone('');
     setBranches('');
     setEstablishedYear('');
+    setWebsite('');
     setNotes('');
     setLogoUri(null);
+    setCreatedGymId(null);
+    setQrCodeId(null);
+  };
+
+  const handleGenerateQR = () => {
+    if (saving || editingGymId) return;
+    const newId = Crypto.randomUUID();
+    setQrCodeId(newId);
   };
 
   const handleCreateGym = async () => {
@@ -174,12 +286,17 @@ export default function RegisterGymScreen() {
 
     setSaving(true);
     try {
-      // 0. Generate temporary password using expo-crypto
-      const uuid = Crypto.randomUUID();
-      const tempPassword = `TK-${uuid.substring(0, 5).toUpperCase()}-${uuid.substring(9, 10).toUpperCase()}`;
-      setTemporaryPassword(tempPassword);
+      const getQRBase64 = (): Promise<string | null> => {
+        return new Promise((resolve) => {
+          if (qrRef.current) {
+            qrRef.current.toDataURL((data: string) => resolve(data));
+          } else {
+            resolve(null);
+          }
+        });
+      };
 
-      // 1. Upload logo to Supabase storage if it is a local file URI
+      const uuid = Crypto.randomUUID();
       let finalLogoUrl = logoUri;
       if (logoUri && (logoUri.startsWith('file:') || logoUri.startsWith('/') || logoUri.startsWith('content:'))) {
         const uploadedUrl = await uploadGymLogo(logoUri);
@@ -188,47 +305,69 @@ export default function RegisterGymScreen() {
         }
       }
 
-      // 2. Sign up the owner user in Supabase Auth
       const ownerPhoneNum = ownerPhoneCode + ownerPhone;
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: ownerEmail.trim().toLowerCase(),
-        password: tempPassword,
-        options: {
-          data: {
+      let authUserId = editingOwnerUserId;
+
+      if (!editingGymId) {
+        const uuid = Crypto.randomUUID();
+        const tempPassword = `TK-${uuid.substring(0, 5).toUpperCase()}-${uuid.substring(9, 10).toUpperCase()}`;
+        setTemporaryPassword(tempPassword);
+
+        const { data: authData, error: authError } = await supabaseAdminAuth.auth.signUp({
+          email: ownerEmail.trim().toLowerCase(),
+          password: tempPassword,
+          options: {
+            data: {
+              name: ownerName.trim(),
+              phone: ownerPhoneNum,
+              role: 'owner',
+            },
+          },
+        });
+
+        if (authError) {
+          throw authError;
+        }
+
+        authUserId = authData?.user?.id || null;
+        if (!authUserId) {
+          throw new Error('Supabase Auth did not return a valid user ID.');
+        }
+
+        const ownerUser = await createUser({
+          userId: authUserId,
+          name: ownerName.trim(),
+          email: ownerEmail.trim().toLowerCase(),
+          phone: ownerPhoneNum,
+          address: address.trim(),
+          role: 'owner',
+        });
+
+        if (!ownerUser || !ownerUser.userId) {
+          throw new Error('Failed to create gym owner user account.');
+        }
+      } else {
+        if (authUserId) {
+          await updateUser(authUserId, {
             name: ownerName.trim(),
             phone: ownerPhoneNum,
-            role: 'owner',
-          },
-        },
-      });
-
-      if (authError) {
-        throw authError;
+            address: address.trim(),
+          });
+        }
       }
 
-      const authUserId = authData?.user?.id;
-      if (!authUserId) {
-        throw new Error('Supabase Auth did not return a valid user ID.');
+      let finalQrPath: string | null | undefined = editingGymId ? undefined : null;
+      if (!editingGymId && qrCodeId) {
+        const qrBase64 = await getQRBase64();
+        if (qrBase64) {
+          finalQrPath = await uploadGymQR(qrBase64, qrCodeId);
+        }
       }
 
-      // 3. Create user profile in public.users table linked to auth ID
-      const ownerUser = await createUser({
-        userId: authUserId,
-        name: ownerName.trim(),
-        email: ownerEmail.trim().toLowerCase(),
-        phone: ownerPhoneNum,
-        address: address.trim(),
-        role: 'owner',
-      });
-
-      if (!ownerUser || !ownerUser.userId) {
-        throw new Error('Failed to create gym owner user account.');
-      }
-
-      // 4. Create gym organization in DB
       const gymPhoneNum = phoneCode + phoneNumber;
       const gymAltPhoneNum = altPhoneNumber ? (altPhoneCode + altPhoneNumber) : null;
-      const createdGym = await saveGym({
+      const payload = {
+        gymId: editingGymId || undefined,
         gymName: gymName.trim(),
         gymEmail: gymEmail.trim().toLowerCase(),
         phone: gymPhoneNum,
@@ -239,20 +378,24 @@ export default function RegisterGymScreen() {
         pinCode: pinCode.trim(),
         noOfBranches: branches ? parseInt(branches, 10) : null,
         establishYear: establishedYear || null,
+        website: website.trim() || null,
         notes: notes.trim() || null,
         logo: finalLogoUrl,
+        qrPath: finalQrPath,
         isActive: true,
         createdBy: currentUserId || '',
-      });
+      };
+
+      const createdGym = await saveGym(payload);
 
       if (!createdGym || !createdGym.gymId) {
-        throw new Error('Failed to create gym organization entry.');
+        throw new Error(editingGymId ? 'Failed to update gym organization entry.' : 'Failed to create gym organization entry.');
       }
 
-      // 5. Create gym owner linkage in DB
       const ownerAltPhoneNum = ownerAltPhone ? (ownerAltPhoneCode + ownerAltPhone) : null;
       const createdOwnerLink = await saveGymOwner({
-        userId: ownerUser.userId,
+        gymOwnerId: editingGymOwnerId || undefined,
+        userId: authUserId as string,
         gymId: createdGym.gymId,
         ownerFullname: ownerName.trim(),
         ownerEmail: ownerEmail.trim().toLowerCase(),
@@ -267,9 +410,11 @@ export default function RegisterGymScreen() {
       }
 
       toast.success('Gym and Gym Owner registered successfully!');
+      setCreatedGymId(createdGym.gymId);
       setViewMode('success');
       await loadGymsData();
     } catch (error: any) {
+      console.error('[register.tsx] handleCreateGym: Error caught:', error);
       toast.error(error?.message || 'An unexpected error occurred during gym registration.');
     } finally {
       setSaving(false);
@@ -304,8 +449,13 @@ export default function RegisterGymScreen() {
   };
 
   const handleViewGymDetails = () => {
+    const id = createdGymId;
     clearForm();
-    setViewMode('list');
+    if (id) {
+      router.push(`/(superadmin)/dashboard/gym/${id}` as any);
+    } else {
+      setViewMode('list');
+    }
   };
 
   const handleBackToGyms = () => {
@@ -406,7 +556,7 @@ export default function RegisterGymScreen() {
                 onChangeText={setSearchQuery}
                 placeholder="Search gym by name, owner or city..."
                 placeholderTextColor="#6B7280"
-                className="flex-1 text-white text-sm py-0"
+                className="flex-1 text-white text-sm py-0 font-sans"
               />
             </View>
 
@@ -495,8 +645,9 @@ export default function RegisterGymScreen() {
             </View>
           ) : (
             filteredGyms.map((gym) => (
-              <View
+              <Pressable
                 key={gym.id}
+                onPress={() => router.push(`/(superadmin)/dashboard/gym/${gym.id}` as any)}
                 className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 mb-3">
                 <View className="flex-row items-start justify-between">
                   <View className="flex-row items-start gap-3 flex-1 pr-2">
@@ -554,17 +705,17 @@ export default function RegisterGymScreen() {
                       <Text className="text-white text-lg font-semibold">{gym.trainers}</Text>
                     </View>
 
-                    <View>
+                    {/* <View>
                       <Text className="text-[#888888] text-[10px] font-semibold tracking-wider mb-0.5">
                         DOCTORS
                       </Text>
                       <Text className="text-white text-lg font-semibold">{gym.doctors}</Text>
-                    </View>
+                    </View> */}
                   </View>
 
                   <CaretRight size={18} color="#888888" />
                 </View>
-              </View>
+              </Pressable>
             ))
           )}
         </ScrollView>
@@ -583,9 +734,9 @@ export default function RegisterGymScreen() {
               <ArrowLeft size={18} color="#FFFFFF" />
             </Pressable>
             <View className="flex-1">
-              <Text className="text-xl font-semibold text-white">Register New Gym</Text>
+              <Text className="text-xl font-semibold text-white">{editingGymId ? 'Edit Gym' : 'Register New Gym'}</Text>
               <Text className="text-xs text-[#888888] mt-0.5">
-                Add a new gym organization to the platform.
+                {editingGymId ? 'Update the gym organization details.' : 'Add a new gym organization to the platform.'}
               </Text>
             </View>
           </View>
@@ -637,20 +788,20 @@ export default function RegisterGymScreen() {
             autoCorrect={false}
             placeholder="Enter gym name"
             placeholderTextColor="#6B7280"
-            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 ${!saving ? '' : 'opacity-60'}`}
+            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 font-sans ${!saving ? '' : 'opacity-60'}`}
           />
 
           <Text className="text-xs text-[#888888] mb-1.5">Gym Email <Text className='text-red-500 text-sm'>*</Text></Text>
           <TextInput
             value={gymEmail}
             onChangeText={setGymEmail}
-            editable={!saving}
+            editable={!saving && !editingGymId}
             autoComplete="off"
             autoCorrect={false}
             placeholder="info@powerhousegym.com"
             placeholderTextColor="#6B7280"
             keyboardType="email-address"
-            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 ${!saving ? '' : 'opacity-60'}`}
+            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 font-sans ${!saving ? '' : 'opacity-60'}`}
           />
 
           <Text className="text-xs text-[#888888] mb-1.5">Phone Number <Text className='text-red-500 text-sm'>*</Text></Text>
@@ -669,7 +820,7 @@ export default function RegisterGymScreen() {
               placeholderTextColor="#6B7280"
               keyboardType="phone-pad"
               maxLength={10}
-              className={`flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm ${!saving ? '' : 'opacity-60'}`}
+              className={`flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${!saving ? '' : 'opacity-60'}`}
             />
           </View>
 
@@ -689,7 +840,7 @@ export default function RegisterGymScreen() {
               placeholderTextColor="#6B7280"
               keyboardType="phone-pad"
               maxLength={10}
-              className={`flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm ${!saving ? '' : 'opacity-60'}`}
+              className={`flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${!saving ? '' : 'opacity-60'}`}
             />
           </View>
 
@@ -702,7 +853,7 @@ export default function RegisterGymScreen() {
             autoCorrect={false}
             placeholder="Plot No. 45, Begumpet road, Ameerpet"
             placeholderTextColor="#6B7280"
-            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 ${!saving ? '' : 'opacity-60'}`}
+            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 font-sans ${!saving ? '' : 'opacity-60'}`}
           />
 
           <View className="flex-row items-center gap-2 mb-4">
@@ -716,7 +867,7 @@ export default function RegisterGymScreen() {
                 autoCorrect={false}
                 placeholder="Hyderabad"
                 placeholderTextColor="#6B7280"
-                className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm ${!saving ? '' : 'opacity-60'}`}
+                className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${!saving ? '' : 'opacity-60'}`}
               />
             </View>
 
@@ -748,7 +899,7 @@ export default function RegisterGymScreen() {
                 placeholder="500016"
                 placeholderTextColor="#6B7280"
                 keyboardType="numeric"
-                className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm ${!saving ? '' : 'opacity-60'}`}
+                className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${!saving ? '' : 'opacity-60'}`}
               />
             </View>
           </View>
@@ -766,20 +917,20 @@ export default function RegisterGymScreen() {
             autoCorrect={false}
             placeholder="Enter owner full name"
             placeholderTextColor="#6B7280"
-            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 ${!saving ? '' : 'opacity-60'}`}
+            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 font-sans ${!saving ? '' : 'opacity-60'}`}
           />
 
           <Text className="text-xs text-[#888888] mb-1.5">Email Address <Text className='text-red-500 text-sm'>*</Text></Text>
           <TextInput
             value={ownerEmail}
             onChangeText={setOwnerEmail}
-            editable={!saving}
+            editable={!saving && !editingGymId}
             autoComplete="off"
             autoCorrect={false}
             placeholder="Enter email address"
             placeholderTextColor="#6B7280"
             keyboardType="email-address"
-            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 ${!saving ? '' : 'opacity-60'}`}
+            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 font-sans ${!saving ? '' : 'opacity-60'}`}
           />
 
           <Text className="text-xs text-[#888888] mb-1.5">Phone Number <Text className='text-red-500 text-sm'>*</Text></Text>
@@ -798,7 +949,7 @@ export default function RegisterGymScreen() {
               placeholderTextColor="#6B7280"
               keyboardType="phone-pad"
               maxLength={10}
-              className={`flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm ${!saving ? '' : 'opacity-60'}`}
+              className={`flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${!saving ? '' : 'opacity-60'}`}
             />
           </View>
 
@@ -818,7 +969,7 @@ export default function RegisterGymScreen() {
               placeholderTextColor="#6B7280"
               keyboardType="phone-pad"
               maxLength={10}
-              className={`flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm ${!saving ? '' : 'opacity-60'}`}
+              className={`flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${!saving ? '' : 'opacity-60'}`}
             />
           </View>
 
@@ -836,7 +987,7 @@ export default function RegisterGymScreen() {
             placeholder="Enter number of branches"
             placeholderTextColor="#6B7280"
             keyboardType="numeric"
-            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 ${!saving ? '' : 'opacity-60'}`}
+            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 font-sans ${!saving ? '' : 'opacity-60'}`}
           />
 
           <Text className="text-xs text-[#888888] mb-1.5">Established Year (Optional)</Text>
@@ -855,6 +1006,19 @@ export default function RegisterGymScreen() {
             <Calendar size={16} color="#888888" />
           </Pressable>
 
+          <Text className="text-xs text-[#888888] mb-1.5">Website (Optional)</Text>
+          <TextInput
+            value={website}
+            onChangeText={setWebsite}
+            editable={!saving}
+            autoComplete="off"
+            autoCorrect={false}
+            autoCapitalize="none"
+            placeholder="e.g. www.mygym.com"
+            placeholderTextColor="#6B7280"
+            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm mb-4 font-sans ${!saving ? '' : 'opacity-60'}`}
+          />
+
           <View className="flex-row items-center justify-between mb-1.5">
             <Text className="text-xs text-[#888888]">Notes (Optional)</Text>
             <Text className="text-xs text-[#888888]">{notes.length}/250</Text>
@@ -871,11 +1035,67 @@ export default function RegisterGymScreen() {
             placeholder="Add any additional notes..."
             placeholderTextColor="#6B7280"
             textAlignVertical="top"
-            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm min-h-[90px] mb-6 ${!saving ? '' : 'opacity-60'}`}
+            className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm min-h-[90px] mb-6 font-sans ${!saving ? '' : 'opacity-60'}`}
           />
 
+          <View className="mb-6">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-xs text-[#888888]">Attendance QR Code (Static)</Text>
+              {qrCodeId && (
+                <View className="flex-row items-center gap-1">
+                  <CheckCircle size={14} color="#CCFF00" weight="fill" />
+                  <Text className="text-[10px] text-[#CCFF00]">Generated</Text>
+                </View>
+              )}
+            </View>
+
+            {qrCodeId ? (
+              <View className="items-center bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-6">
+                <View className="bg-white p-2 rounded-xl">
+                  <QRCodeSvg
+                    value={qrCodeId}
+                    size={150}
+                    getRef={(c) => (qrRef.current = c)}
+                  />
+                </View>
+                <Text className="text-[#888888] text-xs mt-4 text-center">
+                  This QR code will be assigned to the gym upon creation.
+                </Text>
+                {!editingGymId && (
+                  <Pressable
+                    onPress={handleGenerateQR}
+                    disabled={saving}
+                    className="mt-4 flex-row items-center gap-2 active:opacity-80"
+                  >
+                    <QrCode size={16} color="#BAFF00" />
+                    <Text className="text-[#BAFF00] text-sm text-white">Regenerate QR</Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : (
+              <Pressable
+                onPress={handleGenerateQR}
+                disabled={saving}
+                className={`bg-[#0F0F0F] border border-[#1F293D] border-dashed rounded-xl p-6 items-center justify-center active:opacity-80 ${!saving ? '' : 'opacity-60'}`}
+              >
+                <View className="w-12 h-12 rounded-full bg-[#1A1A1A] items-center justify-center mb-3">
+                  <QrCode size={24} color="#BAFF00" />
+                </View>
+                <Text className="text-white text-sm font-semibold mb-1">Generate Attendance QR</Text>
+                <Text className="text-[#6B7280] text-xs text-center px-4">
+                  Tap here to generate a static QR code for this gym's check-ins.
+                </Text>
+              </Pressable>
+            )}
+          </View>
+
           <Pressable
-            onPress={() => !saving && setViewMode('list')}
+            onPress={() => {
+              if (!saving) {
+                clearForm();
+                setViewMode('list');
+              }
+            }}
             disabled={saving}
             className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl py-3.5 items-center justify-center mb-3 active:opacity-80 ${saving ? 'opacity-50' : ''}`}>
             <Text className="text-white text-sm font-semibold">Cancel</Text>
@@ -893,7 +1113,7 @@ export default function RegisterGymScreen() {
               </View>
             )}
             <Text className="text-black text-sm font-semibold">
-              {saving ? 'Creating Gym...' : 'Create Gym'}
+              {saving ? (editingGymId ? 'Saving...' : 'Creating Gym...') : (editingGymId ? 'Save Changes' : 'Create Gym')}
             </Text>
           </Pressable>
         </ScrollView>
@@ -902,21 +1122,19 @@ export default function RegisterGymScreen() {
       {viewMode === 'success' && (
         <ScrollView
           className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 60 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}>
 
-          {/* Green Checkmark & Header */}
           <View className="items-center mt-8 mb-6">
             <View className="w-16 h-16 rounded-full bg-[#CCFF00]/10 border border-[#CCFF00]/20 items-center justify-center mb-4">
               <CheckCircle size={36} color="#CCFF00" weight="fill" />
             </View>
-            <Text className="text-2xl font-semibold text-white text-center">Gym Registered Successfully!</Text>
+            <Text className="text-2xl font-semibold text-white text-center">{editingGymId ? 'Gym Updated Successfully!' : 'Gym Registered Successfully!'}</Text>
             <Text className="text-sm text-[#888888] text-center mt-2 px-6">
-              The gym and owner account have been created and are now active on the platform.
+              {editingGymId ? 'The gym details have been updated successfully.' : 'The gym and owner account have been created and are now active on the platform.'}
             </Text>
           </View>
 
-          {/* Gym & Owner Details Card */}
           <View className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 mb-6">
             <View className="flex-row items-center gap-3 mb-4">
               {logoUri ? (

@@ -24,7 +24,20 @@
         }
       ],
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow GK Fitness to access your camera to scan QR codes for attendance.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow GK Fitness to access your photos to upload gym logos and profiles."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

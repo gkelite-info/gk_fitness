@@ -1,0 +1,17 @@
+node_modules/
+.expo/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+eas_build_log.txt
+eas_log.txt
+decompressed.log
+.git/
+android/
+ios/

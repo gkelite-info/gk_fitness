@@ -1,17 +1,19 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Check, User, Crown, CurrencyInr, QrCode, Money, CalendarBlank, Clock, FileText, CheckCircle } from 'phosphor-react-native';
 
 export default function PaymentSuccessScreen() {
+  const { method, member, plan, amount, date, time, reference } = useLocalSearchParams();
+
   return (
     <View className="flex-1 bg-[#09090B]">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 40, paddingBottom: 140 }}>
-        
+
         {/* Success Icon */}
         <View className="items-center justify-center mb-8">
-          <View 
+          <View
             className="w-28 h-28 rounded-full border-[3px] border-[#CCF200] items-center justify-center"
             style={{
               backgroundColor: 'rgba(204, 242, 0, 0.1)',
@@ -27,12 +29,12 @@ export default function PaymentSuccessScreen() {
         </View>
 
         {/* Header Text */}
-        <Text className="text-white text-2xl font-bold text-center mb-2">Payment Added Successfully!</Text>
+        <Text className="text-white text-2xl font-semibold text-center mb-2">Payment Added Successfully!</Text>
         <Text className="text-[#888888] text-sm text-center px-4 mb-8">The payment has been recorded and added to the history.</Text>
 
         {/* Payment Summary Card */}
         <View className="bg-[#121214] border border-[#27272A] rounded-3xl p-5 mb-5">
-          <Text className="text-[#CCF200] text-sm font-bold mb-5">Payment Summary</Text>
+          <Text className="text-[#CCF200] text-sm font-semibold mb-5">Payment Summary</Text>
 
           {/* Member */}
           <View className="flex-row items-center justify-between mb-6">
@@ -40,7 +42,7 @@ export default function PaymentSuccessScreen() {
               <User size={18} color="#CCF200" />
               <Text className="text-[#888888] text-sm font-medium">Member</Text>
             </View>
-            <Text className="text-white text-sm font-semibold">Rahul Sharma</Text>
+            <Text className="text-white text-sm font-semibold">{member || 'N/A'}</Text>
           </View>
 
           {/* Membership Plan */}
@@ -50,8 +52,7 @@ export default function PaymentSuccessScreen() {
               <Text className="text-[#888888] text-sm font-medium">Membership Plan</Text>
             </View>
             <View className="items-end">
-               <Text className="text-white text-sm font-semibold">Gold Membership</Text>
-               <Text className="text-[#888888] text-[10px] font-medium mt-0.5">1 Month</Text>
+              <Text className="text-white text-sm font-semibold">{plan || 'N/A'}</Text>
             </View>
           </View>
 
@@ -61,17 +62,23 @@ export default function PaymentSuccessScreen() {
               <CurrencyInr size={18} color="#CCF200" weight="bold" />
               <Text className="text-[#888888] text-sm font-medium">Amount Paid</Text>
             </View>
-            <Text className="text-white text-sm font-bold">₹3,999</Text>
+            <Text className="text-white text-sm font-semibold">₹{amount || '0'}</Text>
           </View>
 
           {/* Payment Method */}
           <View className="flex-row items-center justify-between mb-6">
             <View className="flex-row items-center gap-3">
-              <QrCode size={18} color="#CCF200" />
+              {method === 'cash' ? (
+                <Money size={18} color="#CCF200" />
+              ) : (
+                <QrCode size={18} color="#CCF200" />
+              )}
               <Text className="text-[#888888] text-sm font-medium">Payment Method</Text>
             </View>
             <View className="border border-[#CCF200] px-2 py-0.5 rounded-sm items-center justify-center">
-              <Text className="text-[10px] font-bold text-[#CCF200] uppercase tracking-wider">QR PAYMENT</Text>
+              <Text className="text-[10px] font-semibold text-[#CCF200] uppercase tracking-wider">
+                {method === 'cash' ? 'CASH PAYMENT' : 'QR PAYMENT'}
+              </Text>
             </View>
           </View>
 
@@ -81,7 +88,7 @@ export default function PaymentSuccessScreen() {
               <CalendarBlank size={18} color="#CCF200" />
               <Text className="text-[#888888] text-sm font-medium">Payment Date</Text>
             </View>
-            <Text className="text-white text-sm font-semibold">29 Jul 2026</Text>
+            <Text className="text-white text-sm font-semibold">{date || 'N/A'}</Text>
           </View>
 
           {/* Payment Time */}
@@ -90,17 +97,19 @@ export default function PaymentSuccessScreen() {
               <Clock size={18} color="#CCF200" />
               <Text className="text-[#888888] text-sm font-medium">Payment Time</Text>
             </View>
-            <Text className="text-white text-sm font-semibold">06:42 PM</Text>
+            <Text className="text-white text-sm font-semibold">{time || 'N/A'}</Text>
           </View>
 
           {/* Reference ID */}
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3">
-              <FileText size={18} color="#CCF200" />
-              <Text className="text-[#888888] text-sm font-medium">Reference ID</Text>
+          {reference ? (
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-3">
+                <FileText size={18} color="#CCF200" />
+                <Text className="text-[#888888] text-sm font-medium">Reference ID</Text>
+              </View>
+              <Text className="text-white text-sm font-semibold">{reference}</Text>
             </View>
-            <Text className="text-white text-sm font-semibold">UTR5578224193</Text>
-          </View>
+          ) : null}
 
         </View>
 
@@ -113,18 +122,18 @@ export default function PaymentSuccessScreen() {
         </View>
 
         {/* Actions */}
-        <TouchableOpacity 
-          onPress={() => (router as any).replace('/(owner)/dashboard/payments')} 
+        <TouchableOpacity
+          onPress={() => (router as any).replace('/(owner)/dashboard/payments')}
           className="bg-[#CCF200] rounded-xl py-4 items-center mb-4 active:opacity-80"
         >
-          <Text className="text-black text-base font-bold">View Payments</Text>
+          <Text className="text-black text-base font-semibold">View Payments</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          onPress={() => (router as any).replace('/(owner)/dashboard/payments/add')} 
+        <TouchableOpacity
+          onPress={() => (router as any).replace('/(owner)/dashboard/payments/add')}
           className="bg-transparent border border-[#CCF200] rounded-xl py-4 items-center active:opacity-70 mb-4"
         >
-          <Text className="text-[#CCF200] text-base font-bold">Add Another Payment</Text>
+          <Text className="text-[#CCF200] text-base font-semibold">Add Another Payment</Text>
         </TouchableOpacity>
 
       </ScrollView>

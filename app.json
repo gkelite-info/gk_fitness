@@ -50,7 +50,11 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vamshi0111.gkfitness",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -70,7 +74,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5d58a773-7b20-402a-b488-fd27bccbc462"
+        "projectId": "99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
       }
     }
   }

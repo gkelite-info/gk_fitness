@@ -29,12 +29,7 @@ export default function CustomerLayout() {
           title: 'Home',
         }}
       />
-      <Tabs.Screen
-        name="community"
-        options={{
-          title: 'Community',
-        }}
-      />
+
       <Tabs.Screen
         name="profile"
         options={{

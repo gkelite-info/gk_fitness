@@ -3,6 +3,8 @@ import { View, ScrollView, Image, Pressable, ActivityIndicator } from 'react-nat
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
 import { useRouter } from 'expo-router';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { triggerMediumHaptic } from '@/lib/haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,8 +34,9 @@ export default function CustomerHome() {
   const { name, userId } = useUser();
   const firstName = name?.split(' ')[0] || 'Customer';
   const router = useRouter();
-  const { data: dashboardData, isLoading: isLoadingDashboard } = useCustomerDashboardData(userId);
-  const { data: onboardingStatus, isLoading: isCheckingOnboarding } = useCustomerOnboardingStatus(userId);
+  const [refreshing, setRefreshing] = useState(false);
+  const { data: dashboardData, isLoading: isLoadingDashboard, refetch: refetchDashboard } = useCustomerDashboardData(userId);
+  const { data: onboardingStatus, isLoading: isCheckingOnboarding, refetch: refetchOnboarding } = useCustomerOnboardingStatus(userId);
 
   const todayWorkoutDayId = dashboardData?.todayWorkout?.dayId || null;
   const todayWorkoutType = dashboardData?.todayWorkout?.type || 'Rest';
@@ -95,7 +98,23 @@ export default function CustomerHome() {
 
   const today = new Date().toISOString().split('T')[0];
   const { steps, calories } = usePedometer();
-  const { data: stats } = useFitnessStats(userId, today);
+  const { data: stats, refetch: refetchStats } = useFitnessStats(userId, today);
+
+  const onRefresh = React.useCallback(async () => {
+    triggerMediumHaptic();
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refetchDashboard(),
+        refetchOnboarding(),
+        refetchStats(),
+      ]);
+    } catch (error) {
+      console.error('[Customer Home] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchDashboard, refetchOnboarding, refetchStats]);
 
   const waterGoal = stats?.waterGoalML || 2500;
   const waterTotal = stats?.totalWaterML || 0;
@@ -131,6 +150,9 @@ export default function CustomerHome() {
       className="flex-1 bg-[#0A0A0A]"
       contentContainerStyle={{ padding: 20, paddingBottom: 140 }}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
     >
       <View className="mb-5">
         <Text className="text-[#8E8E93] text-sm font-medium">

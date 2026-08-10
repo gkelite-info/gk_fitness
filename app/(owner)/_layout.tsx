@@ -46,6 +46,13 @@ export default function OwnerLayout() {
           headerShown: false,
         }}
       />
+      <Tabs.Screen
+        name="announcements/index"
+        options={{
+          href: null,
+          headerShown: true,
+        }}
+      />
     </Tabs>
   );
 }

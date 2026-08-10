@@ -3,6 +3,7 @@ import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { triggerMediumHaptic } from '@/lib/haptics';
 import {
   Buildings,
   CheckCircle,
@@ -46,9 +47,15 @@ export default function DashboardScreen() {
   };
 
   const onRefresh = React.useCallback(async () => {
+    triggerMediumHaptic();
     setRefreshing(true);
-    await Promise.all([refetchGyms(), refetchUsers()]);
-    setRefreshing(false);
+    try {
+      await Promise.all([refetchGyms(), refetchUsers()]);
+    } catch (error) {
+      console.error('[Superadmin Dashboard] Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
   }, [refetchGyms, refetchUsers]);
 
   const overviewData = OVERVIEW_DATA.map((item) => {

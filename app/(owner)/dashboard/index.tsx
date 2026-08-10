@@ -2,6 +2,9 @@ import React, { useState, useCallback } from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
+import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
+import { useGymAttendanceToday } from '@/hooks/attendance/useGymAttendanceToday';
+import { useGymPayments } from '@/hooks/useGymPayments';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { router } from 'expo-router';
 import {
@@ -81,16 +84,41 @@ const MONTHLY_DATA = [
 ];
 
 export default function OwnerDashboardScreen() {
-  const { name } = useUser();
+  const { name, gymId, userId } = useUser();
   const [refreshing, setRefreshing] = useState(false);
+  const { data: customers, refetch: refetchCustomers } = useGymCustomers(gymId ?? undefined);
+  const { data: attendances, refetch: refetchAttendances } = useGymAttendanceToday(gymId ?? undefined);
+  const { data: payments, refetch: refetchPayments } = useGymPayments(userId ?? null);
 
-  const onRefresh = useCallback(() => {
+  const activeCustomersCount = customers?.filter((c: any) => c.is_Active === true).length || 0;
+  const checkInsCount = attendances?.length || 0;
+
+  const localNow = new Date();
+  const tzOffset = localNow.getTimezoneOffset() * 60000;
+  const localDate = new Date(Date.now() - tzOffset).toISOString().slice(0, 10);
+
+  const revenueToday = payments?.reduce((sum, payment) => {
+    if (payment.paymentDate === localDate) {
+      return sum + Number(payment.amountPaid || 0);
+    }
+    return sum;
+  }, 0) || 0;
+
+  const onRefresh = useCallback(async () => {
     triggerMediumHaptic();
     setRefreshing(true);
-    setTimeout(() => {
+    try {
+      await Promise.all([
+        refetchCustomers(),
+        refetchAttendances(),
+        refetchPayments()
+      ]);
+    } catch (error) {
+      console.error('[Dashboard] Refresh error:', error);
+    } finally {
       setRefreshing(false);
-    }, 1200);
-  }, []);
+    }
+  }, [refetchCustomers, refetchAttendances, refetchPayments]);
 
   return (
     <ScrollView
@@ -122,6 +150,15 @@ export default function OwnerDashboardScreen() {
       <View className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-3 flex-row justify-between mb-6">
         {OVERVIEW_ITEMS.map((item, index) => {
           const IconComp = item.icon;
+          let displayValue = item.value;
+          if (item.id === 'active-customers') {
+            displayValue = activeCustomersCount.toString();
+          } else if (item.id === 'check-ins') {
+            displayValue = checkInsCount.toString();
+          } else if (item.id === 'revenue-today') {
+            displayValue = `₹${revenueToday.toLocaleString('en-IN')}`;
+          }
+
           return (
             <React.Fragment key={item.id}>
               {index > 0 && <View className="w-[1px] bg-[#1F293D] my-1" />}
@@ -131,7 +168,7 @@ export default function OwnerDashboardScreen() {
                   {item.label}
                 </Text>
                 <Text className="text-base font-semibold text-white" numberOfLines={1}>
-                  {item.value}
+                  {displayValue}
                 </Text>
               </View>
             </React.Fragment>
@@ -155,6 +192,8 @@ export default function OwnerDashboardScreen() {
                   router.push('/(owner)/dashboard/manage-inventory');
                 } else if (action.id === 'record-payment') {
                   router.push('/(owner)/dashboard/payments' as any);
+                } else if (action.id === 'create-announcement') {
+                  router.push('/(owner)/announcements' as any);
                 }
               }}
               className="w-[48.5%] bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 items-center justify-center active:opacity-80 min-h-[120px]">
@@ -192,7 +231,6 @@ export default function OwnerDashboardScreen() {
         })}
       </View>
 
-      {/* Section 4: Alerts & Reminders */}
       <View className="flex-row items-center justify-between mb-3">
         <Text className="text-base font-semibold text-white">Alerts & Reminders</Text>
         <Pressable className="active:opacity-70">
@@ -226,7 +264,6 @@ export default function OwnerDashboardScreen() {
         })}
       </View>
 
-      {/* Section 5: Revenue Trend */}
       <View className="flex-row items-center justify-between mb-3">
         <Text className="text-base font-semibold text-white">Revenue Trend</Text>
         <Pressable className="active:opacity-70">
@@ -237,17 +274,14 @@ export default function OwnerDashboardScreen() {
       </View>
 
       <View className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4">
-        {/* Chart Container */}
         <View className="h-44 flex-row items-end justify-between px-1 pt-6 pb-2">
           {MONTHLY_DATA.map((item) => (
             <View key={item.month} className="items-center flex-1 h-full justify-end px-1">
-              {/* Active Month Badge */}
               {item.active && item.value && (
                 <View className="bg-[#CCF200] px-2 py-0.5 rounded-md mb-2">
                   <Text className="text-[10px] font-semibold text-black">{item.value}</Text>
                 </View>
               )}
-              {/* Bar */}
               <View
                 className="w-full rounded-t-lg"
                 style={{

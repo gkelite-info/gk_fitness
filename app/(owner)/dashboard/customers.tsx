@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, TextInput, Pressable, FlatList, ActivityIndicator, Animated } from 'react-native';
+import { View, TextInput, Pressable, FlatList, ActivityIndicator, Animated, ScrollView, Modal, TouchableOpacity } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import {
   MagnifyingGlass,
@@ -12,7 +12,8 @@ import {
   Medal,
   CalendarBlank,
   CaretRight,
-  Briefcase
+  Briefcase,
+  CaretDown
 } from 'phosphor-react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { KeyboardDismissView } from '@/components/KeyboardDismissView';
@@ -23,6 +24,7 @@ import { getOwnerGymId } from '@/helpers/trainers/trainerHelper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCustomers } from '@/hooks/users/useCustomers';
 import { useTrainers } from '@/hooks/users/useTrainers';
+import { useGymMembershipPlans } from '@/hooks/useGymMembershipPlans';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 const ShimmerCard = () => {
@@ -87,8 +89,10 @@ const ShimmerCard = () => {
 
 export default function CustomersScreen() {
   const { userId } = useUser();
-  const [activeTab, setActiveTab] = useState('customers');
-  const [filter, setFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState<'customers' | 'trainers'>('customers');
+  const [filter, setFilter] = useState<'all' | 'active' | 'expired'>('all');
+  const [planFilter, setPlanFilter] = useState('All');
+  const [planModalVisible, setPlanModalVisible] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [gymId, setGymId] = useState<string | null>(null);
@@ -106,7 +110,9 @@ export default function CustomersScreen() {
     }
   }, [userId]);
 
-  const customersQuery = useCustomers(gymId, filter, debouncedSearch);
+  const { data: membershipPlans = [] } = useGymMembershipPlans(userId);
+
+  const customersQuery = useCustomers(gymId, filter, debouncedSearch, planFilter);
   const trainersQuery = useTrainers(gymId, filter, debouncedSearch);
 
   const currentQuery = activeTab === 'customers' ? customersQuery : trainersQuery;
@@ -144,7 +150,7 @@ export default function CustomersScreen() {
         ]}
         activeTab={activeTab}
         onTabChange={(id) => {
-          setActiveTab(id);
+          setActiveTab(id as any);
         }}
         containerClassName="mb-6"
       />
@@ -191,43 +197,62 @@ export default function CustomersScreen() {
         </Pressable>
       </View>
 
-      {/* Pills */}
-      <View className="flex-row gap-3 mb-6">
-        <Pressable
-          className={`px-5 py-2 rounded-full border ${filter === 'all' ? 'bg-[#CCF200] border-[#CCF200]' : 'bg-[#161616] border-[#242424]'}`}
-          onPress={() => {
-            if (filter !== 'all') {
+      {/* Pills and Dropdown */}
+      <View className="flex-row justify-between items-center mb-6">
+        <View className="flex-row gap-3 flex-1">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+            <Pressable
+              className={`px-4 py-1.5 rounded-full border ${filter === 'all' ? 'bg-[#CCF200] border-[#CCF200]' : 'bg-[#161616] border-[#242424]'}`}
+              onPress={() => {
+                if (filter !== 'all') {
+                  triggerSelectionHaptic();
+                  setFilter('all');
+                }
+              }}
+            >
+              <Text className={`font-semibold text-xs ${filter === 'all' ? 'text-black' : 'text-white'}`}>All</Text>
+            </Pressable>
+            <Pressable
+              className={`flex-row items-center px-3.5 py-1.5 rounded-full border ${filter === 'active' ? 'bg-[#CCF200] border-[#CCF200]' : 'bg-[#161616] border-[#242424]'}`}
+              onPress={() => {
+                if (filter !== 'active') {
+                  triggerSelectionHaptic();
+                  setFilter('active');
+                }
+              }}
+            >
+              <View className={`w-1.5 h-1.5 rounded-full mr-2 ${filter === 'active' ? 'bg-black' : 'bg-[#CCF200]'}`} />
+              <Text className={`font-medium text-xs ${filter === 'active' ? 'text-black' : 'text-[#E5E5E5]'}`}>Active</Text>
+            </Pressable>
+            <Pressable
+              className={`flex-row items-center px-3.5 py-1.5 rounded-full border ${filter === 'expired' ? 'bg-[#CCF200] border-[#CCF200]' : 'bg-[#161616] border-[#242424]'}`}
+              onPress={() => {
+                if (filter !== 'expired') {
+                  triggerSelectionHaptic();
+                  setFilter('expired');
+                }
+              }}
+            >
+              <View className={`w-1.5 h-1.5 rounded-full mr-2 ${filter === 'expired' ? 'bg-[#FF3366]' : 'bg-[#FFB6C1]'}`} />
+              <Text className={`font-medium text-xs ${filter === 'expired' ? 'text-black' : 'text-[#E5E5E5]'}`}>Inactive</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+
+        {activeTab === 'customers' && (
+          <Pressable 
+            className="px-3 py-1.5 rounded-xl bg-[#CCF200] flex-row items-center gap-1 active:opacity-80 ml-2"
+            onPress={() => {
               triggerSelectionHaptic();
-              setFilter('all');
-            }
-          }}
-        >
-          <Text className={`font-semibold ${filter === 'all' ? 'text-black' : 'text-white'}`}>All</Text>
-        </Pressable>
-        <Pressable
-          className={`flex-row items-center px-4 py-2 rounded-full border ${filter === 'active' ? 'bg-[#CCF200] border-[#CCF200]' : 'bg-[#161616] border-[#242424]'}`}
-          onPress={() => {
-            if (filter !== 'active') {
-              triggerSelectionHaptic();
-              setFilter('active');
-            }
-          }}
-        >
-          <View className={`w-2 h-2 rounded-full mr-2 ${filter === 'active' ? 'bg-black' : 'bg-[#CCF200]'}`} />
-          <Text className={`font-medium ${filter === 'active' ? 'text-black' : 'text-[#E5E5E5]'}`}>Active</Text>
-        </Pressable>
-        <Pressable
-          className={`flex-row items-center px-4 py-2 rounded-full border ${filter === 'expired' ? 'bg-[#CCF200] border-[#CCF200]' : 'bg-[#161616] border-[#242424]'}`}
-          onPress={() => {
-            if (filter !== 'expired') {
-              triggerSelectionHaptic();
-              setFilter('expired');
-            }
-          }}
-        >
-          <View className={`w-2 h-2 rounded-full mr-2 ${filter === 'expired' ? 'bg-[#FF3366]' : 'bg-[#FFB6C1]'}`} />
-          <Text className={`font-medium ${filter === 'expired' ? 'text-black' : 'text-[#E5E5E5]'}`}>Inactive</Text>
-        </Pressable>
+              setPlanModalVisible(true);
+            }}
+          >
+            <Text className="text-black font-semibold text-xs max-w-[100px]" numberOfLines={1}>
+              {planFilter === 'All' ? 'All' : (membershipPlans.find((p: any) => p.planId === planFilter)?.planName || 'Unknown')}
+            </Text>
+            <CaretDown size={12} color="#000" weight="bold" />
+          </Pressable>
+        )}
       </View>
 
       {/* Initial Loading Shimmer */}
@@ -347,6 +372,54 @@ export default function CustomersScreen() {
         }
         keyboardShouldPersistTaps="handled"
       />
+      <Modal visible={planModalVisible} transparent animationType="fade" onRequestClose={() => setPlanModalVisible(false)}>
+        <View className="flex-1 bg-black/60 justify-end">
+          <TouchableOpacity className="flex-1" activeOpacity={1} onPress={() => setPlanModalVisible(false)} />
+          <View className="bg-[#121214] rounded-t-3xl overflow-hidden pb-10" style={{ minHeight: 250 }}>
+            <View className="w-12 h-1.5 bg-[#27272A] rounded-full self-center mt-3 mb-6" />
+            <Text className="text-white text-xl font-bold px-6 mb-4">Select Plan Filter</Text>
+            
+            <ScrollView className="max-h-80 px-4">
+              <Pressable
+                className={`flex-row items-center justify-between p-4 rounded-2xl mb-2 ${planFilter === 'All' ? 'bg-[#18181B] border border-[#27272A]' : ''}`}
+                onPress={() => {
+                  triggerSelectionHaptic();
+                  setPlanFilter('All');
+                  setPlanModalVisible(false);
+                }}
+              >
+                <Text className={`text-base font-medium ${planFilter === 'All' ? 'text-white' : 'text-[#8E8E93]'}`}>All Plans</Text>
+                {planFilter === 'All' && (
+                  <View className="w-5 h-5 rounded-full bg-[#C4EF00] items-center justify-center">
+                    <View className="w-2.5 h-2.5 rounded-full bg-black" />
+                  </View>
+                )}
+              </Pressable>
+              
+              {membershipPlans.map((plan: any) => (
+                <Pressable
+                  key={plan.planId}
+                  className={`flex-row items-center justify-between p-4 rounded-2xl mb-2 ${planFilter === plan.planId ? 'bg-[#18181B] border border-[#27272A]' : ''}`}
+                  onPress={() => {
+                    triggerSelectionHaptic();
+                    setPlanFilter(plan.planId);
+                    setPlanModalVisible(false);
+                  }}
+                >
+                  <Text className={`text-base font-medium ${planFilter === plan.planId ? 'text-white' : 'text-[#8E8E93]'}`}>
+                    {plan.planName}
+                  </Text>
+                  {planFilter === plan.planId && (
+                    <View className="w-5 h-5 rounded-full bg-[#C4EF00] items-center justify-center">
+                      <View className="w-2.5 h-2.5 rounded-full bg-black" />
+                    </View>
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </KeyboardDismissView>
   );
 }

@@ -217,7 +217,17 @@ export default function OwnerDashboardScreen() {
           return (
             <React.Fragment key={op.id}>
               {index > 0 && <View className="w-[1px] bg-[#1F293D] my-1" />}
-              <View className="flex-1 items-center px-1">
+              <Pressable 
+                onPress={() => {
+                  triggerMediumHaptic();
+                  if (op.id === 'pt-sessions') {
+                    router.push('/(owner)/dashboard/pt-sessions' as any);
+                  } else if (op.id === 'renewals') {
+                    router.push('/(owner)/dashboard/renewals');
+                  }
+                }}
+                className="flex-1 items-center px-1 active:opacity-70"
+              >
                 <IconComp size={22} color="#CCF200" weight="bold" />
                 <Text className="text-xl font-semibold text-white mt-2 mb-0.5">
                   {op.value}
@@ -225,7 +235,7 @@ export default function OwnerDashboardScreen() {
                 <Text className="text-[10px] font-semibold text-[#888888] tracking-wider text-center">
                   {op.label}
                 </Text>
-              </View>
+              </Pressable>
             </React.Fragment>
           );
         })}

@@ -3,9 +3,9 @@ import { supabase } from '@/lib/supabase';
 
 const PAGE_SIZE = 10;
 
-export function useCustomers(gymId: string | null, filter: string, debouncedSearch: string) {
+export function useCustomers(gymId: string | null, filter: string, debouncedSearch: string, planFilter: string = 'All') {
   return useInfiniteQuery({
-    queryKey: ['customers', gymId, filter, debouncedSearch],
+    queryKey: ['customers', gymId, filter, debouncedSearch, planFilter],
     queryFn: async ({ pageParam = 0 }) => {
       if (!gymId) throw new Error('Gym ID is required');
 
@@ -14,8 +14,17 @@ export function useCustomers(gymId: string | null, filter: string, debouncedSear
 
       let query = supabase
         .from('gym_customers')
-        .select('*', { count: 'exact' })
+        .select(
+          planFilter !== 'All' 
+            ? '*, gym_customer_membership_plans!inner(planId)' 
+            : '*', 
+          { count: 'exact' }
+        )
         .eq('gymId', gymId);
+
+      if (planFilter !== 'All') {
+        query = query.eq('gym_customer_membership_plans.planId', planFilter);
+      }
 
       if (filter === 'active') {
         query = query.eq('is_Active', true);

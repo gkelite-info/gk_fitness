@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, TouchableWithoutFeedback, Dimensions, Text } from 'react-native';
+import { usePathname } from 'expo-router';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -14,6 +15,8 @@ import {
   Gear,
   Buildings,
   ClipboardText,
+  CurrencyDollar,
+  Binoculars,
 } from 'phosphor-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -29,8 +32,9 @@ export function CustomTabBar({
 
   const focusedRoute = state.routes[state.index];
   const isFocusedOnboarding = focusedRoute.name === '(onboarding)' || focusedRoute.name.includes('step');
+  const isFocusedCommunity = focusedRoute.name === 'community';
 
-  if (isFocusedOnboarding) {
+  if (isFocusedOnboarding || isFocusedCommunity) {
     return null;
   }
 
@@ -107,6 +111,8 @@ export function CustomTabBar({
               if (name.includes('profile')) return <User size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
               if (name.includes('user')) return <Users size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
               if (name.includes('analytic')) return <ChartLineUp size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('finance')) return <CurrencyDollar size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('explore')) return <Binoculars size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
               if (name.includes('setting')) return <Gear size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
               if (name.includes('workout')) return <Barbell size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
               if (name.includes('progress')) return <ChartLineUp size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;

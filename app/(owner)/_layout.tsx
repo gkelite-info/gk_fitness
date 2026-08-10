@@ -16,9 +16,9 @@ export default function OwnerLayout() {
         }}
       />
       <Tabs.Screen
-        name="analytics"
+        name="finance"
         options={{
-          title: 'Analytics',
+          title: 'Finance',
         }}
       />
       <Tabs.Screen
@@ -28,9 +28,9 @@ export default function OwnerLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="explore"
         options={{
-          title: 'Settings',
+          title: 'Explore',
         }}
       />
       <Tabs.Screen
@@ -51,6 +51,12 @@ export default function OwnerLayout() {
         options={{
           href: null,
           headerShown: true,
+        }}
+      />
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

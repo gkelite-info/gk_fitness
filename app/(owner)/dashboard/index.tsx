@@ -25,6 +25,7 @@ import {
   CaretRight,
   CaretDown,
   QrCode,
+  Fingerprint,
 } from 'phosphor-react-native';
 import { triggerMediumHaptic } from '@/lib/haptics';
 
@@ -41,6 +42,7 @@ const QUICK_ACTIONS = [
   { id: 'open-qr', icon: QrCode, label: 'Open Check-In QR' },
   { id: 'manage-inventory', icon: Package, label: 'Manage Inventory' },
   { id: 'record-payment', icon: Wallet, label: 'Record Payment' },
+  { id: 'manage-biometric', icon: Fingerprint, label: 'Manage Biometric' },
 ];
 
 const OPERATIONS = [
@@ -194,6 +196,8 @@ export default function OwnerDashboardScreen() {
                   router.push('/(owner)/dashboard/payments' as any);
                 } else if (action.id === 'create-announcement') {
                   router.push('/(owner)/announcements' as any);
+                } else if (action.id === 'manage-biometric') {
+                  router.push('/(owner)/dashboard/biometric' as any);
                 }
               }}
               className="w-[48.5%] bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 items-center justify-center active:opacity-80 min-h-[120px]">

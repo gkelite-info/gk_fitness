@@ -61,7 +61,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.vamshi0111.gkfitness",
+      "package": "com.gkeliteinfo.gkgymlife",
       "permissions": [
         "ACTIVITY_RECOGNITION"
       ]

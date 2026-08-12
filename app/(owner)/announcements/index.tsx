@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, ActivityIndicator, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
@@ -57,13 +58,33 @@ export default function AnnouncementsScreen() {
     }
 
     try {
-      await saveAnnouncement({
+      const saved = await saveAnnouncement({
         gymId,
         createdBy: gymOwnerId,
         message: newMessage.trim(),
         announcementDate: new Date().toLocaleDateString('en-CA'),
         announcementTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       });
+      
+      // Notify customers via Supabase Broadcast
+      if (saved) {
+        try {
+          const channel = supabase.channel(`gym_broadcast_${gymId}`);
+          channel.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+              await channel.send({
+                type: 'broadcast',
+                event: 'new_announcement',
+                payload: saved,
+              });
+              supabase.removeChannel(channel);
+            }
+          });
+        } catch (e) {
+          console.error('Failed to notify via Supabase Broadcast:', e);
+        }
+      }
+
       toast.success('Announcement sent successfully!');
       setModalVisible(false);
       setNewMessage('');

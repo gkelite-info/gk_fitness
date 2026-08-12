@@ -99,10 +99,11 @@ export async function fetchUserAndRoleProfile(
         case 'customer': {
           const { data: customerData } = await supabase
             .from('gym_customers')
-            .select('customerId')
+            .select('customerId, gymId')
             .eq('customerId', profile.userId)
             .maybeSingle();
           profile.customerId = customerData?.customerId || null;
+          profile.gymId = customerData?.gymId || null;
           break;
         }
         case 'trainer': {

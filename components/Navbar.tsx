@@ -5,12 +5,20 @@ import { StatusBar } from 'expo-status-bar';
 import { Icon } from '@/components/nativewindui/Icon';
 import { Text } from '@/components/nativewindui/Text';
 import { BellRingingIcon, UsersThree } from 'phosphor-react-native';
+import { useState } from 'react';
+import { useUser } from '@/context/UserContext';
+import { useRealtimeAnnouncements } from '@/hooks/gymAnnouncements/useRealtimeAnnouncements';
+import { AnnouncementsModal } from '@/components/AnnouncementsModal';
 
 export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const topPadding = insets.top;
+
+  const { gymId } = useUser();
+  const { announcements, loading, hasNew, clearHasNew } = useRealtimeAnnouncements(gymId);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   if (pathname.includes('/profile')) {
     return null;
@@ -53,11 +61,26 @@ export function Navbar() {
           >
             <UsersThree size={24} weight="regular" color='#ffffff' />
           </Pressable>
-          <Pressable className="opacity-80 active:opacity-50">
+          <Pressable 
+            className="opacity-80 active:opacity-50 relative"
+            onPress={() => {
+              setIsModalVisible(true);
+              clearHasNew();
+            }}
+          >
             <BellRingingIcon size={24} color='#ffffff' />
+            {hasNew && (
+              <View className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border border-[#0D0D0D]" />
+            )}
           </Pressable>
         </View>
       </View>
+      <AnnouncementsModal 
+        visible={isModalVisible} 
+        onClose={() => setIsModalVisible(false)} 
+        announcements={announcements} 
+        isLoading={loading} 
+      />
     </View>
   );
 }

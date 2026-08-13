@@ -9,10 +9,18 @@ import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlan
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 
 import { useCustomerWeeklyPlan } from '@/hooks/workout/useCustomerWeeklyPlan';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function WeeklyWorkoutPlan() {
   const { userId } = useUser();
   const { data: loadedPlanDays, isLoading, refetch } = useCustomerWeeklyPlan(userId);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -46,7 +54,7 @@ export default function WeeklyWorkoutPlan() {
       const exercisesCount = dayData?.exercises?.length || 0;
 
       return {
-        id: dayStr, // use day name as ID for routing if planDayId is not present
+        id: dayData?.planDayId || dayStr, // use planDayId if present for valid UUID routing
         dayAbbr: dayStr.substring(0, 3).toUpperCase(),
         date: dates[index],
         type: isRest ? 'Rest Day' : dayData.workoutType,
@@ -75,8 +83,12 @@ export default function WeeklyWorkoutPlan() {
         <Text className="text-[#8E8E8E] text-base">Review and customize your weekly schedule.</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-        {isLoading ? (
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        {isLoading && !refreshing ? (
           <View className="items-center justify-center pt-20">
             <ActivityIndicator size="large" color="#D7FF00" />
           </View>

@@ -68,8 +68,8 @@ export default function WorkoutCountdown() {
   useEffect(() => {
     if (countdown === 0) {
       router.replace({
-        pathname: '/(customer)/workout-session',
-        params: { dayId }
+        pathname: '/(customer)/exercise-detail',
+        params: { dayId, exerciseIndex: 0 }
       });
     }
   }, [countdown, dayId]);

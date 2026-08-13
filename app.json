@@ -63,7 +63,9 @@
       },
       "package": "com.gkeliteinfo.gkgymlife",
       "permissions": [
-        "ACTIVITY_RECOGNITION"
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "androidStatusBar": {
@@ -74,7 +76,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
+        "projectId": "5d58a773-7b20-402a-b488-fd27bccbc462"
       }
     }
   }

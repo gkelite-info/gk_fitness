@@ -24,6 +24,8 @@ import {
   Footprints,
   Drop,
   Lightning,
+  ForkKnife,
+  BowlFood,
 } from 'phosphor-react-native';
 import { usePedometer } from '@/hooks/fitness/usePedometer';
 import { useFitnessStats } from '@/hooks/fitness/useFitnessStats';
@@ -42,7 +44,7 @@ export default function CustomerHome() {
   const todayWorkoutType = dashboardData?.todayWorkout?.type || 'Rest';
   const todayDuration = dashboardData?.todayWorkout?.duration?.toString() || '0';
   const todayExercisesCount = dashboardData?.todayWorkout?.exercisesCount?.toString() || '0';
-  
+
   const [planName, setPlanName] = useState<string>('MEMBER');
   const [daysLeft, setDaysLeft] = useState<number | string>('--');
   const [progressPercentage, setProgressPercentage] = useState<number>(0);
@@ -354,6 +356,46 @@ export default function CustomerHome() {
               </View>
             ))}
           </View>
+        </View>
+      </View>
+
+      <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 relative overflow-hidden flex-row items-center justify-between">
+        <View className="flex-1 z-10 py-1">
+          <View className="w-10 h-10 rounded-2xl bg-[#C0F905]/10 items-center justify-center mb-3">
+            <BowlFood size={22} color="#C0F905" weight="fill" />
+          </View>
+
+          <Text className="text-white text-2xl font-semibold tracking-tight mb-1">Today's Meal Plan</Text>
+
+          <Text className="text-[#8E8E93] text-[11px] font-medium mb-5">
+            Dinner  <Text className="text-[#C0F905]">●</Text>  Breakfast  <Text className="text-[#C0F905]">●</Text>  Lunch  <Text className="text-[#C0F905]">●</Text>  Snack  <Text className="text-[#C0F905]">●</Text>
+          </Text>
+
+          <View className="flex-row items-center gap-2 mb-6">
+            <View className="w-8 h-8 rounded-full border-2 border-[#C0F905] items-center justify-center">
+              <ForkKnife size={14} color="#C0F905" weight="fill" />
+            </View>
+            <View className="flex-row items-baseline gap-1.5">
+              <Text className="text-[#C0F905] text-lg font-bold">3</Text>
+              <Text className="text-[#8E8E93] text-xs font-medium">of <Text className="text-[#D4D4D4] font-semibold text-sm">4</Text> meals planned</Text>
+            </View>
+          </View>
+
+          <Pressable
+            // @ts-ignore
+            onPress={() => router.push('/(customer)/nutrition')}
+            className="bg-[#C4EF00] rounded-xl py-3 px-5 flex-row items-center justify-center self-start active:opacity-90">
+            <Text className="text-black font-semibold text-sm mr-2">View Meal Plan</Text>
+            <ArrowRight size={16} color="#000000" />
+          </Pressable>
+        </View>
+
+        <View className="absolute -right-24 top-0 bottom-0 justify-center">
+          <Image
+            source={require('../../assets/home_diet_image.png')}
+            style={{ width: 280, height: 280 }}
+            resizeMode="contain"
+          />
         </View>
       </View>
     </ScrollView>

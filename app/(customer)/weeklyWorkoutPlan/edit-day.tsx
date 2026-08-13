@@ -31,7 +31,7 @@ export default function EditWorkoutDay() {
   const [isMakingRest, setIsMakingRest] = useState(false);
 
   const isUUID = day ? day.includes('-') : false;
-  
+
   const { data: dayById, isLoading: isLoadingDayById } = useWorkoutPlanDayById(isUUID ? day : null);
   const { data: weeklyPlan, isLoading: isLoadingWeeklyPlan } = useCustomerWeeklyPlan(!isUUID ? userId : null);
 
@@ -111,7 +111,7 @@ export default function EditWorkoutDay() {
     if (!currentPlanDayId) return;
 
     const newExs = exercises.filter(ex => ex.isNew);
-    
+
     saveExercisesMutation.mutate({
       deletedExerciseIds,
       newExercises: newExs,
@@ -130,7 +130,7 @@ export default function EditWorkoutDay() {
 
   const confirmMakeRestDay = () => {
     if (!currentPlanDayId || !dayData) return;
-    
+
     makeRestMutation.mutate({ planDayId: currentPlanDayId, planId: dayData.planId, dayOfWeek: dayData.dayOfWeek }, {
       onSuccess: () => {
         setRestModalVisible(false);
@@ -273,7 +273,7 @@ export default function EditWorkoutDay() {
                 ))}
             </View>
 
-            <View className="mt-8 mb-4 flex-row gap-3">
+            <View className="mt-8 mb-4">
               <Pressable
                 onPress={handleSave}
                 disabled={isSaving || (!exercises.some(e => e.isNew) && deletedExerciseIds.length === 0)}

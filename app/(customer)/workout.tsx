@@ -6,23 +6,35 @@ import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from 'expo-av';
 import { useNavigation, router } from 'expo-router';
 import { useUser } from '@/context/UserContext';
-import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
-import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 import { useCustomerMuscleGroupWorkouts } from '@/hooks/workout/useCustomerMuscleGroupWorkouts';
-
 import { useCustomerDashboardData } from '@/hooks/workout/useCustomerDashboardData';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { useQueryClient } from '@tanstack/react-query';
+import WorkoutShimmer from '@/components/shimmers/workoutShimmer';
+
 export default function CustomerWorkout() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const navigation = useNavigation();
   const { name, userId } = useUser();
+  const queryClient = useQueryClient();
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
 
-  const { data: dashboardData, isLoading: isLoadingPlan } = useCustomerDashboardData(userId);
+  const { data: dashboardData, isLoading: isLoadingPlan, isRefetching } = useCustomerDashboardData(userId);
 
   const hasPlan = dashboardData?.hasPlan ?? null;
   const weeklyPlanDays = dashboardData?.weeklyPlanDays ?? [];
   const todayWorkout = dashboardData?.todayWorkout ?? null;
   const yesterdayWorkout = dashboardData?.yesterdayWorkout ?? null;
+
+  const handleRefresh = async () => {
+    setIsManualRefreshing(true);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] }),
+      queryClient.invalidateQueries({ queryKey: ['customerMuscleGroupWorkouts'] })
+    ]);
+    setIsManualRefreshing(false);
+  };
 
   useEffect(() => {
     const unsubscribe = (navigation as any).addListener('tabPress', () => {
@@ -54,7 +66,12 @@ export default function CustomerWorkout() {
   ];
 
   return (
-    <ScrollView className="flex-1 bg-[#0A0A0A]" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      className="flex-1 bg-[#0A0A0A]"
+      contentContainerStyle={{ paddingBottom: 40 }}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<CustomRefreshControl refreshing={isManualRefreshing || isRefetching} onRefresh={handleRefresh} />}
+    >
       <View className="items-start justify-start p-5 gap-3 pb-20">
         <Text className="text-foreground text-sm text-[#8E8E8E]">
           Hi {name || 'User'} <HandWavingIcon size={20} color='#FFCB3F' weight='fill' />
@@ -98,26 +115,24 @@ export default function CustomerWorkout() {
         ) : activeTab === 'Equipment' ? (
           <EquipmentView />
         ) : !activeTab ? ( */}
-        {activeTab === 'Full Body Workout' ? (
+        {activeTab === 'Full Body Workout' || activeTab === 'Upper Body Workout' || activeTab === 'Lower Body Workout' ? (
           <View className="w-full mt-2">
             <Pressable onPress={() => setActiveTab(null)} className="flex-row items-center gap-2 mb-2 active:opacity-70">
               <CaretLeft size={20} color="white" weight="bold" />
               <Text className="text-white font-semibold">Back to Workout</Text>
             </Pressable>
-            <MuscleGroupView />
+            <MuscleGroupView
+              filterTabs={
+                activeTab === 'Upper Body Workout' ? ['All', 'Chest', 'Back', 'Shoulders'] :
+                  activeTab === 'Lower Body Workout' ? ['All', 'Legs'] :
+                    undefined
+              }
+            />
           </View>
         ) : (
           <>
-            {isLoadingPlan ? (
-              <View className="mt-5 w-full">
-                <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider mb-3 uppercase'>Weekly Workout Plan</Text>
-                <View className="w-full border border-[#27272A] bg-[#111111] rounded-3xl p-5 items-center pb-6">
-                  <View className="bg-[#242A00] rounded-2xl mb-4 h-14 w-14 animate-pulse" />
-                  <View className="h-6 w-48 bg-[#27272A] rounded animate-pulse mb-3" />
-                  <View className="h-4 w-64 bg-[#27272A] rounded animate-pulse mb-6" />
-                  <View className="w-full h-16 bg-[#1A1A1A] border border-[#27272A] rounded-2xl animate-pulse mb-5" />
-                </View>
-              </View>
+            {isLoadingPlan || isManualRefreshing ? (
+              <WorkoutShimmer />
             ) : !hasPlan ? (
               <View className="mt-5 w-full">
                 <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider mb-3 uppercase'>Weekly Workout Plan</Text>
@@ -290,8 +305,8 @@ export default function CustomerWorkout() {
                       className='bg-[#111111] w-[48%] mb-3 p-3 flex-row items-center rounded-xl border border-[#1D1D1D] active:opacity-70'
                       key={index}
                       onPress={() => {
-                        if (item.text === 'Full Body Workout') {
-                          setActiveTab('Full Body Workout');
+                        if (item.text === 'Full Body Workout' || item.text === 'Upper Body Workout' || item.text === 'Lower Body Workout') {
+                          setActiveTab(item.text);
                         }
                       }}
                     >
@@ -308,7 +323,8 @@ export default function CustomerWorkout() {
               </View>
             </View>
 
-            <View className='mt-5 w-full flex-row items-center justify-between'>
+            {/* Not required */}
+            {/* <View className='mt-5 w-full flex-row items-center justify-between'>
               <View className='bg-[#111111] w-[48%] p-3 rounded-xl gap-1 border border-[#1D1D1D]'>
                 <Text className='text-[#C4EF00] font-semibold text-sm'>FEATURED PROGRAM</Text>
                 <Text className='text-white font-semibold text-lg w-[80%]'>8 Week Mass Builder</Text>
@@ -345,7 +361,8 @@ export default function CustomerWorkout() {
                   </Pressable>
                 </View>
               </View>
-            </View>
+            </View> */}
+            {/* Not required */}
 
             {yesterdayWorkout && yesterdayWorkout.type !== 'Rest' && (
               <View className='bg-[#111111] border border-[#1D1D1D] mt-5 w-full p-4 rounded-lg flex flex-row justify-between'>
@@ -377,7 +394,7 @@ export default function CustomerWorkout() {
   );
 }
 
-function MuscleGroupView() {
+function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
   const { userId } = useUser();
   const [activeSubTab, setActiveSubTab] = useState('All');
   const [savedWorkouts, setSavedWorkouts] = useState<Record<string, boolean>>({});
@@ -400,13 +417,17 @@ function MuscleGroupView() {
     setSavedWorkouts(prev => ({ ...prev, [title]: !prev[title] }));
   };
 
-  const subTabs = [
+  let subTabs = [
     { name: 'All', icon: <SquaresFour size={28} color="#8E8E8E" weight="fill" /> },
     { name: 'Chest', image: require('../../assets/chest-stood.png') },
     { name: 'Back', image: require('../../assets/back-stood.png') },
     { name: 'Shoulders', image: require('../../assets/shoulders-stood.png') },
     { name: 'Legs', image: require('../../assets/workout_legs.jpg') },
   ];
+
+  if (filterTabs) {
+    subTabs = subTabs.filter(tab => filterTabs.includes(tab.name));
+  }
 
   const popularWorkoutsMap: Record<string, any[]> = {
     Chest: [
@@ -426,7 +447,11 @@ function MuscleGroupView() {
       { title: 'Lower Body Strength', subtitle: 'Glutes Focus', time: '45 min', exercisesCount: '5 Exercises', image: require('../../assets/kettlebell-burn.png') },
     ],
   };
-  popularWorkoutsMap['All'] = [...popularWorkoutsMap['Chest'], ...popularWorkoutsMap['Back'], ...popularWorkoutsMap['Shoulders'], ...popularWorkoutsMap['Legs']];
+  if (filterTabs) {
+    popularWorkoutsMap['All'] = filterTabs.filter(t => t !== 'All').flatMap(t => popularWorkoutsMap[t] || []);
+  } else {
+    popularWorkoutsMap['All'] = [...popularWorkoutsMap['Chest'], ...popularWorkoutsMap['Back'], ...popularWorkoutsMap['Shoulders'], ...popularWorkoutsMap['Legs']];
+  }
 
   const currentPopular = popularWorkoutsMap[activeSubTab] || popularWorkoutsMap['All'];
 
@@ -457,7 +482,11 @@ function MuscleGroupView() {
       { exerciseName: 'Romanian Deadlift', category: 'Legs', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/romanian_deadlift_video.mp4') },
     ],
   };
-  placeholderRecommendedMap['All'] = [...placeholderRecommendedMap['Chest'], ...placeholderRecommendedMap['Back'], ...placeholderRecommendedMap['Shoulders'], ...placeholderRecommendedMap['Legs']];
+  if (filterTabs) {
+    placeholderRecommendedMap['All'] = filterTabs.filter(t => t !== 'All').flatMap(t => placeholderRecommendedMap[t] || []);
+  } else {
+    placeholderRecommendedMap['All'] = [...placeholderRecommendedMap['Chest'], ...placeholderRecommendedMap['Back'], ...placeholderRecommendedMap['Shoulders'], ...placeholderRecommendedMap['Legs']];
+  }
 
   const currentRecommended = React.useMemo(() => {
     const uniqueRecommended: any[] = [];
@@ -482,6 +511,8 @@ function MuscleGroupView() {
         videoSource = require('../../assets/videos/dips_exercise_video.mp4');
       } else if (lowerName.includes('chest press') || lowerName.includes('machine press')) {
         videoSource = require('../../assets/videos/chest_press_machine_video.mp4');
+      } else if (lowerName.includes('woodchopper') || lowerName.includes('wood chopper')) {
+        videoSource = require('../../assets/videos/cable_woodchoppers.gif');
       } else if (lowerName.includes('cable') || lowerName.includes('fly')) {
         videoSource = require('../../assets/videos/cable_fly_video.mp4');
       } else if (lowerName.includes('pushup') || lowerName.includes('push-up')) {
@@ -542,6 +573,18 @@ function MuscleGroupView() {
         videoSource = require('../../assets/videos/skull_crushers_video.mp4');
       } else if (lowerName.includes('chin up') || lowerName.includes('chin-up') || lowerName.includes('chinups')) {
         videoSource = require('../../assets/videos/chin_ups_video.gif');
+      } else if (lowerName.includes('bicycle crunch')) {
+        videoSource = require('../../assets/videos/bicycle_crunches.mp4');
+      } else if (lowerName.includes('hanging knee raise') || lowerName.includes('knee raise')) {
+        videoSource = require('../../assets/videos/hanging_knee_raise_video.mp4');
+      } else if (lowerName.includes('russian twist')) {
+        videoSource = require('../../assets/videos/russian_twist_video.mp4');
+      } else if (lowerName.includes('leg raise')) {
+        videoSource = require('../../assets/videos/leg_raise_video.mp4');
+      } else if (lowerName.includes('crunch')) {
+        videoSource = require('../../assets/videos/crunches_video.mp4');
+      } else if (lowerName.includes('plank')) {
+        videoSource = require('../../assets/videos/plank_video.mp4');
       } else if (lowerName.includes('raise')) {
         videoSource = require('../../assets/videos/tri_che_shou_video.mp4');
       }
@@ -550,6 +593,17 @@ function MuscleGroupView() {
 
     let recs = mappedRecommended;
 
+    if (filterTabs && filterTabs.length > 0) {
+      const allowedCategories = filterTabs.filter(t => t !== 'All').map(t => t.toLowerCase());
+      if (allowedCategories.length > 0) {
+        recs = recs.filter(r => {
+          const cat = (r.category || r.dayWorkoutType || '').toLowerCase();
+          if (!cat) return true;
+          return allowedCategories.some(allowed => cat.includes(allowed));
+        });
+      }
+    }
+
     const hasCategory = (cat: string) => recs.some(r =>
       r.dayWorkoutType?.toLowerCase() === cat.toLowerCase() ||
       r.category?.toLowerCase() === cat.toLowerCase()
@@ -557,15 +611,15 @@ function MuscleGroupView() {
 
     if (activeSubTab === 'All') {
       const allRecs = [...recs];
-      if (!hasCategory('chest')) allRecs.push(...placeholderRecommendedMap['Chest']);
-      if (!hasCategory('back')) allRecs.push(...placeholderRecommendedMap['Back']);
-      if (!hasCategory('shoulders')) {
+      if (!hasCategory('chest') && (!filterTabs || filterTabs.includes('Chest'))) allRecs.push(...placeholderRecommendedMap['Chest']);
+      if (!hasCategory('back') && (!filterTabs || filterTabs.includes('Back'))) allRecs.push(...placeholderRecommendedMap['Back']);
+      if (!hasCategory('shoulders') && (!filterTabs || filterTabs.includes('Shoulders'))) {
         allRecs.push(
           { exerciseName: 'Shoulder Press', category: 'Shoulders', reps: '10-12 reps', image: require('../../assets/workout_upperbody.jpg'), video: require('../../assets/videos/tri_che_shou_video.mp4') },
           { exerciseName: 'Lateral Raises', category: 'Shoulders', reps: '12-15 reps', image: require('../../assets/workout_upperbody.jpg'), video: require('../../assets/videos/tri_che_shou_video.mp4') }
         );
       }
-      if (!hasCategory('legs')) {
+      if (!hasCategory('legs') && (!filterTabs || filterTabs.includes('Legs'))) {
         allRecs.push(
           { exerciseName: 'Squats', category: 'Legs', reps: '10-12 reps', image: require('../../assets/workout_legs.jpg'), video: require('../../assets/videos/squat_exercise_video.mp4') },
           { exerciseName: 'Leg Press', category: 'Legs', reps: '12-15 reps', image: require('../../assets/workout_legs.jpg'), video: require('../../assets/videos/legpress_exercise_video.mp4') }
@@ -663,7 +717,7 @@ function MuscleGroupView() {
               <View key={i} className="bg-[#111111] rounded-3xl border border-[#1D1D1D] pb-4" style={{ width: 220 }}>
                 <View className="w-full h-48 bg-[#1a1a1a] rounded-t-3xl items-center justify-center overflow-hidden">
                   {workout.video ? (
-                    (workout.exerciseName.toLowerCase().includes('chin up') || workout.exerciseName.toLowerCase().includes('chin-up') || workout.exerciseName.toLowerCase().includes('chinups')) ? (
+                    (workout.exerciseName.toLowerCase().includes('chin up') || workout.exerciseName.toLowerCase().includes('chin-up') || workout.exerciseName.toLowerCase().includes('chinups') || workout.exerciseName.toLowerCase().includes('woodchopper') || workout.exerciseName.toLowerCase().includes('wood chopper')) ? (
                       <Image
                         source={workout.video}
                         style={{ width: '100%', height: '100%' }}

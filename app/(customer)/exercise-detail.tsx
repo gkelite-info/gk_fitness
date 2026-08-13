@@ -95,6 +95,8 @@ export default function ExerciseDetail() {
     localVideoSource = require('../../assets/videos/dips_exercise_video.mp4');
   } else if (normalizedTitle.includes('chest press') || normalizedTitle.includes('machine press')) {
     localVideoSource = require('../../assets/videos/chest_press_machine_video.mp4');
+  } else if (normalizedTitle.includes('woodchopper') || normalizedTitle.includes('wood chopper')) {
+    localVideoSource = require('../../assets/videos/cable_woodchoppers.gif');
   } else if (normalizedTitle.includes('cable') || normalizedTitle.includes('fly')) {
     localVideoSource = require('../../assets/videos/cable_fly_video.mp4');
   } else if (normalizedTitle.includes('pushup') || normalizedTitle.includes('push-up')) {
@@ -155,6 +157,18 @@ export default function ExerciseDetail() {
     localVideoSource = require('../../assets/videos/skull_crushers_video.mp4');
   } else if (normalizedTitle.includes('chin up') || normalizedTitle.includes('chin-up') || normalizedTitle.includes('chinups')) {
     localVideoSource = require('../../assets/videos/chin_ups_video.gif');
+  } else if (normalizedTitle.includes('bicycle crunch')) {
+    localVideoSource = require('../../assets/videos/bicycle_crunches.mp4');
+  } else if (normalizedTitle.includes('hanging knee raise') || normalizedTitle.includes('knee raise')) {
+    localVideoSource = require('../../assets/videos/hanging_knee_raise_video.mp4');
+  } else if (normalizedTitle.includes('russian twist')) {
+    localVideoSource = require('../../assets/videos/russian_twist_video.mp4');
+  } else if (normalizedTitle.includes('leg raise')) {
+    localVideoSource = require('../../assets/videos/leg_raise_video.mp4');
+  } else if (normalizedTitle.includes('crunch')) {
+    localVideoSource = require('../../assets/videos/crunches_video.mp4');
+  } else if (normalizedTitle.includes('plank')) {
+    localVideoSource = require('../../assets/videos/plank_video.mp4');
   }
 
   return (
@@ -201,7 +215,7 @@ export default function ExerciseDetail() {
 
           <View className={`relative w-full rounded-xl overflow-hidden bg-black items-center justify-center ${localVideoSource ? 'h-96' : 'h-52'}`}>
             {localVideoSource ? (
-              (normalizedTitle.includes('chin up') || normalizedTitle.includes('chin-up') || normalizedTitle.includes('chinups')) ? (
+              (normalizedTitle.includes('chin up') || normalizedTitle.includes('chin-up') || normalizedTitle.includes('chinups') || normalizedTitle.includes('woodchopper') || normalizedTitle.includes('wood chopper')) ? (
                 <Image
                   source={localVideoSource}
                   style={{ width: '100%', height: '100%' }}

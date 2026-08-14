@@ -55,14 +55,14 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+    const authListener = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!initialCheckCompleted.current) return;
       setSession(newSession);
     });
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
+      authListener?.data?.subscription?.unsubscribe();
     };
   }, []);
 
@@ -119,10 +119,12 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
     Linking.getInitialURL().then((url) => {
       if (url) handleUrl(url);
+    }).catch((err) => {
+      console.warn('[UserContext] Failed to get initial URL:', err);
     });
 
     return () => {
-      subscription.remove();
+      subscription?.remove();
     };
   }, []);
 

@@ -5,7 +5,7 @@ import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { SelectableCard } from '@/components/onboarding/SelectableCard';
 import { Leaf, Egg, Fish, Plus, Minus } from 'phosphor-react-native';
 import { cn } from '@/lib/cn';
-import { useOnboarding } from './_OnboardingContext';
+import { useOnboarding } from '@/context/OnboardingContext';
 import { saveCustomerOnboarding } from '@/helpers/onboardingHelper';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';

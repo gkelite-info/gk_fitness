@@ -5,7 +5,7 @@ import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { SelectableCard } from '@/components/onboarding/SelectableCard';
 import { DaySelector } from '@/components/onboarding/DaySelector';
 import { Barbell, House, CalendarBlank, Sun, SunDim, CloudSun, CloudMoon } from 'phosphor-react-native';
-import { useOnboarding } from './_OnboardingContext';
+import { useOnboarding } from '@/context/OnboardingContext';
 
 const LOCATIONS = [
   { id: 'gym', title: 'Gym', description: 'I prefer training\nat the gym', icon: Barbell },

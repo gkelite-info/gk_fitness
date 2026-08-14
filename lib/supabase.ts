@@ -5,6 +5,14 @@ import { Platform } from 'react-native';
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn(
+    '[Supabase] Warning: EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY is not defined. Using placeholder values to prevent startup crash.'
+  );
+}
+
+const safeUrl = SUPABASE_URL || 'https://placeholder-url-for-build.supabase.co';
+const safeKey = SUPABASE_ANON_KEY || 'placeholder-key';
 
 const customStorage = {
   getItem: async (key: string) => {
@@ -32,7 +40,7 @@ const customStorage = {
   },
 };
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabase = createClient(safeUrl, safeKey, {
   auth: {
     storage: customStorage,
     autoRefreshToken: true,
@@ -41,7 +49,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
-export const supabaseAdminAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabaseAdminAuth = createClient(safeUrl, safeKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,

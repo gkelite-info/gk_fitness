@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { User, CalendarBlank, Info, GenderMale, GenderFemale, GenderIntersex } from 'phosphor-react-native';
 import { SelectableCard } from '@/components/onboarding/SelectableCard';
-import { useOnboarding } from './_OnboardingContext';
+import { useOnboarding } from '@/context/OnboardingContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from '@/context/UserContext';
 import { useCustomerOnboardingStatus, sessionSkippedUsers } from '@/hooks/auth/useCustomerOnboardingStatus';

@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
-import { OnboardingData } from '@/app/(customer)/(onboarding)/_OnboardingContext';
+import { OnboardingData } from '@/context/OnboardingContext';
 
 export async function saveCustomerOnboarding(
   userId: string,

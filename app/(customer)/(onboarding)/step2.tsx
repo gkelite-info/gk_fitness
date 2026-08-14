@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { SelectableCard } from '@/components/onboarding/SelectableCard';
 import { Fire, Barbell, User, TrendUp, ChartBar } from 'phosphor-react-native';
-import { useOnboarding } from './_OnboardingContext';
+import { useOnboarding } from '@/context/OnboardingContext';
 
 const GOALS = [
   { id: 'loseweight', title: 'Lose Weight', description: 'Burn fat and get leaner', Icon: Fire },

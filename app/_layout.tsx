@@ -27,7 +27,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { UserProvider } from '@/context/UserContext';
 import { ToastProvider } from '@/components/ToastProvider';
 
-SplashScreen.preventAutoHideAsync();
+try {
+  SplashScreen.preventAutoHideAsync();
+} catch (e) {
+  // Ignore splash screen initialization errors
+}
 
 export {
   ErrorBoundary,
@@ -46,16 +50,18 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (error) throw error;
+    if (error) {
+      console.error('[RootLayout] Font loading error:', error);
+    }
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+    if (loaded || error) {
+      SplashScreen.hideAsync().catch(() => {});
     }
-  }, [loaded]);
+  }, [loaded, error]);
 
-  if (!loaded) {
+  if (!loaded && !error) {
     return null;
   }
 

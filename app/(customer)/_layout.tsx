@@ -31,6 +31,13 @@ export default function CustomerLayout() {
         />
  
         <Tabs.Screen
+          name="explore"
+          options={{
+            title: 'Explore',
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
           name="profile"
           options={{
             title: 'Profile',

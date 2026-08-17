@@ -16,6 +16,7 @@ import { toast } from '@/lib/toast';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { queryClient } from '@/lib/react-query';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { StaticAvatar } from '@/components/ui/StaticAvatar';
 
 export default function ProfileScreen() {
   const userContext = useUser();
@@ -82,9 +83,11 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
         <View className="bg-[#1A1A1A] rounded-3xl p-5 flex-row items-center mt-2 border border-[#27272A]">
-          <Image
-            source={{ uri: displayAvatar }}
-            className="w-20 h-20 rounded-full bg-[#27272A]"
+          <StaticAvatar
+            uri={fallbackUser?.profilePhoto}
+            name={displayFullName}
+            size={80}
+            className="w-20 h-20 rounded-full"
           />
           <View className="ml-4 flex-1 justify-center">
             {loading ? (

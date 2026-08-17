@@ -66,19 +66,16 @@ export default function RootLayout() {
         persistOptions={{ persister: asyncStoragePersister }}
       >
         <UserProvider>
-          <RNStatusBar
-            barStyle="dark-content"
-          backgroundColor="white"
-          translucent={false}
-        />
+          <StatusBar style="light" backgroundColor="#0A0A0A" />
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <NavThemeProvider value={NAV_THEME[colorScheme]}>
+          <NavThemeProvider value={NAV_THEME['dark']}>
             <Stack>
               <Stack.Screen name="index" options={{ headerShown: false }} />
               <Stack.Screen name="(customer)" options={{ headerShown: false }} />
               <Stack.Screen name="(owner)" options={{ headerShown: false }} />
               <Stack.Screen name="(superadmin)" options={{ headerShown: false }} />
               <Stack.Screen name="(doctor)" options={{ headerShown: false }} />
+              <Stack.Screen name="community" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={MODAL_OPTIONS} />
             </Stack>
             <ToastProvider />

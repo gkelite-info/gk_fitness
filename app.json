@@ -45,7 +45,7 @@
     },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -53,7 +53,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.vamshi0111.gkfitness",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIViewControllerBasedStatusBarAppearance": false
       }
     },
     "android": {
@@ -69,9 +70,9 @@
       ]
     },
     "androidStatusBar": {
-      "barStyle": "dark-content",
+      "barStyle": "light-content",
       "translucent": false,
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A0A0A"
     },
     "extra": {
       "router": {},

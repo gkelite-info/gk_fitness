@@ -15,14 +15,14 @@ function useColorScheme() {
       if (storedTheme === 'dark' || storedTheme === 'light') {
         setNativewindColorScheme(storedTheme);
       } else {
-        setNativewindColorScheme(Appearance.getColorScheme() ?? 'light');
+        setNativewindColorScheme('dark'); // Force dark mode by default
       }
     });
 
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
       AsyncStorage.getItem(THEME_STORAGE_KEY).then((storedTheme) => {
         if (!storedTheme || storedTheme === 'system') {
-          setNativewindColorScheme(colorScheme ?? 'light');
+          setNativewindColorScheme('dark'); // Force dark mode by default
         }
       });
     });

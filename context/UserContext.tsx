@@ -23,6 +23,7 @@ const UserContext = createContext<UserContextType>({
   phone: null,
   address: null,
   role: null,
+  profilePhoto: null,
   loading: true,
   refreshUserContext: async () => { },
 });
@@ -134,6 +135,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       phone: profile?.phone || null,
       address: profile?.address || null,
       role: profile?.role || null,
+      profilePhoto: profile?.profilePhoto || null,
 
       gymOwnerId: profile?.gymOwnerId || null,
       gymId: profile?.gymId || null,

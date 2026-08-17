@@ -209,7 +209,7 @@ export async function uploadGymLogo(uri: string): Promise<string | null> {
     );
 
     const base64 = await FileSystem.readAsStringAsync(manipResult.uri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64',
     });
 
     const arrayBuffer = base64ToArrayBuffer(base64);

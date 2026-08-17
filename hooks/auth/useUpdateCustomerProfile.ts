@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode as base64ToArrayBuffer } from 'base64-arraybuffer';
 
 export function useUpdateCustomerProfile() {
   const queryClient = useQueryClient();
@@ -70,7 +72,48 @@ export function useUpdateCustomerProfile() {
       return true;
     },
     onSuccess: (_, variables) => {
-      // Invalidate the cache so the list screen or profile screen updates immediately!
+      queryClient.invalidateQueries({ queryKey: ['customerProfile', variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile', variables.userId] });
+    },
+  });
+}
+
+export function useUpdateProfilePhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, imageUri }: { userId: string, imageUri: string }) => {
+      // 1. Read the image as base64
+      const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: 'base64' });
+      const arrayBuffer = base64ToArrayBuffer(base64);
+      const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${userId}/profile_${Date.now()}.${ext}`;
+
+      // 2. Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('profile_photos')
+        .upload(fileName, arrayBuffer, { contentType: `image/${ext}`, upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // 3. Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('profile_photos')
+        .getPublicUrl(fileName);
+
+      const profilePhoto = publicUrlData.publicUrl;
+
+      // 4. Update the users table
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ profilePhoto })
+        .eq('userId', userId);
+
+      if (updateError) throw updateError;
+
+      return profilePhoto;
+    },
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['customerProfile', variables.userId] });
     },
   });

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, ScrollView, Pressable, Image, ActivityIndicator, TextInput, Modal, Keyboard } from 'react-native';
+import { View, ScrollView, Pressable, Image, ActivityIndicator, TextInput, Modal, Keyboard, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -8,10 +8,13 @@ import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
-import { useUpdateCustomerProfile } from '@/hooks/auth/useUpdateCustomerProfile';
+import { useUpdateCustomerProfile, useUpdateProfilePhoto } from '@/hooks/auth/useUpdateCustomerProfile';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { ActionSheetModal } from '@/components/community/ActionSheetModal';
+import { StaticAvatar } from '@/components/ui/StaticAvatar';
+import * as ImagePicker from 'expo-image-picker';
 import {
-  CaretLeft, Info, Camera, CaretRight,
+  CaretLeft, Info, Camera, CaretRight, PencilSimple,
   User, Envelope, Phone, Heart, CalendarBlank,
   Ruler, Scales, Target, ChartBar
 } from 'phosphor-react-native';
@@ -78,7 +81,10 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
   });
   
   const updateMutation = useUpdateCustomerProfile();
+  const updatePhotoMutation = useUpdateProfilePhoto();
   
+  const [photoOptionsVisible, setPhotoOptionsVisible] = useState(false);
+
   const [selectorState, setSelectorState] = useState<{ visible: boolean, type: keyof typeof form | '', title: string, options: any[] }>({
     visible: false,
     type: '',
@@ -127,6 +133,53 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
       }
     );
   };
+
+  const handlePickImage = async (useCamera: boolean) => {
+    try {
+      let permissionResult;
+      if (useCamera) {
+        permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      } else {
+        permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      }
+
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'We need permission to access your camera or gallery to update your profile picture.');
+        setPhotoOptionsVisible(false);
+        return;
+      }
+
+      let result;
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      };
+
+      if (useCamera) {
+        result = await ImagePicker.launchCameraAsync(options);
+      } else {
+        result = await ImagePicker.launchImageLibraryAsync(options);
+      }
+
+      setPhotoOptionsVisible(false); // Close AFTER picking
+
+      if (!result.canceled && result.assets && result.assets.length > 0 && userId) {
+        updatePhotoMutation.mutate(
+          { userId, imageUri: result.assets[0].uri },
+          {
+            onSuccess: () => toast.success('Profile picture updated!'),
+            onError: (err: any) => Alert.alert('Upload Failed', err.message)
+          }
+        );
+      }
+    } catch (error: any) {
+      setPhotoOptionsVisible(false);
+      console.error("ImagePicker Error:", error);
+      Alert.alert('Error', error.message || 'An unexpected error occurred while opening the image picker.');
+    }
+  };
   
   const openSelector = (type: keyof typeof form, title: string, options: any[]) => {
     Keyboard.dismiss();
@@ -168,34 +221,40 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
-        <View className="items-center mt-6 mb-6">
-          <View className="relative">
-            <View className="w-28 h-28 rounded-full border-[3px] border-[#D4FF00] p-0.5">
-               <Image 
-                  source={{ uri: data.user.avatarUrl }} 
-                  className="w-full h-full rounded-full bg-[#27272A]" 
-                />
-            </View>
-            <View className="absolute bottom-0 right-1 bg-[#D4FF00] w-8 h-8 rounded-full items-center justify-center border-[3px] border-[#0F0F0F]">
-              <Camera size={14} color="#000000" weight="fill" />
-            </View>
+        
+        {loading ? (
+          <View className="items-center mt-6 mb-6">
+            <Skeleton className="w-28 h-28 rounded-full" />
+            <Skeleton className="w-40 h-8 mt-4" />
+            <Skeleton className="w-48 h-4 mt-2" />
           </View>
-          {loading ? (
-            <>
-              <Skeleton className="w-40 h-8 mt-4" />
-              <Skeleton className="w-48 h-4 mt-2" />
-            </>
-          ) : (
-            <>
-              <Text className="text-white text-2xl font-bold mt-4">{form.fullName}</Text>
-              <Text className="text-[#8E8E93] text-sm mt-1">{form.email}</Text>
-            </>
-          )}
-          <Pressable className="mt-3 flex-row items-center">
-            <Text className="text-[#D4FF00] text-sm font-bold mr-1">Change Photo</Text>
-            <CaretRight size={14} color="#D4FF00" weight="bold" />
-          </Pressable>
-        </View>
+        ) : (
+          <View className="items-center mt-4 mb-6">
+            <Pressable 
+              className="relative active:opacity-70"
+              onPress={() => setPhotoOptionsVisible(true)}
+              disabled={updatePhotoMutation.isPending}
+            >
+              {updatePhotoMutation.isPending ? (
+                <View className="w-24 h-24 rounded-full bg-[#27272A] items-center justify-center border-2 border-[#1F1F22]">
+                  <ActivityIndicator color="#C4EF00" />
+                </View>
+              ) : (
+                <StaticAvatar 
+                  uri={fallbackUser?.profilePhoto} 
+                  name={form.fullName}
+                  size={96}
+                  className="w-24 h-24 rounded-full border-2 border-[#1F1F22]" 
+                />
+              )}
+              <View className="absolute bottom-0 right-0 bg-[#C4EF00] p-1.5 rounded-full border-2 border-[#0A0A0A]">
+                <PencilSimple size={14} color="#0A0A0A" weight="bold" />
+              </View>
+            </Pressable>
+            <Text className="text-white text-xl font-bold mt-4">{form.fullName}</Text>
+            <Text className="text-[#A1A1AA] text-[15px] mt-1">{form.email}</Text>
+          </View>
+        )}
 
         <Text className="text-[#8E8E93] text-[10px] font-bold tracking-[1px] mb-3 mt-2 ml-1">PERSONAL DETAILS</Text>
         
@@ -311,6 +370,16 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
         options={selectorState.options}
         selectedValue={selectorState.type ? form[selectorState.type as keyof typeof form] : ''}
         onSelect={handleSelect}
+      />
+
+      <ActionSheetModal
+        visible={photoOptionsVisible}
+        onClose={() => setPhotoOptionsVisible(false)}
+        title="Update Profile Picture"
+        options={[
+          { label: 'Take Photo', keepOpen: true, onPress: () => handlePickImage(true) },
+          { label: 'Choose from Gallery', keepOpen: true, onPress: () => handlePickImage(false) }
+        ]}
       />
     </View>
   );

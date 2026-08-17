@@ -1,16 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ScrollView, Pressable, ActivityIndicator, TextInput } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
 import { useBiometricDevices, useSaveBiometricDevice, useDeleteBiometricDevice } from '@/hooks/biometrics/useBiometricDevices';
 import { Plus, Trash, PencilSimple, WifiHigh, WifiSlash, HardDrives } from 'phosphor-react-native';
 import { BiometricDevicePayload } from '@/helpers/biometrics/biometricDeviceAPI';
+import { toast } from '@/lib/toast';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import ConfirmModal from '@/components/ConfirmModal';
 
 export default function DevicesTab() {
   const { gymId, userId } = useUser();
-  const { data: devices, isLoading } = useBiometricDevices(gymId ?? undefined);
+  const { data: devices, isLoading, refetch } = useBiometricDevices(gymId ?? undefined);
   const saveDevice = useSaveBiometricDevice();
   const deleteDevice = useDeleteBiometricDevice();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [isDeviceReachable, setIsDeviceReachable] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
 
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [formState, setFormState] = useState<BiometricDevicePayload>({
@@ -18,7 +26,7 @@ export default function DevicesTab() {
     deviceName: 'Main Entrance Device',
     deviceSerialNumber: '',
     deviceIp: '',
-    devicePort: 4370,
+    devicePort: 80,
     deviceUsername: 'admin',
     devicePassword: '',
     deviceType: 'multi',
@@ -37,6 +45,39 @@ export default function DevicesTab() {
   }
 
   const device = devices && devices.length > 0 ? devices[0] : null;
+  const isOnline = device ? (device.isOnline || isDeviceReachable) : false;
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkConnection = async () => {
+      if (!device?.deviceIp) return;
+      try {
+        setIsTestingConnection(true);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        await fetch(`http://${device.deviceIp}:${device.devicePort}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (isMounted) setIsDeviceReachable(true);
+      } catch (error) {
+        if (isMounted) setIsDeviceReachable(false);
+      } finally {
+        if (isMounted) setIsTestingConnection(false);
+      }
+    };
+
+    checkConnection();
+    const intervalId = setInterval(checkConnection, 10000);
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [device?.deviceIp, device?.devicePort]);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   const handleSave = () => {
     if (!formState.deviceIp || !formState.deviceSerialNumber) return;
@@ -45,6 +86,7 @@ export default function DevicesTab() {
       {
         onSuccess: () => {
           setIsFormVisible(false);
+          toast.success('Device saved successfully');
         }
       }
     );
@@ -116,8 +158,8 @@ export default function DevicesTab() {
           <Text className="text-[#888888] text-xs font-medium mb-1">Port</Text>
           <TextInput
             className="w-full bg-[#0A0A0A] border border-[#2A2A2A] rounded-xl px-4 py-3 text-white mb-4 font-sans"
-            value={formState.devicePort.toString()}
-            onChangeText={(text) => setFormState(p => ({ ...p, devicePort: parseInt(text) || 4370 }))}
+            value={formState.devicePort?.toString() || ''}
+            onChangeText={(text) => setFormState(p => ({ ...p, devicePort: text ? parseInt(text) : ('' as any) }))}
             placeholder="e.g. 4370 or 80"
             placeholderTextColor="#555"
             keyboardType="numeric"
@@ -166,7 +208,13 @@ export default function DevicesTab() {
   }
 
   return (
-    <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
+    <ScrollView
+      className="flex-1 p-4"
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       {!device ? (
         <View className="items-center justify-center pt-20">
           <View className="w-16 h-16 rounded-full bg-[#1A1A1A] items-center justify-center mb-4">
@@ -190,11 +238,13 @@ export default function DevicesTab() {
             <View className="flex-1">
               <View className="flex-row items-center gap-2 mb-1">
                 <Text className="text-white text-lg font-semibold">{device.deviceName}</Text>
-                {device.isOnline ? (
+                {/* {isTestingConnection ? (
+                  <ActivityIndicator size="small" color="#888888" />
+                ) : isOnline ? (
                   <WifiHigh size={16} color="#4ADE80" />
                 ) : (
                   <WifiSlash size={16} color="#EF4444" />
-                )}
+                )} */}
               </View>
               <Text className="text-[#888888] text-sm">SN: {device.deviceSerialNumber}</Text>
             </View>
@@ -202,7 +252,7 @@ export default function DevicesTab() {
               <Pressable onPress={openEdit} className="p-2 bg-[#2A2A2A] rounded-lg active:opacity-70">
                 <PencilSimple size={18} color="#FFFFFF" />
               </Pressable>
-              <Pressable onPress={handleDelete} className="p-2 bg-[#3A1414] rounded-lg active:opacity-70">
+              <Pressable onPress={() => setIsDeleteModalVisible(true)} className="p-2 bg-[#3A1414] rounded-lg active:opacity-70">
                 <Trash size={18} color="#EF4444" />
               </Pressable>
             </View>
@@ -210,20 +260,37 @@ export default function DevicesTab() {
 
           <View className="flex-row justify-between pt-4 border-t border-[#2A2A2A]">
             <View>
-              <Text className="text-[#888888] text-xs">IP Address</Text>
+              <Text className="text-[#888888] text-xs mb-1">IP Address</Text>
               <Text className="text-white text-sm font-medium">{device.deviceIp} : {device.devicePort}</Text>
             </View>
-            <View className="items-end">
+            {/* <View className="items-end">
               <Text className="text-[#888888] text-xs">Status</Text>
-              <View className={`px-2 py-0.5 rounded-md mt-1 ${device.isOnline ? 'bg-[#4ADE80]/20' : 'bg-[#EF4444]/20'}`}>
-                <Text className={`text-[10px] font-semibold ${device.isOnline ? 'text-[#4ADE80]' : 'text-[#EF4444]'}`}>
-                  {device.isOnline ? 'ONLINE' : 'OFFLINE'}
+              <View className={`px-2 py-0.5 rounded-md mt-1 ${isOnline ? 'bg-[#4ADE80]/20' : 'bg-[#EF4444]/20'}`}>
+                <Text className={`text-[10px] font-semibold ${isOnline ? 'text-[#4ADE80]' : 'text-[#EF4444]'}`}>
+                  {isOnline ? 'ONLINE' : 'OFFLINE'}
                 </Text>
               </View>
-            </View>
+            </View> */}
           </View>
         </View>
       )}
+
+      <ConfirmModal
+        visible={isDeleteModalVisible}
+        onClose={() => setIsDeleteModalVisible(false)}
+        onConfirm={() => {
+          setIsDeleteModalVisible(false);
+          handleDelete();
+        }}
+        title="Delete Device"
+        description="Are you sure you want to delete this biometric device? Customers will no longer be able to check in via this device."
+        confirmText="Delete Device"
+        icon={
+          <View className="w-12 h-12 bg-red-500/20 rounded-full items-center justify-center">
+            <Trash size={24} color="#ef4444" weight="bold" />
+          </View>
+        }
+      />
     </ScrollView>
   );
 }

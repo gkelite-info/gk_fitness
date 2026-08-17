@@ -221,7 +221,7 @@ export default function OwnerDashboardScreen() {
           return (
             <React.Fragment key={op.id}>
               {index > 0 && <View className="w-[1px] bg-[#1F293D] my-1" />}
-              <Pressable 
+              <Pressable
                 onPress={() => {
                   triggerMediumHaptic();
                   if (op.id === 'pt-sessions') {

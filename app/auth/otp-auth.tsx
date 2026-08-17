@@ -24,15 +24,18 @@ import {
   User,
   Phone,
   MapPin,
+  Building,
 } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
 import { navigateBasedOnRole, createUser } from '@/helpers/otpHelper';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
+import { getSelectedGym, SelectedGym, clearSelectedGym } from '@/helpers/tenantHelper';
 
 export default function OtpAuthScreen() {
   const { role, loading: userLoading, refreshUserContext, isGymSuspended } = useUser();
+  const router = useRouter();
   const [purpose, setPurpose] = useState<'login' | 'signup'>('login');
   const [loginMethod /* , setLoginMethod */] = useState<'email' | 'phone'>('email');
 
@@ -51,6 +54,15 @@ export default function OtpAuthScreen() {
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
   const [successTitle, setSuccessTitle] = useState('');
   const [successBody, setSuccessBody] = useState('');
+  const [selectedGym, setSelectedGymState] = useState<SelectedGym | null>(null);
+
+  React.useEffect(() => {
+    const fetchGym = async () => {
+      const gym = await getSelectedGym();
+      setSelectedGymState(gym);
+    };
+    fetchGym();
+  }, []);
 
   React.useEffect(() => {
     const checkAndNavigate = async () => {
@@ -381,6 +393,33 @@ export default function OtpAuthScreen() {
         </View>
 
         <View className="flex-1 px-6">
+          {selectedGym && (
+            <View className="bg-[#121212] border border-[#1E1E1E] rounded-xl p-4 mb-6 flex-row items-center justify-between">
+              <View className="flex-row items-center flex-1">
+                <View className="w-10 h-10 rounded-full bg-[#1A1A1A] items-center justify-center mr-3 border border-[#2A2A2A] overflow-hidden">
+                  {selectedGym.logo ? (
+                    <Image source={{ uri: selectedGym.logo }} className="w-full h-full" resizeMode="cover" />
+                  ) : (
+                    <Building size={20} color="#6B6B6B" />
+                  )}
+                </View>
+                <View className="flex-1 mr-2">
+                  <Text className="text-[#8E8E93] text-[10px] uppercase tracking-wider mb-0.5">Organization</Text>
+                  <Text className="text-white text-sm font-semibold" numberOfLines={1}>{selectedGym.gymName}</Text>
+                </View>
+              </View>
+              <Pressable 
+                onPress={async () => {
+                  await clearSelectedGym();
+                  router.replace('/auth/find-organization');
+                }} 
+                className="bg-[#2A2A2A] px-3 py-1.5 rounded-lg active:opacity-80"
+              >
+                <Text className="text-white text-xs font-medium">Change</Text>
+              </Pressable>
+            </View>
+          )}
+
           {/* {purpose === 'login' && (
             <View className="flex-row bg-[#121212] border border-[#1E1E1E] rounded-xl mb-6 overflow-hidden">
               <Pressable
@@ -583,6 +622,14 @@ export default function OtpAuthScreen() {
                 <Text className="text-[#8E8E93] text-[9px] text-center font-medium leading-[14px]">Achieve Your{'\n'}Goals</Text>
               </View>
 
+            </View>
+          )}
+
+          {purpose === 'login' && (
+            <View className="mt-2 mb-4 px-4">
+              <Text className="text-[#8E8E93] text-[12px] text-center leading-5">
+                Don't have an account? Please contact your organization's administrator to request access.
+              </Text>
             </View>
           )}
 

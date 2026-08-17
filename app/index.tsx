@@ -1,12 +1,28 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useUser } from '@/context/UserContext';
+import { getSelectedGym } from '@/helpers/tenantHelper';
 
 export default function Index() {
   const { role, loading } = useUser();
+  const [checkingGym, setCheckingGym] = useState(true);
+  const [hasSelectedGym, setHasSelectedGym] = useState(false);
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading && !role) {
+      const checkGym = async () => {
+        const gym = await getSelectedGym();
+        setHasSelectedGym(!!gym);
+        setCheckingGym(false);
+      };
+      checkGym();
+    } else if (!loading && role) {
+      setCheckingGym(false);
+    }
+  }, [loading, role]);
+
+  if (loading || checkingGym) {
     return (
       <View style={{ flex: 1, backgroundColor: '#09090B', justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#D4FF00" />
@@ -26,5 +42,9 @@ export default function Index() {
     }
   }
 
-  return <Redirect href="/auth/otp-auth" />;
+  if (hasSelectedGym) {
+    return <Redirect href="/auth/otp-auth" />;
+  }
+
+  return <Redirect href="/auth/find-organization" />;
 }

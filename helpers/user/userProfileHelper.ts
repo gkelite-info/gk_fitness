@@ -8,6 +8,7 @@ export interface UserProfile {
   phone: string | null;
   address: string | null;
   role: string | null;
+  profilePhoto?: string | null;
 
   // Role-specific IDs
   gymOwnerId?: string | null;
@@ -36,14 +37,14 @@ export async function fetchUserAndRoleProfile(
   try {
     let { data: userRecord, error } = await supabase
       .from('users')
-      .select('userId, name, email, phone, address, role')
+      .select('userId, name, email, phone, address, role, profilePhoto')
       .eq('userId', authUserId)
       .maybeSingle();
 
     if (!userRecord && authEmail) {
       const emailRes = await supabase
         .from('users')
-        .select('userId, name, email, phone, address, role')
+        .select('userId, name, email, phone, address, role, profilePhoto')
         .eq('email', authEmail)
         .maybeSingle();
       userRecord = emailRes.data;

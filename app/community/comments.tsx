@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, TextInput, Pressable, ScrollView, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, TextInput, Pressable, ScrollView, Image, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
   CaretLeft, 
@@ -9,163 +9,227 @@ import {
   Heart,
   NavigationArrow
 } from 'phosphor-react-native';
-
-const COMMENTS = [
-  {
-    id: '1',
-    author: 'Sarah Lee',
-    time: '1h ago',
-    avatar: 'https://i.pravatar.cc/150?u=10',
-    content: 'Amazing pump! Keep pushing 🔥',
-    likes: 12,
-  },
-  {
-    id: '2',
-    author: 'Mike Turner',
-    time: '56m ago',
-    avatar: 'https://i.pravatar.cc/150?u=11',
-    content: 'That back is looking insane! 👏',
-    likes: 8,
-  },
-  {
-    id: '3',
-    author: 'Jessica Wilson',
-    time: '35m ago',
-    avatar: 'https://i.pravatar.cc/150?u=12',
-    content: 'Beast mode! 🔥 💪',
-    likes: 5,
-  },
-  {
-    id: '4',
-    author: 'David Miller',
-    time: '28m ago',
-    avatar: 'https://i.pravatar.cc/150?u=13',
-    content: 'What a workout! Mind sharing the routine?',
-    likes: 3,
-    replies: [
-      {
-        id: '4-1',
-        author: 'Alex Johnson',
-        isAuthor: true,
-        time: '20m ago',
-        avatar: 'https://i.pravatar.cc/150?u=5',
-        content: 'Sure, will share it in my next post! 💪',
-        likes: 2,
-      }
-    ]
-  },
-  {
-    id: '5',
-    author: 'Emma Davis',
-    time: '15m ago',
-    avatar: 'https://i.pravatar.cc/150?u=14',
-    content: "You're an inspiration! Keep it up 🙌",
-    likes: 1,
-  },
-];
+import { useUser } from '@/context/UserContext';
+import { usePostComments, useAddComment, useDeleteComment } from '@/hooks/community/usePostInteractions';
+import { useReportContent } from '@/hooks/community/useModeration';
+import { StaticAvatar } from '@/components/ui/StaticAvatar';
+import { ActionSheetModal } from '@/components/community/ActionSheetModal';
 
 export default function CommentsScreen() {
   const router = useRouter();
+  const { postId } = useLocalSearchParams<{ postId: string }>();
   const insets = useSafeAreaInsets();
+  const { userId } = useUser();
   const [comment, setComment] = useState('');
+  const [replyingTo, setReplyingTo] = useState<{ id: string, name: string } | null>(null);
 
-  const renderComment = (item: any, isReply = false, isLastReply = false) => (
-    <View key={item.id} className={`flex-row mb-6 relative ${isReply ? 'ml-6 mt-4' : ''}`}>
+  const { data: comments, isLoading } = usePostComments(postId ?? null, userId ?? null);
+  const addCommentMutation = useAddComment();
+  const deleteCommentMutation = useDeleteComment();
+  const reportContentMutation = useReportContent();
+
+  const [activeModal, setActiveModal] = useState<'none' | 'options' | 'confirmDelete' | 'confirmReport'>('none');
+  const [selectedComment, setSelectedComment] = useState<any>(null);
+
+  const handleSendComment = () => {
+    if (!comment.trim() || !userId || !postId) return;
+    
+    addCommentMutation.mutate(
+      { postId, userId, content: comment.trim(), parentId: replyingTo?.id },
+      {
+        onSuccess: () => {
+          setComment('');
+          setReplyingTo(null);
+        }
+      }
+    );
+  };
+
+  const handleOpenOptions = (item: any) => {
+    if (!userId) return;
+    setSelectedComment(item);
+    setActiveModal('options');
+  };
+
+  const renderComment = (item: any, isReply = false) => (
+    <View key={item.gymCommunityCommentId} className={`flex-row mb-6 relative ${isReply ? 'ml-6 mt-4' : ''}`}>
       {/* Thread Line for Reply */}
       {isReply && (
         <View className="absolute -left-[27px] -top-8 w-6 h-[46px] border-l-2 border-b-2 border-[#1F1F22] rounded-bl-xl" />
       )}
       
-      <Image source={{ uri: item.avatar }} className="w-10 h-10 rounded-full mr-3" />
+      <StaticAvatar 
+        uri={item.users?.profilePhoto || item.users?.avatar} 
+        name={item.users?.name}
+        size={40}
+        className="w-10 h-10 rounded-full mr-3" 
+      />
       
-      <View className="flex-1">
+      <Pressable className="flex-1" onLongPress={() => handleOpenOptions(item)}>
         <View className="flex-row items-center mb-1">
-          <Text className="text-white font-bold text-[14px]">{item.author}</Text>
-          {item.isAuthor && (
+          <Text className="text-white font-bold text-[14px]">{item.users?.name || 'Unknown'}</Text>
+          {item.authorId === userId && (
             <View className="bg-[#2B3513] px-1.5 py-0.5 rounded-[4px] ml-2">
-              <Text className="text-[#C4EF00] text-[9px] font-bold tracking-widest">AUTHOR</Text>
+              <Text className="text-[#C4EF00] text-[9px] font-bold tracking-widest">YOU</Text>
             </View>
           )}
-          <Text className="text-[#71717A] text-[12px] ml-2 font-medium">{item.time}</Text>
+          <Text className="text-[#71717A] text-[12px] ml-2 font-medium">{new Date(item.createdAt).toLocaleDateString()}</Text>
         </View>
         
         <Text className="text-[#E4E4E7] text-[14px] leading-5 mb-2 pr-4">{item.content}</Text>
         
-        <Pressable className="active:opacity-70">
-          <Text className="text-[#71717A] text-[13px] font-semibold">Reply</Text>
-        </Pressable>
-      </View>
+        {!isReply && (
+          <Pressable 
+            className="active:opacity-70"
+            onPress={() => setReplyingTo({ id: item.gymCommunityCommentId, name: item.users?.name || 'Unknown' })}
+          >
+            <Text className="text-[#71717A] text-[13px] font-semibold">Reply</Text>
+          </Pressable>
+        )}
+      </Pressable>
       
       <View className="items-center w-10">
-        <Pressable className="items-center active:opacity-70 p-1">
-          <Heart size={18} color="#A1A1AA" weight="regular" />
-          <Text className="text-[#A1A1AA] text-[11px] mt-1 font-medium">{item.likes}</Text>
+        <Pressable className="items-center active:opacity-70 p-1" onPress={() => handleOpenOptions(item)}>
+          <Heart size={14} color="#71717A" weight="regular" style={{ marginBottom: 4 }} />
         </Pressable>
       </View>
     </View>
   );
 
+  // Group by parent
+  const topLevelComments = comments?.filter((c: any) => !c.parentId) || [];
+  const getReplies = (parentId: string) => comments?.filter((c: any) => c.parentId === parentId) || [];
+
   return (
     <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: '#0A0A0A' }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 bg-[#0A0A0A]" 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View className="flex-1" style={{ paddingTop: insets.top }}>
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#1F1F22]">
+      <View>
+        <View className="flex-row items-center justify-between px-5 pt-2 pb-4">
           <Pressable 
             onPress={() => router.back()} 
-            className="w-8 h-8 items-center justify-center -ml-1 active:opacity-70"
+            className="w-10 h-10 rounded-full bg-[#18181B] items-center justify-center active:opacity-70"
           >
-            <CaretLeft size={22} color="#FFFFFF" />
+            <CaretLeft size={20} color="#FFFFFF" />
           </Pressable>
-          <Text className="text-[17px] font-bold text-white">Comments (24)</Text>
-          <Pressable className="w-8 h-8 items-center justify-center -mr-1 active:opacity-70">
-            <FadersHorizontal size={22} color="#FFFFFF" />
+          <Text className="text-xl font-bold text-white tracking-wide flex-1 text-center">Comments</Text>
+          <Pressable className="w-10 h-10 items-center justify-center">
+            <FadersHorizontal size={20} color="#FFFFFF" />
           </Pressable>
         </View>
+      </View>
 
-        <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false}>
-          {COMMENTS.map(comment => (
-            <View key={comment.id}>
-              {renderComment(comment)}
-              {comment.replies && comment.replies.length > 0 && (
-                <View>
-                  {comment.replies.map((reply, idx) => 
-                    renderComment(reply, true, idx === comment.replies.length - 1)
-                  )}
-                </View>
-              )}
+      {isLoading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color="#C4EF00" />
+        </View>
+      ) : (
+        <ScrollView 
+          className="flex-1 px-5 pt-4"
+          showsVerticalScrollIndicator={false}
+        >
+          {topLevelComments.map((item: any) => (
+            <View key={item.gymCommunityCommentId}>
+              {renderComment(item)}
+              {getReplies(item.gymCommunityCommentId).map((reply: any) => renderComment(reply, true))}
             </View>
           ))}
-          <View style={{ height: 40 }} />
+          {topLevelComments.length === 0 && (
+            <View className="items-center justify-center py-10">
+              <Text className="text-[#A1A1AA] text-sm">No comments yet. Be the first!</Text>
+            </View>
+          )}
         </ScrollView>
+      )}
 
-        {/* Input Area */}
-        <View className="flex-row items-center px-4 py-3 bg-[#0A0A0A] border-t border-[#1F1F22]" style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
-          <Image source={{ uri: 'https://i.pravatar.cc/150?u=20' }} className="w-9 h-9 rounded-full mr-3" />
-          <View className="flex-1 flex-row items-center bg-[#161616] rounded-full px-4 h-11 border border-[#27272A]">
+      {/* Input Section */}
+      <View 
+        className="bg-[#121214] px-5 py-4 border-t border-[#1F1F22]"
+        style={{ paddingBottom: Math.max(insets.bottom, 20) }}
+      >
+        {replyingTo && (
+          <View className="flex-row justify-between mb-2">
+            <Text className="text-[#A1A1AA] text-xs">Replying to {replyingTo.name}</Text>
+            <Pressable onPress={() => setReplyingTo(null)}>
+              <Text className="text-[#EF4444] text-xs">Cancel</Text>
+            </Pressable>
+          </View>
+        )}
+        <View className="flex-row items-center gap-3">
+          <StaticAvatar 
+            uri={userContext?.profilePhoto}
+            name={userContext?.name}
+            size={36}
+            className="w-9 h-9 rounded-full" 
+          />
+          <View className="flex-1 flex-row items-center bg-[#18181B] rounded-full px-4 border border-[#27272A] h-11">
             <TextInput
-              placeholder="Write a comment..."
-              placeholderTextColor="#71717A"
               className="flex-1 text-white text-[14px]"
+              placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
+              placeholderTextColor="#71717A"
               value={comment}
               onChangeText={setComment}
               selectionColor="#C4EF00"
+              editable={!addCommentMutation.isPending}
             />
-            {comment.length > 0 && (
-              <Pressable className="w-[30px] h-[30px] rounded-full bg-[#C4EF00] items-center justify-center -mr-2 active:opacity-80">
-                <NavigationArrow size={14} color="#000000" weight="bold" />
+            {comment.trim().length > 0 && (
+              <Pressable 
+                className="ml-2 active:opacity-70"
+                onPress={handleSendComment}
+                disabled={addCommentMutation.isPending}
+              >
+                {addCommentMutation.isPending ? (
+                  <ActivityIndicator color="#C4EF00" size="small" />
+                ) : (
+                  <NavigationArrow size={18} color="#C4EF00" weight="bold" style={{ transform: [{ rotate: '90deg' }] }} />
+                )}
               </Pressable>
-            )}
-            {comment.length === 0 && (
-              <View className="w-[30px] h-[30px] rounded-full bg-[#C4EF00] items-center justify-center -mr-2 opacity-50">
-                <NavigationArrow size={14} color="#000000" weight="bold" />
-              </View>
             )}
           </View>
         </View>
       </View>
+
+      {/* Modals */}
+      <ActionSheetModal
+        visible={activeModal === 'options'}
+        onClose={() => setActiveModal('none')}
+        options={
+          selectedComment?.authorId === userId
+            ? [{ label: 'Delete Comment', destructive: true, onPress: () => setActiveModal('confirmDelete') }]
+            : [{ label: 'Report Comment', destructive: true, onPress: () => setActiveModal('confirmReport') }]
+        }
+      />
+
+      <ActionSheetModal
+        visible={activeModal === 'confirmDelete'}
+        onClose={() => setActiveModal('none')}
+        title="Delete Comment"
+        message="Are you sure you want to delete this comment? This action cannot be undone."
+        options={[
+          { label: 'Delete', destructive: true, onPress: () => {
+              if (selectedComment && userId) {
+                deleteCommentMutation.mutate({ commentId: selectedComment.gymCommunityCommentId, userId });
+              }
+              setActiveModal('none');
+          }}
+        ]}
+      />
+
+      <ActionSheetModal
+        visible={activeModal === 'confirmReport'}
+        onClose={() => setActiveModal('none')}
+        title="Report Comment"
+        message="Are you sure you want to report this comment? Our team will review it shortly."
+        options={[
+          { label: 'Report', destructive: true, onPress: () => {
+              if (selectedComment && userId) {
+                reportContentMutation.mutate({ reporterId: userId, reason: 'Inappropriate content', reportedUserId: selectedComment.authorId, commentId: selectedComment.gymCommunityCommentId });
+              }
+              setActiveModal('none');
+          }}
+        ]}
+      />
     </KeyboardAvoidingView>
   );
 }

@@ -6,6 +6,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/react-query';
+import { useGym } from '@/hooks/gyms/useGym';
+import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
+import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
+import { useGymMembershipPlans } from '@/hooks/useGymMembershipPlans';
 import {
   User,
   Star,
@@ -53,8 +57,33 @@ const MenuItem = ({ icon, title, subtitle, onPress, isDanger = false }: any) => 
 export default function OwnerProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { name } = useUser();
+  const { userId, gymId } = useUser();
   const [modalVisible, setModalVisible] = useState(false);
+
+  const { data: gym } = useGym(gymId ?? null);
+
+  const { data: customers } = useGymCustomers(gymId ?? undefined);
+  const activeCustomersCount = customers?.filter(c => c.is_Active === true).length || 0;
+
+  const { data: trainers } = useGymTrainers(gymId ?? undefined);
+  const totalTrainers = trainers?.length || 0;
+
+  const { data: membershipPlans } = useGymMembershipPlans(userId ?? null);
+  const totalPlans = membershipPlans?.length || 0;
+
+  const getThisMonthCount = (items?: any[]) => {
+    if (!items) return 0;
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return items.filter(item => {
+      if (!item.createdAt) return false;
+      return new Date(item.createdAt) >= startOfMonth;
+    }).length;
+  };
+
+  const newCustomersThisMonth = getThisMonthCount(customers);
+  const newTrainersThisMonth = getThisMonthCount(trainers);
+  const newPlansThisMonth = getThisMonthCount(membershipPlans);
 
   const handleSignOut = async () => {
     try {
@@ -87,7 +116,7 @@ export default function OwnerProfileScreen() {
           
           <View className="w-[84px] h-[84px] rounded-2xl bg-[#000000] border border-[#C4EF00] items-center justify-center mb-4">
             <Barbell size={32} color="#C4EF00" weight="fill" />
-            <Text className="text-[#C4EF00] text-[8px] font-bold tracking-wider mt-1">GOLD FITNESS</Text>
+            <Text className="text-[#C4EF00] text-[8px] font-bold tracking-wider mt-1 text-center px-1" numberOfLines={1}>{gym?.gymName?.toUpperCase() || 'GYM'}</Text>
           </View>
           
           <Pressable className="border border-[#C4EF00] rounded-full px-5 py-1.5 mb-4 flex-row items-center active:opacity-70">
@@ -96,37 +125,41 @@ export default function OwnerProfileScreen() {
           </Pressable>
 
           <View className="flex-row items-center mb-1">
-            <Text className="text-white text-xl font-bold mr-1.5">Gold Fitness</Text>
+            <Text className="text-white text-xl font-bold mr-1.5">{gym?.gymName || 'Gym Name'}</Text>
             <CheckCircle size={18} color="#C4EF00" weight="fill" />
           </View>
           
           <Text className="text-[#A1A1AA] text-sm mb-2">Premium Gym</Text>
           
           <View className="flex-row items-center mb-6">
-            <Star size={14} color="#C4EF00" weight="fill" style={{ marginRight: 4 }} />
-            <Text className="text-white text-xs font-bold mr-1">4.8</Text>
-            <Text className="text-[#A1A1AA] text-xs mr-2">(128 Reviews)</Text>
-            <Text className="text-[#71717A] text-xs mr-2">•</Text>
-            <Text className="text-[#A1A1AA] text-xs">Since 2024</Text>
+            <Text className="text-[#A1A1AA] text-xs">Since {gym?.establishYear || new Date().getFullYear()}</Text>
           </View>
           <View className="w-full h-[1px] bg-[#1F1F22] mb-5" />
           <View className="w-full flex-row flex-wrap justify-between gap-y-3">
-            <View className="w-[48%] flex-row items-center">
-              <MapPin size={14} color="#A1A1AA" style={{ marginRight: 8 }} />
-              <Text className="text-[#A1A1AA] text-xs" numberOfLines={1}>Hyderabad, India</Text>
-            </View>
-            <View className="w-[48%] flex-row items-center">
-              <Phone size={14} color="#A1A1AA" style={{ marginRight: 8 }} />
-              <Text className="text-[#A1A1AA] text-xs" numberOfLines={1}>+91 98765 43210</Text>
-            </View>
-            <View className="w-[48%] flex-row items-center">
-              <EnvelopeSimple size={14} color="#A1A1AA" style={{ marginRight: 8 }} />
-              <Text className="text-[#A1A1AA] text-xs" numberOfLines={1}>info@goldfitness.com</Text>
-            </View>
-            <View className="w-[48%] flex-row items-center">
-              <Globe size={14} color="#A1A1AA" style={{ marginRight: 8 }} />
-              <Text className="text-[#A1A1AA] text-xs" numberOfLines={1}>www.goldfitness.in</Text>
-            </View>
+            {gym?.city && gym?.state && (
+              <View className="w-[48%] flex-row items-start">
+                <MapPin size={14} color="#A1A1AA" style={{ marginRight: 8, marginTop: 2 }} />
+                <Text className="text-[#A1A1AA] text-xs flex-1">{gym.city}, {gym.state}</Text>
+              </View>
+            )}
+            {gym?.phone && (
+              <View className="w-[48%] flex-row items-start">
+                <Phone size={14} color="#A1A1AA" style={{ marginRight: 8, marginTop: 2 }} />
+                <Text className="text-[#A1A1AA] text-xs flex-1">{gym.phone}</Text>
+              </View>
+            )}
+            {gym?.gymEmail && (
+              <View className="w-[48%] flex-row items-start">
+                <EnvelopeSimple size={14} color="#A1A1AA" style={{ marginRight: 8, marginTop: 2 }} />
+                <Text className="text-[#A1A1AA] text-xs flex-1">{gym.gymEmail}</Text>
+              </View>
+            )}
+            {gym?.website && (
+              <View className="w-[48%] flex-row items-start">
+                <Globe size={14} color="#A1A1AA" style={{ marginRight: 8, marginTop: 2 }} />
+                <Text className="text-[#A1A1AA] text-xs flex-1">{gym.website}</Text>
+              </View>
+            )}
           </View>
         </View>
         <Text className="text-white text-[15px] font-bold mt-6 mb-3">Gym Overview</Text>
@@ -134,10 +167,10 @@ export default function OwnerProfileScreen() {
           <View className="w-[31%] bg-[#161616] rounded-xl p-3 border border-[#1F1F22]">
             <UsersThree size={22} color="#C4EF00" weight="fill" style={{ marginBottom: 6 }} />
             <Text className="text-[#A1A1AA] text-[9px] mb-1">Active Members</Text>
-            <Text className="text-white text-lg font-bold mb-3">324</Text>
+            <Text className="text-white text-lg font-bold mb-3">{activeCustomersCount}</Text>
             <View className="flex-row items-center mt-auto">
               <ArrowUp size={10} color="#C4EF00" weight="bold" />
-              <Text className="text-[#C4EF00] text-[9px] font-semibold ml-0.5">12 this month</Text>
+              <Text className="text-[#C4EF00] text-[9px] font-semibold ml-0.5">{newCustomersThisMonth > 0 ? `${newCustomersThisMonth} this month` : '0 this month'}</Text>
             </View>
             <View className="absolute left-0 top-2 bottom-2 w-1 bg-[#C4EF00] rounded-r-full" />
           </View>
@@ -145,10 +178,10 @@ export default function OwnerProfileScreen() {
           <View className="w-[31%] bg-[#161616] rounded-xl p-3 border border-[#1F1F22]">
             <Barbell size={22} color="#C4EF00" weight="fill" style={{ marginBottom: 6 }} />
             <Text className="text-[#A1A1AA] text-[9px] mb-1">Total Trainers</Text>
-            <Text className="text-white text-lg font-bold mb-3">18</Text>
+            <Text className="text-white text-lg font-bold mb-3">{totalTrainers}</Text>
             <View className="flex-row items-center mt-auto">
               <ArrowUp size={10} color="#C4EF00" weight="bold" />
-              <Text className="text-[#C4EF00] text-[9px] font-semibold ml-0.5">2 this month</Text>
+              <Text className="text-[#C4EF00] text-[9px] font-semibold ml-0.5">{newTrainersThisMonth > 0 ? `${newTrainersThisMonth} this month` : '0 this month'}</Text>
             </View>
             <View className="absolute left-0 top-2 bottom-2 w-1 bg-[#F97316] rounded-r-full" />
           </View>
@@ -156,8 +189,10 @@ export default function OwnerProfileScreen() {
           <View className="w-[31%] bg-[#161616] rounded-xl p-3 border border-[#1F1F22]">
             <CreditCard size={22} color="#C4EF00" weight="fill" style={{ marginBottom: 6 }} />
             <Text className="text-[#A1A1AA] text-[9px] mb-1">Membership Plans</Text>
-            <Text className="text-white text-lg font-bold mb-1">3</Text>
-            <Text className="text-[#71717A] text-[9px] leading-3 mt-auto">No change this month</Text>
+            <Text className="text-white text-lg font-bold mb-1">{totalPlans}</Text>
+            <Text className="text-[#71717A] text-[9px] leading-3 mt-auto">
+              {newPlansThisMonth > 0 ? `${newPlansThisMonth} this month` : 'No change this month'}
+            </Text>
             <View className="absolute left-0 top-2 bottom-2 w-1 bg-[#8B5CF6] rounded-r-full" />
           </View>
         </View>

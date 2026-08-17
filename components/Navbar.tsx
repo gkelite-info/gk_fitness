@@ -4,19 +4,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Icon } from '@/components/nativewindui/Icon';
 import { Text } from '@/components/nativewindui/Text';
-import { BellRingingIcon, UsersThree } from 'phosphor-react-native';
 import { useState } from 'react';
-import { useUser } from '@/context/UserContext';
 import { useRealtimeAnnouncements } from '@/hooks/gymAnnouncements/useRealtimeAnnouncements';
 import { AnnouncementsModal } from '@/components/AnnouncementsModal';
+import { BellRingingIcon, UsersThree, CaretLeft } from 'phosphor-react-native';
+import { useUser } from '@/context/UserContext';
+import { Image } from 'react-native';
+import { StaticAvatar } from '@/components/ui/StaticAvatar';
 
 export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const { name, userId, role, profilePhoto, gymId } = useUser();
   const topPadding = insets.top;
 
-  const { gymId } = useUser();
   const { announcements, loading, hasNew, clearHasNew } = useRealtimeAnnouncements(gymId);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
@@ -28,25 +30,44 @@ export function Navbar() {
     <View
       style={{ paddingTop: topPadding }}
       className="border-b border-border pb-3 bg-[#0D0D0D]">
-      <RNStatusBar barStyle="dark-content" backgroundColor="white" translucent={false} />
+      <StatusBar style="light" />
       <View className="flex-row items-center justify-between px-4 pt-3">
-        <Pressable 
-          className="flex-row items-center gap-3 active:opacity-70"
-          onPress={() => {
+        <View className="flex-row items-center">
+          {pathname === '/community' && router.canGoBack() && (
+            <Pressable 
+              onPress={() => router.back()} 
+              className="mr-3 active:opacity-70"
+            >
+              <CaretLeft size={24} color="#FFFFFF" />
+            </Pressable>
+          )}
+          <Pressable 
+            className="flex-row items-center gap-3 active:opacity-70"
+            onPress={() => {
             if (pathname.includes('community')) {
               router.push('/community/profile');
+            } else if (role === 'customer') {
+              router.push('/(customer)/profile');
+            } else if (role === 'trainer') {
+              router.push('/(trainer)/profile' as any);
+            } else if (role === 'doctor') {
+              router.push('/(doctor)/profile');
             } else {
               router.push('/(owner)/profile');
             }
           }}
         >
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
-            <Icon name="person.fill" size={20} color='#C4C9AC' className="text-muted-foreground text-white" />
-          </View>
+          <StaticAvatar 
+            uri={profilePhoto} 
+            name={name || 'User'}
+            size={40}
+            className="h-10 w-10 rounded-full"
+          />
           <Text className="font-semibold text-white">
-            Welcome Back
+            {name ? `Hi, ${name}` : 'Welcome Back'}
           </Text>
         </Pressable>
+        </View>
 
         <View className="flex-row items-center gap-5">
           <Pressable 
@@ -59,7 +80,11 @@ export function Navbar() {
               }
             }}
           >
-            <UsersThree size={24} weight="regular" color='#ffffff' />
+            <UsersThree 
+              size={24} 
+              weight={pathname.includes('community') ? 'fill' : 'regular'} 
+              color={pathname.includes('community') ? '#C4EF00' : '#ffffff'} 
+            />
           </Pressable>
           <Pressable 
             className="opacity-80 active:opacity-50 relative"

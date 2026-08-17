@@ -120,7 +120,7 @@ export default function MyPostsScreen() {
                 <View className="flex-row justify-between items-start mb-3">
                   <View className="flex-1 flex-row items-center">
                     <StaticAvatar 
-                      uri={post.users?.profilePhoto || post.users?.avatar} 
+                      uri={(post.users as any)?.profilePhoto || (post.users as any)?.avatar} 
                       name={post.users?.name}
                       size={32}
                       className="w-8 h-8 rounded-full mr-3" 

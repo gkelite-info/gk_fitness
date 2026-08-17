@@ -136,7 +136,7 @@ export default function CommunityFeedScreen() {
                 <View className="flex-row justify-between items-center mb-3">
                   <View className="flex-row items-center">
                     <StaticAvatar 
-                      uri={post.users?.profilePhoto || post.users?.avatar} 
+                      uri={(post.users as any)?.profilePhoto || (post.users as any)?.avatar} 
                       name={post.users?.name}
                       size={40}
                       className="w-10 h-10 rounded-full mr-3" 

@@ -19,7 +19,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash.png",
+          "image": "./assets/app-splash.png",
           "backgroundColor": "#ffffff"
         }
       ],
@@ -44,7 +44,7 @@
       "tsconfigPaths": true
     },
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "dark",
     "assetBundlePatterns": [
       "**/*"
@@ -59,11 +59,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/app-adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.gkeliteinfo.gkgymlife",
       "permissions": [
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
@@ -72,13 +75,19 @@
     "androidStatusBar": {
       "barStyle": "light-content",
       "translucent": false,
-      "backgroundColor": "#0A0A0A"
+      "backgroundColor": "#ffffff"
     },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5d58a773-7b20-402a-b488-fd27bccbc462"
+        "projectId": "99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
     }
   }
 }

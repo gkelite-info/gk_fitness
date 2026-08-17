@@ -5,20 +5,34 @@ import { useUser } from '@/context/UserContext';
 import { useBiometricCredentials, useSaveBiometricCredential, useDeleteBiometricCredential } from '@/hooks/biometrics/useBiometricCredentials';
 import { useBiometricDevices } from '@/hooks/biometrics/useBiometricDevices';
 import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
-import { Fingerprint, Scan, Trash, MagnifyingGlass, HardDrives } from 'phosphor-react-native';
+import { Fingerprint, Scan, Trash, MagnifyingGlass, HardDrives, UserFocus } from 'phosphor-react-native';
 import { BiometricCredentialPayload } from '@/helpers/biometrics/biometricCredentialAPI';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import ConfirmModal from '@/components/ConfirmModal';
+import { registerUserOnDevice, deleteUserOnDevice, uploadFingerprintToDevice, captureFingerprintOnDevice } from '@/helpers/biometrics/biometricAPIs';
+import { toast } from '@/lib/toast';
 
 export default function CredentialsTab() {
   const { gymId } = useUser();
   const { data: devices } = useBiometricDevices(gymId ?? undefined);
-  const { data: credentials, isLoading: credsLoading } = useBiometricCredentials(gymId ?? undefined);
-  const { data: customers, isLoading: customersLoading } = useGymCustomers(gymId ?? undefined);
+  const { data: credentials, isLoading: credsLoading, refetch: refetchCredentials } = useBiometricCredentials(gymId ?? undefined);
+  const { data: customers, isLoading: customersLoading, refetch: refetchCustomers } = useGymCustomers(gymId ?? undefined);
   const saveCredential = useSaveBiometricCredential();
   const deleteCredential = useDeleteBiometricCredential();
 
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [deviceUserId, setDeviceUserId] = useState('');
+  const [unenrollState, setUnenrollState] = useState<{ credentialId: string, deviceUserId: string } | null>(null);
+  const [isCapturingFingerprint, setIsCapturingFingerprint] = useState(false);
+  const [isUploadingFingerprint, setIsUploadingFingerprint] = useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refetchCredentials(), refetchCustomers()]);
+    setRefreshing(false);
+  }, [refetchCredentials, refetchCustomers]);
 
   if (credsLoading || customersLoading) {
     return (
@@ -44,7 +58,6 @@ export default function CredentialsTab() {
     );
   }
 
-  // Combine customers and credentials
   const enrolledCustomerIds = new Set(credentials?.map(c => c.customerId) || []);
 
   let filteredCustomers = (customers || []).filter((c: any) =>
@@ -52,28 +65,129 @@ export default function CredentialsTab() {
     c.phone.includes(searchQuery)
   );
 
-  const handleEnroll = () => {
+  const handleEnroll = async () => {
     if (!selectedCustomer || !deviceUserId) return;
+
+    if (device) {
+      try {
+        await registerUserOnDevice({
+          ip: device.deviceIp,
+          port: device.devicePort,
+          devIndex: device.deviceId,
+          username: device.deviceUsername || undefined,
+          password: device.devicePassword || undefined,
+          employeeNo: deviceUserId,
+          name: selectedCustomer.fullName
+        });
+        toast.success("User added to biometric device");
+      } catch (err: any) {
+        toast.error("Device error: " + err.message);
+        return;
+      }
+    }
+
     saveCredential.mutate(
       {
         gymId: gymId as string,
         customerId: selectedCustomer.customerId,
-        deviceId: device.deviceId,
+        deviceId: device!.deviceId,
         deviceUserId: deviceUserId,
-        hasFingerprint: true, // we assume true for now, actual status can be updated from device later
-        hasFace: true,
+        hasFingerprint: false,
+        hasFace: false,
+        hasCard: false,
+        rfidCardNo: undefined,
       },
       {
         onSuccess: () => {
           setSelectedCustomer(null);
           setDeviceUserId('');
+          toast.success("Credential saved in system");
         }
       }
     );
   };
 
-  const handleUnenroll = (credentialId: string) => {
-    deleteCredential.mutate({ credentialId, gymId: gymId as string });
+  const handleUnenroll = async (credentialId: string, deviceUserId: string) => {
+    if (device) {
+      try {
+        await deleteUserOnDevice({
+          ip: device.deviceIp,
+          port: device.devicePort,
+          devIndex: device.deviceId,
+          username: device.deviceUsername || undefined,
+          password: device.devicePassword || undefined,
+          employeeNo: deviceUserId
+        });
+        toast.success("User removed from biometric device");
+      } catch (err: any) {
+        toast.error("Device error: " + err.message);
+        console.error("Failed to delete on device", err);
+        return; // Don't save to DB if device push fails
+      }
+    }
+
+    deleteCredential.mutate(
+      { credentialId, gymId: gymId as string },
+      {
+        onSuccess: () => {
+          toast.success("Credential removed from system");
+        }
+      }
+    );
+  };
+
+  const handleUploadFingerprint = async (deviceUserId: string) => {
+    if (!device) {
+      toast.error("Device not found");
+      return;
+    }
+
+    const existingCred = credentials?.find(c => c.customerId === selectedCustomer?.customerId);
+
+    setIsUploadingFingerprint(true);
+    try {
+      await registerUserOnDevice({
+        ip: device.deviceIp,
+        port: device.devicePort,
+        devIndex: device.deviceId,
+        username: device.deviceUsername || undefined,
+        password: device.devicePassword || undefined,
+        employeeNo: deviceUserId,
+        name: selectedCustomer?.fullName || `User ${deviceUserId}`
+      });
+
+      await captureFingerprintOnDevice({
+        ip: device.deviceIp,
+        port: device.devicePort,
+        devIndex: device.deviceId,
+        username: device.deviceUsername || undefined,
+        password: device.devicePassword || undefined,
+        employeeNo: deviceUserId,
+        fingerPrintID: existingCred?.fingerPrintID || 1
+      });
+
+      if (existingCred) {
+        saveCredential.mutate({
+          gymId: existingCred.gymId,
+          customerId: existingCred.customerId,
+          deviceId: existingCred.deviceId,
+          deviceUserId: existingCred.deviceUserId,
+          credentialId: existingCred.credentialId,
+          hasFingerprint: true,
+          hasFace: existingCred.hasFace,
+          hasCard: existingCred.hasCard,
+          rfidCardNo: existingCred.rfidCardNo,
+        });
+      }
+
+      toast.success("Fingerprint added successfully!");
+      setIsCapturingFingerprint(false);
+    } catch (err: any) {
+      toast.error("Fingerprint error: " + err.message);
+      console.error(err);
+    } finally {
+      setIsUploadingFingerprint(false);
+    }
   };
 
   if (selectedCustomer) {
@@ -87,26 +201,84 @@ export default function CredentialsTab() {
           <Text className="text-[#888888] text-sm mb-4">{selectedCustomer.phone}</Text>
 
           {isEnrolled && existingCred ? (
-            <View>
-              <View className="flex-row items-center bg-[#CCF200]/10 p-3 rounded-lg mb-4">
-                <Scan size={24} color="#CCF200" />
-                <View className="ml-3">
-                  <Text className="text-[#CCF200] font-semibold">Enrolled</Text>
-                  <Text className="text-[#888888] text-xs">Device User ID: {existingCred.deviceUserId}</Text>
+            isCapturingFingerprint ? (
+              <View className="items-center py-6">
+                <View className="w-24 h-24 bg-[#CCF200]/20 rounded-full items-center justify-center mb-6">
+                  <Fingerprint size={48} color="#CCF200" weight="regular" />
+                </View>
+                <Text className="text-white text-xl font-semibold mb-2">Place finger on device</Text>
+                <Text className="text-[#888888] text-center mb-8 px-4">
+                  Registering fingerprint on the device scanner.
+                </Text>
+
+                <View className="w-full">
+                  {isUploadingFingerprint ? (
+                    <ActivityIndicator size="large" color="#CCF200" className="mb-4" />
+                  ) : null}
+                  <Pressable
+                    className="w-full bg-[#2A2A2A] rounded-xl py-3 items-center mt-2"
+                    onPress={() => setIsCapturingFingerprint(false)}
+                    disabled={isUploadingFingerprint}
+                  >
+                    <Text className="text-white font-semibold">Cancel</Text>
+                  </Pressable>
                 </View>
               </View>
+            ) : (
+              <View>
+                <View className="flex-row items-center bg-[#CCF200]/10 p-3 rounded-lg mb-4 justify-between">
+                  <View className="flex-row items-center">
+                    <Scan size={24} color="#CCF200" />
+                    <View className="ml-3">
+                      <Text className="text-[#CCF200] font-semibold">Enrolled</Text>
+                      <Text className="text-[#888888] text-xs">Device User ID: {existingCred.deviceUserId}</Text>
+                    </View>
+                  </View>
+                  <View className="flex-row items-center gap-2">
+                    <Pressable
+                      onPress={() => {
+                        toast.success("Face registration coming soon!");
+                      }}
+                      className={`p-2 rounded-full active:opacity-70 ${existingCred.hasFace ? 'bg-[#CCF200]/20' : 'bg-[#2A2A2A]'}`}
+                    >
+                      <UserFocus size={20} color={existingCred.hasFace ? "#CCF200" : "#555555"} />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setIsCapturingFingerprint(true);
+                        handleUploadFingerprint(existingCred.deviceUserId);
+                      }}
+                      className={`p-2 rounded-full active:opacity-70 ${existingCred.hasFingerprint ? 'bg-[#CCF200]/20' : 'bg-[#2A2A2A]'}`}
+                    >
+                      <Fingerprint size={20} color={existingCred.hasFingerprint ? "#CCF200" : "#555555"} />
+                    </Pressable>
+                  </View>
+                </View>
 
-              <Pressable
-                className="bg-[#3A1414] rounded-xl py-3 items-center flex-row justify-center"
-                onPress={() => {
-                  handleUnenroll(existingCred.credentialId);
-                  setSelectedCustomer(null);
-                }}
-              >
-                <Trash size={18} color="#EF4444" />
-                <Text className="text-[#EF4444] font-semibold ml-2">Unenroll Customer</Text>
-              </Pressable>
-            </View>
+                <View className="flex-row items-center gap-3">
+                  <Pressable
+                    className="flex-1 bg-[#2A2A2A] rounded-xl py-3 items-center"
+                    onPress={() => {
+                      setSelectedCustomer(null);
+                    }}
+                  >
+                    <Text className="text-white font-semibold">Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    className="flex-1 bg-[#3A1414] rounded-xl py-3 items-center flex-row justify-center"
+                    onPress={() => {
+                      setUnenrollState({
+                        credentialId: existingCred.credentialId,
+                        deviceUserId: existingCred.deviceUserId
+                      });
+                    }}
+                  >
+                    <Trash size={18} color="#EF4444" />
+                    <Text className="text-[#EF4444] font-semibold ml-2">Unenroll</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )
           ) : (
             <View>
               <Text className="text-[#888888] text-xs font-medium mb-1">Device User ID</Text>
@@ -114,7 +286,7 @@ export default function CredentialsTab() {
                 Enter the ID number assigned to this customer on the physical ZKTeco device.
               </Text>
               <TextInput
-                className="w-full bg-[#0A0A0A] border border-[#2A2A2A] rounded-xl px-4 py-3 text-white mb-6"
+                className="w-full bg-[#0A0A0A] border border-[#2A2A2A] rounded-xl px-4 py-3 text-white mb-6 font-sans"
                 value={deviceUserId}
                 onChangeText={setDeviceUserId}
                 placeholder="e.g. 105"
@@ -145,6 +317,26 @@ export default function CredentialsTab() {
             </View>
           )}
         </View>
+
+        <ConfirmModal
+          visible={!!unenrollState}
+          onClose={() => setUnenrollState(null)}
+          onConfirm={() => {
+            if (unenrollState) {
+              handleUnenroll(unenrollState.credentialId, unenrollState.deviceUserId);
+            }
+            setUnenrollState(null);
+            setSelectedCustomer(null);
+          }}
+          title="Unenroll Customer"
+          description="Are you sure you want to remove this customer from the biometric device? They will lose physical access immediately."
+          confirmText="Remove Access"
+          icon={
+            <View className="w-12 h-12 bg-red-500/20 rounded-full items-center justify-center">
+              <Trash size={24} color="#ef4444" weight="bold" />
+            </View>
+          }
+        />
       </View>
     );
   }
@@ -154,7 +346,7 @@ export default function CredentialsTab() {
       <View className="flex-row items-center bg-[#141414] border border-[#2A2A2A] rounded-xl px-3 py-2.5 mb-4">
         <MagnifyingGlass size={20} color="#888888" />
         <TextInput
-          className="flex-1 ml-2 text-white"
+          className="flex-1 ml-2 text-white font-sans"
           placeholder="Search customers..."
           placeholderTextColor="#888888"
           value={searchQuery}
@@ -162,12 +354,19 @@ export default function CredentialsTab() {
         />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        refreshControl={
+          <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {filteredCustomers.length === 0 ? (
           <Text className="text-center text-[#888888] mt-10">No customers found.</Text>
         ) : (
           filteredCustomers.map((customer: any) => {
             const isEnrolled = enrolledCustomerIds.has(customer.customerId);
+            const existingCred = credentials?.find(c => c.customerId === customer.customerId);
             return (
               <Pressable
                 key={customer.customerId}
@@ -177,6 +376,11 @@ export default function CredentialsTab() {
                 <View className="flex-1">
                   <Text className="text-white font-medium">{customer.fullName}</Text>
                   <Text className="text-[#888888] text-xs mt-1">{customer.phone}</Text>
+                  {isEnrolled && existingCred && (
+                    <Text className="text-[#888888] text-xs mt-1">
+                      Device user ID: <Text className="text-white font-medium text-sm ml-2">{existingCred.deviceUserId}</Text>
+                    </Text>
+                  )}
                 </View>
                 <View>
                   {isEnrolled ? (
@@ -195,6 +399,26 @@ export default function CredentialsTab() {
           })
         )}
       </ScrollView>
+
+      <ConfirmModal
+        visible={!!unenrollState}
+        onClose={() => setUnenrollState(null)}
+        onConfirm={() => {
+          if (unenrollState) {
+            handleUnenroll(unenrollState.credentialId, unenrollState.deviceUserId);
+          }
+          setUnenrollState(null);
+          setSelectedCustomer(null);
+        }}
+        title="Unenroll Customer"
+        description="Are you sure you want to remove this customer from the biometric device? They will lose physical access immediately."
+        confirmText="Remove Access"
+        icon={
+          <View className="w-12 h-12 bg-red-500/20 rounded-full items-center justify-center">
+            <Trash size={24} color="#ef4444" weight="bold" />
+          </View>
+        }
+      />
     </View>
   );
 }

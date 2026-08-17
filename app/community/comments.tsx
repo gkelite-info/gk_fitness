@@ -19,7 +19,8 @@ export default function CommentsScreen() {
   const router = useRouter();
   const { postId } = useLocalSearchParams<{ postId: string }>();
   const insets = useSafeAreaInsets();
-  const { userId } = useUser();
+  const userContext = useUser();
+  const { userId } = userContext;
   const [comment, setComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ id: string, name: string } | null>(null);
 
@@ -158,8 +159,8 @@ export default function CommentsScreen() {
         )}
         <View className="flex-row items-center gap-3">
           <StaticAvatar 
-            uri={userContext?.profilePhoto}
-            name={userContext?.name}
+            uri={userContext?.profilePhoto || undefined}
+            name={userContext?.name || undefined}
             size={36}
             className="w-9 h-9 rounded-full" 
           />

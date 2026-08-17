@@ -36,14 +36,6 @@ export default function DevicesTab() {
     createdBy: userId || '',
   });
 
-  if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center pt-20">
-        <ActivityIndicator size="large" color="#CCF200" />
-      </View>
-    );
-  }
-
   const device = devices && devices.length > 0 ? devices[0] : null;
   const isOnline = device ? (device.isOnline || isDeviceReachable) : false;
 
@@ -118,6 +110,14 @@ export default function DevicesTab() {
       setIsFormVisible(true);
     }
   };
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center pt-20">
+        <ActivityIndicator size="large" color="#CCF200" />
+      </View>
+    );
+  }
 
   if (isFormVisible) {
     return (

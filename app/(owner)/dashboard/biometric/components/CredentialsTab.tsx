@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, TextInput, Image } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator, TextInput, Image, Alert } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
 import { useBiometricCredentials, useSaveBiometricCredential, useDeleteBiometricCredential } from '@/hooks/biometrics/useBiometricCredentials';
 import { useBiometricDevices } from '@/hooks/biometrics/useBiometricDevices';
 import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
 import { Fingerprint, Scan, Trash, MagnifyingGlass, HardDrives, UserFocus } from 'phosphor-react-native';
-import { BiometricCredentialPayload } from '@/helpers/biometrics/biometricCredentialAPI';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import ConfirmModal from '@/components/ConfirmModal';
-import { registerUserOnDevice, deleteUserOnDevice, uploadFingerprintToDevice, captureFingerprintOnDevice } from '@/helpers/biometrics/biometricAPIs';
+import { registerUserOnDevice, deleteUserOnDevice, uploadFingerprintToDevice, captureFingerprintOnDevice, uploadFaceToDevice, captureFaceOnDevice, deleteFaceFromDevice } from '@/helpers/biometrics/biometricAPIs';
 import { toast } from '@/lib/toast';
+import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 export default function CredentialsTab() {
   const { gymId } = useUser();
@@ -27,6 +28,10 @@ export default function CredentialsTab() {
   const [unenrollState, setUnenrollState] = useState<{ credentialId: string, deviceUserId: string } | null>(null);
   const [isCapturingFingerprint, setIsCapturingFingerprint] = useState(false);
   const [isUploadingFingerprint, setIsUploadingFingerprint] = useState(false);
+  const [isCapturingFace, setIsCapturingFace] = useState(false);
+  const [isUploadingFace, setIsUploadingFace] = useState(false);
+  const [isDeletingFace, setIsDeletingFace] = useState(false);
+  const [removeFaceState, setRemoveFaceState] = useState<{ deviceUserId: string, existingCred: any } | null>(null);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -122,7 +127,7 @@ export default function CredentialsTab() {
       } catch (err: any) {
         toast.error("Device error: " + err.message);
         console.error("Failed to delete on device", err);
-        return; // Don't save to DB if device push fails
+        return;
       }
     }
 
@@ -134,6 +139,195 @@ export default function CredentialsTab() {
         }
       }
     );
+  };
+
+  const handleUploadFaceMethod = async (method: 'camera' | 'library', deviceUserId: string, existingCred: any) => {
+    const pickerOptions: ImagePicker.ImagePickerOptions = {
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.4,
+    };
+
+    if (method === 'camera') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        toast.error('Camera permission is required.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync(pickerOptions);
+      if (!result.canceled && result.assets[0]) {
+        setIsCapturingFace(true);
+        try {
+          const manipResult = await manipulateAsync(
+            result.assets[0].uri,
+            [{ resize: { width: 600 } }],
+            { compress: 0.8, format: SaveFormat.JPEG }
+          );
+          await processFaceImage(deviceUserId, manipResult.uri, existingCred);
+        } catch (err) {
+          console.error("Image manipulation error:", err);
+          toast.error("Failed to process image.");
+        } finally {
+          setIsCapturingFace(false);
+        }
+      }
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        toast.error('Library permission is required.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync(pickerOptions);
+      if (!result.canceled && result.assets[0]) {
+        setIsCapturingFace(true);
+        try {
+          const manipResult = await manipulateAsync(
+            result.assets[0].uri,
+            [{ resize: { width: 600 } }],
+            { compress: 0.8, format: SaveFormat.JPEG }
+          );
+          await processFaceImage(deviceUserId, manipResult.uri, existingCred);
+        } catch (err) {
+          console.error("Image manipulation error:", err);
+          toast.error("Failed to process image.");
+        } finally {
+          setIsCapturingFace(false);
+        }
+      }
+    }
+  };
+
+  const handleCaptureFaceOnDevice = async (deviceUserId: string, existingCred: any) => {
+    if (!device) {
+      toast.error("Device not found");
+      return;
+    }
+
+    setIsUploadingFace(true);
+    try {
+      await registerUserOnDevice({
+        ip: device.deviceIp,
+        port: device.devicePort,
+        devIndex: device.deviceId,
+        username: device.deviceUsername || undefined,
+        password: device.devicePassword || undefined,
+        employeeNo: deviceUserId,
+        name: selectedCustomer?.fullName || `User ${deviceUserId}`,
+      });
+
+      await captureFaceOnDevice({
+        ip: device.deviceIp,
+        port: device.devicePort,
+        devIndex: device.deviceId,
+        username: device.deviceUsername || undefined,
+        password: device.devicePassword || undefined,
+        employeeNo: deviceUserId,
+      });
+
+      saveCredential.mutate({
+        ...existingCred,
+        hasFace: true,
+      });
+
+      toast.success("Face capture triggered successfully on device!");
+      setIsCapturingFace(false);
+    } catch (error: any) {
+      let msg = error.message || "Failed to trigger capture on device.";
+      const subCode = error.subStatusCode;
+      if (subCode === "faceLibraryIDError" || subCode === "deviceUserAlreadyExistFace") {
+        msg = "This user already has a face registered on this device.";
+      }
+      toast.error(msg);
+    } finally {
+      setIsUploadingFace(false);
+    }
+  };
+
+  const handleDeleteFace = (deviceUserId: string, existingCred: any) => {
+    setRemoveFaceState({ deviceUserId, existingCred });
+  };
+
+  const confirmDeleteFace = async () => {
+    if (!removeFaceState || !device) return;
+
+    setIsDeletingFace(true);
+    try {
+      await deleteFaceFromDevice({
+        ip: device.deviceIp,
+        port: device.devicePort,
+        devIndex: device.deviceId,
+        username: device.deviceUsername || undefined,
+        password: device.devicePassword || undefined,
+        employeeNo: removeFaceState.deviceUserId,
+      });
+
+      saveCredential.mutate({
+        ...removeFaceState.existingCred,
+        hasFace: false,
+      });
+
+      toast.success("Face removed successfully!");
+    } catch (error: any) {
+      console.error("Failed to delete face:", error);
+      toast.error(error.message || "Failed to remove face from device.");
+    } finally {
+      setIsDeletingFace(false);
+      setRemoveFaceState(null);
+    }
+  };
+
+  const processFaceImage = async (deviceUserId: string, imageUri: string, existingCred: any) => {
+    if (!device) {
+      toast.error("Device not found");
+      return;
+    }
+
+    try {
+      setIsUploadingFace(true);
+      await registerUserOnDevice({
+        ip: device.deviceIp,
+        port: device.devicePort,
+        devIndex: device.deviceId,
+        username: device.deviceUsername || undefined,
+        password: device.devicePassword || undefined,
+        employeeNo: deviceUserId,
+        name: selectedCustomer?.fullName || `User ${deviceUserId}`,
+      });
+
+      await uploadFaceToDevice({
+        ip: device.deviceIp,
+        port: device.devicePort,
+        devIndex: device.deviceId,
+        username: device.deviceUsername || undefined,
+        password: device.devicePassword || undefined,
+        employeeNo: deviceUserId,
+        imageUri: imageUri,
+      });
+
+      saveCredential.mutate({
+        ...existingCred,
+        hasFace: true,
+      });
+
+      toast.success("Face registered successfully!");
+
+    } catch (error: any) {
+      let msg = error.message || "Failed to register face.";
+      const subCode = error.subStatusCode;
+      if (subCode === "faceLibraryIDError" || subCode === "deviceUserAlreadyExistFace") {
+        msg = "This user already has a face registered on this device.";
+      } else if (subCode === "faceNoFace") {
+        msg = "No face was detected. Please use a clearer photo.";
+      } else if (subCode === "facePoorQuality" || subCode === "SubpicAnalysisModelingError") {
+        msg = "Face analysis failed. Ensure the face is clear, well-lit, and not too far.";
+      } else if (subCode === "badJsonContent") {
+        msg = "Image size might be too large or format is unsupported.";
+      }
+      toast.error(msg);
+    } finally {
+      setIsUploadingFace(false);
+    }
   };
 
   const handleUploadFingerprint = async (deviceUserId: string) => {
@@ -198,10 +392,67 @@ export default function CredentialsTab() {
       <View className="flex-1 p-4">
         <View className="bg-[#141414] rounded-2xl p-4 border border-[#2A2A2A]">
           <Text className="text-white text-lg font-semibold mb-1">{selectedCustomer.fullName}</Text>
-          <Text className="text-[#888888] text-sm mb-4">{selectedCustomer.phone}</Text>
+          <Text className="text-[#888888] text-sm">{selectedCustomer.phone}</Text>
 
           {isEnrolled && existingCred ? (
-            isCapturingFingerprint ? (
+            isCapturingFace ? (
+              <View className="items-center py-6">
+                <View className="w-24 h-24 bg-[#CCF200]/20 rounded-full items-center justify-center mb-6">
+                  <UserFocus size={48} color="#CCF200" weight="regular" />
+                </View>
+                <Text className="text-white text-xl font-semibold mb-1">Register Face</Text>
+                <Text className="text-[#888888] text-center mb-5 px-4">
+                  Please choose a method to register a face.
+                </Text>
+
+                <View className="w-full gap-3">
+                  {existingCred.hasFace ? (
+                    <Pressable
+                      className="w-full bg-red-500/10 border border-red-500/20 rounded-xl py-3 flex-row items-center justify-center gap-2"
+                      onPress={() => handleDeleteFace(existingCred.deviceUserId, existingCred)}
+                      disabled={isDeletingFace}
+                    >
+                      {isDeletingFace ? (
+                        <ActivityIndicator size="small" color="#ef4444" />
+                      ) : (
+                        <Trash size={20} color="#ef4444" />
+                      )}
+                      <Text className="text-red-500 font-semibold">Remove Existing Face</Text>
+                    </Pressable>
+                  ) : (
+                    <>
+                      <Pressable
+                        className="w-full bg-[#CCF200]/10 border border-[#CCF200]/20 rounded-xl py-3 flex-row items-center justify-center gap-2"
+                        onPress={() => handleUploadFaceMethod("camera", existingCred.deviceUserId, existingCred)}
+                        disabled={isUploadingFace}
+                      >
+                        <Text className="text-[#CCF200] font-semibold">Take Photo (Mobile)</Text>
+                      </Pressable>
+
+                      <Pressable
+                        className="w-full bg-[#CCF200]/10 border border-[#CCF200]/20 rounded-xl py-3 flex-row items-center justify-center gap-2"
+                        onPress={() => handleUploadFaceMethod("library", existingCred.deviceUserId, existingCred)}
+                        disabled={isUploadingFace}
+                      >
+                        <Text className="text-[#CCF200] font-semibold">Choose from Library</Text>
+                      </Pressable>
+                    </>
+                  )}
+
+                  {(isUploadingFace && !isDeletingFace) ? (
+                    <ActivityIndicator size="large" color="#CCF200" className="my-4" />
+                  ) : null}
+
+                  <Pressable
+                    className="w-full bg-[#2A2A2A] rounded-xl py-3 items-center mt-2"
+                    onPress={() => setIsCapturingFace(false)}
+                    disabled={isUploadingFace || isDeletingFace}
+                  >
+                    <Text className="text-white font-semibold">Cancel</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : isCapturingFingerprint ? (
               <View className="items-center py-6">
                 <View className="w-24 h-24 bg-[#CCF200]/20 rounded-full items-center justify-center mb-6">
                   <Fingerprint size={48} color="#CCF200" weight="regular" />
@@ -226,7 +477,7 @@ export default function CredentialsTab() {
               </View>
             ) : (
               <View>
-                <View className="flex-row items-center bg-[#CCF200]/10 p-3 rounded-lg mb-4 justify-between">
+                <View className="flex-row items-center bg-[#CCF200]/10 p-3 rounded-lg mb-4 mt-2 justify-between">
                   <View className="flex-row items-center">
                     <Scan size={24} color="#CCF200" />
                     <View className="ml-3">
@@ -237,11 +488,16 @@ export default function CredentialsTab() {
                   <View className="flex-row items-center gap-2">
                     <Pressable
                       onPress={() => {
-                        toast.success("Face registration coming soon!");
+                        setIsCapturingFace(true);
                       }}
+                      disabled={isUploadingFace}
                       className={`p-2 rounded-full active:opacity-70 ${existingCred.hasFace ? 'bg-[#CCF200]/20' : 'bg-[#2A2A2A]'}`}
                     >
-                      <UserFocus size={20} color={existingCred.hasFace ? "#CCF200" : "#555555"} />
+                      {isUploadingFace ? (
+                        <ActivityIndicator size="small" color="#CCF200" />
+                      ) : (
+                        <UserFocus size={20} color={existingCred.hasFace ? "#CCF200" : "#555555"} />
+                      )}
                     </Pressable>
                     <Pressable
                       onPress={() => {
@@ -334,6 +590,20 @@ export default function CredentialsTab() {
           icon={
             <View className="w-12 h-12 bg-red-500/20 rounded-full items-center justify-center">
               <Trash size={24} color="#ef4444" weight="bold" />
+            </View>
+          }
+        />
+
+        <ConfirmModal
+          visible={!!removeFaceState}
+          onClose={() => setRemoveFaceState(null)}
+          onConfirm={confirmDeleteFace}
+          title="Remove Face"
+          description="Are you sure you want to remove this face from the device? They will lose access to enter via facial recognition."
+          confirmText="Remove Face"
+          icon={
+            <View className="w-12 h-12 bg-red-500/20 rounded-full items-center justify-center">
+              <UserFocus size={24} color="#ef4444" weight="bold" />
             </View>
           }
         />

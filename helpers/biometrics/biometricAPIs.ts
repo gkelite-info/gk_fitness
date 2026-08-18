@@ -1,4 +1,5 @@
 import * as Crypto from 'expo-crypto';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const md5 = async (str: string) => {
   return await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.MD5, str);
@@ -540,3 +541,491 @@ export const captureFingerprintOnDevice = async (params: UploadFingerprintParams
 
   return { success: true, fingerData };
 };
+
+export interface UploadFaceParams {
+  ip: string;
+  port: number;
+  devIndex: string;
+  username?: string;
+  password?: string;
+  employeeNo: string;
+  imageUri: string;
+}
+
+export const captureFaceOnDevice = async (params: Omit<UploadFaceParams, 'imageUri'>) => {
+  const { ip, port, devIndex, employeeNo } = params;
+  const username = params.username || 'admin';
+  const password = params.password || '7093256562@Shiva';
+
+  // Reuse the same helperFetch pattern from captureFingerprintOnDevice
+  const helperFetch = async (endpoint: string, method: string, payload?: any, customContentType?: string, skipDevIndex?: boolean) => {
+    const suffix = skipDevIndex ? 'format=json' : `format=json&devIndex=${devIndex}`;
+    const url = `http://${ip}:${port}${endpoint}${endpoint.includes('?') ? '&' : '?'}${suffix}`;
+    const isStringPayload = typeof payload === 'string';
+    const bodyContent = isStringPayload ? payload : (payload ? JSON.stringify(payload) : undefined);
+    const contentType = customContentType || (payload ? 'application/json' : undefined);
+
+    const initialResponse = await fetch(url, {
+      method,
+      headers: contentType ? { 'Content-Type': contentType } : undefined,
+      body: bodyContent
+    });
+
+
+    if (initialResponse.ok) {
+      const okText = await initialResponse.text();
+      try { return JSON.parse(okText); } catch { return { rawXml: okText }; }
+    }
+    if (initialResponse.status !== 401) {
+      const errText = await initialResponse.text().catch(() => '');
+      console.error(`[captureFace helperFetch] Non-401 error: ${errText.substring(0, 300)}`);
+      const err = new Error(`Request failed with ${initialResponse.status}: ${errText}`) as any;
+      try { const parsed = JSON.parse(errText); err.subStatusCode = parsed.subStatusCode; } catch { }
+      throw err;
+    }
+
+    const authHeader = initialResponse.headers.get('www-authenticate');
+    if (!authHeader) throw new Error("No digest challenge");
+
+    const getParam = (str: string, param: string) => {
+      const match = str.match(new RegExp(`${param}="?([^",]+)"?`));
+      return match ? match[1] : '';
+    };
+
+    const realm = getParam(authHeader, 'realm');
+    const nonce = getParam(authHeader, 'nonce');
+    const qop = getParam(authHeader, 'qop');
+    const opaque = getParam(authHeader, 'opaque');
+    const uri = `${endpoint}${endpoint.includes('?') ? '&' : '?'}${suffix}`;
+    const nc = '00000001';
+    const cnonce = Math.random().toString(36).substring(2, 15);
+
+    const ha1 = await md5(`${username}:${realm}:${password}`);
+    const ha2 = await md5(`${method}:${uri}`);
+
+    const responseHash = qop
+      ? await md5(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`)
+      : await md5(`${ha1}:${nonce}:${ha2}`);
+
+    let authStr = `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${responseHash}"`;
+    if (qop) authStr += `, qop=${qop}, nc=${nc}, cnonce="${cnonce}"`;
+    if (opaque) authStr += `, opaque="${opaque}"`;
+
+    const secondResponse = await fetch(url, {
+      method,
+      headers: {
+        ...(contentType ? { 'Content-Type': contentType } : {}),
+        'Authorization': authStr
+      },
+      body: bodyContent
+    });
+
+    const text = await secondResponse.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { rawXml: text }; }
+
+    if (!secondResponse.ok) {
+      const err = new Error(`Auth failed with ${secondResponse.status}: ${text}`) as any;
+      err.subStatusCode = data?.subStatusCode;
+      throw err;
+    }
+
+    return data;
+  };
+
+  try {
+    const caps = await helperFetch('/ISAPI/AccessControl/CaptureFaceData/capabilities', 'GET', undefined, undefined, true);
+  } catch (e: any) {
+    console.warn('[captureFace] Capabilities query failed:', e.message?.substring(0, 200));
+  }
+
+  let result: any = null;
+  let lastError: any;
+
+  const isRetryable = (e: any) => {
+    return e?.subStatusCode === 'invalidOperation' ||
+      e?.subStatusCode === 'badRequest' ||
+      e?.subStatusCode === 'badParameters' ||
+      e?.subStatusCode === 'notSupport' ||
+      e?.subStatusCode === 'badXmlContent' ||
+      e?.message?.includes('400') ||
+      e?.message?.includes('405');
+  };
+
+  try {
+    result = await helperFetch('/ISAPI/AccessControl/CaptureFaceData', 'POST', {
+      FaceCaptureCond: { employeeNo: String(employeeNo) }
+    }, undefined, true);
+  } catch (e: any) {
+    lastError = e;
+    console.warn('[captureFace] Attempt 1 failed:', e.message?.substring(0, 150));
+    if (!isRetryable(e)) throw e;
+  }
+
+  if (!result) {
+    try {
+      result = await helperFetch('/ISAPI/AccessControl/CaptureFaceData', 'PUT', {
+        FaceCaptureCond: { employeeNo: String(employeeNo) }
+      }, undefined, true);
+    } catch (e: any) {
+      lastError = e;
+      console.warn('[captureFace] Attempt 2 failed:', e.message?.substring(0, 150));
+      if (!isRetryable(e)) throw e;
+    }
+  }
+
+  if (!result) {
+    try {
+      const rawUrl = `http://${ip}:${port}/ISAPI/AccessControl/CaptureFaceData`;
+      const xmlBody = `<FaceCaptureCond version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><employeeNo>${employeeNo}</employeeNo></FaceCaptureCond>`;
+      const initResp = await fetch(rawUrl, { method: 'POST', headers: { 'Content-Type': 'application/xml' }, body: xmlBody });
+      if (initResp.ok) {
+        const t = await initResp.text();
+        try { result = JSON.parse(t); } catch { result = { rawXml: t }; }
+      } else if (initResp.status === 401) {
+        const ah = initResp.headers.get('www-authenticate') || '';
+        const gp = (s: string, p: string) => { const m = s.match(new RegExp(`${p}="?([^",]+)"?`)); return m ? m[1] : ''; };
+        const rlm = gp(ah, 'realm'), nnc = gp(ah, 'nonce'), qp = gp(ah, 'qop'), opq = gp(ah, 'opaque');
+        const u2 = '/ISAPI/AccessControl/CaptureFaceData', nc2 = '00000001', cn2 = Math.random().toString(36).substring(2, 15);
+        const h1 = await md5(`${username}:${rlm}:${password}`), h2 = await md5(`POST:${u2}`);
+        const rh = qp ? await md5(`${h1}:${nnc}:${nc2}:${cn2}:${qp}:${h2}`) : await md5(`${h1}:${nnc}:${h2}`);
+        let as2 = `Digest username="${username}", realm="${rlm}", nonce="${nnc}", uri="${u2}", response="${rh}"`;
+        if (qp) as2 += `, qop=${qp}, nc=${nc2}, cnonce="${cn2}"`; if (opq) as2 += `, opaque="${opq}"`;
+        const r2 = await fetch(rawUrl, { method: 'POST', headers: { 'Content-Type': 'application/xml', 'Authorization': as2 }, body: xmlBody });
+        const t2 = await r2.text();
+        if (r2.ok) { try { result = JSON.parse(t2); } catch { result = { rawXml: t2 }; } }
+        else { lastError = new Error(`Attempt 3 failed: ${r2.status}: ${t2}`); }
+      } else {
+        const t = await initResp.text().catch(() => '');
+        console.warn('[captureFace] Attempt 3 non-401:', t.substring(0, 200));
+        lastError = new Error(`Attempt 3: ${initResp.status}: ${t}`);
+      }
+    } catch (e: any) {
+      lastError = e;
+      console.warn('[captureFace] Attempt 3 error:', e.message?.substring(0, 150));
+    }
+  }
+
+  if (!result) {
+    try {
+      result = await helperFetch('/ISAPI/AccessControl/CaptureFaceData', 'POST', {
+        FaceCaptureCond: { captureMode: "realtime", faceLibType: "blackFD", employeeNo: String(employeeNo) }
+      });
+    } catch (e: any) {
+      lastError = e;
+      console.warn('[captureFace] Attempt 4 failed:', e.message?.substring(0, 150));
+      if (!isRetryable(e)) throw e;
+    }
+  }
+
+  if (!result) {
+    console.error('[captureFace] All capture attempts failed.');
+    throw lastError || new Error('Failed to trigger face capture on device. This device may not support remote face capture.');
+  }
+
+  let captureComplete = false;
+  for (let i = 0; i < 30; i++) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      const progress = await helperFetch('/ISAPI/AccessControl/CaptureFaceData', 'GET');
+
+      const captureProgress = progress?.CaptureFaceData?.captureProgress ??
+        progress?.captureProgress ?? -1;
+
+      if (captureProgress >= 100) {
+        captureComplete = true;
+        break;
+      }
+    } catch (e: any) {
+      console.warn(`[captureFace] Progress poll ${i + 1} error:`, e.message?.substring(0, 100));
+      captureComplete = true;
+      break;
+    }
+  }
+
+  if (!captureComplete) {
+    console.warn('[captureFace] Capture timed out after 30s polling.');
+  }
+
+  return result;
+};
+
+export const uploadFaceToDevice = async (params: UploadFaceParams) => {
+  const { ip, port, devIndex, employeeNo, imageUri } = params;
+  const username = params.username || 'admin';
+  const password = params.password || '7093256562@Shiva';
+
+  const method = 'POST';
+  const apiEndpoint = 'Intelligent/FDLib/FaceDataRecord';
+  const url = `http://${ip}:${port}/ISAPI/${apiEndpoint}?format=json&devIndex=${devIndex}`;
+  const uri = `/ISAPI/${apiEndpoint}?format=json&devIndex=${devIndex}`;
+
+  let authHeader = '';
+  try {
+    const initialResponse = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+    authHeader = initialResponse.headers.get('www-authenticate') || '';
+  } catch (err: any) {
+    try {
+      const getResponse = await fetch(url, { method: 'GET' });
+      authHeader = getResponse.headers.get('www-authenticate') || '';
+    } catch (getErr: any) {
+      console.error("Fallback GET request also failed:", getErr.message);
+      throw new Error(`Network failed when connecting to device: ${getErr.message}`);
+    }
+  }
+
+  if (!authHeader) {
+    throw new Error("No digest challenge received from device. Device might be offline or URL is wrong.");
+  }
+
+  const getParam = (str: string, param: string) => {
+    const match = str.match(new RegExp(`${param}="?([^",]+)"?`));
+    return match ? match[1] : '';
+  };
+
+  const realm = getParam(authHeader, 'realm');
+  const nonce = getParam(authHeader, 'nonce');
+  const qop = getParam(authHeader, 'qop');
+  const opaque = getParam(authHeader, 'opaque');
+  const nc = '00000001';
+  const cnonce = Math.random().toString(36).substring(2, 15);
+
+  const ha1 = await md5(`${username}:${realm}:${password}`);
+  const ha2 = await md5(`${method}:${uri}`);
+
+  const responseHash = qop
+    ? await md5(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`)
+    : await md5(`${ha1}:${nonce}:${ha2}`);
+
+  let authStr = `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${responseHash}"`;
+  if (qop) authStr += `, qop=${qop}, nc=${nc}, cnonce="${cnonce}"`;
+  if (opaque) authStr += `, opaque="${opaque}"`;
+
+
+  try {
+    const uploadResult = await FileSystem.uploadAsync(url, imageUri, {
+      httpMethod: 'POST',
+      uploadType: 1 as any,
+      fieldName: 'FaceDataRecord',
+      parameters: {
+        data: JSON.stringify({
+          faceLibType: "blackFD",
+          FDID: "1",
+          FPID: String(employeeNo),
+          FaceInfo: {
+            employeeNo: String(employeeNo)
+          }
+        })
+      },
+      headers: {
+        'Authorization': authStr
+      }
+    });
+
+    let data;
+    try { data = JSON.parse(uploadResult.body); } catch { data = { rawXml: uploadResult.body }; }
+
+    if (uploadResult.status !== 200 || (data?.statusCode && data.statusCode !== 1)) {
+      console.error("Device rejected the request with status", uploadResult.status, data);
+      const err = new Error(`Device rejected request with status ${uploadResult.status}. Details: ${uploadResult.body}`) as any;
+      err.subStatusCode = data?.subStatusCode || data?.subCode;
+      throw err;
+    }
+
+    return data;
+  } catch (err: any) {
+    console.error("=== uploadFaceToDevice FAILED ===", err);
+    throw err;
+  }
+};
+
+export const deleteFaceFromDevice = async (
+  params: Omit<UploadFaceParams, 'imageUri'>
+) => {
+  const { ip, port, devIndex, employeeNo } = params;
+  const username = params.username || 'admin';
+  const password = params.password || '7093256562@Shiva';
+  const empNo = String(employeeNo);
+
+  const helperFetch = async (
+    endpoint: string,
+    method: string,
+    payload?: any,
+    customContentType?: string
+  ) => {
+    const url = `http://${ip}:${port}/ISAPI/${endpoint}${endpoint.includes('?') ? '&' : '?'}devIndex=${devIndex}`;
+    const uri = `/ISAPI/${endpoint}${endpoint.includes('?') ? '&' : '?'}devIndex=${devIndex}`;
+    const isStringPayload = typeof payload === 'string';
+    const bodyContent = isStringPayload ? payload : (payload ? JSON.stringify(payload) : undefined);
+    const contentType = customContentType || (payload ? 'application/json' : undefined);
+
+    const initialResponse = await fetch(url, {
+      method,
+      headers: contentType ? { 'Content-Type': contentType } : undefined,
+      body: bodyContent
+    });
+
+    if (initialResponse.ok) {
+      const okText = await initialResponse.text();
+      try { return JSON.parse(okText); } catch { return { rawXml: okText }; }
+    }
+
+    if (initialResponse.status !== 401) {
+      const errText = await initialResponse.text().catch(() => '');
+      const err = new Error(`Request failed with status ${initialResponse.status}: ${errText}`) as any;
+      try { const parsed = JSON.parse(errText); err.subStatusCode = parsed.subStatusCode; err.errorMsg = parsed.errorMsg; } catch { }
+      throw err;
+    }
+
+    const authHeader = initialResponse.headers.get('www-authenticate') || '';
+    if (!authHeader) throw new Error("No digest challenge received from device.");
+
+    const getParam = (str: string, param: string) => {
+      const match = str.match(new RegExp(`${param}="?([^",]+)"?`));
+      return match ? match[1] : '';
+    };
+
+    const realm = getParam(authHeader, 'realm');
+    const nonce = getParam(authHeader, 'nonce');
+    const qop = getParam(authHeader, 'qop');
+    const opaque = getParam(authHeader, 'opaque');
+    const nc = '00000001';
+    const cnonce = Math.random().toString(36).substring(2, 15);
+
+    const ha1 = await md5(`${username}:${realm}:${password}`);
+    const ha2 = await md5(`${method}:${uri}`);
+
+    const responseHash = qop
+      ? await md5(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`)
+      : await md5(`${ha1}:${nonce}:${ha2}`);
+
+    let authStr = `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${responseHash}"`;
+    if (qop) authStr += `, qop=${qop}, nc=${nc}, cnonce="${cnonce}"`;
+    if (opaque) authStr += `, opaque="${opaque}"`;
+
+    const secondResponse = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': contentType || 'application/json',
+        'Authorization': authStr
+      },
+      body: bodyContent
+    });
+
+    const text = await secondResponse.text();
+
+    let data;
+    try { data = JSON.parse(text); } catch { data = { rawXml: text }; }
+
+    if (!secondResponse.ok || (data?.statusCode && data.statusCode !== 1)) {
+      const err = new Error(`Device rejected with status ${secondResponse.status}: ${text}`) as any;
+      err.subStatusCode = data?.subStatusCode || data?.subCode;
+      err.errorMsg = data?.errorMsg;
+      throw err;
+    }
+
+    return data;
+  };
+
+  const isRetryable = (e: any) => {
+    return e?.subStatusCode === 'badJsonContent' ||
+      e?.subStatusCode === 'faceLibraryIDError' ||
+      e?.subStatusCode === 'notSupport' ||
+      e?.subStatusCode === 'badXmlFormat' ||
+      e?.subStatusCode === 'methodNotAllowed' ||
+      e?.errorMsg === 'FPID' ||
+      e?.message?.includes('400') ||
+      e?.message?.includes('405');
+  };
+
+  let lastError: any;
+
+  try {
+    return await helperFetch(
+      'Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD',
+      'PUT',
+      {
+        FaceInfoDelCond: {
+          EmployeeNoList: [{ employeeNo: empNo }]
+        }
+      }
+    );
+  } catch (e: any) {
+    lastError = e;
+    console.warn('[deleteFace] Attempt 1 failed:', e.message?.substring(0, 200));
+    if (!isRetryable(e)) throw e;
+  }
+
+  try {
+    const xmlBody = `<DelFaceParamCfg version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><faceLibType>blackFD</faceLibType><employeeNo>${empNo}</employeeNo></DelFaceParamCfg>`;
+    return await helperFetch(
+      'AccessControl/DelFaceParamCfg',
+      'PUT',
+      xmlBody,
+      'application/xml'
+    );
+  } catch (e: any) {
+    lastError = e;
+    console.warn('[deleteFace] Attempt 2 failed:', e.message?.substring(0, 200));
+    if (!isRetryable(e)) throw e;
+  }
+
+  try {
+    return await helperFetch(
+      'Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD',
+      'PUT',
+      {
+        FaceInfoDelCond: {
+          FPID: empNo
+        }
+      }
+    );
+  } catch (e: any) {
+    lastError = e;
+    console.warn('[deleteFace] Attempt 3 failed:', e.message?.substring(0, 200));
+    if (!isRetryable(e)) throw e;
+  }
+
+  try {
+    const xmlBody = `<FaceInfoDelCond version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><EmployeeNoList><EmployeeNoDetail><employeeNo>${empNo}</employeeNo></EmployeeNoDetail></EmployeeNoList></FaceInfoDelCond>`;
+    return await helperFetch(
+      'Intelligent/FDLib/FDSearch/Delete?FDID=1&faceLibType=blackFD',
+      'PUT',
+      xmlBody,
+      'application/xml'
+    );
+  } catch (e: any) {
+    lastError = e;
+    console.warn('[deleteFace] Attempt 4 failed:', e.message?.substring(0, 200));
+    if (!isRetryable(e)) throw e;
+  }
+
+  try {
+    return await helperFetch(
+      'Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD',
+      'POST',
+      {
+        FaceInfoDelCond: {
+          EmployeeNoList: [{ employeeNo: empNo }]
+        }
+      }
+    );
+  } catch (e: any) {
+    lastError = e;
+    console.warn('[deleteFace] Attempt 5 failed:', e.message?.substring(0, 200));
+  }
+
+  const errorMsg = lastError?.subStatusCode === 'faceLibraryIDError'
+    ? "Device face library ID mismatch. Please check device configuration."
+    : (lastError?.message || "Failed to remove face from device.");
+  const err = new Error(errorMsg) as any;
+  err.subStatusCode = lastError?.subStatusCode;
+  throw err;
+};
+

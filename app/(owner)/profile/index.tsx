@@ -33,7 +33,7 @@ import {
 } from 'phosphor-react-native';
 
 const MenuItem = ({ icon, title, subtitle, onPress, isDanger = false }: any) => (
-  <Pressable 
+  <Pressable
     className="flex-row items-center justify-between p-4 border-b border-[#1F1F22] active:opacity-70"
     onPress={onPress}
   >
@@ -105,32 +105,32 @@ export default function OwnerProfileScreen() {
   return (
     <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: insets.top }}>
       <View className="px-5 py-3 pb-2">
-        <Text className="text-white text-[22px] font-bold tracking-wide">Profile</Text>
+        <Text className="text-white text-[22px] font-semibold tracking-wide">Profile</Text>
       </View>
 
-      <ScrollView 
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 }} 
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
         <View className="bg-[#161616] rounded-3xl p-6 items-center mt-2 border border-[#1F1F22]">
-          
+
           <View className="w-[84px] h-[84px] rounded-2xl bg-[#000000] border border-[#C4EF00] items-center justify-center mb-4">
             <Barbell size={32} color="#C4EF00" weight="fill" />
-            <Text className="text-[#C4EF00] text-[8px] font-bold tracking-wider mt-1 text-center px-1" numberOfLines={1}>{gym?.gymName?.toUpperCase() || 'GYM'}</Text>
+            <Text className="text-[#C4EF00] text-[8px] font-semibold tracking-wider mt-1 text-center px-1" numberOfLines={1}>{gym?.gymName?.toUpperCase() || 'GYM'}</Text>
           </View>
-          
+
           <Pressable className="border border-[#C4EF00] rounded-full px-5 py-1.5 mb-4 flex-row items-center active:opacity-70">
             <PencilSimple size={14} color="#C4EF00" weight="regular" style={{ marginRight: 6 }} />
             <Text className="text-white text-xs font-semibold">Edit Profile</Text>
           </Pressable>
 
           <View className="flex-row items-center mb-1">
-            <Text className="text-white text-xl font-bold mr-1.5">{gym?.gymName || 'Gym Name'}</Text>
+            <Text className="text-white text-xl font-semibold mr-1.5">{gym?.gymName || 'Gym Name'}</Text>
             <CheckCircle size={18} color="#C4EF00" weight="fill" />
           </View>
-          
+
           <Text className="text-[#A1A1AA] text-sm mb-2">Premium Gym</Text>
-          
+
           <View className="flex-row items-center mb-6">
             <Text className="text-[#A1A1AA] text-xs">Since {gym?.establishYear || new Date().getFullYear()}</Text>
           </View>
@@ -162,12 +162,12 @@ export default function OwnerProfileScreen() {
             )}
           </View>
         </View>
-        <Text className="text-white text-[15px] font-bold mt-6 mb-3">Gym Overview</Text>
+        <Text className="text-white text-[15px] font-semibold mt-6 mb-3">Gym Overview</Text>
         <View className="flex-row justify-between mb-6">
           <View className="w-[31%] bg-[#161616] rounded-xl p-3 border border-[#1F1F22]">
             <UsersThree size={22} color="#C4EF00" weight="fill" style={{ marginBottom: 6 }} />
             <Text className="text-[#A1A1AA] text-[9px] mb-1">Active Members</Text>
-            <Text className="text-white text-lg font-bold mb-3">{activeCustomersCount}</Text>
+            <Text className="text-white text-lg font-semibold mb-3">{activeCustomersCount}</Text>
             <View className="flex-row items-center mt-auto">
               <ArrowUp size={10} color="#C4EF00" weight="bold" />
               <Text className="text-[#C4EF00] text-[9px] font-semibold ml-0.5">{newCustomersThisMonth > 0 ? `${newCustomersThisMonth} this month` : '0 this month'}</Text>
@@ -178,7 +178,7 @@ export default function OwnerProfileScreen() {
           <View className="w-[31%] bg-[#161616] rounded-xl p-3 border border-[#1F1F22]">
             <Barbell size={22} color="#C4EF00" weight="fill" style={{ marginBottom: 6 }} />
             <Text className="text-[#A1A1AA] text-[9px] mb-1">Total Trainers</Text>
-            <Text className="text-white text-lg font-bold mb-3">{totalTrainers}</Text>
+            <Text className="text-white text-lg font-semibold mb-3">{totalTrainers}</Text>
             <View className="flex-row items-center mt-auto">
               <ArrowUp size={10} color="#C4EF00" weight="bold" />
               <Text className="text-[#C4EF00] text-[9px] font-semibold ml-0.5">{newTrainersThisMonth > 0 ? `${newTrainersThisMonth} this month` : '0 this month'}</Text>
@@ -189,63 +189,63 @@ export default function OwnerProfileScreen() {
           <View className="w-[31%] bg-[#161616] rounded-xl p-3 border border-[#1F1F22]">
             <CreditCard size={22} color="#C4EF00" weight="fill" style={{ marginBottom: 6 }} />
             <Text className="text-[#A1A1AA] text-[9px] mb-1">Membership Plans</Text>
-            <Text className="text-white text-lg font-bold mb-1">{totalPlans}</Text>
+            <Text className="text-white text-lg font-semibold mb-1">{totalPlans}</Text>
             <Text className="text-[#71717A] text-[9px] leading-3 mt-auto">
               {newPlansThisMonth > 0 ? `${newPlansThisMonth} this month` : 'No change this month'}
             </Text>
             <View className="absolute left-0 top-2 bottom-2 w-1 bg-[#8B5CF6] rounded-r-full" />
           </View>
         </View>
-        <Text className="text-white text-[15px] font-bold mb-3">Manage Your Gym</Text>
+        <Text className="text-white text-[15px] font-semibold mb-3">Manage Your Gym</Text>
         <View className="bg-[#161616] rounded-2xl overflow-hidden border border-[#1F1F22] mb-6">
-          <MenuItem 
-            icon={<PencilSimple size={18} color="#C4EF00" />} 
-            title="Edit Gym Profile" 
-            subtitle="Update your gym information, logo, contact details and business hours" 
-            onPress={() => {}}
+          <MenuItem
+            icon={<PencilSimple size={18} color="#C4EF00" />}
+            title="Edit Gym Profile"
+            subtitle="Update your gym information, logo, contact details and business hours"
+            onPress={() => { }}
           />
-          <MenuItem 
-            icon={<Crown size={18} color="#C4EF00" weight="fill" />} 
-            title="Membership Plans" 
-            subtitle="Create, edit and manage membership plans" 
+          <MenuItem
+            icon={<Crown size={18} color="#C4EF00" weight="fill" />}
+            title="Membership Plans"
+            subtitle="Create, edit and manage membership plans"
             onPress={() => router.push('/(owner)/membership')}
           />
-          <MenuItem 
-            icon={<Barbell size={18} color="#C4EF00" weight="fill" />} 
-            title="Gym Access" 
-            subtitle="Manage gym timings and customer check-in rules." 
+          <MenuItem
+            icon={<Barbell size={18} color="#C4EF00" weight="fill" />}
+            title="Gym Access"
+            subtitle="Manage gym timings and customer check-in rules."
             onPress={() => router.push('/(owner)/profile/gym-access' as any)}
           />
-          <MenuItem 
-            icon={<Bell size={18} color="#C4EF00" />} 
-            title="Notifications" 
-            subtitle="Manage notification preferences" 
-            onPress={() => {}}
+          <MenuItem
+            icon={<Bell size={18} color="#C4EF00" />}
+            title="Notifications"
+            subtitle="Manage notification preferences"
+            onPress={() => { }}
           />
-          <MenuItem 
-            icon={<UserCircle size={18} color="#C4EF00" />} 
-            title="Member App Access" 
-            subtitle="Choose how long members can continue" 
+          <MenuItem
+            icon={<UserCircle size={18} color="#C4EF00" />}
+            title="Member App Access"
+            subtitle="Choose how long members can continue"
             onPress={() => router.push('/(owner)/profile/member-app-access' as any)}
           />
-          <MenuItem 
-            icon={<ShieldCheck size={18} color="#C4EF00" />} 
-            title="Privacy & Security" 
-            subtitle="Change password and security settings" 
-            onPress={() => {}}
+          <MenuItem
+            icon={<ShieldCheck size={18} color="#C4EF00" />}
+            title="Privacy & Security"
+            subtitle="Change password and security settings"
+            onPress={() => { }}
           />
-          <MenuItem 
-            icon={<Question size={18} color="#C4EF00" />} 
-            title="Help & Support" 
-            subtitle="Get help and contact support" 
-            onPress={() => {}}
+          <MenuItem
+            icon={<Question size={18} color="#C4EF00" />}
+            title="Help & Support"
+            subtitle="Get help and contact support"
+            onPress={() => { }}
           />
         </View>
         <View className="bg-[#161616] rounded-2xl overflow-hidden border border-[#1F1F22] mb-6">
-          <MenuItem 
-            icon={<SignOut size={18} color="#EF4444" weight="bold" />} 
-            title="Logout" 
-            subtitle="Sign out from your account" 
+          <MenuItem
+            icon={<SignOut size={18} color="#EF4444" weight="bold" />}
+            title="Logout"
+            subtitle="Sign out from your account"
             isDanger={true}
             onPress={() => setModalVisible(true)}
           />
@@ -262,22 +262,22 @@ export default function OwnerProfileScreen() {
             <View className="w-12 h-12 rounded-full bg-[#2A1515] items-center justify-center mb-4">
               <SignOut size={24} color="#EF4444" weight="regular" />
             </View>
-            <Text className="text-white text-[17px] font-bold mb-2">Sign Out</Text>
+            <Text className="text-white text-[17px] font-semibold mb-2">Sign Out</Text>
             <Text className="text-[#A1A1AA] text-[13px] text-center mb-6 px-4">
               Are you sure you want to sign out of your account? You will need to login again to access your gym.
             </Text>
             <View className="flex-row w-full gap-3">
-              <Pressable 
+              <Pressable
                 onPress={() => setModalVisible(false)}
                 className="flex-1 py-3.5 rounded-xl bg-[#1F1F22] items-center justify-center active:opacity-70"
               >
-                <Text className="text-white font-bold text-[13px]">Cancel</Text>
+                <Text className="text-white font-semibold text-[13px]">Cancel</Text>
               </Pressable>
-              <Pressable 
+              <Pressable
                 onPress={handleSignOut}
                 className="flex-1 py-3.5 rounded-xl bg-[#EF4444] items-center justify-center active:opacity-80"
               >
-                <Text className="text-white font-bold text-[13px]">Sign Out</Text>
+                <Text className="text-white font-semibold text-[13px]">Sign Out</Text>
               </Pressable>
             </View>
           </View>

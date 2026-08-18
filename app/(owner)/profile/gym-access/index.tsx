@@ -5,25 +5,23 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeft, Clock, PencilSimple, User, ArrowsLeftRight, Hourglass } from 'phosphor-react-native';
 
-const TIMINGS = [
-  { day: 'Monday', time: '6:00 AM – 10:00 PM' },
-  { day: 'Tuesday', time: '6:00 AM – 10:00 PM' },
-  { day: 'Wednesday', time: '6:00 AM – 10:00 PM' },
-  { day: 'Thursday', time: '6:00 AM – 10:00 PM' },
-  { day: 'Friday', time: '6:00 AM – 10:00 PM' },
-  { day: 'Saturday', time: '7:00 AM – 9:00 PM' },
-  { day: 'Sunday', time: '7:00 AM – 1:00 PM' },
-];
+import { useUser } from '@/context/UserContext';
+import { useGymTimings } from '@/hooks/gymTimings/useGymTimings';
+import { ActivityIndicator } from 'react-native';
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function GymAccessScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { gymId } = useUser();
+  const { data: gymTimings, isLoading } = useGymTimings(gymId || undefined);
 
   return (
     <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center px-5 pt-2 pb-4">
-        <Pressable 
-          onPress={() => router.back()} 
+        <Pressable
+          onPress={() => router.back()}
           className="w-10 h-10 items-center justify-center mr-2 active:opacity-70 -ml-2"
         >
           <CaretLeft size={24} color="#FFFFFF" />
@@ -35,7 +33,7 @@ export default function GymAccessScreen() {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 + insets.bottom }}
         showsVerticalScrollIndicator={false}
@@ -54,7 +52,7 @@ export default function GymAccessScreen() {
                 <Text className="text-[#A1A1AA] text-xs">Set the days and time your gym is open.</Text>
               </View>
             </View>
-            <Pressable 
+            <Pressable
               className="w-8 h-8 rounded-full border border-[#C4EF00] items-center justify-center active:opacity-70"
               onPress={() => router.push('/(owner)/profile/gym-access/settings')}
             >
@@ -63,12 +61,23 @@ export default function GymAccessScreen() {
           </View>
 
           <View className="gap-y-6">
-            {TIMINGS.map((item, index) => (
-              <View key={index} className="flex-row justify-between items-center">
-                <Text className="text-white text-[13px]">{item.day}</Text>
-                <Text className="text-[#D4D4D8] text-[13px]">{item.time}</Text>
-              </View>
-            ))}
+            {isLoading ? (
+              <ActivityIndicator color="#C4EF00" />
+            ) : (
+              DAYS.map((day, index) => {
+                const timing = gymTimings?.find((t: any) => t.day === day);
+                const timeText = timing
+                  ? (timing.isClosed ? 'Closed' : `${timing.openTime} – ${timing.closeTime}`)
+                  : 'Not set';
+
+                return (
+                  <View key={index} className="flex-row justify-between items-center">
+                    <Text className="text-white text-[13px]">{day}</Text>
+                    <Text className="text-[#D4D4D8] text-[13px]">{timeText}</Text>
+                  </View>
+                );
+              })
+            )}
           </View>
         </View>
         <View className="bg-[#161616] rounded-3xl p-5 border border-[#1F1F22]">
@@ -82,7 +91,7 @@ export default function GymAccessScreen() {
                 <Text className="text-[#A1A1AA] text-xs leading-4">Set how many times a customer can enter per day.</Text>
               </View>
             </View>
-            <Pressable 
+            <Pressable
               className="w-8 h-8 rounded-full border border-[#C4EF00] items-center justify-center active:opacity-70 mt-1"
               onPress={() => router.push('/(owner)/profile/gym-access/check-in-rules')}
             >

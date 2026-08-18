@@ -37,6 +37,7 @@ export default function OwnerLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          headerShown: true
         }}
       />
       <Tabs.Screen

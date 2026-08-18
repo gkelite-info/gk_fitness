@@ -67,7 +67,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  // 2. Fetch Profile using React Query
   const authUserId = session?.user?.id || null;
   const authEmail = session?.user?.email || null;
 
@@ -78,7 +77,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       return await fetchUserAndRoleProfile(authUserId, authEmail);
     },
     enabled: !!authUserId && !sessionLoading,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
     retry: 2,
   });
 
@@ -88,7 +87,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     await refetch();
   };
 
-  // 3. Handle Deep Links (Password Reset)
   useEffect(() => {
     const handleUrl = async (url: string) => {
       try {

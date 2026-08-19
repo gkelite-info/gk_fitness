@@ -1,10 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView, Pressable, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
 import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
 import { useGymAttendanceToday } from '@/hooks/attendance/useGymAttendanceToday';
 import { useGymPayments } from '@/hooks/useGymPayments';
+import { useGymCustomerMembershipPlans } from '@/hooks/useGymCustomerMembershipPlans';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { router } from 'expo-router';
 import {
@@ -30,10 +32,10 @@ import {
 import { triggerMediumHaptic } from '@/lib/haptics';
 
 const OVERVIEW_ITEMS = [
-  { id: 'active-customers', icon: Users, label: 'ACTIVE CUSTOMERS', value: '1,036' },
-  { id: 'check-ins', icon: CheckCircle, label: 'CHECK-INS', value: '286' },
-  { id: 'revenue-today', icon: CurrencyInr, label: 'REVENUE TODAY', value: '₹8,450' },
-  { id: 'monthly-growth', icon: TrendUp, label: 'MONTHLY GROWTH', value: '+8.4%' },
+  { id: 'active-customers', icon: Users, label: 'ACTIVE CUSTOMERS', value: '0' },
+  { id: 'check-ins', icon: CheckCircle, label: 'CHECK-INS', value: '0' },
+  { id: 'revenue-today', icon: CurrencyInr, label: 'REVENUE TODAY', value: '₹-' },
+  { id: 'monthly-growth', icon: TrendUp, label: 'MONTHLY GROWTH', value: '0%' },
 ];
 
 const QUICK_ACTIONS = [
@@ -46,9 +48,9 @@ const QUICK_ACTIONS = [
 ];
 
 const OPERATIONS = [
-  { id: 'pt-sessions', icon: Barbell, value: '18', label: 'PT SESSIONS' },
-  { id: 'group-classes', icon: UsersThree, value: '6', label: 'GROUP CLASSES' },
-  { id: 'renewals', icon: CalendarCheck, value: '5', label: 'RENEWALS' },
+  { id: 'pt-sessions', icon: Barbell, value: '0', label: 'PT SESSIONS' },
+  { id: 'group-classes', icon: UsersThree, value: '0', label: 'GROUP CLASSES' },
+  { id: 'renewals', icon: CalendarCheck, value: '0', label: 'RENEWALS' },
 ];
 
 const ALERTS = [
@@ -57,7 +59,7 @@ const ALERTS = [
     icon: Warning,
     iconColor: '#EF4444',
     bg: '#2B0E10',
-    title: '8 Customerships expiring tomorrow',
+    title: '0 Customerships expiring tomorrow',
   },
   {
     id: 'leave',
@@ -88,23 +90,92 @@ const MONTHLY_DATA = [
 export default function OwnerDashboardScreen() {
   const { name, gymId, userId } = useUser();
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const isToday = (date: Date) => {
+    const today = new Date();
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
+  };
+
+  const formatDateString = (date: Date) => {
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const getYYYYMMDD = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const selectedDateStr = getYYYYMMDD(selectedDate);
+
   const { data: customers, refetch: refetchCustomers } = useGymCustomers(gymId ?? undefined);
-  const { data: attendances, refetch: refetchAttendances } = useGymAttendanceToday(gymId ?? undefined);
+  const { data: attendances, refetch: refetchAttendances, error: attendanceError } = useGymAttendanceToday(gymId ?? undefined, selectedDateStr);
   const { data: payments, refetch: refetchPayments } = useGymPayments(userId ?? null);
+  const { data: customerPlans, refetch: refetchCustomerPlans } = useGymCustomerMembershipPlans(userId ?? null);
 
-  const activeCustomersCount = customers?.filter((c: any) => c.is_Active === true).length || 0;
-  const checkInsCount = attendances?.length || 0;
+  const activeCustomersCount = customerPlans?.filter((plan: any) => {
+    if (!plan.startDate || !plan.endDate) return false;
+    return plan.startDate <= selectedDateStr && plan.endDate >= selectedDateStr;
+  }).reduce((acc: Set<string>, plan: any) => {
+    acc.add(plan.customerId);
+    return acc;
+  }, new Set<string>()).size || 0;
 
-  const localNow = new Date();
-  const tzOffset = localNow.getTimezoneOffset() * 60000;
-  const localDate = new Date(Date.now() - tzOffset).toISOString().slice(0, 10);
+  const checkInsCount = attendances
+    ? new Set(attendances.map((att: any) => att.customerId)).size
+    : 0;
 
   const revenueToday = payments?.reduce((sum, payment) => {
-    if (payment.paymentDate === localDate) {
+    if (payment.paymentDate === selectedDateStr) {
       return sum + Number(payment.amountPaid || 0);
     }
     return sum;
   }, 0) || 0;
+
+  const calculateMonthlyGrowth = () => {
+    if (!payments || payments.length === 0) return '0%';
+
+    const currentYear = selectedDate.getFullYear();
+    const currentMonth = selectedDate.getMonth();
+    const currentDay = selectedDate.getDate();
+
+    const currentMonthStart = new Date(currentYear, currentMonth, 1);
+    const prevMonthStart = new Date(currentYear, currentMonth - 1, 1);
+    const prevMonthEnd = new Date(currentYear, currentMonth - 1, currentDay);
+
+    let currentMonthRevenue = 0;
+    let prevMonthRevenue = 0;
+
+    payments.forEach(payment => {
+      if (payment.paymentDate) {
+        const pDate = new Date(payment.paymentDate);
+        if (pDate >= currentMonthStart && pDate <= selectedDate) {
+          currentMonthRevenue += Number(payment.amountPaid || 0);
+        } else if (pDate >= prevMonthStart && pDate <= prevMonthEnd) {
+          prevMonthRevenue += Number(payment.amountPaid || 0);
+        }
+      }
+    });
+
+    if (prevMonthRevenue === 0) {
+      return currentMonthRevenue > 0 ? '+100%' : '0%';
+    }
+    const growth = ((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100;
+    return `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`;
+  };
+
+  const growthValue = calculateMonthlyGrowth();
 
   const onRefresh = useCallback(async () => {
     triggerMediumHaptic();
@@ -113,14 +184,15 @@ export default function OwnerDashboardScreen() {
       await Promise.all([
         refetchCustomers(),
         refetchAttendances(),
-        refetchPayments()
+        refetchPayments(),
+        refetchCustomerPlans()
       ]);
     } catch (error) {
       console.error('[Dashboard] Refresh error:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchCustomers, refetchAttendances, refetchPayments]);
+  }, [refetchCustomers, refetchAttendances, refetchPayments, refetchCustomerPlans]);
 
   return (
     <ScrollView
@@ -137,17 +209,57 @@ export default function OwnerDashboardScreen() {
           Good Morning, {name || 'User'} 👋
         </Text>
         <Text className="text-sm font-medium" style={{ color: '#C5C9AC' }}>
-          Monday, 20 July
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })}
         </Text>
       </View>
 
       <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-base font-semibold text-white">Today's Overview</Text>
-        <Pressable className="flex-row items-center gap-1 px-3 py-1.5 rounded-lg bg-[#161616] border border-[#242424] active:opacity-75">
-          <Text className="text-xs text-[#A1A1AA] font-medium">Today</Text>
+        <Text className="text-base font-semibold text-white">
+          {isToday(selectedDate) ? "Today's Overview" : "Overview"}
+        </Text>
+        <Pressable
+          onPress={() => setShowDatePicker(true)}
+          className="flex-row items-center gap-1 px-3 py-1.5 rounded-lg bg-[#161616] border border-[#242424] active:opacity-75"
+        >
+          <Text className="text-xs text-[#A1A1AA] font-medium">
+            {isToday(selectedDate) ? 'Today' : formatDateString(selectedDate)}
+          </Text>
           <CaretDown size={12} color="#A1A1AA" />
         </Pressable>
       </View>
+
+      {showDatePicker && Platform.OS === 'ios' && (
+        <View className="bg-[#1c1c1e] p-3 items-center border border-[#2A2A2A] rounded-xl mb-4">
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display="inline"
+            themeVariant="dark"
+            onChange={(event, date) => {
+              if (date) {
+                setSelectedDate(date);
+              }
+            }}
+          />
+          <Pressable onPress={() => setShowDatePicker(false)} className="mt-2 py-1.5 px-4 bg-[#CCF200] rounded-lg">
+            <Text className="text-black font-semibold text-xs">Done</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {showDatePicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={(event, date) => {
+            setShowDatePicker(false);
+            if (date) {
+              setSelectedDate(date);
+            }
+          }}
+        />
+      )}
 
       <View className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-3 flex-row justify-between mb-6">
         {OVERVIEW_ITEMS.map((item, index) => {
@@ -159,6 +271,8 @@ export default function OwnerDashboardScreen() {
             displayValue = checkInsCount.toString();
           } else if (item.id === 'revenue-today') {
             displayValue = `₹${revenueToday.toLocaleString('en-IN')}`;
+          } else if (item.id === 'monthly-growth') {
+            displayValue = growthValue;
           }
 
           return (
@@ -307,7 +421,6 @@ export default function OwnerDashboardScreen() {
           ))}
         </View>
 
-        {/* Month Labels */}
         <View className="flex-row justify-between px-1 pt-2 border-t border-[#1F293D]/50">
           {MONTHLY_DATA.map((item) => (
             <Text

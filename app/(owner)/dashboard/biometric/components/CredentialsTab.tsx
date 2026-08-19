@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, TextInput, Image, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, TextInput, Image, Alert, FlatList } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
 import { useBiometricCredentials, useSaveBiometricCredential, useDeleteBiometricCredential } from '@/hooks/biometrics/useBiometricCredentials';
 import { useBiometricDevices } from '@/hooks/biometrics/useBiometricDevices';
-import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
-import { Fingerprint, Scan, Trash, MagnifyingGlass, HardDrives, UserFocus } from 'phosphor-react-native';
+import { useGymCustomersPaginated } from '@/hooks/customers/useGymCustomers';
+import { Fingerprint, Scan, Trash, MagnifyingGlass, HardDrives, UserFocus, ArrowsClockwise } from 'phosphor-react-native';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import ConfirmModal from '@/components/ConfirmModal';
 import { registerUserOnDevice, deleteUserOnDevice, uploadFingerprintToDevice, captureFingerprintOnDevice, uploadFaceToDevice, captureFaceOnDevice, deleteFaceFromDevice } from '@/helpers/biometrics/biometricAPIs';
@@ -17,12 +17,14 @@ export default function CredentialsTab() {
   const { gymId } = useUser();
   const { data: devices } = useBiometricDevices(gymId ?? undefined);
   const { data: credentials, isLoading: credsLoading, refetch: refetchCredentials } = useBiometricCredentials(gymId ?? undefined);
-  const { data: customers, isLoading: customersLoading, refetch: refetchCustomers } = useGymCustomers(gymId ?? undefined);
-  const saveCredential = useSaveBiometricCredential();
-  const deleteCredential = useDeleteBiometricCredential();
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [accumulatedCustomers, setAccumulatedCustomers] = useState<any[]>([]);
+
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [deviceUserId, setDeviceUserId] = useState('');
   const [unenrollState, setUnenrollState] = useState<{ credentialId: string, deviceUserId: string } | null>(null);
@@ -33,11 +35,45 @@ export default function CredentialsTab() {
   const [isDeletingFace, setIsDeletingFace] = useState(false);
   const [removeFaceState, setRemoveFaceState] = useState<{ deviceUserId: string, existingCred: any } | null>(null);
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  const { data: customersData, isLoading: customersLoading, refetch: refetchCustomers, isFetching } = useGymCustomersPaginated(gymId ?? undefined, page, limit, debouncedSearch);
+  const saveCredential = useSaveBiometricCredential();
+  const deleteCredential = useDeleteBiometricCredential();
+
+  useEffect(() => {
+    if (customersData?.data) {
+      if (page === 1) {
+        setAccumulatedCustomers(customersData.data);
+      } else {
+        setAccumulatedCustomers((prev) => {
+          const prevIds = new Set(prev.map((c) => c.customerId));
+          const newUnique = customersData.data.filter((c) => !prevIds.has(c.customerId));
+          return [...prev, ...newUnique];
+        });
+      }
+    }
+  }, [customersData, page]);
+
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchCredentials(), refetchCustomers()]);
+    if (page === 1) {
+      await Promise.all([refetchCredentials(), refetchCustomers()]);
+    } else {
+      await refetchCredentials();
+      setPage(1);
+    }
     setRefreshing(false);
-  }, [refetchCredentials, refetchCustomers]);
+  }, [refetchCredentials, refetchCustomers, page]);
 
   if (credsLoading || customersLoading) {
     return (
@@ -64,11 +100,6 @@ export default function CredentialsTab() {
   }
 
   const enrolledCustomerIds = new Set(credentials?.map(c => c.customerId) || []);
-
-  let filteredCustomers = (customers || []).filter((c: any) =>
-    c.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.phone.includes(searchQuery)
-  );
 
   const handleEnroll = async () => {
     if (!selectedCustomer || !deviceUserId) return;
@@ -611,6 +642,41 @@ export default function CredentialsTab() {
     );
   }
 
+  const total = customersData?.total || 0;
+  const totalPages = Math.ceil(total / limit) || 1;
+  const hasMore = page < totalPages;
+
+  const renderFooter = () => {
+    if (isFetching) {
+      return (
+        <View className="py-4 items-center">
+          <ActivityIndicator size="small" color="#CCF200" />
+        </View>
+      );
+    }
+    if (hasMore) {
+      return (
+        <View className="py-4 items-center">
+          <Pressable
+            onPress={() => setPage((p) => p + 1)}
+            className="flex-row items-center gap-x-2 bg-[#141414] border border-[#2A2A2A] px-4 py-2.5 rounded-xl active:opacity-70"
+          >
+            <ArrowsClockwise size={16} color="#CCF200" />
+            <Text className="text-white text-sm font-semibold">Load More</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    if (accumulatedCustomers.length > 0) {
+      return (
+        <View className="py-6 items-center">
+          <Text className="text-[#666666] text-xs font-sans">You've reached the end of the list</Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
   return (
     <View className="flex-1 p-4">
       <View className="flex-row items-center bg-[#141414] border border-[#2A2A2A] rounded-xl px-3 py-2.5 mb-4">
@@ -624,22 +690,30 @@ export default function CredentialsTab() {
         />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        refreshControl={
-          <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {filteredCustomers.length === 0 ? (
-          <Text className="text-center text-[#888888] mt-10">No customers found.</Text>
-        ) : (
-          filteredCustomers.map((customer: any) => {
+      {accumulatedCustomers.length === 0 ? (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center' }}
+          refreshControl={
+            <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          <Text className="text-[#888888] mt-10">No customers found.</Text>
+        </ScrollView>
+      ) : (
+        <FlatList
+          data={accumulatedCustomers}
+          keyExtractor={(item) => item.customerId}
+          refreshControl={
+            <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={{ paddingBottom: 20 }}
+          ListFooterComponent={renderFooter}
+          renderItem={({ item: customer }) => {
             const isEnrolled = enrolledCustomerIds.has(customer.customerId);
             const existingCred = credentials?.find(c => c.customerId === customer.customerId);
             return (
               <Pressable
-                key={customer.customerId}
                 onPress={() => setSelectedCustomer(customer)}
                 className="flex-row items-center justify-between bg-[#141414] border border-[#2A2A2A] rounded-xl p-4 mb-3 active:opacity-70"
               >
@@ -666,9 +740,9 @@ export default function CredentialsTab() {
                 </View>
               </Pressable>
             );
-          })
-        )}
-      </ScrollView>
+          }}
+        />
+      )}
 
       <ConfirmModal
         visible={!!unenrollState}

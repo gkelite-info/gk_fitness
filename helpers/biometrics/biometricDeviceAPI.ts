@@ -42,17 +42,24 @@ export interface BiometricDeviceRow {
   createdAt: string;
 }
 
-export const getBiometricDevices = async (gymId: string) => {
+export const getBiometricDevices = async (gymId: string, page?: number, limit?: number) => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("gym_biometric_devices")
-      .select("*")
+      .select("*", { count: 'exact' })
       .eq("gymId", gymId)
       .eq("is_deleted", false)
       .order("createdAt", { ascending: false });
 
+    if (page !== undefined && limit !== undefined) {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      query = query.range(from, to);
+    }
+
+    const { data, error, count } = await query;
     if (error) throw error;
-    return { success: true, data: data as BiometricDeviceRow[] };
+    return { success: true, data: data as BiometricDeviceRow[], total: count || 0 };
   } catch (error: any) {
     console.error('[Biometric API] getBiometricDevices error:', error);
     return { success: false, data: [], error: error.message };

@@ -263,3 +263,35 @@ export async function fetchGymCustomers(gymId?: string) {
   }
   return data ?? [];
 }
+
+export async function fetchGymCustomersPaginated(
+  gymId?: string,
+  page = 1,
+  limit = 10,
+  searchQuery?: string
+) {
+  let query = supabase
+    .from('gym_customers')
+    .select('*', { count: 'exact' })
+    .eq('is_deleted', false)
+    .order('createdAt', { ascending: false });
+
+  if (gymId) {
+    query = query.eq('gymId', gymId);
+  }
+
+  if (searchQuery) {
+    query = query.or(`fullName.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`);
+  }
+
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
+  if (error) {
+    console.error('[customerHelper] fetchGymCustomersPaginated Error:', error);
+    throw error;
+  }
+  return { data: data ?? [], total: count || 0 };
+}

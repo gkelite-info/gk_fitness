@@ -50,7 +50,6 @@ export const upsertBiometricCredential = async (payload: BiometricCredentialPayl
     };
 
     if (payload.credentialId) {
-      // Update
       const { data, error } = await supabase
         .from("gym_biometric_credentials")
         .update(credData)
@@ -60,8 +59,6 @@ export const upsertBiometricCredential = async (payload: BiometricCredentialPayl
       if (error) throw error;
       return { success: true, data: data[0] };
     } else {
-      // Insert
-      // Check if this mapping already exists
       const { data: existing } = await supabase
         .from("gym_biometric_credentials")
         .select("credentialId")

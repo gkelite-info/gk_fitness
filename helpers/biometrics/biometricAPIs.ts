@@ -323,7 +323,6 @@ export const uploadFingerprintToDevice = async (params: UploadFingerprintParams)
 };
 
 
-
 export const captureFingerprintOnDevice = async (params: UploadFingerprintParams) => {
   const { ip, port, devIndex, employeeNo } = params;
   const username = params.username || 'admin';
@@ -557,7 +556,6 @@ export const captureFaceOnDevice = async (params: Omit<UploadFaceParams, 'imageU
   const username = params.username || 'admin';
   const password = params.password || '7093256562@Shiva';
 
-  // Reuse the same helperFetch pattern from captureFingerprintOnDevice
   const helperFetch = async (endpoint: string, method: string, payload?: any, customContentType?: string, skipDevIndex?: boolean) => {
     const suffix = skipDevIndex ? 'format=json' : `format=json&devIndex=${devIndex}`;
     const url = `http://${ip}:${port}${endpoint}${endpoint.includes('?') ? '&' : '?'}${suffix}`;

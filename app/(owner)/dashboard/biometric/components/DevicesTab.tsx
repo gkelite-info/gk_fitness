@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, TextInput } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator, TextInput, FlatList } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
-import { useBiometricDevices, useSaveBiometricDevice, useDeleteBiometricDevice } from '@/hooks/biometrics/useBiometricDevices';
-import { Plus, Trash, PencilSimple, WifiHigh, WifiSlash, HardDrives } from 'phosphor-react-native';
+import { useBiometricDevicesPaginated, useSaveBiometricDevice, useDeleteBiometricDevice } from '@/hooks/biometrics/useBiometricDevices';
+import { Plus, Trash, PencilSimple, WifiHigh, WifiSlash, HardDrives, ArrowsClockwise } from 'phosphor-react-native';
 import { BiometricDevicePayload } from '@/helpers/biometrics/biometricDeviceAPI';
 import { toast } from '@/lib/toast';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
@@ -11,14 +11,13 @@ import ConfirmModal from '@/components/ConfirmModal';
 
 export default function DevicesTab() {
   const { gymId, userId } = useUser();
-  const { data: devices, isLoading, refetch } = useBiometricDevices(gymId ?? undefined);
-  const saveDevice = useSaveBiometricDevice();
-  const deleteDevice = useDeleteBiometricDevice();
 
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [accumulatedDevices, setAccumulatedDevices] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [isDeviceReachable, setIsDeviceReachable] = useState(false);
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [deviceToDelete, setDeviceToDelete] = useState<any>(null);
 
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [formState, setFormState] = useState<BiometricDevicePayload>({
@@ -36,40 +35,33 @@ export default function DevicesTab() {
     createdBy: userId || '',
   });
 
-  const device = devices && devices.length > 0 ? devices[0] : null;
-  const isOnline = device ? (device.isOnline || isDeviceReachable) : false;
+  const { data: devicesData, isLoading, refetch, isFetching } = useBiometricDevicesPaginated(gymId ?? undefined, page, limit);
+  const saveDevice = useSaveBiometricDevice();
+  const deleteDevice = useDeleteBiometricDevice();
 
   useEffect(() => {
-    let isMounted = true;
-    const checkConnection = async () => {
-      if (!device?.deviceIp) return;
-      try {
-        setIsTestingConnection(true);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        await fetch(`http://${device.deviceIp}:${device.devicePort}`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (isMounted) setIsDeviceReachable(true);
-      } catch (error) {
-        if (isMounted) setIsDeviceReachable(false);
-      } finally {
-        if (isMounted) setIsTestingConnection(false);
+    if (devicesData?.data) {
+      if (page === 1) {
+        setAccumulatedDevices(devicesData.data);
+      } else {
+        setAccumulatedDevices((prev) => {
+          const prevIds = new Set(prev.map((d) => d.deviceId));
+          const newUnique = devicesData.data.filter((d) => !prevIds.has(d.deviceId));
+          return [...prev, ...newUnique];
+        });
       }
-    };
-
-    checkConnection();
-    const intervalId = setInterval(checkConnection, 10000);
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
-    };
-  }, [device?.deviceIp, device?.devicePort]);
+    }
+  }, [devicesData, page]);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await refetch();
+    if (page === 1) {
+      await refetch();
+    } else {
+      setPage(1);
+    }
     setRefreshing(false);
-  }, [refetch]);
+  }, [refetch, page]);
 
   const handleSave = () => {
     if (!formState.deviceIp || !formState.deviceSerialNumber) return;
@@ -78,6 +70,7 @@ export default function DevicesTab() {
       {
         onSuccess: () => {
           setIsFormVisible(false);
+          setPage(1); // Refresh list
           toast.success('Device saved successfully');
         }
       }
@@ -85,30 +78,37 @@ export default function DevicesTab() {
   };
 
   const handleDelete = () => {
-    if (device) {
-      deleteDevice.mutate({ deviceId: device.deviceId, gymId: gymId as string });
+    if (deviceToDelete) {
+      deleteDevice.mutate(
+        { deviceId: deviceToDelete.deviceId, gymId: gymId as string },
+        {
+          onSuccess: () => {
+            setDeviceToDelete(null);
+            setPage(1); // Refresh list
+            toast.success('Device deleted successfully');
+          }
+        }
+      );
     }
   };
 
-  const openEdit = () => {
-    if (device) {
-      setFormState({
-        deviceId: device.deviceId,
-        gymId: device.gymId,
-        deviceName: device.deviceName,
-        deviceSerialNumber: device.deviceSerialNumber,
-        deviceIp: device.deviceIp,
-        devicePort: device.devicePort,
-        deviceUsername: device.deviceUsername || '',
-        devicePassword: device.devicePassword || '',
-        deviceType: device.deviceType,
-        gateDirection: device.gateDirection || 'in',
-        deviceModel: device.deviceModel || '',
-        firmwareVersion: device.firmwareVersion || '',
-        createdBy: userId || '',
-      });
-      setIsFormVisible(true);
-    }
+  const openEdit = (dev: any) => {
+    setFormState({
+      deviceId: dev.deviceId,
+      gymId: dev.gymId,
+      deviceName: dev.deviceName,
+      deviceSerialNumber: dev.deviceSerialNumber,
+      deviceIp: dev.deviceIp,
+      devicePort: dev.devicePort,
+      deviceUsername: dev.deviceUsername || '',
+      devicePassword: dev.devicePassword || '',
+      deviceType: dev.deviceType,
+      gateDirection: dev.gateDirection || 'in',
+      deviceModel: dev.deviceModel || '',
+      firmwareVersion: dev.firmwareVersion || '',
+      createdBy: userId || '',
+    });
+    setIsFormVisible(true);
   };
 
   if (isLoading) {
@@ -207,77 +207,135 @@ export default function DevicesTab() {
     );
   }
 
+  const total = devicesData?.total || 0;
+  const totalPages = Math.ceil(total / limit) || 1;
+  const hasMore = page < totalPages;
+
+  const renderFooter = () => {
+    if (isFetching) {
+      return (
+        <View className="py-4 items-center">
+          <ActivityIndicator size="small" color="#CCF200" />
+        </View>
+      );
+    }
+    if (hasMore) {
+      return (
+        <View className="py-4 items-center">
+          <Pressable
+            onPress={() => setPage((p) => p + 1)}
+            className="flex-row items-center gap-x-2 bg-[#141414] border border-[#2A2A2A] px-4 py-2.5 rounded-xl active:opacity-70"
+          >
+            <ArrowsClockwise size={16} color="#CCF200" />
+            <Text className="text-white text-sm font-semibold">Load More</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    if (accumulatedDevices.length > 0) {
+      return (
+        <View className="py-6 items-center">
+          <Text className="text-[#666666] text-xs font-sans">You've reached the end of the list</Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
   return (
-    <ScrollView
-      className="flex-1 p-4"
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      {!device ? (
-        <View className="items-center justify-center pt-20">
+    <View className="flex-1 p-4">
+      {/* Header Add Button */}
+      <View className="flex-row justify-between items-center mb-4">
+        <Text className="text-white text-base font-semibold">Registered Devices</Text>
+        <Pressable
+          onPress={() => {
+            setFormState({
+              gymId: gymId || '',
+              deviceName: 'Main Entrance Device',
+              deviceSerialNumber: '',
+              deviceIp: '',
+              devicePort: 80,
+              deviceUsername: 'admin',
+              devicePassword: '',
+              deviceType: 'multi',
+              gateDirection: 'in',
+              deviceModel: '',
+              firmwareVersion: '',
+              createdBy: userId || '',
+            });
+            setIsFormVisible(true);
+          }}
+          className="flex-row items-center bg-[#CCF200] px-4 py-2 rounded-xl active:opacity-85"
+        >
+          <Plus size={16} color="#000000" weight="bold" />
+          <Text className="text-black font-semibold text-xs ml-1.5">Add Device</Text>
+        </Pressable>
+      </View>
+
+      {accumulatedDevices.length === 0 ? (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center' }}
+          refreshControl={
+            <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
           <View className="w-16 h-16 rounded-full bg-[#1A1A1A] items-center justify-center mb-4">
             <HardDrives size={32} color="#CCF200" />
           </View>
           <Text className="text-white text-lg font-semibold mb-2">No Device Configured</Text>
-          <Text className="text-[#888888] text-center mb-6 px-10">
-            Set up the main entrance biometric device to automatically mark customer attendance.
+          <Text className="text-[#888888] text-center px-10">
+            Set up a biometric device to automatically mark customer attendance.
           </Text>
-          <Pressable
-            onPress={() => setIsFormVisible(true)}
-            className="flex-row items-center bg-[#CCF200] px-6 py-3 rounded-full active:opacity-80"
-          >
-            <Plus size={18} color="#000000" weight="bold" />
-            <Text className="text-black font-semibold ml-2">Add Device</Text>
-          </Pressable>
-        </View>
+        </ScrollView>
       ) : (
-        <View className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-4">
-          <View className="flex-row items-start justify-between mb-4">
-            <View className="flex-1">
-              <View className="flex-row items-center gap-2 mb-1">
-                <Text className="text-white text-lg font-semibold">{device.deviceName}</Text>
-                {/* {isTestingConnection ? (
-                  <ActivityIndicator size="small" color="#888888" />
-                ) : isOnline ? (
-                  <WifiHigh size={16} color="#4ADE80" />
-                ) : (
-                  <WifiSlash size={16} color="#EF4444" />
-                )} */}
+        <FlatList
+          data={accumulatedDevices}
+          keyExtractor={(item) => item.deviceId}
+          refreshControl={
+            <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={{ paddingBottom: 100 }}
+          ListFooterComponent={renderFooter}
+          renderItem={({ item: dev }) => (
+            <View className="bg-[#141414] border border-[#2A2A2A] rounded-2xl p-4 mb-3">
+              <View className="flex-row items-start justify-between mb-4">
+                <View className="flex-1">
+                  <Text className="text-white text-lg font-semibold mb-1">{dev.deviceName}</Text>
+                  <Text className="text-[#888888] text-sm">SN: {dev.deviceSerialNumber}</Text>
+                </View>
+                <View className="flex-row gap-2">
+                  <Pressable onPress={() => openEdit(dev)} className="p-2 bg-[#2A2A2A] rounded-lg active:opacity-70">
+                    <PencilSimple size={18} color="#FFFFFF" />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setDeviceToDelete(dev);
+                      setIsDeleteModalVisible(true);
+                    }}
+                    className="p-2 bg-[#3A1414] rounded-lg active:opacity-70"
+                  >
+                    <Trash size={18} color="#EF4444" />
+                  </Pressable>
+                </View>
               </View>
-              <Text className="text-[#888888] text-sm">SN: {device.deviceSerialNumber}</Text>
-            </View>
-            <View className="flex-row gap-2">
-              <Pressable onPress={openEdit} className="p-2 bg-[#2A2A2A] rounded-lg active:opacity-70">
-                <PencilSimple size={18} color="#FFFFFF" />
-              </Pressable>
-              <Pressable onPress={() => setIsDeleteModalVisible(true)} className="p-2 bg-[#3A1414] rounded-lg active:opacity-70">
-                <Trash size={18} color="#EF4444" />
-              </Pressable>
-            </View>
-          </View>
-
-          <View className="flex-row justify-between pt-4 border-t border-[#2A2A2A]">
-            <View>
-              <Text className="text-[#888888] text-xs mb-1">IP Address</Text>
-              <Text className="text-white text-sm font-medium">{device.deviceIp} : {device.devicePort}</Text>
-            </View>
-            {/* <View className="items-end">
-              <Text className="text-[#888888] text-xs">Status</Text>
-              <View className={`px-2 py-0.5 rounded-md mt-1 ${isOnline ? 'bg-[#4ADE80]/20' : 'bg-[#EF4444]/20'}`}>
-                <Text className={`text-[10px] font-semibold ${isOnline ? 'text-[#4ADE80]' : 'text-[#EF4444]'}`}>
-                  {isOnline ? 'ONLINE' : 'OFFLINE'}
-                </Text>
+              <View className="flex-row justify-between pt-4 border-t border-[#2A2A2A]">
+                <View>
+                  <Text className="text-[#888888] text-xs mb-1">IP Address</Text>
+                  <Text className="text-white text-sm font-medium">{dev.deviceIp} : {dev.devicePort}</Text>
+                </View>
               </View>
-            </View> */}
-          </View>
-        </View>
+            </View>
+          )}
+        />
       )}
 
       <ConfirmModal
         visible={isDeleteModalVisible}
-        onClose={() => setIsDeleteModalVisible(false)}
+        onClose={() => {
+          setIsDeleteModalVisible(false);
+          setDeviceToDelete(null);
+        }}
         onConfirm={() => {
           setIsDeleteModalVisible(false);
           handleDelete();
@@ -291,6 +349,6 @@ export default function DevicesTab() {
           </View>
         }
       />
-    </ScrollView>
+    </View>
   );
 }

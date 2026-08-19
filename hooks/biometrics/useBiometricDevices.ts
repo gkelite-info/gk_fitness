@@ -19,6 +19,19 @@ export function useBiometricDevices(gymId?: string) {
   });
 }
 
+export function useBiometricDevicesPaginated(gymId?: string, page = 1, limit = 10) {
+  return useQuery({
+    queryKey: ['biometricDevicesPaginated', gymId, page, limit],
+    queryFn: async () => {
+      if (!gymId) return { data: [], total: 0 };
+      const res = await getBiometricDevices(gymId, page, limit);
+      if (!res.success) throw new Error(res.error || 'Failed to fetch devices');
+      return { data: res.data || [], total: res.total || 0 };
+    },
+    enabled: !!gymId,
+  });
+}
+
 export function useSaveBiometricDevice() {
   const queryClient = useQueryClient();
 

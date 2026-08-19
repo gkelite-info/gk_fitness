@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { View, ScrollView, Pressable, TextInput, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
-import { 
-  CaretLeft, 
-  CalendarBlank, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  MagnifyingGlass, 
-  CaretRight 
+import {
+  CaretLeft,
+  CalendarBlank,
+  Clock,
+  CheckCircle,
+  XCircle,
+  MagnifyingGlass,
+  CaretRight
 } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -26,8 +26,8 @@ const SESSIONS_DATA = [
 
 function StatCard({ icon: Icon, color, title, count, sub }: { icon: any, color: string, title: string, count: string, sub: string }) {
   return (
-    <View 
-      className="bg-[#121214] rounded-xl p-3 border-l-2 mr-3" 
+    <View
+      className="bg-[#121214] rounded-xl p-3 border-l-2 mr-3"
       style={{ borderLeftColor: color, minWidth: 100 }}
     >
       <Icon size={16} color={color} style={{ marginBottom: 6 }} />
@@ -41,7 +41,7 @@ function StatCard({ icon: Icon, color, title, count, sub }: { icon: any, color: 
 function StatusBadge({ status }: { status: string }) {
   let color = '#8E8E93';
   let Icon = Clock;
-  
+
   if (status === 'Completed') {
     color = '#22C55E';
     Icon = CheckCircle;
@@ -54,8 +54,8 @@ function StatusBadge({ status }: { status: string }) {
   }
 
   return (
-    <View 
-      className="px-2.5 py-1 rounded-full border flex-row items-center" 
+    <View
+      className="px-2.5 py-1 rounded-full border flex-row items-center"
       style={{ backgroundColor: color + '1A', borderColor: color + '4D' }}
     >
       <Icon size={12} color={color} weight="regular" />
@@ -112,12 +112,12 @@ export default function PTSessionsScreen() {
   return (
     <View className="flex-1 bg-[#09090B]">
       <StatusBar style="light" />
-      
+
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 pt-4 pb-4">
         <View className="flex-row items-center flex-1">
-          <Pressable 
-            onPress={() => router.back()} 
+          <Pressable
+            onPress={() => router.back()}
             className="w-10 h-10 rounded-full bg-[#18181B] items-center justify-center mr-3 active:opacity-70"
           >
             <CaretLeft size={20} color="#FFFFFF" />
@@ -133,7 +133,7 @@ export default function PTSessionsScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
-        
+
         {/* Stats Cards Row */}
         <View className="mt-4 mb-6">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
@@ -167,10 +167,10 @@ export default function PTSessionsScreen() {
         {/* Sessions List */}
         <View className="px-5">
           {SESSIONS_DATA.map((item) => (
-            <SessionRow 
-              key={item.id} 
-              item={item} 
-              onPress={() => router.push(`/(owner)/dashboard/pt-sessions/${item.id}` as any)} 
+            <SessionRow
+              key={item.id}
+              item={item}
+              onPress={() => router.push(`/(owner)/dashboard/pt-sessions/${item.id}` as any)}
             />
           ))}
         </View>

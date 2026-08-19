@@ -2,8 +2,8 @@ import React from 'react';
 import { View, ScrollView, Pressable, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { 
-  CaretLeft, 
+import {
+  CaretLeft,
   CheckCircle,
   User,
   Barbell,
@@ -15,7 +15,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-// Reusable component for the session info rows
 function InfoRow({ icon: Icon, label, value, isLast = false }: { icon: any, label: string, value: string, isLast?: boolean }) {
   return (
     <View className={`flex-row items-center py-4 ${!isLast ? 'border-b border-[#27272A]' : ''}`}>
@@ -48,11 +47,11 @@ export default function PTSessionDetailsScreen() {
   return (
     <View className="flex-1 bg-[#09090B]">
       <StatusBar style="light" />
-      
+
       {/* Header */}
       <View className="flex-row items-center px-5 pt-4 pb-4">
-        <Pressable 
-          onPress={() => router.back()} 
+        <Pressable
+          onPress={() => router.back()}
           className="w-10 h-10 rounded-full bg-[#18181B] items-center justify-center mr-3 active:opacity-70"
         >
           <CaretLeft size={20} color="#FFFFFF" />
@@ -64,7 +63,7 @@ export default function PTSessionDetailsScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
-        
+
         {/* Top Profile Card */}
         <View className="px-5 mt-4 mb-6">
           <View className="bg-[#121214] rounded-[24px] p-5 flex-row items-center border border-[#27272A]">
@@ -94,7 +93,7 @@ export default function PTSessionDetailsScreen() {
         <View className="px-5 mb-6">
           <View className="bg-[#121214] rounded-[24px] p-6 border border-[#27272A]">
             <Text className="text-white text-lg font-bold mb-2">Session Information</Text>
-            
+
             <InfoRow icon={User} label="Member" value={session.member} />
             <InfoRow icon={User} label="Trainer" value={session.trainer} />
             <InfoRow icon={Barbell} label="Workout Type" value={session.type} />
@@ -109,7 +108,7 @@ export default function PTSessionDetailsScreen() {
         <View className="px-5 mb-6">
           <View className="bg-[#121214] rounded-[24px] p-6 border border-[#27272A]">
             <Text className="text-white text-lg font-bold mb-4">Attendance</Text>
-            
+
             <View className="bg-[#18181B] rounded-[16px] p-4 flex-row items-center border border-[#27272A]">
               <View className="w-12 h-12 rounded-full border border-[#C4EF00]/30 items-center justify-center mr-4 bg-[#121214]">
                 <Check size={20} color="#C4EF00" weight="regular" />

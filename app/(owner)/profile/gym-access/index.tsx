@@ -7,6 +7,7 @@ import { CaretLeft, Clock, PencilSimple, User, ArrowsLeftRight, Hourglass } from
 
 import { useUser } from '@/context/UserContext';
 import { useGymTimings } from '@/hooks/gymTimings/useGymTimings';
+import { useGymCheckInRules } from '@/hooks/gymCheckInRules/useGymCheckInRules';
 import { ActivityIndicator } from 'react-native';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -16,6 +17,15 @@ export default function GymAccessScreen() {
   const insets = useSafeAreaInsets();
   const { gymId } = useUser();
   const { data: gymTimings, isLoading } = useGymTimings(gymId || undefined);
+  const { data: checkInRules, isLoading: isRulesLoading } = useGymCheckInRules(gymId || undefined);
+
+  const formatDuration = (mins: number) => {
+    const hrs = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (hrs > 0 && m > 0) return `${hrs} Hour${hrs > 1 ? 's' : ''} ${m} Minutes`;
+    if (hrs > 0) return `${hrs} Hour${hrs > 1 ? 's' : ''}`;
+    return `${m} Minutes`;
+  };
 
   return (
     <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: insets.top }}>
@@ -26,7 +36,7 @@ export default function GymAccessScreen() {
         >
           <CaretLeft size={24} color="#FFFFFF" />
         </Pressable>
-        <Text className="text-xl font-bold text-white tracking-wide mr-3">Gym Access</Text>
+        <Text className="text-xl font-semibold text-white tracking-wide mr-3">Gym Access</Text>
         <View className="bg-green-900/40 border border-green-700/50 rounded flex-row items-center px-1.5 py-0.5">
           <View className="w-1 h-1 rounded-full bg-[#C4EF00] mr-1.5" />
           <Text className="text-[#C4EF00] text-[10px] font-semibold">Active</Text>
@@ -48,7 +58,7 @@ export default function GymAccessScreen() {
                 <Clock size={20} color="#C4EF00" weight="regular" />
               </View>
               <View className="flex-1 pt-1">
-                <Text className="text-white text-base font-bold mb-1">Gym Timings</Text>
+                <Text className="text-white text-base font-semibold mb-1">Gym Timings</Text>
                 <Text className="text-[#A1A1AA] text-xs">Set the days and time your gym is open.</Text>
               </View>
             </View>
@@ -87,7 +97,7 @@ export default function GymAccessScreen() {
                 <User size={20} color="#C4EF00" weight="fill" />
               </View>
               <View className="flex-1 pt-1">
-                <Text className="text-white text-base font-bold mb-1">Customer Check-in Rules</Text>
+                <Text className="text-white text-base font-semibold mb-1">Customer Check-in Rules</Text>
                 <Text className="text-[#A1A1AA] text-xs leading-4">Set how many times a customer can enter per day.</Text>
               </View>
             </View>
@@ -109,7 +119,11 @@ export default function GymAccessScreen() {
                 <Text className="text-[#71717A] text-[10px] leading-3">Maximum entries per customer per day</Text>
               </View>
             </View>
-            <Text className="text-white text-[13px] font-bold">2 times</Text>
+            {isRulesLoading ? (
+              <ActivityIndicator size="small" color="#C4EF00" />
+            ) : (
+              <Text className="text-white text-[13px] font-semibold">{checkInRules?.dailyLimit ?? 2} times</Text>
+            )}
           </View>
 
           <View className="flex-row items-center justify-between">
@@ -122,11 +136,13 @@ export default function GymAccessScreen() {
                 <Text className="text-[#71717A] text-[10px] leading-3">Time required between two check-ins</Text>
               </View>
             </View>
-            <Text className="text-white text-[13px] font-bold">2 Hours</Text>
+            {isRulesLoading ? (
+              <ActivityIndicator size="small" color="#C4EF00" />
+            ) : (
+              <Text className="text-white text-[13px] font-semibold">{formatDuration(checkInRules?.minGapMinutes ?? 120)}</Text>
+            )}
           </View>
-
         </View>
-
       </ScrollView>
     </View>
   );

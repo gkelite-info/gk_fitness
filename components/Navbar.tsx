@@ -34,43 +34,43 @@ export function Navbar() {
       <View className="flex-row items-center justify-between px-4 pt-3">
         <View className="flex-row items-center">
           {pathname === '/community' && router.canGoBack() && (
-            <Pressable 
-              onPress={() => router.back()} 
+            <Pressable
+              onPress={() => router.back()}
               className="mr-3 active:opacity-70"
             >
               <CaretLeft size={24} color="#FFFFFF" />
             </Pressable>
           )}
-          <Pressable 
+          <Pressable
             className="flex-row items-center gap-3 active:opacity-70"
             onPress={() => {
-            if (pathname.includes('community')) {
-              router.push('/community/profile');
-            } else if (role === 'customer') {
-              router.push('/(customer)/profile');
-            } else if (role === 'trainer') {
-              router.push('/(trainer)/profile' as any);
-            } else if (role === 'doctor') {
-              router.push('/(doctor)/profile');
-            } else {
-              router.push('/(owner)/profile');
-            }
-          }}
-        >
-          <StaticAvatar 
-            uri={profilePhoto} 
-            name={name || 'User'}
-            size={40}
-            className="h-10 w-10 rounded-full"
-          />
-          <Text className="font-semibold text-white">
-            {name ? `Hi, ${name}` : 'Welcome Back'}
-          </Text>
-        </Pressable>
+              if (pathname.includes('community')) {
+                router.push('/community/profile');
+              } else if (role === 'customer') {
+                router.push('/(customer)/profile');
+              } else if (role === 'trainer') {
+                router.push('/(trainer)/profile' as any);
+              } else if (role === 'doctor') {
+                router.push('/(doctor)/profile');
+              } else {
+                router.push('/(owner)/profile');
+              }
+            }}
+          >
+            <StaticAvatar
+              uri={profilePhoto}
+              name={name || 'User'}
+              size={40}
+              className="h-10 w-10 rounded-full"
+            />
+            <Text className="font-semibold text-white">
+              {name ? `Hi, ${name}` : 'Welcome Back'}
+            </Text>
+          </Pressable>
         </View>
 
         <View className="flex-row items-center gap-5">
-          <Pressable 
+          <Pressable
             className="opacity-80 active:opacity-50"
             onPress={() => {
               if (pathname.includes('community')) {
@@ -80,13 +80,13 @@ export function Navbar() {
               }
             }}
           >
-            <UsersThree 
-              size={24} 
-              weight={pathname.includes('community') ? 'fill' : 'regular'} 
-              color={pathname.includes('community') ? '#C4EF00' : '#ffffff'} 
+            <UsersThree
+              size={24}
+              weight={pathname.includes('community') ? 'fill' : 'regular'}
+              color={pathname.includes('community') ? '#C4EF00' : '#ffffff'}
             />
           </Pressable>
-          <Pressable 
+          <Pressable
             className="opacity-80 active:opacity-50 relative"
             onPress={() => {
               setIsModalVisible(true);
@@ -100,11 +100,11 @@ export function Navbar() {
           </Pressable>
         </View>
       </View>
-      <AnnouncementsModal 
-        visible={isModalVisible} 
-        onClose={() => setIsModalVisible(false)} 
-        announcements={announcements} 
-        isLoading={loading} 
+      <AnnouncementsModal
+        visible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
+        announcements={announcements}
+        isLoading={loading}
       />
     </View>
   );

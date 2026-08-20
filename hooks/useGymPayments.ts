@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchGymPayments, saveGymPayment, deleteGymPayment, SaveGymPaymentParams } from '@/helpers/gymPayments';
+import { fetchGymPayments, fetchGymPaymentsPaginated, saveGymPayment, deleteGymPayment, SaveGymPaymentParams } from '@/helpers/gymPayments';
 import { getOwnerGymId } from '@/helpers/trainers/trainerHelper';
 
 export function useGymPayments(userId: string | null) {
@@ -11,6 +11,20 @@ export function useGymPayments(userId: string | null) {
       if (!gymId) return [];
       
       return await fetchGymPayments(gymId);
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useGymPaymentsPaginated(userId: string | null, page: number = 1, limit: number = 10, filters?: { tab?: string; searchQuery?: string }) {
+  return useQuery({
+    queryKey: ['gymPaymentsPaginated', userId, page, limit, filters],
+    queryFn: async () => {
+      if (!userId) return { data: [], total: 0 };
+      const gymId = await getOwnerGymId(userId);
+      if (!gymId) return { data: [], total: 0 };
+
+      return await fetchGymPaymentsPaginated(gymId, page, limit, filters);
     },
     enabled: !!userId,
   });

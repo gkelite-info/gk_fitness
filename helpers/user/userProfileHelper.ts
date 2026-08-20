@@ -7,6 +7,10 @@ export interface UserProfile {
   email: string | null;
   phone: string | null;
   address: string | null;
+  country?: string | null;
+  state?: string | null;
+  city?: string | null;
+  pincode?: number | null;
   role: string | null;
   profilePhoto?: string | null;
 
@@ -37,14 +41,14 @@ export async function fetchUserAndRoleProfile(
   try {
     let { data: userRecord, error } = await supabase
       .from('users')
-      .select('userId, name, email, phone, address, role, profilePhoto')
+      .select('userId, name, email, phone, address, country, state, city, pincode, role, profilePhoto')
       .eq('userId', authUserId)
       .maybeSingle();
 
     if (!userRecord && authEmail) {
       const emailRes = await supabase
         .from('users')
-        .select('userId, name, email, phone, address, role, profilePhoto')
+        .select('userId, name, email, phone, address, country, state, city, pincode, role, profilePhoto')
         .eq('email', authEmail)
         .maybeSingle();
       userRecord = emailRes.data;
@@ -63,6 +67,10 @@ export async function fetchUserAndRoleProfile(
             email: authUser.email || authEmail || '',
             phone: metadata.phone || '',
             address: metadata.address || '',
+            country: metadata.country || null,
+            state: metadata.state || null,
+            city: metadata.city || null,
+            pincode: metadata.pincode || null,
             role: metadata.role || 'customer',
           });
 

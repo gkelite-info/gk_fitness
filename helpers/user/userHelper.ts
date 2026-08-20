@@ -10,6 +10,10 @@ export interface UserAttributes {
   email: string;
   phone: string;
   address?: string | null;
+  country?: string | null;
+  state?: string | null;
+  city?: string | null;
+  pincode?: number | null;
   role?: UserRole;
   status?: UserStatus;
   isEmailVerified?: boolean;
@@ -24,6 +28,10 @@ export interface SaveUserParams {
   email: string;
   phone: string;
   address?: string | null;
+  country?: string | null;
+  state?: string | null;
+  city?: string | null;
+  pincode?: number | null;
   role?: UserRole;
   status?: UserStatus;
 }
@@ -89,6 +97,10 @@ export async function saveUser(userData: SaveUserParams) {
         email: userData.email,
         phone: userData.phone,
         address: userData.address,
+        country: userData.country,
+        state: userData.state,
+        city: userData.city,
+        pincode: userData.pincode,
         role: userData.role,
         status: userData.status,
         updatedAt: now,
@@ -113,6 +125,10 @@ export async function saveUser(userData: SaveUserParams) {
           email: userData.email,
           phone: userData.phone,
           address: userData.address || null,
+          country: userData.country || null,
+          state: userData.state || null,
+          city: userData.city || null,
+          pincode: userData.pincode || null,
           role: userData.role || 'customer',
           status: userData.status || 'active',
           isEmailVerified: false,

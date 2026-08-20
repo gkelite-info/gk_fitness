@@ -21,7 +21,7 @@ function FloatingEmptyIcon() {
       -1,
       true
     );
-    
+
     rotation.value = withRepeat(
       withSequence(
         withTiming(10, { duration: 1200, easing: Easing.inOut(Easing.quad) }),
@@ -126,64 +126,64 @@ export default function FindOrganizationScreen() {
         <View className="flex-1 px-6 pt-20">
           <View className="mb-8">
             <Text className="text-[#D4FF00] text-sm font-semibold uppercase tracking-widest mb-2">Welcome</Text>
-            <Text className="text-white text-3xl font-bold mb-2">Find Your Gym</Text>
+            <Text className="text-white text-3xl font-semibold mb-2">Find Your Gym</Text>
             <Text className="text-[#8E8E93] text-sm leading-5">
               Select your organization to continue with the sign in process and access your account.
             </Text>
           </View>
 
-        <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3 mb-6">
-          <MagnifyingGlass size={20} color="#6B6B6B" />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search by name or city..."
-            placeholderTextColor="#6B6B6B"
-            className="flex-1 text-white text-[15px] p-0 ml-3 font-medium"
-            autoCapitalize="none"
-          />
-        </View>
-
-        <View className="flex-1">
-          {loading ? (
-            <View className="flex-1 justify-center items-center">
-              <ActivityIndicator size="large" color="#D4FF00" />
-            </View>
-          ) : error ? (
-            <View className="flex-1 justify-center items-center">
-              <Text className="text-red-500 mb-2">Error loading gyms:</Text>
-              <Text className="text-[#8E8E93] text-sm text-center px-4">
-                {error instanceof Error ? error.message : JSON.stringify(error)}
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={gyms}
-              keyExtractor={(item) => item.gymId || item.gymName}
-              renderItem={renderGymItem}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
-              ListEmptyComponent={
-                <View className="flex-1 items-center justify-center">
-                  <FloatingEmptyIcon />
-                  <Text className="text-[#8E8E93] text-[15px] font-medium text-center">
-                    {searchQuery.trim() ? "No gyms found matching your search." : "Enter a gym name to search."}
-                  </Text>
-                </View>
-              }
+          <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3 mb-6">
+            <MagnifyingGlass size={20} color="#6B6B6B" />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search by name or city..."
+              placeholderTextColor="#6B6B6B"
+              className="flex-1 text-white text-[15px] p-0 ml-3 font-medium"
+              autoCapitalize="none"
             />
-          )}
-        </View>
+          </View>
 
-        {/* Support Section for App Store Review / Best Practices (Guideline 3.2) */}
-        <View className="pb-8 pt-4 flex-row items-center justify-center">
-          <Text className="text-[#6B6B6B] text-[13px]">Gym not listed? </Text>
-          <Pressable onPress={() => Linking.openURL('https://www.gkeliteinfo.com/contact')} className="active:opacity-70">
-            <Text className="text-[#8E8E93] text-[13px] font-medium underline">Contact Support</Text>
-          </Pressable>
-        </View>
+          <View className="flex-1">
+            {loading ? (
+              <View className="flex-1 justify-center items-center">
+                <ActivityIndicator size="large" color="#D4FF00" />
+              </View>
+            ) : error ? (
+              <View className="flex-1 justify-center items-center">
+                <Text className="text-red-500 mb-2">Error loading gyms:</Text>
+                <Text className="text-[#8E8E93] text-sm text-center px-4">
+                  {error instanceof Error ? error.message : JSON.stringify(error)}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={gyms}
+                keyExtractor={(item) => item.gymId || item.gymName}
+                renderItem={renderGymItem}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
+                ListEmptyComponent={
+                  <View className="flex-1 items-center justify-center">
+                    <FloatingEmptyIcon />
+                    <Text className="text-[#8E8E93] text-[15px] font-medium text-center">
+                      {searchQuery.trim() ? "No gyms found matching your search." : "Enter a gym name to search."}
+                    </Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+
+          {/* Support Section for App Store Review / Best Practices (Guideline 3.2) */}
+          <View className="pb-8 pt-4 flex-row items-center justify-center">
+            <Text className="text-[#6B6B6B] text-[13px]">Gym not listed? </Text>
+            <Pressable onPress={() => Linking.openURL('https://www.gkeliteinfo.com/contact')} className="active:opacity-70">
+              <Text className="text-[#8E8E93] text-[13px] font-medium underline">Contact Support</Text>
+            </Pressable>
+          </View>
         </View>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>

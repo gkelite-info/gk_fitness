@@ -46,5 +46,5 @@ export default function Index() {
     return <Redirect href="/auth/otp-auth" />;
   }
 
-  return <Redirect href="/auth/find-organization" />;
+  return <Redirect href="/auth/account-type" />;
 }

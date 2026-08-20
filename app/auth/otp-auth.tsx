@@ -25,10 +25,11 @@ import {
   Phone,
   MapPin,
   Building,
+  CaretLeft,
 } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
 import { navigateBasedOnRole, createUser } from '@/helpers/otpHelper';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 import { getSelectedGym, SelectedGym, clearSelectedGym } from '@/helpers/tenantHelper';
@@ -36,6 +37,8 @@ import { getSelectedGym, SelectedGym, clearSelectedGym } from '@/helpers/tenantH
 export default function OtpAuthScreen() {
   const { role, loading: userLoading, refreshUserContext, isGymSuspended } = useUser();
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const typeId = params.type as string;
   const [purpose, setPurpose] = useState<'login' | 'signup'>('login');
   const [loginMethod /* , setLoginMethod */] = useState<'email' | 'phone'>('email');
 
@@ -372,7 +375,13 @@ export default function OtpAuthScreen() {
     >
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false} bounces={false}>
-        <View className="h-[300px] w-full relative justify-end pb-8 px-6">
+        <Pressable
+          onPress={() => router.push('/auth/account-type')}
+          className="absolute top-12 left-6 z-10 w-10 h-10 bg-[#121212] border border-[#1E1E1E] rounded-full items-center justify-center"
+        >
+          <CaretLeft size={20} color="#FFFFFF" />
+        </Pressable>
+        <View className="h-[300px] w-full relative justify-end pb-8 px-6 mt-8">
           <View className="absolute top-0 right-0 bottom-0 opacity-40 items-end justify-center overflow-visible">
             <Image
               source={require('../../assets/login-posture.png')}
@@ -408,11 +417,11 @@ export default function OtpAuthScreen() {
                   <Text className="text-white text-sm font-semibold" numberOfLines={1}>{selectedGym.gymName}</Text>
                 </View>
               </View>
-              <Pressable 
+              <Pressable
                 onPress={async () => {
                   await clearSelectedGym();
                   router.replace('/auth/find-organization');
-                }} 
+                }}
                 className="bg-[#2A2A2A] px-3 py-1.5 rounded-lg active:opacity-80"
               >
                 <Text className="text-white text-xs font-medium">Change</Text>
@@ -626,11 +635,11 @@ export default function OtpAuthScreen() {
           )}
 
           {purpose === 'login' && (
-            <View className="mt-2 mb-4 px-4">
-              <Text className="text-[#8E8E93] text-[12px] text-center leading-5">
-                Don't have an account? Please contact your organization's administrator to request access.
+            <Pressable onPress={() => router.push({ pathname: '/auth/signup', params: { type: typeId } })} className="self-center mt-2 mb-4">
+              <Text className="text-[#8E8E93] text-sm">
+                Don't have an account? <Text className="text-[#C3F400] font-semibold">Sign Up</Text>
               </Text>
-            </View>
+            </Pressable>
           )}
 
           <View className="flex-row justify-center items-center pb-8 mt-2">

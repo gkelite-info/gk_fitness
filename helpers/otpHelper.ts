@@ -37,6 +37,10 @@ export interface CreateUserParams {
   email: string;
   phone: string;
   address?: string;
+  country?: string | null;
+  state?: string | null;
+  city?: string | null;
+  pincode?: number | null;
   role?: string;
 }
 
@@ -46,6 +50,10 @@ export async function createUser(userData: CreateUserParams) {
     email: userData.email,
     phone: userData.phone,
     address: userData.address || null,
+    country: userData.country || null,
+    state: userData.state || null,
+    city: userData.city || null,
+    pincode: userData.pincode || null,
     role: userData.role || 'customer',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -76,6 +84,10 @@ export async function updateUser(userId: string, userData: Partial<CreateUserPar
   if (userData.name) updateData.name = userData.name;
   if (userData.phone) updateData.phone = userData.phone;
   if (userData.address !== undefined) updateData.address = userData.address;
+  if (userData.country !== undefined) updateData.country = userData.country;
+  if (userData.state !== undefined) updateData.state = userData.state;
+  if (userData.city !== undefined) updateData.city = userData.city;
+  if (userData.pincode !== undefined) updateData.pincode = userData.pincode;
 
   const { data, error } = await supabase
     .from('users')

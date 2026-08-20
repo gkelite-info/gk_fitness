@@ -64,6 +64,64 @@ export async function fetchGymPayments(gymId?: string) {
   return data ?? [];
 }
 
+export async function fetchGymPaymentsPaginated(
+  gymId?: string,
+  page: number = 1,
+  limit: number = 10,
+  filters?: { tab?: string; searchQuery?: string }
+) {
+  let query = supabase
+    .from('gym_payments')
+    .select(`
+      *,
+      gym_customers!inner (
+        fullName,
+        phone
+      ),
+      gym_membership_plans (
+        planName,
+        durationMonths
+      )
+    `, { count: 'exact' })
+    .eq('is_deleted', false)
+    .order('createdAt', { ascending: false });
+
+  if (gymId) {
+    query = query.eq('gymId', gymId);
+  }
+
+  if (filters?.searchQuery) {
+    query = query.ilike('gym_customers.fullName', `%${filters.searchQuery}%`);
+  }
+
+  if (filters?.tab === 'Today') {
+    const today = new Date();
+    // Use local date for "Today" filter, format YYYY-MM-DD
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    query = query.eq('paymentDate', todayStr);
+  } else if (filters?.tab === 'This Month') {
+    const today = new Date();
+    const firstDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+    query = query.gte('paymentDate', firstDay);
+  }
+
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    console.error('[gymPaymentsHelper] fetchGymPaymentsPaginated Error:', error);
+    throw error;
+  }
+
+  return {
+    data: data ?? [],
+    total: count ?? 0,
+  };
+}
+
 export async function fetchGymPaymentById(gymPaymentId: string) {
   const { data, error } = await supabase
     .from('gym_payments')

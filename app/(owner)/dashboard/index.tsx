@@ -32,14 +32,14 @@ import {
 import { triggerMediumHaptic } from '@/lib/haptics';
 
 const OVERVIEW_ITEMS = [
-  { id: 'active-customers', icon: Users, label: 'ACTIVE CUSTOMERS', value: '0' },
+  { id: 'active-members', icon: Users, label: 'ACTIVE MEMBERS', value: '0' },
   { id: 'check-ins', icon: CheckCircle, label: 'CHECK-INS', value: '0' },
   { id: 'revenue-today', icon: CurrencyInr, label: 'REVENUE TODAY', value: '₹-' },
   { id: 'monthly-growth', icon: TrendUp, label: 'MONTHLY GROWTH', value: '0%' },
 ];
 
 const QUICK_ACTIONS = [
-  { id: 'add-customer', icon: UserPlus, label: 'Add Customer' },
+  { id: 'add-member', icon: UserPlus, label: 'Add Member' },
   { id: 'create-announcement', icon: Megaphone, label: 'Create Announcement' },
   { id: 'open-qr', icon: QrCode, label: 'Open Check-In QR' },
   { id: 'manage-inventory', icon: Package, label: 'Manage Inventory' },
@@ -265,7 +265,7 @@ export default function OwnerDashboardScreen() {
         {OVERVIEW_ITEMS.map((item, index) => {
           const IconComp = item.icon;
           let displayValue = item.value;
-          if (item.id === 'active-customers') {
+          if (item.id === 'active-members' || item.id === 'active-customers') {
             displayValue = activeCustomersCount.toString();
           } else if (item.id === 'check-ins') {
             displayValue = checkInsCount.toString();

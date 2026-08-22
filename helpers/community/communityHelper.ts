@@ -13,6 +13,7 @@ export interface CommunityPost {
   users: {
     name: string;
     role: string;
+    profilePhoto?: string | null;
   };
   likesCount: number;
   commentsCount: number;
@@ -38,7 +39,7 @@ export async function fetchCommunityPosts(gymId: string, currentUserId: string, 
       .from('gym_community_posts')
       .select(`
         *,
-        users (name, role),
+        users (name, role, profilePhoto),
         gym_community_likes (likedBy, is_deleted),
         gym_community_comments (gymCommunityCommentId, is_deleted),
         gym_community_saves (savedBy, is_deleted)

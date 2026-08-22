@@ -87,16 +87,16 @@ export function useToggleSave() {
   });
 }
 
-export function usePostComments(postId: string | null, userId: string | null) {
+export const usePostComments = (postId: string | null, userId: string | null, sortBy: 'newest' | 'oldest' = 'oldest') => {
   return useQuery({
-    queryKey: ['post-comments', postId, userId],
-    queryFn: async () => {
+    queryKey: ['comments', postId, sortBy],
+    queryFn: () => {
       if (!postId || !userId) return [];
-      return await fetchComments(postId, userId);
+      return fetchComments(postId, userId, sortBy);
     },
-    enabled: !!postId && !!userId
+    enabled: !!postId && !!userId,
   });
-}
+};
 
 export function useAddComment() {
   const queryClient = useQueryClient();

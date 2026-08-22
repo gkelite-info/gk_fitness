@@ -81,7 +81,7 @@ export async function toggleSave(postId: string, userId: string) {
   }
 }
 
-export async function fetchComments(postId: string, currentUserId: string) {
+export async function fetchComments(postId: string, currentUserId: string, sortBy: 'newest' | 'oldest' = 'oldest') {
   try {
     // 1. Fetch blocked users
     const [blockedByMe, blockedMe] = await Promise.all([
@@ -102,7 +102,7 @@ export async function fetchComments(postId: string, currentUserId: string) {
       `)
       .eq('gymCommunityPostId', postId)
       .eq('is_deleted', false)
-      .order('createdAt', { ascending: true });
+      .order('createdAt', { ascending: sortBy === 'oldest' });
 
     if (blockedUserIds.length > 0) {
       query = query.not('authorId', 'in', `(${blockedUserIds.join(',')})`);

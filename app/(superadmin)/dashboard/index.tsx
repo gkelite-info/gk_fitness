@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView, Pressable, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { triggerMediumHaptic } from '@/lib/haptics';
 import {
   Buildings,
@@ -13,6 +14,8 @@ import {
   UserPlus,
   Headphones,
   Calendar,
+  MapPin,
+  CaretRight,
 } from 'phosphor-react-native';
 import { useGyms } from '@/hooks/gyms/useGyms';
 import { useUsers } from '@/hooks/users/useUsers';
@@ -35,6 +38,7 @@ const QUICK_ACTIONS_DATA = [
 export default function DashboardScreen() {
   const router = useRouter();
   const { name, userId } = useUser();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = React.useState(false);
   const { data: gyms, isLoading: isLoadingGyms, refetch: refetchGyms } = useGyms();
   const { data: users, refetch: refetchUsers } = useUsers();
@@ -84,15 +88,21 @@ export default function DashboardScreen() {
   });
 
   const handleQuickAction = (id: string) => {
-    if (id === 'register-gym' || id === 'view-gyms') {
+    if (id === 'register-gym') {
       router.push('/(superadmin)/dashboard/register');
+    } else if (id === 'view-gyms') {
+      router.push('/(superadmin)/gyms');
     }
   };
+
+  const recentGyms = gyms 
+    ? [...gyms].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 3) 
+    : [];
 
   return (
     <ScrollView
       className="flex-1 bg-[#0A0A0A]"
-      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: insets.bottom + 120 }}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -119,15 +129,16 @@ export default function DashboardScreen() {
         {overviewData.map((item) => {
           const Icon = item.icon;
           return (
-            <View
+            <Pressable
               key={item.id}
-              className="flex-1 bg-[#0F0F0F] border border-[#111827] rounded-2xl p-3 items-center justify-center min-h-[130px]">
+              onPress={() => item.id === 'total-gyms' ? router.push('/(superadmin)/gyms') : null}
+              className="flex-1 bg-[#0F0F0F] border border-[#111827] rounded-2xl p-3 items-center justify-center min-h-[130px] active:opacity-70">
               <Icon size={28} color="#BEF227" weight="fill" />
               <Text className="text-2xl font-semibold text-white mt-2">{item.value}</Text>
               <Text className="text-[11px] font-normal text-[#888888] text-center mt-1 leading-3">
                 {item.label}
               </Text>
-            </View>
+            </Pressable>
           );
         })}
       </View>
@@ -149,6 +160,92 @@ export default function DashboardScreen() {
             </Pressable>
           );
         })}
+      </View>
+
+      <View className="flex-row items-center justify-between mt-6 mb-3">
+        <Text className="text-lg font-semibold text-white">Recently Registered Gyms</Text>
+        <Pressable className="flex-row items-center gap-1" onPress={() => router.push('/(superadmin)/gyms')}>
+          <Text className="text-xs font-semibold text-[#BEF227]">View All</Text>
+          <CaretRight size={12} color="#BEF227" weight="bold" />
+        </Pressable>
+      </View>
+
+      <View className="gap-3">
+        {recentGyms.map((gym) => (
+          <Pressable 
+            key={gym.gymId || gym.id} 
+            className="flex-row items-center bg-[#0F0F0F] border border-[#111827] rounded-2xl p-3"
+            onPress={() => router.push(`/(superadmin)/dashboard/gym/${gym.gymId || gym.id}` as any)}
+          >
+            {gym.logo ? (
+               <Image source={{ uri: gym.logo }} className="w-12 h-12 rounded-xl bg-white mr-3" />
+            ) : (
+               <View className="w-12 h-12 rounded-xl bg-[#1C1C1E] items-center justify-center mr-3 border border-[#2A2A2D]"><Text className="text-[10px] font-bold text-[#888888] text-center">NO{'\n'}LOGO</Text></View>
+            )}
+            <View className="flex-1">
+              <Text className="text-white font-semibold text-base">{gym.gymName}</Text>
+              <Text className="text-[#888888] text-xs mt-0.5">Owner: {gym.ownerName || 'Unknown Owner'}</Text>
+              <View className="flex-row items-center mt-1">
+                <MapPin size={10} color="#888888" />
+                <Text className="text-[#888888] text-[10px] ml-1">{gym.city || 'City'}, {gym.state || 'State'}</Text>
+              </View>
+            </View>
+            <View className="items-end justify-between h-full py-1">
+              <View className="flex-row items-center mb-3">
+                <Calendar size={10} color="#888888" />
+                <Text className="text-[#888888] text-[10px] ml-1">
+                  {gym.createdAt ? new Date(gym.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Unknown Date'}
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-2">
+                <View className="bg-[#064E3B]/40 border border-[#059669]/30 px-3 py-1 rounded-full">
+                  <Text className="text-[#10B981] text-[11px] font-bold tracking-wider">{gym.isActive ? 'Active' : 'Inactive'}</Text>
+                </View>
+                <CaretRight size={14} color="#888888" />
+              </View>
+            </View>
+          </Pressable>
+        ))}
+        {recentGyms.length === 0 && (
+          <Text className="text-[#888888] text-sm text-center py-4">No recent gyms found</Text>
+        )}
+      </View>
+
+      <View className="flex-row items-center justify-between mt-6 mb-3">
+        <Text className="text-lg font-semibold text-white">Support Requests</Text>
+        <Pressable className="flex-row items-center gap-1" onPress={() => router.push('/(superadmin)/support')}>
+          <Text className="text-xs font-semibold text-[#BEF227]">View All</Text>
+        </Pressable>
+      </View>
+
+      <View className="bg-[#0F0F0F] border border-[#111827] rounded-2xl p-4 gap-4">
+        <Pressable className="flex-row items-center justify-between active:opacity-70">
+          <View className="flex-row items-center gap-3">
+            <View className="w-8 h-8 rounded-full bg-[#BEF227]/10 items-center justify-center">
+              <Headphones size={16} color="#BEF227" weight="fill" />
+            </View>
+            <View>
+              <Text className="text-white font-bold text-sm">3</Text>
+              <Text className="text-[#888888] text-[10px]">Open Requests</Text>
+            </View>
+          </View>
+          <CaretRight size={14} color="#888888" />
+        </Pressable>
+
+        <View className="h-[1px] bg-[#111827]" />
+
+        <Pressable className="flex-row items-center justify-between active:opacity-70">
+          <View className="flex-row items-center gap-3">
+            <View className="w-8 h-8 rounded-full bg-[#A855F7]/10 items-center justify-center">
+              <CheckCircle size={16} color="#A855F7" weight="bold" />
+            </View>
+            <View>
+              <Text className="text-white font-bold text-sm">12</Text>
+              <Text className="text-[#888888] text-[10px]">Resolved</Text>
+            </View>
+          </View>
+          <CaretRight size={14} color="#888888" />
+        </Pressable>
       </View>
     </ScrollView>
   );

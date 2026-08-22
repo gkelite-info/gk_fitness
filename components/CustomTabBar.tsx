@@ -34,7 +34,10 @@ export function CustomTabBar({
   const isFocusedOnboarding = focusedRoute.name === '(onboarding)' || focusedRoute.name.includes('step');
   const isFocusedCommunity = focusedRoute.name === 'community';
 
-  if (isFocusedOnboarding || isFocusedCommunity) {
+  const { options } = descriptors[focusedRoute.key];
+  const isTabBarHidden = (options.tabBarStyle as any)?.display === 'none';
+
+  if (isFocusedOnboarding || isFocusedCommunity || isTabBarHidden) {
     return null;
   }
 

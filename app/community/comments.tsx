@@ -19,17 +19,23 @@ export default function CommentsScreen() {
   const router = useRouter();
   const { postId } = useLocalSearchParams<{ postId: string }>();
   const insets = useSafeAreaInsets();
-  const userContext = useUser();
-  const { userId } = userContext;
+  const { userId, name, profilePhoto } = useUser();
   const [comment, setComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ id: string, name: string } | null>(null);
 
-  const { data: comments, isLoading } = usePostComments(postId ?? null, userId ?? null);
+  // Pagination & Replies State
+  const [visibleComments, setVisibleComments] = useState(5);
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+  
+  // Sort State
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('oldest');
+
+  const { data: comments, isLoading } = usePostComments(postId ?? null, userId ?? null, sortBy);
   const addCommentMutation = useAddComment();
   const deleteCommentMutation = useDeleteComment();
   const reportContentMutation = useReportContent();
 
-  const [activeModal, setActiveModal] = useState<'none' | 'options' | 'confirmDelete' | 'confirmReport'>('none');
+  const [activeModal, setActiveModal] = useState<'none' | 'sortOptions' | 'options' | 'confirmDelete' | 'confirmReport'>('none');
   const [selectedComment, setSelectedComment] = useState<any>(null);
 
   const handleSendComment = () => {
@@ -101,22 +107,35 @@ export default function CommentsScreen() {
   const topLevelComments = comments?.filter((c: any) => !c.parentId) || [];
   const getReplies = (parentId: string) => comments?.filter((c: any) => c.parentId === parentId) || [];
 
+  const toggleReplies = (commentId: string) => {
+    setExpandedReplies(prev => {
+      const next = new Set(prev);
+      if (next.has(commentId)) next.delete(commentId);
+      else next.add(commentId);
+      return next;
+    });
+  };
+
   return (
     <KeyboardAvoidingView 
       className="flex-1 bg-[#0A0A0A]" 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View>
-        <View className="flex-row items-center justify-between px-5 pt-2 pb-4">
+        <View className="flex-row items-center justify-between px-5 pt-2 pb-4 border-b border-[#1F1F22]">
+          <View className="w-10 h-10 -ml-2 items-center justify-center">
+            <Pressable onPress={() => router.back()} className="active:opacity-70 p-2">
+              <CaretLeft size={24} color="#FFFFFF" />
+            </Pressable>
+          </View>
+          <Text className="text-xl font-bold text-white tracking-wide text-center">
+            Comments
+          </Text>
           <Pressable 
-            onPress={() => router.back()} 
-            className="w-10 h-10 rounded-full bg-[#18181B] items-center justify-center active:opacity-70"
+            className="w-10 h-10 items-center justify-center -mr-2 active:opacity-70"
+            onPress={() => setActiveModal('sortOptions')}
           >
-            <CaretLeft size={20} color="#FFFFFF" />
-          </Pressable>
-          <Text className="text-xl font-bold text-white tracking-wide flex-1 text-center">Comments</Text>
-          <Pressable className="w-10 h-10 items-center justify-center">
-            <FadersHorizontal size={20} color="#FFFFFF" />
+            <FadersHorizontal size={24} color="#FFFFFF" />
           </Pressable>
         </View>
       </View>
@@ -130,12 +149,47 @@ export default function CommentsScreen() {
           className="flex-1 px-5 pt-4"
           showsVerticalScrollIndicator={false}
         >
-          {topLevelComments.map((item: any) => (
-            <View key={item.gymCommunityCommentId}>
-              {renderComment(item)}
-              {getReplies(item.gymCommunityCommentId).map((reply: any) => renderComment(reply, true))}
-            </View>
-          ))}
+          {topLevelComments.slice(0, visibleComments).map((item: any) => {
+            const replies = getReplies(item.gymCommunityCommentId);
+            const isExpanded = expandedReplies.has(item.gymCommunityCommentId);
+            
+            return (
+              <View key={item.gymCommunityCommentId}>
+                {renderComment(item)}
+                {replies.length > 0 && !isExpanded && (
+                  <Pressable 
+                    className="ml-14 mb-5 flex-row items-center active:opacity-70" 
+                    onPress={() => toggleReplies(item.gymCommunityCommentId)}
+                  >
+                    <View className="w-6 h-px bg-[#71717A] mr-3" />
+                    <Text className="text-[#71717A] text-[13px] font-semibold">
+                      View {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+                    </Text>
+                  </Pressable>
+                )}
+                {isExpanded && (
+                  <>
+                    {replies.map((reply: any) => renderComment(reply, true))}
+                    <Pressable 
+                      className="ml-14 mb-5 flex-row items-center active:opacity-70" 
+                      onPress={() => toggleReplies(item.gymCommunityCommentId)}
+                    >
+                      <View className="w-6 h-px bg-[#71717A] mr-3" />
+                      <Text className="text-[#71717A] text-[13px] font-semibold">Hide replies</Text>
+                    </Pressable>
+                  </>
+                )}
+              </View>
+            );
+          })}
+          {topLevelComments.length > visibleComments && (
+            <Pressable 
+              className="items-center py-4 active:opacity-70 mb-4"
+              onPress={() => setVisibleComments(prev => prev + 5)}
+            >
+              <Text className="text-[#71717A] text-[13px] font-semibold">View more comments</Text>
+            </Pressable>
+          )}
           {topLevelComments.length === 0 && (
             <View className="items-center justify-center py-10">
               <Text className="text-[#A1A1AA] text-sm">No comments yet. Be the first!</Text>
@@ -159,8 +213,8 @@ export default function CommentsScreen() {
         )}
         <View className="flex-row items-center gap-3">
           <StaticAvatar 
-            uri={userContext?.profilePhoto || undefined}
-            name={userContext?.name || undefined}
+            uri={profilePhoto || undefined}
+            name={name || undefined}
             size={36}
             className="w-9 h-9 rounded-full" 
           />
@@ -192,6 +246,16 @@ export default function CommentsScreen() {
       </View>
 
       {/* Modals */}
+      <ActionSheetModal
+        visible={activeModal === 'sortOptions'}
+        onClose={() => setActiveModal('none')}
+        title="Sort Comments"
+        options={[
+          { label: sortBy === 'oldest' ? '✓ Oldest First' : 'Oldest First', onPress: () => { setSortBy('oldest'); setActiveModal('none'); } },
+          { label: sortBy === 'newest' ? '✓ Newest First' : 'Newest First', onPress: () => { setSortBy('newest'); setActiveModal('none'); } },
+        ]}
+      />
+
       <ActionSheetModal
         visible={activeModal === 'options'}
         onClose={() => setActiveModal('none')}

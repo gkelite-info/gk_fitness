@@ -67,12 +67,19 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
             if (isMounted) setSteps(initialSteps + watchResult.steps);
           });
         } else if (Platform.OS === 'android') {
-          const end = new Date();
-          const start = new Date();
-          start.setHours(0, 0, 0, 0);
-          
-          const result = await Pedometer.getStepCountAsync(start, end);
-          const currentTotalSteps = result ? result.steps : 0;
+          let currentTotalSteps = 0;
+          try {
+            const end = new Date();
+            const start = new Date();
+            start.setHours(0, 0, 0, 0);
+            
+            const result = await Pedometer.getStepCountAsync(start, end);
+            currentTotalSteps = result ? result.steps : 0;
+          } catch (err) {
+            console.warn('Pedometer.getStepCountAsync failed on Android (expected on some devices/SDKs):', err);
+            // Fallback to 0 so we can at least track steps while the app is open using watchStepCount
+            currentTotalSteps = 0;
+          }
           
           const todayDate = new Date().toISOString().split('T')[0];
           const stateKey = `@android_pedometer_state_${todayDate}`;

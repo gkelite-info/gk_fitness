@@ -22,7 +22,7 @@ export default function MyPostsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { gymId, userId } = useUser();
-  const [activeTab, setActiveTab] = useState('Posts');
+  const [activeTab, setActiveTab] = useState('Saved');
 
   const { data, isLoading } = useCommunityFeed(gymId ?? null, userId ?? null);
   const toggleLikeMutation = useToggleLike();
@@ -122,7 +122,7 @@ export default function MyPostsScreen() {
                     <StaticAvatar 
                       uri={(post.users as any)?.profilePhoto || (post.users as any)?.avatar} 
                       name={post.users?.name}
-                      size={32}
+                      size={40}
                       className="w-8 h-8 rounded-full mr-3" 
                     />
                     <View>

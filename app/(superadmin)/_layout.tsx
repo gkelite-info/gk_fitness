@@ -10,7 +10,7 @@ export default function SuperAdminLayout() {
         header: () => <Navbar />,
       }}>
       <Tabs.Screen
-        name="gyms"
+        name="gyms/index"
         options={{
           title: 'Gyms',
         }}
@@ -37,8 +37,14 @@ export default function SuperAdminLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          headerShown: false,
         }}
       />
+      
+      {/* Hidden Dynamic Routes */}
+      <Tabs.Screen name="dashboard/gym/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="customers/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="trainers/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }

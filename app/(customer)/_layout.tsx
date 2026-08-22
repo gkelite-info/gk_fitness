@@ -34,7 +34,6 @@ export default function CustomerLayout() {
           name="explore"
           options={{
             title: 'Explore',
-            headerShown: false,
           }}
         />
         <Tabs.Screen
@@ -56,6 +55,12 @@ export default function CustomerLayout() {
           options={{
             href: null,
             headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="shop"
+          options={{
+            href: null,
           }}
         />
         <Tabs.Screen

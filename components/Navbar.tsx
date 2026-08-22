@@ -22,7 +22,9 @@ export function Navbar() {
   const { announcements, loading, hasNew, clearHasNew } = useRealtimeAnnouncements(gymId);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  if (pathname.includes('/profile')) {
+  // Hide navbar on dynamic profile pages (e.g. /community/profile/abc123) but NOT on /community/profile (saved posts)
+  const isProfilePage = pathname === '/community/profile' ? false : pathname.includes('/profile');
+  if (isProfilePage) {
     return null;
   }
 
@@ -45,7 +47,7 @@ export function Navbar() {
             className="flex-row items-center gap-3 active:opacity-70"
             onPress={() => {
               if (pathname.includes('community')) {
-                router.push('/community/profile');
+                router.push(`/community/profile/${userId}`);
               } else if (role === 'customer') {
                 router.push('/(customer)/profile');
               } else if (role === 'trainer') {
@@ -57,14 +59,14 @@ export function Navbar() {
               }
             }}
           >
-            <StaticAvatar
-              uri={profilePhoto}
+            <StaticAvatar 
+              uri={profilePhoto} 
               name={name || 'User'}
               size={40}
               className="h-10 w-10 rounded-full"
             />
             <Text className="font-semibold text-white">
-              {name ? `Hi, ${name}` : 'Welcome Back'}
+              {name ? `Welcome, ${name}` : 'Welcome Back'}
             </Text>
           </Pressable>
         </View>

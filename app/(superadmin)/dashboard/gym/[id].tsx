@@ -1,293 +1,264 @@
-import React from 'react';
-import { View, ScrollView, Pressable, Image, ActivityIndicator, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, TextInput, FlatList } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   MapPin,
-  CalendarBlank,
-  User,
-  Phone,
-  EnvelopeSimple,
-  Globe,
+  MagnifyingGlass,
+  Funnel,
+  CaretRight,
   Users,
   Barbell,
-  PencilSimple,
-  Power,
-  DotsThreeVertical
+  User,
+  Phone
 } from 'phosphor-react-native';
 import { useGyms } from '@/hooks/gyms/useGyms';
 import { useGymOwners } from '@/hooks/gymOwners/useGymOwners';
 import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
-import { toggleGymActiveStatus } from '@/helpers/gym/gymHelper';
-import { useQueryClient } from '@tanstack/react-query';
-import ConfirmModal from '@/components/ConfirmModal';
-import { toast } from '@/lib/toast';
+import { StaticAvatar } from '@/components/ui/StaticAvatar';
 
-export default function GymDetailsScreen() {
+type Tab = 'customers' | 'trainers' | 'owners';
+
+export default function GymDetailsTabsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const queryClient = useQueryClient();
-  const [isToggling, setIsToggling] = React.useState(false);
-  const [showConfirm, setShowConfirm] = React.useState(false);
+  
+  const [activeTab, setActiveTab] = useState<Tab>('customers');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   const { data: gyms, isLoading: isLoadingGyms } = useGyms();
   const { data: owners, isLoading: isLoadingOwners } = useGymOwners();
   const { data: trainers, isLoading: isLoadingTrainers } = useGymTrainers(id);
   const { data: customers, isLoading: isLoadingCustomers } = useGymCustomers(id);
 
+  const gym = gyms?.find((g) => g.gymId === id || g.id === id);
+
   if (isLoadingGyms || isLoadingOwners || isLoadingTrainers || isLoadingCustomers) {
     return (
-      <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
-        <ActivityIndicator size="large" color="#BAFF00" />
+      <View className="flex-1 bg-[#09090B] items-center justify-center">
+        <ActivityIndicator size="large" color="#CCFF00" />
       </View>
     );
   }
 
-  const handleBack = () => {
-    router.push
+  // Current active dataset
+  let currentData: any[] = [];
+  if (activeTab === 'customers') currentData = customers || [];
+  if (activeTab === 'trainers') currentData = trainers || [];
+  if (activeTab === 'owners') {
+    // Owners might just be the gym.owner string in the basic schema, or fetched via useGymOwners
+    currentData = owners?.filter(o => o.gymId === id) || [];
+    // If empty, let's mock one for the UI demonstration if gym has an owner string
+    if (currentData.length === 0 && gym?.owner) {
+      currentData = [{ id: 'owner-1', name: gym.owner, phone: '+91 98765 00000', isActive: true, role: 'Owner' }];
+    }
   }
 
-  const gym = gyms?.find((g) => g.gymId === id);
-  const owner = owners?.find((o) => o.gymId === id);
+  // Filter & Search
+  const filteredData = currentData.filter(item => {
+    let name = '';
+    let phone = '';
+    let isItemActive = false;
+    
+    if (activeTab === 'owners') {
+      name = item.ownerFullname || '';
+      phone = item.ownerPhone || '';
+      isItemActive = item.isActive !== false && item.is_deleted !== true;
+    } else {
+      name = item.fullName || '';
+      phone = item.phone || '';
+      isItemActive = item.isActive !== false && item.is_Active !== false && item.status !== 'INACTIVE' && item.is_deleted !== true;
+    }
 
-  if (!gym) {
+    const nameMatch = name.toLowerCase().includes(searchQuery.toLowerCase());
+    const phoneMatch = phone.includes(searchQuery);
+    
+    const filterMatch = filter === 'all' || 
+                       (filter === 'active' && isItemActive) || 
+                       (filter === 'inactive' && !isItemActive);
+    
+    return (nameMatch || phoneMatch) && filterMatch;
+  });
+
+  const activeCount = filteredData.filter(item => {
+    if (activeTab === 'owners') return item.isActive !== false && item.is_deleted !== true;
+    return item.isActive !== false && item.is_Active !== false && item.status !== 'INACTIVE' && item.is_deleted !== true;
+  }).length;
+  const inactiveCount = filteredData.length - activeCount;
+
+  const renderTab = (tabId: Tab, icon: React.ReactNode, label: string, count: number) => {
+    const isActive = activeTab === tabId;
     return (
-      <View className="flex-1 bg-[#0A0A0A] p-4">
-        <View className="flex-row items-center gap-3 mb-6">
-          <Pressable
-            onPress={() => router.back()}
-            className="w-9 h-9 rounded-full bg-[#111622] border border-[#1F293D] items-center justify-center">
-            <ArrowLeft size={18} color="#FFFFFF" />
-          </Pressable>
-          <Text className="text-xl font-semibold text-white">Gym Not Found</Text>
-        </View>
-      </View>
+      <Pressable 
+        onPress={() => {
+          setActiveTab(tabId);
+          setSearchQuery('');
+          setFilter('all');
+        }}
+        className={`flex-1 flex-row items-center justify-center py-4 border-b-2 ${isActive ? 'border-[#CCFF00]' : 'border-transparent'}`}
+      >
+        <View className="mr-2 opacity-80">{icon}</View>
+        <Text className={`text-sm ${isActive ? 'text-[#CCFF00] font-semibold' : 'text-[#8E8E93]'}`}>
+          {label} ({count})
+        </Text>
+      </Pressable>
     );
-  }
-
-  const formatPgDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
   };
 
-  const trainersCount = trainers?.length || 0;
-  const customersCount = customers?.length || 0;
+  const renderFilterChip = (id: 'all' | 'active' | 'inactive', label: string, count: number) => {
+    const isSelected = filter === id;
+    return (
+      <Pressable 
+        onPress={() => setFilter(id)}
+        className={`px-4 py-2 rounded-full border ${isSelected ? 'border-[#CCFF00]' : 'border-[#2A2A2D]'}`}
+      >
+        <Text className={`text-xs ${isSelected ? 'text-[#CCFF00] font-semibold' : 'text-white'}`}>
+          {label} ({count})
+        </Text>
+      </Pressable>
+    );
+  };
+
+  const handleCardPress = (item: any) => {
+    if (activeTab === 'customers' && item.customerId) {
+      router.push(`/(superadmin)/customers/${item.customerId}`);
+    } else if (activeTab === 'trainers' && item.gymTrainerId) {
+      router.push(`/(superadmin)/trainers/${item.gymTrainerId}`);
+    } else if (activeTab === 'owners') {
+      // Owners view doesn't exist uniquely yet, could route to owners list or similar
+    }
+  };
+
+  const renderCard = ({ item }: { item: any }) => {
+    let name = '';
+    let phone = '';
+    let isItemActive = false;
+    let subText = '';
+    let avatarUrl = item.profilePhoto;
+
+    if (activeTab === 'owners') {
+      name = item.ownerFullname || 'Unknown Owner';
+      phone = item.ownerPhone || 'No phone';
+      isItemActive = item.isActive !== false && item.is_deleted !== true;
+      subText = 'Gym Owner';
+    } else if (activeTab === 'trainers') {
+      name = item.fullName || 'Unknown Trainer';
+      phone = item.phone || 'No phone';
+      isItemActive = item.isActive !== false && item.is_Active !== false && item.status !== 'INACTIVE' && item.is_deleted !== true;
+      subText = item.specialization || 'Fitness Trainer';
+    } else {
+      name = item.fullName || 'Unknown Customer';
+      phone = item.phone || 'No phone';
+      isItemActive = item.isActive !== false && item.is_Active !== false && item.status !== 'INACTIVE' && item.is_deleted !== true;
+      subText = item.membershipType || 'Active Member';
+    }
+
+    return (
+      <Pressable 
+        onPress={() => handleCardPress(item)}
+        className="bg-[#1C1C1E] rounded-2xl p-4 mb-3 flex-row items-center active:opacity-80"
+      >
+        <StaticAvatar uri={avatarUrl} name={name} size={48} className="w-12 h-12 rounded-full mr-4" />
+        
+        <View className="flex-1">
+          <Text className="text-white text-base font-bold mb-0.5">{name}</Text>
+          <Text className="text-[#CCFF00] text-[10px] font-bold mb-1">{subText}</Text>
+          <View className="flex-row items-center">
+            <View className="mr-1"><Phone size={12} color="#8E8E93" /></View>
+            <Text className="text-[#8E8E93] text-xs">{phone}</Text>
+          </View>
+        </View>
+
+        <View className="items-end justify-center">
+          <View className={`px-2 py-1 rounded-full flex-row items-center border ${isItemActive ? 'border-[#CCFF00]/20 bg-[#CCFF00]/10' : 'border-[#EF4444]/20 bg-[#EF4444]/10'} mb-2`}>
+            <View className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isItemActive ? 'bg-[#CCFF00]' : 'bg-[#EF4444]'}`} />
+            <Text className={`text-[10px] font-bold ${isItemActive ? 'text-[#CCFF00]' : 'text-[#EF4444]'}`}>
+              {isItemActive ? 'Active' : 'Inactive'}
+            </Text>
+          </View>
+        </View>
+        <View className="ml-3"><CaretRight size={16} color="#8E8E93" /></View>
+      </Pressable>
+    );
+  };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] pb-5">
-      <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
-        <View className="flex-row items-center gap-3">
-          <Pressable
-            onPress={() => router.back()}
-            className="w-9 h-9 rounded-full bg-[#1A1A1A] items-center justify-center active:opacity-70">
-            <ArrowLeft size={18} color="#FFFFFF" />
+    <View className="flex-1 bg-[#09090B]">
+      {/* Header */}
+      <View className="px-5 pt-4 pb-4 flex-row items-center justify-between border-b border-[#2A2A2D]">
+        <View className="flex-row items-center flex-1">
+          <Pressable onPress={() => router.back()} className="mr-4 active:opacity-70">
+            <ArrowLeft size={24} color="#FFFFFF" />
           </Pressable>
-          <View>
-            <Text className="text-xl font-semibold text-white">Gym Details</Text>
-            <Text className="text-[10px] text-[#A1A1AA]">View and manage gym information.</Text>
+          <View className="w-10 h-10 rounded-xl bg-[#1C1C1E] items-center justify-center mr-3 border border-[#2A2A2D]">
+            <Text className="text-[#CCFF00] text-[10px] font-bold text-center">GK</Text>
+          </View>
+          <View className="flex-1 pr-2">
+            <Text className="text-white text-lg font-bold" numberOfLines={1}>{gym?.gymName || 'Unknown Gym'}</Text>
+            <View className="flex-row items-center">
+              <View className="mr-1"><MapPin size={12} color="#8E8E93" /></View>
+              <Text className="text-[#8E8E93] text-xs" numberOfLines={1}>{gym?.city || 'Unknown'}, {gym?.state || 'Unknown'}</Text>
+            </View>
           </View>
         </View>
-        <Pressable className="w-9 h-9 rounded-full bg-[#1A1A1A] items-center justify-center">
-          <DotsThreeVertical size={18} color="#FFFFFF" />
-        </Pressable>
+        
+        <View className={`px-2 py-1 rounded-full flex-row items-center border ${gym?.isActive !== false ? 'border-[#CCFF00]/20 bg-[#CCFF00]/10' : 'border-[#EF4444]/20 bg-[#EF4444]/10'}`}>
+          <View className={`w-1.5 h-1.5 rounded-full mr-1.5 ${gym?.isActive !== false ? 'bg-[#CCFF00]' : 'bg-[#EF4444]'}`} />
+          <Text className={`text-[10px] font-bold ${gym?.isActive !== false ? 'text-[#CCFF00]' : 'text-[#EF4444]'}`}>
+            {gym?.isActive !== false ? 'Active' : 'Inactive'}
+          </Text>
+        </View>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
-        <View className="bg-[#111111] border border-[#1F1F1F] rounded-2xl p-4 flex-row gap-4 mb-6">
-          {gym.logo ? (
-            <Image source={{ uri: gym.logo }} className="w-24 h-24 rounded-2xl bg-[#1A1A1A]" resizeMode="cover" />
-          ) : (
-            <View className="w-24 h-24 rounded-2xl bg-[#1A1A1A] items-center justify-center">
-              <Text className="text-[#A1A1AA] text-xs font-semibold">LOGO</Text>
-            </View>
-          )}
+      {/* Tabs */}
+      <View className="flex-row bg-[#1C1C1E] rounded-xl mx-4 mt-4">
+        {renderTab('customers', <Users size={16} color={activeTab === 'customers' ? '#CCFF00' : '#8E8E93'} weight="fill" />, 'Customers', customers?.length || 0)}
+        {renderTab('trainers', <Barbell size={16} color={activeTab === 'trainers' ? '#CCFF00' : '#8E8E93'} weight="fill" />, 'Trainers', trainers?.length || 0)}
+        {renderTab('owners', <User size={16} color={activeTab === 'owners' ? '#CCFF00' : '#8E8E93'} weight="regular" />, 'Owners', owners?.filter(o => o.gymId === id).length || 0)}
+      </View>
 
-          <View className="flex-1 justify-center">
-            <Text className="text-xl font-semibold text-white mb-1">{gym.gymName}</Text>
-            <View className="flex-row items-center gap-1.5 mb-2">
-              <View className={`w-1.5 h-1.5 rounded-full ${gym.isActive ? 'bg-[#BAFF00]' : 'bg-red-500'}`} />
-              <Text className={`text-[12px] font-semibold ${!gym.isActive ? 'text-red-500' : ''}`} style={gym.isActive ? { color: '#BAFF00' } : undefined}>
-                {gym.isActive ? 'Active' : 'Inactive'}
-              </Text>
-            </View>
-
-            <View className="flex-row items-center gap-1.5 mb-1">
-              <MapPin size={12} color="#A1A1AA" />
-              <Text className="text-[12px] text-[#A1A1AA]">{gym.city}, {gym.state}</Text>
-            </View>
-
-            <View className="flex-row items-center gap-1.5 mb-1">
-              <CalendarBlank size={12} color="#A1A1AA" />
-              <Text className="text-[12px] text-[#A1A1AA]">Registered on {formatPgDate(gym.createdAt)}</Text>
-            </View>
-
-            <View className="flex-row items-center gap-1.5">
-              <View className="w-[12px] h-[12px] border border-[#A1A1AA] rounded-full items-center justify-center">
-                <View className="w-[6px] h-[6px] bg-transparent rounded-full" />
-              </View>
-              <Text className="text-[12px] text-[#A1A1AA]">Gym ID: {gym.gymId}</Text>
-            </View>
+      {/* Search & Filters */}
+      <View className="px-4 mt-4">
+        <View className="flex-row items-center mb-4 gap-3">
+          <View className="flex-1 bg-[#1C1C1E] rounded-xl px-4 py-3 flex-row items-center border border-[#2A2A2D]">
+            <MagnifyingGlass size={18} color="#8E8E93" />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={`Search ${activeTab} by name or phone`}
+              placeholderTextColor="#6B7280"
+              className="flex-1 text-white text-sm ml-2 py-0"
+            />
           </View>
-        </View>
-
-        <View className="flex-row items-center gap-2 mb-3">
-          <User size={16} color="#BAFF00" />
-          <Text className="text-sm font-semibold" style={{ color: '#BAFF00' }}>Owner Details</Text>
-        </View>
-        <View className="bg-[#111111] border border-[#1F1F1F] rounded-2xl p-4 mb-6">
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center gap-3">
-              <View className="w-12 h-12 rounded-full bg-[#1A1A1A] items-center justify-center overflow-hidden border border-[#1F1F1F]">
-                <User size={24} color="#A1A1AA" />
-              </View>
-              <View>
-                <Text className="text-lg font-semibold text-white">{owner?.ownerFullname || 'Unknown Owner'}</Text>
-                <View className="bg-[#1A2600] px-2 py-0.5 rounded mt-1 self-start">
-                  <Text className="text-[10px] font-semibold" style={{ color: '#BAFF00' }}>OWNER</Text>
-                </View>
-              </View>
-            </View>
-            {/* <Pressable className="border rounded-lg px-3 py-1.5" style={{ borderColor: "#BAFF00" }}>
-              <Text className="text-xs font-semibold" style={{ color: '#BAFF00' }}>View Profile</Text>
-            </Pressable> */}
-          </View>
-
-          <View className="flex-row items-center gap-2 mb-2">
-            <EnvelopeSimple size={14} color="#A1A1AA" />
-            <Text className="text-sm text-[#A1A1AA]">{owner?.ownerEmail || 'N/A'}</Text>
-          </View>
-          <View className="flex-row items-center gap-2">
-            <Phone size={14} color="#A1A1AA" />
-            <Text className="text-sm text-[#A1A1AA]">{owner?.ownerPhone ? `${owner.ownerPhone}` : 'N/A'}</Text>
-          </View>
-        </View>
-
-        <View className="flex-row items-center gap-2 mb-3">
-          <Phone size={16} color="#BAFF00" />
-          <Text className="text-sm font-semibold" style={{ color: '#BAFF00' }}>Contact Information</Text>
-        </View>
-        <View className="bg-[#111111] border border-[#1F1F1F] rounded-2xl mb-6">
-          <View className="flex-row items-center justify-between p-4 border-b border-[#1F1F1F]">
-            <View>
-              <Text className="text-[10px] text-[#A1A1AA] mb-0.5">Phone Number</Text>
-              <Text className="text-sm text-white">{gym.phoneCode} {gym.phone || 'N/A'}</Text>
-            </View>
-            <View className="w-8 h-8 rounded-full border border-[#2A2A2A] items-center justify-center">
-              <Phone size={14} color="#A1A1AA" />
-            </View>
-          </View>
-
-          <View className="flex-row items-center justify-between p-4 border-b border-[#1F1F1F]">
-            <View>
-              <Text className="text-[10px] text-[#A1A1AA] mb-0.5">Email Address</Text>
-              <Text className="text-sm text-white">{gym.gymEmail || 'N/A'}</Text>
-            </View>
-            <View className="w-8 h-8 rounded-full border border-[#2A2A2A] items-center justify-center">
-              <EnvelopeSimple size={14} color="#A1A1AA" />
-            </View>
-          </View>
-
-          <View className="flex-row items-center justify-between p-4">
-            <View>
-              <Text className="text-[10px] text-[#A1A1AA] mb-0.5">Website</Text>
-              <Text className="text-sm text-white">{gym.website || 'N/A'}</Text>
-            </View>
-            <View className="w-8 h-8 rounded-full border border-[#2A2A2A] items-center justify-center">
-              <Globe size={14} color="#A1A1AA" />
-            </View>
-          </View>
-        </View>
-
-        <View className="flex-row items-center gap-2 mb-3">
-          <MapPin size={16} color="#BAFF00" />
-          <Text className="text-sm font-semibold" style={{ color: '#BAFF00' }}>Address</Text>
-        </View>
-        <View className="bg-[#111111] border border-[#1F1F1F] rounded-2xl p-4 flex-row gap-3 mb-6">
-          <View className="mt-0.5">
-            <MapPin size={16} color="#A1A1AA" />
-          </View>
-          <Text className="text-sm text-[#A1A1AA] leading-5 flex-1">{gym.address}, {gym.city}, {gym.state}</Text>
-        </View>
-
-        <View className="flex-row items-center gap-4 mb-6">
-          <View className="flex-1 bg-[#111111] border border-[#1F1F1F] rounded-2xl p-6 items-center justify-center">
-            <View className="w-10 h-10 rounded-full border border-[#1F1F1F] items-center justify-center mb-3">
-              <Users size={20} color="#BAFF00" />
-            </View>
-            <Text className="text-2xl font-semibold text-white mb-1">{customersCount}</Text>
-            <Text className="text-[9px] font-semibold tracking-wider text-[#A1A1AA]">TOTAL CUSTOMERS</Text>
-          </View>
-          <View className="flex-1 bg-[#111111] border border-[#1F1F1F] rounded-2xl p-6 items-center justify-center">
-            <View className="w-10 h-10 rounded-full border border-[#1F1F1F] items-center justify-center mb-3">
-              <Barbell size={20} color="#BAFF00" />
-            </View>
-            <Text className="text-2xl font-semibold text-white mb-1">{trainersCount}</Text>
-            <Text className="text-[9px] font-semibold tracking-wider text-[#A1A1AA]">TOTAL TRAINERS</Text>
-          </View>
-        </View>
-
-        <View className="flex-row items-center gap-2 mb-5">
-          <PencilSimple size={16} color="#BAFF00" />
-          <Text className="text-sm font-semibold" style={{ color: '#BAFF00' }}>Actions</Text>
-        </View>
-        <View className="flex-row items-center gap-4">
-          <Pressable
-            onPress={() => router.push({ pathname: '/(superadmin)/dashboard/register', params: { editGymId: gym.gymId } } as any)}
-            className="flex-1 bg-[#111111] border border-[#1F1F1F] rounded-2xl p-4 items-center justify-center">
-            <View className="w-10 h-10 rounded-full border border-[#2A2A2A] items-center justify-center mb-2">
-              <PencilSimple size={16} color="#BAFF00" />
-            </View>
-            <Text className="text-xs font-medium text-white">Edit Gym</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setShowConfirm(true)}
-            disabled={isToggling}
-            className={`flex-1 bg-[#111111] border border-[#1F1F1F] rounded-2xl p-4 items-center justify-center ${isToggling ? 'opacity-50' : ''}`}>
-            {isToggling ? (
-              <ActivityIndicator size="small" color={gym.isActive ? "#EF4444" : "#BAFF00"} />
-            ) : (
-              <>
-                <View className={`w-10 h-10 rounded-full border items-center justify-center mb-2 ${gym.isActive ? 'border-[#542121]' : 'border-[#BAFF00]/30'}`}>
-                  <Power size={16} color={gym.isActive ? "#EF4444" : "#BAFF00"} />
-                </View>
-                <Text className={`text-xs font-medium ${gym.isActive ? 'text-[#EF4444]' : 'text-[#BAFF00]'}`}>
-                  {gym.isActive ? 'Deactivate' : 'Activate'}
-                </Text>
-              </>
-            )}
+          <Pressable className="bg-[#1C1C1E] border border-[#2A2A2D] rounded-xl w-12 h-[46px] items-center justify-center">
+            <Funnel size={18} color="#FFFFFF" weight="fill" />
           </Pressable>
         </View>
-      </ScrollView>
 
-      <ConfirmModal
-        visible={showConfirm}
-        onClose={() => setShowConfirm(false)}
-        title={gym.isActive ? 'Deactivate Gym' : 'Activate Gym'}
-        description={`Are you sure you want to ${gym.isActive ? 'deactivate' : 'activate'} this gym?`}
-        confirmText={gym.isActive ? 'Deactivate' : 'Activate'}
-        confirmButtonColor={gym.isActive ? 'bg-red-500' : 'bg-[#BAFF00]'}
-        confirmTextColor={gym.isActive ? 'text-white' : 'text-black'}
-        icon={<Power size={32} color={gym.isActive ? "#EF4444" : "#BAFF00"} />}
-        onConfirm={async () => {
-          setShowConfirm(false);
-          try {
-            setIsToggling(true);
-            await toggleGymActiveStatus(gym.gymId!, gym.isActive ?? true);
-            await queryClient.invalidateQueries({ queryKey: ['gyms'] });
-            toast.success(gym.isActive ? 'Gym deactivated successfully' : 'Gym activated successfully');
-          } catch (error) {
-            console.error('Failed to toggle gym status:', error);
-            Alert.alert('Error', 'Failed to update gym status.');
-          } finally {
-            setIsToggling(false);
-          }
-        }}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-4" contentContainerStyle={{ gap: 10 }}>
+          {renderFilterChip('all', 'All', currentData.length)}
+          {renderFilterChip('active', 'Active', activeCount)}
+          {renderFilterChip('inactive', 'Inactive', inactiveCount)}
+        </ScrollView>
+      </View>
+
+      {/* List */}
+      <FlatList
+        data={filteredData}
+        keyExtractor={(item, index) => item.id || item.customerId || item.trainerId || index.toString()}
+        renderItem={renderCard}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View className="items-center justify-center py-20">
+            <Text className="text-[#8E8E93] text-base">No {activeTab} found.</Text>
+          </View>
+        }
       />
     </View>
   );

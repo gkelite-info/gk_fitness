@@ -22,7 +22,7 @@ export default function BookTrainerScreen() {
         <Text className="flex-1 text-center text-white text-lg font-bold mr-8">Book Personal Trainer</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
         <Text className="text-[#A1A1AA] text-sm text-center mt-2 mb-6 px-4 leading-relaxed">
           Choose a trainer that matches your goals and start your transformation journey.
         </Text>

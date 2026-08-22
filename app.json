@@ -2,6 +2,7 @@
   "expo": {
     "name": "gk-fitness",
     "slug": "gk-fitness",
+    "owner": "gk-elite-info",
     "version": "1.0.0",
     "scheme": "gk-fitness",
     "platforms": [
@@ -52,12 +53,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vamshi0111.gkfitness",
+      "buildNumber": "15",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIViewControllerBasedStatusBarAppearance": false
       }
     },
     "android": {
+      "versionCode": 15,
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -87,7 +90,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
+      "url": "https://u.expo.dev/5d58a773-7b20-402a-b488-fd27bccbc462"
     }
   }
 }

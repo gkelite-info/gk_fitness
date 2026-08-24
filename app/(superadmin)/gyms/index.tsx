@@ -3,10 +3,10 @@ import { View, FlatList, Pressable, Image, ActivityIndicator, TextInput, ScrollV
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { 
-  MagnifyingGlass, 
-  Plus, 
-  MapPin, 
+import {
+  MagnifyingGlass,
+  Plus,
+  MapPin,
   CalendarBlank,
   Users,
   CaretRight
@@ -33,7 +33,7 @@ const GymCard = ({ item, stats, router }: { item: any, stats: any, router: any }
   const isGymActive = item.isActive !== false;
 
   return (
-    <Pressable 
+    <Pressable
       onPress={toggleExpand}
       className="bg-[#1C1C1E] rounded-2xl p-4 mb-4 active:opacity-90 overflow-hidden"
     >
@@ -43,13 +43,13 @@ const GymCard = ({ item, stats, router }: { item: any, stats: any, router: any }
             <Image source={{ uri: item.logo }} className="w-[56px] h-[56px] rounded-xl bg-white mr-3 shrink-0" />
           ) : (
             <View className="w-[56px] h-[56px] rounded-xl bg-[#2A2A2D] items-center justify-center mr-3 shrink-0">
-               <Text className="text-[#8E8E93] text-[9px] font-bold text-center">NO{'\n'}LOGO</Text>
+              <Text className="text-[#8E8E93] text-[9px] font-semibold text-center">NO{'\n'}LOGO</Text>
             </View>
           )}
-          
+
           <View className="flex-1 justify-center">
-            <Text className="text-white text-base font-bold mb-1" numberOfLines={1}>{item.gymName || 'Unknown Gym'}</Text>
-            
+            <Text className="text-white text-base font-semibold mb-1" numberOfLines={1}>{item.gymName || 'Unknown Gym'}</Text>
+
             <View className="flex-row items-center">
               <MapPin size={12} color="#8E8E93" />
               <Text className="text-[#8E8E93] text-xs ml-1 flex-1" numberOfLines={1}>{item.city || 'Unknown'}, {item.state || 'India'}</Text>
@@ -78,29 +78,29 @@ const GymCard = ({ item, stats, router }: { item: any, stats: any, router: any }
               </View>
               <View className="flex-row items-center">
                 <View className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isGymActive ? 'bg-[#CCFF00]' : 'bg-[#EF4444]'}`} />
-                <Text className="text-white text-[11px] font-bold">{isGymActive ? 'Active' : 'Inactive'}</Text>
+                <Text className="text-white text-[11px] font-semibold">{isGymActive ? 'Active' : 'Inactive'}</Text>
               </View>
             </View>
-            
+
             <View className="items-end">
               <View className="flex-row items-center mb-1">
                 <View className="mr-1.5 opacity-80"><Users size={14} color="#FFFFFF" /></View>
-                <Text className="text-white text-base font-bold">{totalMembers} Members</Text>
+                <Text className="text-white text-base font-semibold">{totalMembers} Members</Text>
               </View>
               <Text className="text-[10px] text-right">
-                <Text className="text-[#CCFF00] font-bold">{activeMembers} </Text>
+                <Text className="text-[#CCFF00] font-semibold">{activeMembers} </Text>
                 <Text className="text-[#8E8E93]">Active • </Text>
-                <Text className="text-[#EF4444] font-bold">{inactiveMembers} </Text>
+                <Text className="text-[#EF4444] font-semibold">{inactiveMembers} </Text>
                 <Text className="text-[#8E8E93]">Inactive</Text>
               </Text>
             </View>
           </View>
 
-          <Pressable 
+          <Pressable
             onPress={() => router.push(`/(superadmin)/dashboard/gym/${item.gymId || item.id}` as any)}
             className="w-full bg-[#CCFF00] rounded-xl py-3 flex-row items-center justify-center active:opacity-80"
           >
-            <Text className="text-black font-bold text-sm">Manage Gym Dashboard</Text>
+            <Text className="text-black font-semibold text-sm">Manage Gym Dashboard</Text>
           </Pressable>
         </View>
       )}
@@ -118,21 +118,19 @@ export default function TotalGymsScreen() {
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [isSearching, setIsSearching] = useState(false);
 
-  // Derive counts
   const allCount = gyms?.length || 0;
   const activeCount = gyms?.filter(g => g.isActive !== false).length || 0;
   const inactiveCount = allCount - activeCount;
 
-  // Filter & Search
   const filteredGyms = gyms?.filter(gym => {
     const nameStr = gym.gymName || '';
     const cityStr = gym.city || '';
-    const matchesSearch = nameStr.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          cityStr.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = nameStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      cityStr.toLowerCase().includes(searchQuery.toLowerCase());
     const isGymActive = gym.isActive !== false;
-    const matchesFilter = filter === 'all' || 
-                          (filter === 'active' && isGymActive) || 
-                          (filter === 'inactive' && !isGymActive);
+    const matchesFilter = filter === 'all' ||
+      (filter === 'active' && isGymActive) ||
+      (filter === 'inactive' && !isGymActive);
     return matchesSearch && matchesFilter;
   });
 
@@ -144,7 +142,7 @@ export default function TotalGymsScreen() {
       if (!gId) return;
       if (!stats[gId]) stats[gId] = { total: 0, active: 0, inactive: 0 };
       stats[gId].total++;
-      
+
       const isItemActive = c.isActive !== false && c.is_Active !== false && c.status !== 'INACTIVE';
       if (isItemActive) {
         stats[gId].active++;
@@ -158,15 +156,14 @@ export default function TotalGymsScreen() {
   const renderFilterChip = (id: 'all' | 'active' | 'inactive', label: string, count: number) => {
     const isSelected = filter === id;
     return (
-      <Pressable 
+      <Pressable
         onPress={() => setFilter(id)}
-        className={`px-3 py-2 rounded-full border flex-row items-center gap-2 ${
-          isSelected ? 'border-[#CCFF00]' : 'border-[#2A2A2D]'
-        }`}
+        className={`px-3 py-2 rounded-full border flex-row items-center gap-2 ${isSelected ? 'border-[#CCFF00]' : 'border-[#2A2A2D]'
+          }`}
       >
         <Text className={`text-sm ${isSelected ? 'text-[#CCFF00]' : 'text-[#8E8E93]'}`}>{label}</Text>
         <View className="px-2 py-0.5 rounded-full bg-[#1C1C1E] border border-[#2A2A2D]">
-          <Text className="text-[#8E8E93] text-[10px] font-bold">{count}</Text>
+          <Text className="text-[#8E8E93] text-[10px] font-semibold">{count}</Text>
         </View>
       </Pressable>
     );
@@ -180,9 +177,8 @@ export default function TotalGymsScreen() {
   return (
     <View className="flex-1 bg-[#09090B]">
       <View className="px-5 pt-4 pb-2">
-        {/* Header */}
         <View className="flex-row justify-between items-center mt-2 mb-2">
-          <Text className="text-2xl font-bold text-white">Total Gyms</Text>
+          <Text className="text-2xl font-semibold text-white">Total Gyms</Text>
           <Pressable onPress={() => setIsSearching(!isSearching)} className="active:opacity-70">
             <MagnifyingGlass size={24} color="#FFFFFF" />
           </Pressable>
@@ -205,20 +201,19 @@ export default function TotalGymsScreen() {
 
         <View className="flex-row justify-between items-center mb-6">
           <Text className="text-[#8E8E93] text-sm">View and manage all registered gyms.</Text>
-          <Pressable 
+          <Pressable
             onPress={() => router.push('/(superadmin)/dashboard/register')}
             className="bg-[#CCFF00] rounded-lg px-3 py-1.5 flex-row items-center active:opacity-80"
           >
             <View className="mr-1">
               <Plus size={12} color="#000000" weight="bold" />
             </View>
-            <Text className="text-black text-xs font-bold">Add Gym</Text>
+            <Text className="text-black text-xs font-semibold">Add Gym</Text>
           </Pressable>
         </View>
 
-        {/* Filter Chips */}
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           className="flex-row mb-4"
           contentContainerStyle={{ gap: 10 }}
@@ -229,7 +224,6 @@ export default function TotalGymsScreen() {
         </ScrollView>
       </View>
 
-      {/* Gym List */}
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#CCFF00" />

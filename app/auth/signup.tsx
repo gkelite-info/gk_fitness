@@ -124,11 +124,10 @@ export default function SignupScreen() {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 1, // Start with full quality
+        quality: 1,
       });
 
       if (!result.canceled) {
-        // Compress the image without losing clarity (0.7 is a good balance)
         const compressedImage = await ImageManipulator.manipulateAsync(
           result.assets[0].uri,
           [],
@@ -190,7 +189,7 @@ export default function SignupScreen() {
           note: note,
           website: website || null,
           logo: finalLogoUrl,
-          status: 'submitted',
+          status: 'submitted' as const,
           password: await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password),
         };
 

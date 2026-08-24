@@ -25,7 +25,7 @@ export interface GymLeadAttributes {
   note?: string | null;
   website?: string | null;
   logo?: string | null;
-  status?: 'submitted' | string; // Assuming 'submitted' is default
+  status?: 'submitted' | 'underreview' | 'approved' | 'rejected';
   password?: string;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -53,23 +53,37 @@ export interface SaveGymLeadParams {
   note?: string | null;
   website?: string | null;
   logo?: string | null;
-  status?: string;
+  status?: 'submitted' | 'underreview' | 'approved' | 'rejected';
   password?: string;
 }
 
-export async function fetchGymLeads() {
-  const { data, error } = await supabase
+export async function fetchGymLeads(page: number = 1, limit: number = 10, searchQuery?: string, status?: string) {
+  let query = supabase
     .from('gym_leads')
-    .select('*')
+    .select('*', { count: 'exact' })
     .is('deletedAt', null)
     .order('createdAt', { ascending: false });
 
+  if (searchQuery) {
+    const term = `%${searchQuery}%`;
+    query = query.or(`gymName.ilike.${term},fullName.ilike.${term},mobile.ilike.${term},email.ilike.${term},gymCity.ilike.${term}`);
+  }
+
+  if (status && status !== 'all') {
+    query = query.eq('status', status);
+  }
+
+  const { data, count, error } = await query.range((page - 1) * limit, page * limit - 1);
+
   if (error) {
+    if (error.code === 'PGRST103') {
+      return { data: [], total: 0 };
+    }
     console.error('[gymLeadsHelper] fetchGymLeads Error:', error);
     throw error;
   }
 
-  return data ?? [];
+  return { data: data ?? [], total: count ?? 0 };
 }
 
 export async function fetchGymLeadById(gymLeadId: string) {
@@ -224,7 +238,7 @@ export async function deleteGymLead(gymLeadId: string) {
   return data ? data[0] : null;
 }
 
-export async function updateGymLeadStatus(gymLeadId: string, status: string) {
+export async function updateGymLeadStatus(gymLeadId: string, status: 'submitted' | 'underreview' | 'approved' | 'rejected') {
   const now = new Date().toISOString();
 
   const { data, error } = await supabase

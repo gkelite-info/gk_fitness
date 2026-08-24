@@ -40,11 +40,11 @@ export default function SuperAdminLayout() {
           headerShown: false,
         }}
       />
-      
-      {/* Hidden Dynamic Routes */}
+
       <Tabs.Screen name="dashboard/gym/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="customers/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="trainers/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="leads/gym-owners" options={{ href: null }} />
     </Tabs>
   );
 }

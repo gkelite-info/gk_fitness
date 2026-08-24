@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { FileText, Check, Bell, CaretLeft } from 'phosphor-react-native';
+import { FileText, Check, Bell, CaretLeft, X } from 'phosphor-react-native';
 import { fetchGymLeadById } from '@/helpers/gymLeads/gymLeadsHelper';
 
 export default function RegistrationStatusScreen() {
@@ -37,10 +37,12 @@ export default function RegistrationStatusScreen() {
   const createdAt = lead?.createdAt ? new Date(lead.createdAt) : new Date();
 
   const isSubmitted = true;
-  const isUnderReview = status === 'underreview' || status === 'approved';
+  const isUnderReview = status === 'underreview' || status === 'approved' || status === 'rejected';
   const isApproved = status === 'approved';
+  const isRejected = status === 'rejected';
 
   const PRIMARY_COLOR = '#84CC16';
+  const REJECTED_COLOR = '#EF4444';
 
   return (
     <SafeAreaView className="flex-1 bg-[#09090B]">
@@ -50,14 +52,14 @@ export default function RegistrationStatusScreen() {
         <View className="pt-6 pb-6">
           <Pressable
             onPress={handleBack}
-            className="w-10 h-10 bg-[#121212] border border-[#1E1E1E] rounded-full items-center justify-center mb-6"
+            className="w-10 h-10 bg-[#121212] border border-[#1E1E1E] rounded-full items-center justify-center"
           >
             <CaretLeft size={20} color="#FFFFFF" />
           </Pressable>
         </View>
 
-        <View className="items-center mb-10">
-          <View className="w-24 h-24 rounded-full border border-[#1E1E1E] items-center justify-center mb-6 relative">
+        <View className="items-center mb-5">
+          <View className="w-24 h-24 rounded-full border border-[#1E1E1E] items-center justify-center mb-2 relative">
             <View className="absolute top-2 left-2 w-1.5 h-1.5 rounded-full bg-[#1E1E1E]" />
             <View className="absolute top-4 right-4 w-2 h-2 text-[#84CC16]">
               <Text style={{ color: '#1E1E1E', fontSize: 16 }}>+</Text>
@@ -107,7 +109,7 @@ export default function RegistrationStatusScreen() {
           <View className="flex-row mb-6">
             <View className="items-center mr-4">
               <View className="w-6 h-6 rounded-full border-2 items-center justify-center" style={{ borderColor: isUnderReview ? PRIMARY_COLOR : '#2A2A2A', backgroundColor: '#121212' }}>
-                {status === 'approved' && <Check size={12} color={PRIMARY_COLOR} weight="bold" />}
+                {(isApproved || isRejected) && <Check size={12} color={PRIMARY_COLOR} weight="bold" />}
               </View>
               <View className="w-0.5 h-10 mt-2" style={{ backgroundColor: isUnderReview ? PRIMARY_COLOR : '#2A2A2A', opacity: isUnderReview ? 1 : 0.5 }} />
             </View>
@@ -119,13 +121,21 @@ export default function RegistrationStatusScreen() {
 
           <View className="flex-row">
             <View className="items-center mr-4">
-              <View className="w-6 h-6 rounded-full border-2 items-center justify-center" style={{ borderColor: isApproved ? PRIMARY_COLOR : '#2A2A2A', backgroundColor: isApproved ? PRIMARY_COLOR : '#121212' }}>
+              <View className="w-6 h-6 rounded-full border-2 items-center justify-center" style={{
+                borderColor: isApproved ? PRIMARY_COLOR : (isRejected ? REJECTED_COLOR : '#2A2A2A'),
+                backgroundColor: isApproved ? PRIMARY_COLOR : (isRejected ? REJECTED_COLOR : '#121212')
+              }}>
                 {isApproved && <Check size={12} color="#000000" weight="bold" />}
+                {isRejected && <X size={12} color="#FFFFFF" weight="bold" />}
               </View>
             </View>
             <View className="flex-1 mt-0.5">
-              <Text className="text-white text-[15px] font-medium mb-1">Approved</Text>
-              <Text className="text-[#8E8E93] text-[13px]">You will be notified once approved.</Text>
+              <Text className="text-white text-[15px] font-medium mb-1">
+                {isRejected ? 'Rejected' : 'Approved'}
+              </Text>
+              <Text className="text-[#8E8E93] text-[13px]">
+                {isRejected ? 'Unfortunately, your request was not approved.' : 'You will be notified once approved.'}
+              </Text>
             </View>
           </View>
         </View>

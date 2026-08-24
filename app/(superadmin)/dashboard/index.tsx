@@ -16,6 +16,7 @@ import {
   Calendar,
   MapPin,
   CaretRight,
+  Globe,
 } from 'phosphor-react-native';
 import { useGyms } from '@/hooks/gyms/useGyms';
 import { useUsers } from '@/hooks/users/useUsers';
@@ -30,9 +31,13 @@ const OVERVIEW_DATA = [
 
 const QUICK_ACTIONS_DATA = [
   { id: 'register-gym', icon: Buildings, label: 'Register\nNew Gym' },
-  { id: 'view-gyms', icon: List, label: 'View Registered\nGyms', iconWeight: 'bold' as const },
-  { id: 'create-owner', icon: UserPlus, label: 'Create\nOwner Account' },
+  { id: 'create-owner', icon: UserPlus, label: 'Create Owner Account' },
   { id: 'support-requests', icon: Headphones, label: 'Support\nRequests' },
+];
+
+const LEADS_DATA = [
+  { id: 'gym-owners', icon: Buildings, label: 'Gym Owners' },
+  { id: 'global-trainers', icon: Globe, label: 'Global Trainers' },
 ];
 
 export default function DashboardScreen() {
@@ -92,11 +97,13 @@ export default function DashboardScreen() {
       router.push('/(superadmin)/dashboard/register');
     } else if (id === 'view-gyms') {
       router.push('/(superadmin)/gyms');
+    } else if (id === 'gym-owners') {
+      router.push('/(superadmin)/leads/gym-owners');
     }
   };
 
-  const recentGyms = gyms 
-    ? [...gyms].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 3) 
+  const recentGyms = gyms
+    ? [...gyms].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 3)
     : [];
 
   return (
@@ -153,7 +160,26 @@ export default function DashboardScreen() {
               key={item.id}
               onPress={() => handleQuickAction(item.id)}
               className="flex-1 bg-[#0F0F0F] border border-[#111827] rounded-2xl p-3 items-center justify-center min-h-[130px] active:opacity-70">
-              <Icon size={28} color="#BEF227" weight={item.iconWeight || 'fill'} />
+              <Icon size={28} color="#BEF227" weight={(item as any).iconWeight || 'fill'} />
+              <Text className="text-[11px] font-medium text-white text-center mt-3 leading-3">
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Text className="text-lg font-semibold text-white mt-6 mb-3">Leads</Text>
+
+      <View className="flex-row justify-between gap-2">
+        {LEADS_DATA.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Pressable
+              key={item.id}
+              onPress={() => handleQuickAction(item.id)}
+              className="flex-1 bg-[#0F0F0F] border border-[#111827] rounded-2xl p-3 items-center justify-center min-h-[130px] active:opacity-70">
+              <Icon size={28} color="#BEF227" weight="fill" />
               <Text className="text-[11px] font-medium text-white text-center mt-3 leading-3">
                 {item.label}
               </Text>
@@ -172,15 +198,15 @@ export default function DashboardScreen() {
 
       <View className="gap-3">
         {recentGyms.map((gym) => (
-          <Pressable 
-            key={gym.gymId || gym.id} 
+          <Pressable
+            key={gym.gymId || gym.id}
             className="flex-row items-center bg-[#0F0F0F] border border-[#111827] rounded-2xl p-3"
             onPress={() => router.push(`/(superadmin)/dashboard/gym/${gym.gymId || gym.id}` as any)}
           >
             {gym.logo ? (
-               <Image source={{ uri: gym.logo }} className="w-12 h-12 rounded-xl bg-white mr-3" />
+              <Image source={{ uri: gym.logo }} className="w-12 h-12 rounded-xl bg-white mr-3" />
             ) : (
-               <View className="w-12 h-12 rounded-xl bg-[#1C1C1E] items-center justify-center mr-3 border border-[#2A2A2D]"><Text className="text-[10px] font-bold text-[#888888] text-center">NO{'\n'}LOGO</Text></View>
+              <View className="w-12 h-12 rounded-xl bg-[#1C1C1E] items-center justify-center mr-3 border border-[#2A2A2D]"><Text className="text-[10px] font-bold text-[#888888] text-center">NO{'\n'}LOGO</Text></View>
             )}
             <View className="flex-1">
               <Text className="text-white font-semibold text-base">{gym.gymName}</Text>

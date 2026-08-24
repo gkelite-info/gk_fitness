@@ -180,6 +180,10 @@ export default function GymOwnerLeadsScreen() {
     setStatusModalVisible(true);
   };
 
+  const handleBack = () => {
+    router.push('/(superadmin)/dashboard');
+  }
+
   const changeStatus = async (newStatus: 'submitted' | 'underreview' | 'approved' | 'rejected') => {
     if (!selectedLead) return;
     setIsUpdating(true);
@@ -204,9 +208,9 @@ export default function GymOwnerLeadsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View className="flex-row items-center justify-between px-4 pb-4 pt-2">
-        <View className="flex-row items-center flex-1">
+        <View className="flex-row items-center flex-1 pt-5">
           <Pressable
-            onPress={() => router.back()}
+            onPress={handleBack}
             className="w-10 h-10 bg-[#1C1C1E] rounded-full items-center justify-center mr-3 active:opacity-70"
           >
             <CaretLeft size={20} color="#FFFFFF" />
@@ -227,6 +231,9 @@ export default function GymOwnerLeadsScreen() {
             placeholderTextColor="#8E8E93"
             value={searchQuery}
             onChangeText={setSearchQuery}
+            autoCorrect={false}
+            spellCheck={false}
+            autoCapitalize="none"
           />
         </View>
 

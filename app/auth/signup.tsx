@@ -26,6 +26,7 @@ import {
 import { Country, State } from 'country-state-city';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as Crypto from 'expo-crypto';
 import { useCreateUser } from '@/hooks/auth/useCreateUser';
 import { useCreateGymLead } from '@/hooks/gymLeads/useCreateGymLead';
 import { useUploadGymLeadLogo } from '@/hooks/gymLeads/useUploadGymLeadLogo';
@@ -100,7 +101,6 @@ export default function SignupScreen() {
   const [gymName, setGymName] = useState('');
   const [alternatePhone, setAlternatePhone] = useState('');
   const [branches, setBranches] = useState('');
-  const [customers, setCustomers] = useState('');
   const [establishYear, setEstablishYear] = useState('');
   const [note, setNote] = useState('');
   const [website, setWebsite] = useState('');
@@ -144,8 +144,12 @@ export default function SignupScreen() {
 
   const handleSignup = async () => {
     if (typeId === 'owner') {
-      if (!fullName || !gymName || !email || !phone || !address || !country || !state || !city || !pinCode || !branches || !customers) {
+      if (!fullName || !gymName || !email || !phone || !address || !country || !state || !city || !pinCode || !branches || !password || !confirmPassword) {
         toast.error('Please fill in all required fields.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        toast.error('Passwords do not match.');
         return;
       }
       setLoading(true);
@@ -183,17 +187,18 @@ export default function SignupScreen() {
           gymPincode: parseInt(pinCode, 10),
           noOfBranches: parseInt(branches, 10),
           establishYear: establishYear || new Date().getFullYear().toString(),
-          note: customers ? `No. of Customers: ${customers}\n\nNote: ${note}` : note,
+          note: note,
           website: website || null,
           logo: finalLogoUrl,
-          status: 'submitted'
+          status: 'submitted',
+          password: await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password),
         };
 
-        await createGymLead(payload);
+        const result = await createGymLead(payload);
 
         toast.success('Registration request sent successfully! We will get back to you.');
-        if (router.canGoBack()) {
-          router.back();
+        if (result && result.gymLeadId) {
+          router.replace(`/auth/registration-status?gymLeadId=${result.gymLeadId}`);
         } else {
           router.replace('/auth/otp-auth');
         }
@@ -557,20 +562,6 @@ export default function SignupScreen() {
                 </View>
 
                 <View>
-                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">No. of Customer</Text>
-                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                    <TextInput
-                      value={customers}
-                      onChangeText={(val) => setCustomers(val.replace(/[^0-9]/g, ''))}
-                      placeholder="Enter no. of customers"
-                      placeholderTextColor="#6B6B6B"
-                      keyboardType="number-pad"
-                      className="flex-1 text-white text-[14px] p-0 font-medium"
-                    />
-                  </View>
-                </View>
-
-                <View>
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Establish Year</Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <TextInput
@@ -649,47 +640,43 @@ export default function SignupScreen() {
               </>
             )}
 
-            {typeId !== 'owner' && (
-              <>
-                <View>
-                  <Text className="text-white text-[13px] font-medium mb-2">Password</Text>
-                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                    <LockKey size={18} color="#6B6B6B" />
-                    <TextInput
-                      value={password}
-                      onChangeText={setPassword}
-                      placeholder="Enter your password"
-                      placeholderTextColor="#6B6B6B"
-                      secureTextEntry={!showPassword}
-                      autoCapitalize="none"
-                      className="flex-1 text-white text-[14px] p-0 font-medium"
-                    />
-                    <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
-                      {showPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
-                    </Pressable>
-                  </View>
-                </View>
+            <View>
+              <Text className="text-white text-[13px] font-medium mb-2">Password</Text>
+              <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                <LockKey size={18} color="#6B6B6B" />
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#6B6B6B"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  className="flex-1 text-white text-[14px] p-0 font-medium"
+                />
+                <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
+                  {showPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
+                </Pressable>
+              </View>
+            </View>
 
-                <View>
-                  <Text className="text-white text-[13px] font-medium mb-2">Confirm Password</Text>
-                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                    <LockKey size={18} color="#6B6B6B" />
-                    <TextInput
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      placeholder="Confirm your password"
-                      placeholderTextColor="#6B6B6B"
-                      secureTextEntry={!showConfirmPassword}
-                      autoCapitalize="none"
-                      className="flex-1 text-white text-[14px] p-0 font-medium"
-                    />
-                    <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
-                      {showConfirmPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
-                    </Pressable>
-                  </View>
-                </View>
-              </>
-            )}
+            <View>
+              <Text className="text-white text-[13px] font-medium mb-2">Confirm Password</Text>
+              <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                <LockKey size={18} color="#6B6B6B" />
+                <TextInput
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm your password"
+                  placeholderTextColor="#6B6B6B"
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                  className="flex-1 text-white text-[14px] p-0 font-medium"
+                />
+                <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
+                  {showConfirmPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
+                </Pressable>
+              </View>
+            </View>
           </View>
 
           <Pressable

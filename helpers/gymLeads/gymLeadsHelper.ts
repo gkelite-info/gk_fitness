@@ -26,6 +26,7 @@ export interface GymLeadAttributes {
   website?: string | null;
   logo?: string | null;
   status?: 'submitted' | string; // Assuming 'submitted' is default
+  password?: string;
   createdAt?: string | Date;
   updatedAt?: string | Date;
   deletedAt?: string | Date | null;
@@ -53,6 +54,7 @@ export interface SaveGymLeadParams {
   website?: string | null;
   logo?: string | null;
   status?: string;
+  password?: string;
 }
 
 export async function fetchGymLeads() {
@@ -86,6 +88,39 @@ export async function fetchGymLeadById(gymLeadId: string) {
   return data;
 }
 
+export async function fetchGymLeadByCredentials(email: string, passwordHash: string) {
+  const { data, error } = await supabase
+    .from('gym_leads')
+    .select('*')
+    .eq('email', email)
+    .eq('password', passwordHash)
+    .is('deletedAt', null)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[gymLeadsHelper] fetchGymLeadByCredentials Error:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function fetchGymLeadByIdentifier(identifier: string) {
+  const { data, error } = await supabase
+    .from('gym_leads')
+    .select('*')
+    .or(`email.eq.${identifier},mobile.eq.${identifier}`)
+    .is('deletedAt', null)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[gymLeadsHelper] fetchGymLeadByIdentifier Error:', error);
+    throw error;
+  }
+
+  return data;
+}
+
 export async function saveGymLead(leadData: SaveGymLeadParams) {
   const now = new Date().toISOString();
 
@@ -113,6 +148,7 @@ export async function saveGymLead(leadData: SaveGymLeadParams) {
         website: leadData.website,
         logo: leadData.logo,
         status: leadData.status,
+        ...(leadData.password ? { password: leadData.password } : {}),
         updatedAt: now,
       })
       .eq('gymLeadId', leadData.gymLeadId)
@@ -148,6 +184,7 @@ export async function saveGymLead(leadData: SaveGymLeadParams) {
       website: leadData.website || null,
       logo: leadData.logo || null,
       status: leadData.status || 'submitted',
+      password: leadData.password || '',
       createdAt: now,
       updatedAt: now,
     };

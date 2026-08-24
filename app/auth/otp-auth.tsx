@@ -132,7 +132,6 @@ export default function OtpAuthScreen() {
 
     try {
       if (purpose === 'login') {
-        // console.log('[SignIn] Attempting signInWithPassword for email:', targetEmail);
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
           email: targetEmail,
           password: password,
@@ -149,8 +148,6 @@ export default function OtpAuthScreen() {
           return;
         }
 
-        // console.log('[SignIn] Auth success, user ID:', authData?.user?.id);
-
         if (authData?.user?.id) {
           const { data: profile, error: profileSelectError } = await supabase
             .from('users')
@@ -165,7 +162,6 @@ export default function OtpAuthScreen() {
           let fetchedRole = profile?.role;
 
           if (!profile) {
-            // console.log('[SignIn] Profile missing in public.users. Creating profile via createUser helper...');
             const metadata = authData.user.user_metadata || {};
             const userPhone = metadata.phone || (phone ? '+91' + phone.replace(/[^0-9]/g, '') : '');
             try {
@@ -177,13 +173,11 @@ export default function OtpAuthScreen() {
                 address: metadata.address || address.trim() || '',
                 role: metadata.role || 'customer',
               });
-              // console.log('[SignIn] Successfully created user profile via createUser:', insertedUser);
             } catch (insertError) {
               // console.error('[SignIn] Error creating user profile via createUser:', insertError);
             }
             fetchedRole = metadata.role || 'customer';
           } else {
-            // console.log('[SignIn] Existing user profile found with role:', fetchedRole);
           }
 
           // Refresh context in background
@@ -222,7 +216,6 @@ export default function OtpAuthScreen() {
         }
 
         const fullPhone = '+91' + cleanedPhone;
-        // console.log('[SignUp] Calling supabase.auth.signUp for:', { email: targetEmail, name: name.trim(), phone: fullPhone });
 
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: targetEmail,
@@ -242,11 +235,9 @@ export default function OtpAuthScreen() {
           throw authError;
         }
 
-        // console.log('[SignUp] Auth signUp success, user ID:', authData?.user?.id, 'Session active:', !!authData?.session);
 
         // Attempt inserting into public.users immediately via createUser helper
         if (authData?.user?.id) {
-          // console.log('[SignUp] Attempting immediate insertion into public.users via createUser for userId:', authData.user.id);
           try {
             await createUser({
               userId: authData.user.id,
@@ -256,7 +247,6 @@ export default function OtpAuthScreen() {
               address: address.trim(),
               role: 'customer',
             });
-            // console.log('[SignUp] Immediate insertion via createUser succeeded:', insertedData);
           } catch (insertError) {
             // console.error('[SignUp] Immediate insertion via createUser failed (likely RLS if unconfirmed):', insertError);
           }
@@ -575,6 +565,10 @@ export default function OtpAuthScreen() {
               <Text className="text-[#D4FF00] text-xs font-medium">Forgot Password?</Text>
             </Pressable>
           )} */}
+
+          <Text className="text-[#8E8E93] text-[13px] text-center mb-4 mt-2 px-4 leading-5">
+            Note: If you have just created an account, please confirm your email address before signing in.
+          </Text>
 
           <Pressable
             onPress={handleAuth}

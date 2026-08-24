@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
+import * as Crypto from 'expo-crypto';
 
 
 export type OtpType = 'email' | 'sms';
@@ -45,6 +46,7 @@ export interface CreateUserParams {
 }
 
 export async function createUser(userData: CreateUserParams) {
+  console.log('[otpHelper] createUser called with userData:', userData);
   const insertData: any = {
     name: userData.name,
     email: userData.email,
@@ -61,7 +63,11 @@ export async function createUser(userData: CreateUserParams) {
 
   if (userData.userId) {
     insertData.userId = userData.userId;
+  } else {
+    insertData.userId = Crypto.randomUUID();
   }
+  
+  console.log('[otpHelper] createUser insertData prepared:', insertData);
 
   const { data, error } = await supabase
     .from('users')
@@ -69,10 +75,11 @@ export async function createUser(userData: CreateUserParams) {
     .select();
 
   if (error) {
-    console.error('[otpHelper] createUser Error:', error);
+    console.error('[otpHelper] createUser Error from supabase:', error);
     throw error;
   }
 
+  console.log('[otpHelper] createUser successful. Supabase returned data:', data);
   return data ? data[0] : null;
 }
 

@@ -33,6 +33,8 @@ import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 import { getSelectedGym, SelectedGym, clearSelectedGym } from '@/helpers/tenantHelper';
+import * as Crypto from 'expo-crypto';
+import { fetchGymLeadByCredentials, fetchGymLeadByIdentifier } from '@/helpers/gymLeads/gymLeadsHelper';
 
 export default function OtpAuthScreen() {
   const { role, loading: userLoading, refreshUserContext, isGymSuspended } = useUser();
@@ -58,6 +60,10 @@ export default function OtpAuthScreen() {
   const [successTitle, setSuccessTitle] = useState('');
   const [successBody, setSuccessBody] = useState('');
   const [selectedGym, setSelectedGymState] = useState<SelectedGym | null>(null);
+
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusIdentifier, setStatusIdentifier] = useState('');
+  const [statusLoading, setStatusLoading] = useState(false);
 
   React.useEffect(() => {
     const fetchGym = async () => {
@@ -132,13 +138,25 @@ export default function OtpAuthScreen() {
 
     try {
       if (purpose === 'login') {
-        // console.log('[SignIn] Attempting signInWithPassword for email:', targetEmail);
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
           email: targetEmail,
           password: password,
         });
 
         if (authError) {
+          try {
+            const passwordHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
+            const gymLead = await fetchGymLeadByCredentials(targetEmail, passwordHash);
+
+            if (gymLead) {
+              setLoading(false);
+              router.replace(`/auth/registration-status?gymLeadId=${gymLead.gymLeadId}`);
+              return;
+            }
+          } catch (err) {
+            console.error('[otp-auth] error checking gym leads:', err);
+          }
+
           let errorMessage = authError.message || 'Unable to sign in.';
           if (errorMessage.includes('sql:') || errorMessage.includes('converting NULL')) {
             errorMessage = 'Your account is currently recovering. Please try again or contact support.';
@@ -148,8 +166,6 @@ export default function OtpAuthScreen() {
           setLoading(false);
           return;
         }
-
-        // console.log('[SignIn] Auth success, user ID:', authData?.user?.id);
 
         if (authData?.user?.id) {
           const { data: profile, error: profileSelectError } = await supabase
@@ -165,7 +181,6 @@ export default function OtpAuthScreen() {
           let fetchedRole = profile?.role;
 
           if (!profile) {
-            // console.log('[SignIn] Profile missing in public.users. Creating profile via createUser helper...');
             const metadata = authData.user.user_metadata || {};
             const userPhone = metadata.phone || (phone ? '+91' + phone.replace(/[^0-9]/g, '') : '');
             try {
@@ -177,13 +192,11 @@ export default function OtpAuthScreen() {
                 address: metadata.address || address.trim() || '',
                 role: metadata.role || 'customer',
               });
-              // console.log('[SignIn] Successfully created user profile via createUser:', insertedUser);
             } catch (insertError) {
               // console.error('[SignIn] Error creating user profile via createUser:', insertError);
             }
             fetchedRole = metadata.role || 'customer';
           } else {
-            // console.log('[SignIn] Existing user profile found with role:', fetchedRole);
           }
 
           // Refresh context in background
@@ -222,7 +235,6 @@ export default function OtpAuthScreen() {
         }
 
         const fullPhone = '+91' + cleanedPhone;
-        // console.log('[SignUp] Calling supabase.auth.signUp for:', { email: targetEmail, name: name.trim(), phone: fullPhone });
 
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: targetEmail,
@@ -242,11 +254,9 @@ export default function OtpAuthScreen() {
           throw authError;
         }
 
-        // console.log('[SignUp] Auth signUp success, user ID:', authData?.user?.id, 'Session active:', !!authData?.session);
 
         // Attempt inserting into public.users immediately via createUser helper
         if (authData?.user?.id) {
-          // console.log('[SignUp] Attempting immediate insertion into public.users via createUser for userId:', authData.user.id);
           try {
             await createUser({
               userId: authData.user.id,
@@ -256,7 +266,6 @@ export default function OtpAuthScreen() {
               address: address.trim(),
               role: 'customer',
             });
-            // console.log('[SignUp] Immediate insertion via createUser succeeded:', insertedData);
           } catch (insertError) {
             // console.error('[SignUp] Immediate insertion via createUser failed (likely RLS if unconfirmed):', insertError);
           }
@@ -368,6 +377,29 @@ export default function OtpAuthScreen() {
     );
   }
 
+  const handleCheckStatus = async () => {
+    if (!statusIdentifier) {
+      toast.error('Please enter email or mobile number.');
+      return;
+    }
+    setStatusLoading(true);
+    try {
+      const gymLead = await fetchGymLeadByIdentifier(statusIdentifier);
+      if (gymLead) {
+        setShowStatusModal(false);
+        setStatusIdentifier('');
+        router.push(`/auth/registration-status?gymLeadId=${gymLead.gymLeadId}`);
+      } else {
+        const identifierType = statusIdentifier.includes('@') ? 'email address' : 'mobile number';
+        toast.error(`No application found for this ${identifierType}.`);
+      }
+    } catch (err) {
+      toast.error('Failed to check status.');
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -381,7 +413,7 @@ export default function OtpAuthScreen() {
         >
           <CaretLeft size={20} color="#FFFFFF" />
         </Pressable>
-        <View className="h-[300px] w-full relative justify-end pb-8 px-6 mt-8">
+        <View className="h-[300px] w-full relative justify-end pb-8 px-6 mt-5">
           <View className="absolute top-0 right-0 bottom-0 opacity-40 items-end justify-center overflow-visible">
             <Image
               source={require('../../assets/login-posture.png')}
@@ -576,6 +608,10 @@ export default function OtpAuthScreen() {
             </Pressable>
           )} */}
 
+          <Text className="text-[#8E8E93] text-[13px] text-center mb-4 mt-2 px-4 leading-5">
+            Note: If you have just created an account, please confirm your email address before signing in.
+          </Text>
+
           <Pressable
             onPress={handleAuth}
             disabled={loading}
@@ -609,7 +645,6 @@ export default function OtpAuthScreen() {
 
           {purpose === 'login' && (
             <View className="bg-[#121212] border border-[#1E1E1E] rounded-3xl p-5 mt-6 flex-row justify-between mb-4">
-
               <View className="items-center flex-1">
                 <View className="w-10 h-10 rounded-full bg-[#1A1A1A] items-center justify-center mb-2">
                   <Barbell size={20} color="#D4FF00" weight="regular" />
@@ -630,25 +665,72 @@ export default function OtpAuthScreen() {
                 </View>
                 <Text className="text-[#8E8E93] text-[9px] text-center font-medium leading-[14px]">Achieve Your{'\n'}Goals</Text>
               </View>
-
             </View>
           )}
 
           {purpose === 'login' && (
-            <Pressable onPress={() => router.push({ pathname: '/auth/signup', params: { type: typeId } })} className="self-center mt-2 mb-4">
-              <Text className="text-[#8E8E93] text-sm">
-                Don't have an account? <Text className="text-[#C3F400] font-semibold">Sign Up</Text>
-              </Text>
-            </Pressable>
+            <View className="mt-2 mb-4 items-center">
+              <Pressable onPress={() => router.push({ pathname: '/auth/signup', params: { type: typeId } })} className="mb-4">
+                <Text className="text-[#8E8E93] text-sm">
+                  Don't have an account? <Text className="text-[#C3F400] font-semibold">Sign Up</Text>
+                </Text>
+              </Pressable>
+
+              <Pressable onPress={() => setShowStatusModal(true)} className="flex-row items-center justify-center p-2">
+                <Text className="text-[#8E8E93] text-sm">
+                  Applied for Gym Owner? <Text className="text-[#84CC16] font-semibold">Check Status</Text>
+                </Text>
+              </Pressable>
+            </View>
           )}
 
           <View className="flex-row justify-center items-center pb-8 mt-2">
             <Barbell size={14} color="#D4FF00" weight="fill" />
             <Text className="text-[#6B6B6B] text-xs ml-1.5 font-medium">Stronger every day, better you.</Text>
           </View>
-
         </View>
       </ScrollView>
+
+      {showStatusModal && (
+        <View className="absolute inset-0 bg-black/60 justify-end z-50">
+          <View className="bg-[#121212] rounded-t-[32px] p-6 pb-10 border-t border-[#1E1E1E]">
+            <View className="flex-row justify-between items-center mb-6">
+              <Text className="text-white text-xl font-semibold">Check Application Status</Text>
+              <Pressable onPress={() => setShowStatusModal(false)} className="w-8 h-8 bg-[#1E1E1E] rounded-full items-center justify-center">
+                <Text className="text-[#8E8E93] text-sm font-semibold">✕</Text>
+              </Pressable>
+            </View>
+
+            <Text className="text-[#8E8E93] text-[14px] mb-4 leading-5">
+              Enter the email or mobile number you used during registration.
+            </Text>
+
+            <View className="flex-row items-center bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-3.5 mb-6">
+              <User size={18} color="#6B6B6B" />
+              <TextInput
+                value={statusIdentifier}
+                onChangeText={setStatusIdentifier}
+                placeholder="Email or Mobile Number"
+                placeholderTextColor="#6B6B6B"
+                autoCapitalize="none"
+                className="flex-1 text-white text-[14px] p-0 font-medium ml-3"
+              />
+            </View>
+
+            <Pressable
+              onPress={handleCheckStatus}
+              disabled={statusLoading}
+              className="bg-[#84CC16] rounded-2xl py-3.5 flex-row items-center justify-center active:opacity-80"
+            >
+              {statusLoading ? (
+                <ActivityIndicator color="#000000" size="small" />
+              ) : (
+                <Text className="text-black font-semibold text-[15px]">Check Status</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }

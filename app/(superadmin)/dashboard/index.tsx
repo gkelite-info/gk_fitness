@@ -191,46 +191,56 @@ export default function DashboardScreen() {
         })}
       </View>
 
-      <View className="flex-row items-center justify-between mt-6 mb-3">
-        <Text className="text-lg font-semibold text-white">Recently Registered Gyms</Text>
+      <View className="flex-row items-center justify-between mt-6 mb-4">
+        <Text className="text-xl font-semibold text-white">Recently Registered Gyms</Text>
         <Pressable className="flex-row items-center gap-1" onPress={() => router.push('/(superadmin)/gyms')}>
-          <Text className="text-xs font-semibold text-[#BEF227]">View All</Text>
+          <Text className="text-[13px] font-medium text-[#BEF227]">View All</Text>
           <CaretRight size={12} color="#BEF227" weight="bold" />
         </Pressable>
       </View>
 
-      <View className="gap-3">
+      <View className="gap-4">
         {recentGyms.map((gym) => (
           <Pressable
             key={gym.gymId || gym.id}
-            className="flex-row items-center bg-[#0F0F0F] border border-[#111827] rounded-2xl p-3"
+            className="flex-row items-center bg-[#0B0C10] border border-[#1F293D] rounded-3xl p-4"
             onPress={() => router.push(`/(superadmin)/dashboard/gym/${gym.gymId || gym.id}` as any)}
           >
             {gym.logo ? (
-              <Image source={{ uri: gym.logo }} className="w-12 h-12 rounded-xl bg-white mr-3" />
+              <Image source={{ uri: gym.logo }} className="w-[60px] h-[60px] rounded-2xl bg-white mr-4" />
             ) : (
-              <View className="w-12 h-12 rounded-xl bg-[#1C1C1E] items-center justify-center mr-3 border border-[#2A2A2D]"><Text className="text-[10px] font-semibold text-[#888888] text-center">NO{'\n'}LOGO</Text></View>
+              <View className="w-[60px] h-[60px] rounded-2xl bg-[#1C1C1E] items-center justify-center mr-4 border border-[#2A2A2D]">
+                <Text className="text-[10px] font-semibold text-[#888888] text-center">NO{'\n'}LOGO</Text>
+              </View>
             )}
-            <View className="flex-1">
-              <Text className="text-white font-semibold text-base">{gym.gymName}</Text>
-              <Text className="text-[#888888] text-xs mt-0.5">Owner: {gym.ownerName || 'Unknown Owner'}</Text>
-              <View className="flex-row items-center mt-1">
-                <MapPin size={10} color="#888888" />
-                <Text className="text-[#888888] text-[10px] ml-1">{gym.city || 'City'}, {gym.state || 'State'}</Text>
+            <View className="flex-1 justify-center">
+              <Text className="text-white font-semibold text-[17px] tracking-tight">{gym.gymName}</Text>
+              <Text className="text-[#888888] text-[13px] mt-1 mb-2">Owner: {gym.ownerName || 'Unknown Owner'}</Text>
+              <View className="flex-row items-center">
+                <MapPin size={12} color="#888888" weight="fill" />
+                <Text className="text-[#888888] text-[12px] ml-1.5">{gym.city || 'City'}, {gym.state || 'State'}</Text>
               </View>
             </View>
-            <View className="items-end justify-between h-full py-1">
-              <View className="flex-row items-center mb-3">
-                <Calendar size={10} color="#888888" />
-                <Text className="text-[#888888] text-[10px] ml-1">
+            <View className="items-end justify-between h-[64px]">
+              <View className="flex-row items-center">
+                <Calendar size={12} color="#888888" />
+                <Text className="text-[#888888] text-[12px] ml-1.5">
                   {gym.createdAt ? new Date(gym.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Unknown Date'}
                 </Text>
               </View>
-              <View className="flex-row items-center gap-2">
-                <View className="bg-[#064E3B]/40 border border-[#059669]/30 px-3 py-1 rounded-full">
-                  <Text className="text-[#10B981] text-[11px] font-semibold tracking-wider">{gym.isActive ? 'Active' : 'Inactive'}</Text>
+              <View className="flex-row items-center gap-3">
+                <View
+                  className={`px-3.5 py-1.5 rounded-lg border ${gym.isActive
+                    ? 'bg-[#BEF227]/10 border-[#BEF227]/20'
+                    : 'bg-red-500/10 border-red-500/20'
+                    }`}
+                >
+                  <Text className={`text-[13px] font-semibold ${gym.isActive ? 'text-[#BEF227]' : 'text-red-500'
+                    }`}>
+                    {gym.isActive ? 'Active' : 'Inactive'}
+                  </Text>
                 </View>
-                <CaretRight size={14} color="#888888" />
+                <CaretRight size={16} color="#888888" />
               </View>
             </View>
           </Pressable>
@@ -240,7 +250,7 @@ export default function DashboardScreen() {
         )}
       </View>
 
-      <View className="flex-row items-center justify-between mt-6 mb-3">
+      {/* <View className="flex-row items-center justify-between mt-6 mb-3">
         <Text className="text-lg font-semibold text-white">Support Requests</Text>
         <Pressable className="flex-row items-center gap-1" onPress={() => router.push('/(superadmin)/support')}>
           <Text className="text-xs font-semibold text-[#BEF227]">View All</Text>
@@ -275,7 +285,7 @@ export default function DashboardScreen() {
           </View>
           <CaretRight size={14} color="#888888" />
         </Pressable>
-      </View>
+      </View> */}
     </ScrollView>
   );
 }

@@ -41,7 +41,7 @@ const SearchableModalPicker = ({ visible, onClose, data, onSelect, placeholder, 
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-black/80">
+      <View className="flex-1 justify-center bg-black/80 px-4">
         <View className="bg-[#121212] rounded-t-3xl h-[80%] p-6">
           <View className="flex-row justify-between items-center mb-6">
             <Text className="text-white text-xl font-semibold">{placeholder}</Text>
@@ -51,7 +51,7 @@ const SearchableModalPicker = ({ visible, onClose, data, onSelect, placeholder, 
           </View>
           <View className="flex-row items-center bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-3 mb-4">
             <MagnifyingGlass size={20} color="#6B6B6B" />
-            <TextInput
+            <TextInput autoCorrect={false} spellCheck={false}
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search..."
@@ -470,7 +470,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner Name <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <User size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={fullName}
                       onChangeText={(val) => setFullName(val.replace(/[0-9]/g, ''))}
                       placeholder="Enter Owner name"
@@ -484,7 +484,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner Email <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <EnvelopeSimple size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={email}
                       onChangeText={setEmail}
                       placeholder="Enter owner email"
@@ -500,7 +500,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner Mobile Number <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <Phone size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={phone}
                       onChangeText={(val) => setPhone(val.replace(/[^0-9]/g, ''))}
                       placeholder="Enter owner mobile number"
@@ -516,7 +516,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner Alternate Mobile Number <Text className="text-[#6B6B6B]">(Optional)</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <Phone size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={alternatePhone}
                       onChangeText={(val) => setAlternatePhone(val.replace(/[^0-9]/g, ''))}
                       placeholder="Enter owner alternate mobile number"
@@ -532,7 +532,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner Address <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <MapPin size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={address}
                       onChangeText={setAddress}
                       placeholder="Enter owner address"
@@ -546,7 +546,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner PIN Code <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <GlobeHemisphereWest size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={pinCode}
                       onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
                       placeholder="Enter owner PIN code"
@@ -567,7 +567,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gym Name <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <Buildings size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={gymName}
                       onChangeText={setGymName}
                       placeholder="Enter gym name"
@@ -581,7 +581,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gym Email <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <EnvelopeSimple size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={gymEmail}
                       onChangeText={setGymEmail}
                       placeholder="Enter gym email"
@@ -597,7 +597,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gym Mobile Number <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <Phone size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={gymMobile}
                       onChangeText={(val) => setGymMobile(val.replace(/[^0-9]/g, ''))}
                       placeholder="Enter gym mobile number"
@@ -613,7 +613,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gym Alternate Mobile Number <Text className="text-[#6B6B6B]">(Optional)</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <Phone size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={gymAlternateMobile}
                       onChangeText={(val) => setGymAlternateMobile(val.replace(/[^0-9]/g, ''))}
                       placeholder="Enter gym alternate mobile number"
@@ -629,7 +629,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gym Address <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <MapPin size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={gymAddress}
                       onChangeText={setGymAddress}
                       placeholder="Enter gym address"
@@ -644,7 +644,7 @@ export default function SignupScreen() {
                     <Pressable onPress={() => setCountryModalVisible(true)}>
                       <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                         <Flag size={18} color="#6B6B6B" />
-                        <TextInput
+                        <TextInput autoCorrect={false} spellCheck={false}
                           value={country ? Country.getCountryByCode(country)?.name : ''}
                           placeholder="Country"
                           placeholderTextColor="#6B6B6B"
@@ -669,7 +669,7 @@ export default function SignupScreen() {
                     <Pressable onPress={() => { if (country) setStateModalVisible(true); }}>
                       <View className={`flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 ${!country ? 'opacity-50' : ''}`}>
                         <MapTrifold size={18} color="#6B6B6B" />
-                        <TextInput
+                        <TextInput autoCorrect={false} spellCheck={false}
                           value={country && state ? State.getStateByCodeAndCountry(state, country)?.name : ''}
                           placeholder="State"
                           placeholderTextColor="#6B6B6B"
@@ -694,7 +694,7 @@ export default function SignupScreen() {
                 <View className="flex-row gap-3">
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
                     <Buildings size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={city}
                       onChangeText={setCity}
                       placeholder="City"
@@ -704,7 +704,7 @@ export default function SignupScreen() {
                   </View>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
                     <GlobeHemisphereWest size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={gymPincode}
                       onChangeText={(val) => setGymPincode(val.replace(/[^0-9]/g, ''))}
                       placeholder="Gym PIN Code"
@@ -719,7 +719,7 @@ export default function SignupScreen() {
                 <View>
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">No. of Branches <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={branches}
                       onChangeText={(val) => setBranches(val.replace(/[^0-9]/g, ''))}
                       placeholder="Branches"
@@ -733,7 +733,7 @@ export default function SignupScreen() {
                 <View>
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Establish Year <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={establishYear}
                       onChangeText={(val) => setEstablishYear(val.replace(/[^0-9]/g, ''))}
                       placeholder="e.g. 2015"
@@ -749,7 +749,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Website</Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <Globe size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={website}
                       onChangeText={setWebsite}
                       placeholder="https://www.yourgym.com"
@@ -794,7 +794,7 @@ export default function SignupScreen() {
                 <View>
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Note <Text className="text-[#6B6B6B]">(Optional)</Text></Text>
                   <View className="flex-row bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={note}
                       onChangeText={setNote}
                       placeholder="Any additional details..."
@@ -818,7 +818,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Full Name <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <User size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={fullName}
                       onChangeText={(val) => setFullName(val.replace(/[0-9]/g, ''))}
                       placeholder="Enter your full name"
@@ -832,7 +832,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Email <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <EnvelopeSimple size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={email}
                       onChangeText={setEmail}
                       placeholder="Enter your email"
@@ -848,7 +848,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Mobile Number <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <Phone size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={phone}
                       onChangeText={(val) => setPhone(val.replace(/[^0-9]/g, ''))}
                       placeholder="Enter mobile number"
@@ -864,7 +864,7 @@ export default function SignupScreen() {
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Address</Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 mb-3">
                     <MapPin size={18} color="#6B6B6B" />
-                    <TextInput
+                    <TextInput autoCorrect={false} spellCheck={false}
                       value={address}
                       onChangeText={setAddress}
                       placeholder="House / Flat / Building / Street"
@@ -878,7 +878,7 @@ export default function SignupScreen() {
                       <Pressable onPress={() => setCountryModalVisible(true)}>
                         <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                           <Flag size={18} color="#6B6B6B" />
-                          <TextInput
+                          <TextInput autoCorrect={false} spellCheck={false}
                             value={country ? Country.getCountryByCode(country)?.name : ''}
                             placeholder="Country"
                             placeholderTextColor="#6B6B6B"
@@ -903,7 +903,7 @@ export default function SignupScreen() {
                       <Pressable onPress={() => { if (country) setStateModalVisible(true); }}>
                         <View className={`flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 ${!country ? 'opacity-50' : ''}`}>
                           <MapTrifold size={18} color="#6B6B6B" />
-                          <TextInput
+                          <TextInput autoCorrect={false} spellCheck={false}
                             value={country && state ? State.getStateByCodeAndCountry(state, country)?.name : ''}
                             placeholder="State"
                             placeholderTextColor="#6B6B6B"
@@ -928,7 +928,7 @@ export default function SignupScreen() {
                   <View className="flex-row gap-3">
                     <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
                       <Buildings size={18} color="#6B6B6B" />
-                      <TextInput
+                      <TextInput autoCorrect={false} spellCheck={false}
                         value={city}
                         onChangeText={setCity}
                         placeholder="City"
@@ -938,7 +938,7 @@ export default function SignupScreen() {
                     </View>
                     <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
                       <GlobeHemisphereWest size={18} color="#6B6B6B" />
-                      <TextInput
+                      <TextInput autoCorrect={false} spellCheck={false}
                         value={pinCode}
                         onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
                         placeholder="PIN Code"
@@ -957,7 +957,7 @@ export default function SignupScreen() {
               <Text className="text-white text-[13px] font-medium mb-2">Password <Text className="text-red-500">*</Text></Text>
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <LockKey size={18} color="#6B6B6B" />
-                <TextInput
+                <TextInput autoCorrect={false} spellCheck={false}
                   value={password}
                   onChangeText={setPassword}
                   placeholder="Enter your password"
@@ -976,7 +976,7 @@ export default function SignupScreen() {
               <Text className="text-white text-[13px] font-medium mb-2">Confirm Password <Text className="text-red-500">*</Text></Text>
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <LockKey size={18} color="#6B6B6B" />
-                <TextInput
+                <TextInput autoCorrect={false} spellCheck={false}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   placeholder="Confirm your password"

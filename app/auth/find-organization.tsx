@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, FlatList, ActivityIndicator, Pressable, TextInput, KeyboardAvoidingView, Platform, Image, Linking, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { GymAttributes } from '@/helpers/gym/gymHelper';
 import { supabase } from '@/lib/supabase';
 import { setSelectedGym } from '@/helpers/tenantHelper';
@@ -48,6 +48,8 @@ function FloatingEmptyIcon() {
 
 export default function FindOrganizationScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const typeId = params.type as string;
   const [gyms, setGyms] = useState<GymAttributes[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -91,7 +93,7 @@ export default function FindOrganizationScreen() {
       gymName: gym.gymName,
       logo: gym.logo,
     });
-    router.replace('/auth/otp-auth');
+    router.replace({ pathname: '/auth/otp-auth', params: { type: typeId } });
   };
 
   const renderGymItem = ({ item }: { item: GymAttributes }) => (

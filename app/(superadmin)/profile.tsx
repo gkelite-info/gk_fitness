@@ -24,7 +24,7 @@ import { StaticAvatar } from '@/components/ui/StaticAvatar';
 export default function SuperAdminProfileScreen() {
   const { name, email, role, profilePhoto } = useUser();
   const insets = useSafeAreaInsets();
-  
+
   const [modalVisible, setModalVisible] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -66,7 +66,7 @@ export default function SuperAdminProfileScreen() {
             <CaretLeft size={20} color="#D4FF00" weight="bold" />
           </Pressable>
           <View className="items-center">
-            <Text className="text-white text-xl font-bold">Profile</Text>
+            <Text className="text-white text-xl font-semibold">Profile</Text>
             <Text className="text-[#8E8E93] text-xs">Super Admin</Text>
           </View>
           <Pressable className="w-10 h-10 border border-[#2A2A2D] rounded-xl items-center justify-center active:opacity-70">
@@ -79,24 +79,23 @@ export default function SuperAdminProfileScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 120 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Main Info Card */}
         <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-5">
           <View className="items-center mb-6">
-            <StaticAvatar 
-              uri={profilePhoto} 
-              name={name || 'Super Admin'} 
-              size={80} 
-              className="w-24 h-24 rounded-full mb-3" 
+            <StaticAvatar
+              uri={profilePhoto}
+              name={name || 'Super Admin'}
+              size={80}
+              className="w-24 h-24 rounded-full mb-3"
             />
-            <Text className="text-[#D4FF00] text-xs font-bold mb-1">GKfitness</Text>
-            <Text className="text-white text-2xl font-bold mb-3">{name || 'Amit Verma'}</Text>
+            <Text className="text-[#D4FF00] text-xs font-semibold mb-1">GKfitness</Text>
+            <Text className="text-white text-2xl font-semibold mb-3">{name || 'Amit Verma'}</Text>
             <View className="border border-[#D4FF00] rounded-full px-4 py-1">
               <Text className="text-[#D4FF00] text-xs">Super Admin</Text>
             </View>
           </View>
 
           <View className="h-[1px] bg-[#2A2A2D] mb-2" />
-          
+
           <Pressable className="flex-row items-center py-4">
             <View className="mr-4"><EnvelopeSimple size={20} color="#D4FF00" weight="regular" /></View>
             <View className="flex-1">
@@ -129,7 +128,6 @@ export default function SuperAdminProfileScreen() {
           </Pressable>
         </View>
 
-        {/* Settings Card */}
         <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-5">
           {renderRow(
             <Bell size={20} color="#D4FF00" weight="regular" />,

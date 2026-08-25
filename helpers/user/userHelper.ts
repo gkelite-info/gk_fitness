@@ -36,7 +36,7 @@ export interface SaveUserParams {
   status?: UserStatus;
 }
 
-export async function fetchUsers(role?: UserRole) {
+export async function fetchUsers(role?: UserRole, retryCount = 0): Promise<any[]> {
   let query = supabase
     .from('users')
     .select('*')
@@ -49,6 +49,12 @@ export async function fetchUsers(role?: UserRole) {
   const { data, error } = await query;
 
   if (error) {
+    // Handle 'JWT issued at future' error by retrying
+    if (error.code === 'PGRST303' && retryCount < 3) {
+      console.warn(`[userHelper] fetchUsers PGRST303 error, retrying (${retryCount + 1}/3) in 1s...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return fetchUsers(role, retryCount + 1);
+    }
     console.error('[userHelper] fetchUsers Error:', error);
     throw error;
   }
@@ -56,7 +62,7 @@ export async function fetchUsers(role?: UserRole) {
   return data ?? [];
 }
 
-export async function fetchUserById(userId: string) {
+export async function fetchUserById(userId: string, retryCount = 0): Promise<any> {
   const { data, error } = await supabase
     .from('users')
     .select('*')
@@ -64,6 +70,11 @@ export async function fetchUserById(userId: string) {
     .maybeSingle();
 
   if (error) {
+    if (error.code === 'PGRST303' && retryCount < 3) {
+      console.warn(`[userHelper] fetchUserById PGRST303 error, retrying (${retryCount + 1}/3) in 1s...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return fetchUserById(userId, retryCount + 1);
+    }
     console.error('[userHelper] fetchUserById Error:', error);
     throw error;
   }
@@ -71,7 +82,7 @@ export async function fetchUserById(userId: string) {
   return data;
 }
 
-export async function fetchUserByEmail(email: string) {
+export async function fetchUserByEmail(email: string, retryCount = 0): Promise<any> {
   const { data, error } = await supabase
     .from('users')
     .select('*')
@@ -79,6 +90,11 @@ export async function fetchUserByEmail(email: string) {
     .maybeSingle();
 
   if (error) {
+    if (error.code === 'PGRST303' && retryCount < 3) {
+      console.warn(`[userHelper] fetchUserByEmail PGRST303 error, retrying (${retryCount + 1}/3) in 1s...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return fetchUserByEmail(email, retryCount + 1);
+    }
     console.error('[userHelper] fetchUserByEmail Error:', error);
     throw error;
   }

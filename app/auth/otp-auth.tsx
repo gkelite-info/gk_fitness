@@ -35,6 +35,8 @@ import { toast } from '@/lib/toast';
 import { getSelectedGym, SelectedGym, clearSelectedGym } from '@/helpers/tenantHelper';
 import * as Crypto from 'expo-crypto';
 import { fetchGymLeadByCredentials, fetchGymLeadByIdentifier } from '@/helpers/gymLeads/gymLeadsHelper';
+import { fetchUserAndRoleProfile } from '@/helpers/user/userProfileHelper';
+import { fetchGymById } from '@/helpers/gym/gymHelper';
 
 export default function OtpAuthScreen() {
   const { role, loading: userLoading, refreshUserContext, isGymSuspended } = useUser();
@@ -138,10 +140,29 @@ export default function OtpAuthScreen() {
 
     try {
       if (purpose === 'login') {
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        let authData: any = null;
+        let authError: any = null;
+
+        const firstAttempt = await supabase.auth.signInWithPassword({
           email: targetEmail,
           password: password,
         });
+
+        if (!firstAttempt.error) {
+          authData = firstAttempt.data;
+        } else {
+          const passwordHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
+          const secondAttempt = await supabase.auth.signInWithPassword({
+            email: targetEmail,
+            password: passwordHash,
+          });
+
+          if (!secondAttempt.error) {
+            authData = secondAttempt.data;
+          } else {
+            authError = secondAttempt.error;
+          }
+        }
 
         if (authError) {
           try {
@@ -174,10 +195,6 @@ export default function OtpAuthScreen() {
             .eq('userId', authData.user.id)
             .maybeSingle();
 
-          if (profileSelectError) {
-            // console.error('[SignIn] Error checking profile in public.users:', profileSelectError);
-          }
-
           let fetchedRole = profile?.role;
 
           if (!profile) {
@@ -199,7 +216,21 @@ export default function OtpAuthScreen() {
           } else {
           }
 
-          // Refresh context in background
+          try {
+            const fullProfile = await fetchUserAndRoleProfile(authData.user.id, targetEmail);
+            if (fullProfile?.gymId) {
+              const gymDetails = await fetchGymById(fullProfile.gymId);
+              if (gymDetails && gymDetails.isActive === false) {
+                await supabase.auth.signOut();
+                toast.error('Your gym is inactive. Please contact support.');
+                setLoading(false);
+                return;
+              }
+            }
+          } catch (error) {
+            console.error('[SignIn] Error checking gym status:', error);
+          }
+
           refreshUserContext();
 
         }
@@ -250,12 +281,11 @@ export default function OtpAuthScreen() {
         });
 
         if (authError) {
-          // console.error('[SignUp] Auth signUp error:', authError);
-          throw authError;
+          toast.error('Sign up failed. Please try again.');
+          return;
         }
 
 
-        // Attempt inserting into public.users immediately via createUser helper
         if (authData?.user?.id) {
           try {
             await createUser({

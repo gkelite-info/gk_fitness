@@ -17,6 +17,7 @@ import { useGymLeads } from '@/hooks/gymLeads/useGymLeads';
 import { updateGymLeadStatus } from '@/helpers/gymLeads/gymLeadsHelper';
 import { toast } from '@/lib/toast';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import ConfirmModal from '@/components/ConfirmModal';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -124,6 +125,7 @@ export default function GymOwnerLeadsScreen() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const queryClient = useQueryClient();
 
@@ -183,6 +185,30 @@ export default function GymOwnerLeadsScreen() {
   const handleBack = () => {
     router.push('/(superadmin)/dashboard');
   }
+
+  const handleConfirmApprove = async () => {
+    setConfirmModalVisible(false);
+    if (!selectedLead) return;
+    setIsUpdating(true);
+    try {
+      await updateGymLeadStatus(selectedLead.gymLeadId, 'underreview');
+      toast.success('Lead set to Under Review. Redirecting to registration...');
+
+      setAccumulatedLeads([]);
+      setPage(1);
+
+      await queryClient.resetQueries({ queryKey: ['gymLeads'] });
+
+      router.push({
+        pathname: '/(superadmin)/dashboard/register',
+        params: { gymLeadId: selectedLead.gymLeadId }
+      });
+    } catch (error) {
+      toast.error('Failed to process approval');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const changeStatus = async (newStatus: 'submitted' | 'underreview' | 'approved' | 'rejected') => {
     if (!selectedLead) return;
@@ -332,7 +358,14 @@ export default function GymOwnerLeadsScreen() {
                 return (
                   <Pressable
                     key={s.id}
-                    onPress={() => changeStatus(s.id as any)}
+                    onPress={() => {
+                      if (s.id === 'approved') {
+                        setStatusModalVisible(false);
+                        setConfirmModalVisible(true);
+                      } else {
+                        changeStatus(s.id as any);
+                      }
+                    }}
                     disabled={isDisabled}
                     className={`flex-row items-center justify-between p-4 rounded-xl border ${selectedLead?.status === s.id ? 'border-white/20 bg-[#2A2A2D]' : 'border-[#2A2A2D] bg-[#121212]'} ${isDisabled ? 'opacity-50' : 'active:opacity-70'}`}
                   >
@@ -352,6 +385,19 @@ export default function GymOwnerLeadsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <ConfirmModal
+        visible={confirmModalVisible}
+        onClose={() => setConfirmModalVisible(false)}
+        onConfirm={handleConfirmApprove}
+        title="Approve Lead & Register Gym"
+        description={`Are you sure you want to approve "${selectedLead?.gymName || 'this gym'}"? This will set the lead status to "Under Review" and redirect you to complete the registration.`}
+        confirmText="Confirm"
+        cancelText="Cancel"
+        confirmButtonColor="bg-[#BEF227]"
+        confirmTextColor="text-black"
+        icon={<Buildings size={40} color="#BEF227" />}
+      />
     </View>
   );
 }

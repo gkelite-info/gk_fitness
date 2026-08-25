@@ -28,7 +28,7 @@ export default function TrainerProfileScreen() {
         .select('*')
         .eq('gymTrainerId', id)
         .single();
-      
+
       if (error) throw error;
       return data;
     },
@@ -46,7 +46,7 @@ export default function TrainerProfileScreen() {
   if (!trainer) {
     return (
       <View className="flex-1 bg-[#09090B] items-center justify-center px-4">
-        <Text className="text-white text-lg font-bold mb-4">Trainer Not Found</Text>
+        <Text className="text-white text-lg font-semibold mb-4">Trainer Not Found</Text>
         <Pressable onPress={() => router.back()} className="px-6 py-3 bg-[#1C1C1E] rounded-xl border border-[#2A2A2D]">
           <Text className="text-white">Go Back</Text>
         </Pressable>
@@ -72,28 +72,26 @@ export default function TrainerProfileScreen() {
   return (
     <View className="flex-1 bg-[#09090B]">
       <View className="px-5 pt-4 pb-2">
-        {/* Header */}
         <View className="mt-2 mb-4">
           <View className="flex-row items-center mb-1">
             <Pressable onPress={() => router.back()} className="mr-4 active:opacity-70">
               <ArrowLeft size={24} color="#FFFFFF" weight="bold" />
             </Pressable>
-            <Text className="text-white text-xl font-bold">Trainer Profile</Text>
+            <Text className="text-white text-xl font-semibold">Trainer Profile</Text>
           </View>
           <Text className="text-[#8E8E93] text-sm ml-10">View trainer details and manage access.</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 160 }} showsVerticalScrollIndicator={false}>
-        {/* Top Card */}
         <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-5">
           <View className="flex-row items-center mb-6">
             <StaticAvatar uri={trainer.profilePhoto} name={trainer.fullName || 'Unknown'} size={60} className="w-[60px] h-[60px] rounded-full mr-4" />
             <View>
-              <Text className="text-white text-xl font-bold mb-1">{trainer.fullName || 'Unknown'}</Text>
+              <Text className="text-white text-xl font-semibold mb-1">{trainer.fullName || 'Unknown'}</Text>
               <View className="flex-row items-center">
                 <View className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isActive ? 'bg-[#CCFF00]' : 'bg-[#EF4444]'}`} />
-                <Text className={`text-[10px] font-bold ${isActive ? 'text-[#CCFF00]' : 'text-[#EF4444]'}`}>
+                <Text className={`text-[10px] font-semibold ${isActive ? 'text-[#CCFF00]' : 'text-[#EF4444]'}`}>
                   {isActive ? 'ACTIVE' : 'INACTIVE'}
                 </Text>
               </View>
@@ -104,32 +102,31 @@ export default function TrainerProfileScreen() {
 
           <View className="flex-row justify-between mb-4">
             <View className="flex-1 mr-4">
-              <Text className="text-[#8E8E93] text-[10px] mb-1 font-bold">TRAINER ID</Text>
-              <Text className="text-[#CCFF00] text-sm font-bold">{displayId}</Text>
+              <Text className="text-[#8E8E93] text-[10px] mb-1 font-semibold">TRAINER ID</Text>
+              <Text className="text-[#CCFF00] text-sm font-semibold">{displayId}</Text>
             </View>
             <View className="flex-1">
-              <Text className="text-[#8E8E93] text-[10px] mb-1 font-bold">PHONE</Text>
+              <Text className="text-[#8E8E93] text-[10px] mb-1 font-semibold">PHONE</Text>
               <Text className="text-white text-sm font-medium">{trainer.phone || 'N/A'}</Text>
             </View>
           </View>
 
           <View className="flex-row justify-between">
             <View className="flex-1 mr-4">
-              <Text className="text-[#8E8E93] text-[10px] mb-1 font-bold">EMAIL</Text>
+              <Text className="text-[#8E8E93] text-[10px] mb-1 font-semibold">EMAIL</Text>
               <Text className="text-white text-sm font-medium">{trainer.email || 'N/A'}</Text>
             </View>
             <View className="flex-1">
-              <Text className="text-[#8E8E93] text-[10px] mb-1 font-bold">SPECIALIZATION</Text>
+              <Text className="text-[#8E8E93] text-[10px] mb-1 font-semibold">SPECIALIZATION</Text>
               <Text className="text-white text-sm font-medium">{trainer.specialization || 'General Fitness'}</Text>
             </View>
           </View>
         </View>
 
-        {/* Personal Information */}
         <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-5">
           <View className="flex-row items-center mb-2">
             <View className="mr-3"><User size={20} color="#CCFF00" weight="regular" /></View>
-            <Text className="text-white text-base font-bold">Personal Information</Text>
+            <Text className="text-white text-base font-semibold">Personal Information</Text>
           </View>
 
           {renderRow(
@@ -138,14 +135,14 @@ export default function TrainerProfileScreen() {
             trainer.dateOfBirth ? new Date(trainer.dateOfBirth).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'
           )}
           <View className="h-[1px] bg-[#2A2A2D]" />
-          
+
           {renderRow(
             <Text className="text-[#8E8E93] text-lg leading-5 -mt-1 ml-1 mr-1">♂</Text>,
             "Gender",
             trainer.gender ? trainer.gender.charAt(0).toUpperCase() + trainer.gender.slice(1) : 'N/A'
           )}
           <View className="h-[1px] bg-[#2A2A2D]" />
-          
+
           {renderRow(
             <MapPin size={18} color="#8E8E93" />,
             "Address",
@@ -153,11 +150,10 @@ export default function TrainerProfileScreen() {
           )}
         </View>
 
-        {/* Account Information */}
         <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-5">
           <View className="flex-row items-center mb-2">
             <View className="mr-3"><Info size={20} color="#CCFF00" weight="regular" /></View>
-            <Text className="text-white text-base font-bold">Account Information</Text>
+            <Text className="text-white text-base font-semibold">Account Information</Text>
           </View>
 
           {renderRow(
@@ -166,11 +162,11 @@ export default function TrainerProfileScreen() {
             isActive ? "Active" : "Inactive"
           )}
           <View className="h-[1px] bg-[#2A2A2D]" />
-          
+
           {renderRow(
             <User size={18} color="#8E8E93" />,
             "Added By",
-            trainer.gymName || "Gold Fitness" // Mocking if unavailable in flat schema
+            trainer.gymName || "Gold Fitness"
           )}
           <View className="h-[1px] bg-[#2A2A2D]" />
 
@@ -181,20 +177,19 @@ export default function TrainerProfileScreen() {
           )}
         </View>
 
-        {/* Additional Information */}
         <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-5">
           <View className="flex-row items-center mb-2">
             <View className="mr-3"><Info size={20} color="#CCFF00" weight="regular" /></View>
-            <Text className="text-white text-base font-bold">Additional Information</Text>
+            <Text className="text-white text-base font-semibold">Additional Information</Text>
           </View>
 
           {renderRow(
             <Phone size={18} color="#8E8E93" />,
             "Emergency Contact",
-            "Ramesh Verma (Father)" // Since emergency contact doesn't exist in GymTrainerAttributes directly, mocking for UI parity
+            "Ramesh Verma (Father)"
           )}
           <View className="h-[1px] bg-[#2A2A2D]" />
-          
+
           {renderRow(
             <Phone size={18} color="#8E8E93" />,
             "Emergency Phone",
@@ -204,10 +199,9 @@ export default function TrainerProfileScreen() {
 
       </ScrollView>
 
-      {/* Sticky Bottom Action */}
       <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#09090B]/90" style={{ paddingBottom: insets.bottom + 20 }}>
         <Pressable className="bg-[#CCFF00] rounded-xl py-4 items-center active:opacity-80">
-          <Text className="text-black text-sm font-bold">Convert to Global Trainer</Text>
+          <Text className="text-black text-sm font-semibold">Convert to Global Trainer</Text>
         </Pressable>
       </View>
     </View>

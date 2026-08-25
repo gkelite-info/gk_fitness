@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Pressable, SafeAreaView, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { router, Stack } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { User, Buildings, Barbell, Globe, ShieldCheck, CaretRight } from 'phosphor-react-native';
+import { clearSelectedGym } from '@/helpers/tenantHelper';
 
 const ACCOUNT_TYPES = [
   { id: 'individual', title: 'Individual', icon: User, color: '#C3F400' },
@@ -13,9 +15,15 @@ const ACCOUNT_TYPES = [
 ];
 
 export default function AccountTypeScreen() {
+  useFocusEffect(
+    useCallback(() => {
+      clearSelectedGym();
+    }, [])
+  );
+
   const handleSelect = (typeId: string) => {
     if (typeId === 'customer' || typeId === 'gym_trainer') {
-      router.push('/auth/find-organization');
+      router.push({ pathname: '/auth/find-organization', params: { type: typeId } });
     } else if (typeId === 'individual' || typeId === 'owner' || typeId === 'global_trainer') {
       router.push({ pathname: '/auth/otp-auth', params: { type: typeId } });
     }

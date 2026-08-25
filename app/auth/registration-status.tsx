@@ -5,11 +5,13 @@ import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { FileText, Check, Bell, CaretLeft, X } from 'phosphor-react-native';
 import { fetchGymLeadById } from '@/helpers/gymLeads/gymLeadsHelper';
+import { fetchGlobalTrainerLeadById } from '@/helpers/globalTrainerLeads/globalTrainerLeadsHelper';
 
 export default function RegistrationStatusScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const gymLeadId = params.gymLeadId as string;
+  const globalTrainerLeadId = params.globalTrainerLeadId as string;
   const [lead, setLead] = useState<any>(null);
 
   useEffect(() => {
@@ -18,6 +20,12 @@ export default function RegistrationStatusScreen() {
         if (data) setLead(data);
       }).catch(err => {
         console.error('Error fetching gym lead:', err);
+      });
+    } else if (globalTrainerLeadId) {
+      fetchGlobalTrainerLeadById(globalTrainerLeadId).then(data => {
+        if (data) setLead(data);
+      }).catch(err => {
+        console.error('Error fetching global trainer lead:', err);
       });
     }
 
@@ -83,7 +91,7 @@ export default function RegistrationStatusScreen() {
           </Text>
           <Text className="text-[#8E8E93] text-[15px] text-center leading-6">
             Your registration request to become a{'\n'}
-            <Text style={{ color: PRIMARY_COLOR }}>Gym Owner</Text> is under review.
+            <Text style={{ color: PRIMARY_COLOR }}>{globalTrainerLeadId ? 'Global Trainer' : 'Gym Owner'}</Text> is under review.
           </Text>
         </View>
 

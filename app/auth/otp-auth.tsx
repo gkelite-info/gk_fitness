@@ -37,6 +37,7 @@ import * as Crypto from 'expo-crypto';
 import { fetchGymLeadByCredentials, fetchGymLeadByIdentifier } from '@/helpers/gymLeads/gymLeadsHelper';
 import { fetchUserAndRoleProfile } from '@/helpers/user/userProfileHelper';
 import { fetchGymById } from '@/helpers/gym/gymHelper';
+import { fetchGlobalTrainerLeadByIdentifier } from '@/helpers/globalTrainerLeads/globalTrainerLeadsHelper';
 
 export default function OtpAuthScreen() {
   const { role, loading: userLoading, refreshUserContext, isGymSuspended } = useUser();
@@ -414,14 +415,26 @@ export default function OtpAuthScreen() {
     }
     setStatusLoading(true);
     try {
-      const gymLead = await fetchGymLeadByIdentifier(statusIdentifier);
-      if (gymLead) {
-        setShowStatusModal(false);
-        setStatusIdentifier('');
-        router.push(`/auth/registration-status?gymLeadId=${gymLead.gymLeadId}`);
+      if (typeId === 'global_trainer') {
+        const lead = await fetchGlobalTrainerLeadByIdentifier(statusIdentifier);
+        if (lead) {
+          setShowStatusModal(false);
+          setStatusIdentifier('');
+          router.push(`/auth/registration-status?globalTrainerLeadId=${lead.globalTrainerLeadId}`);
+        } else {
+          const identifierType = statusIdentifier.includes('@') ? 'email address' : 'mobile number';
+          toast.error(`No application found for this ${identifierType}.`);
+        }
       } else {
-        const identifierType = statusIdentifier.includes('@') ? 'email address' : 'mobile number';
-        toast.error(`No application found for this ${identifierType}.`);
+        const gymLead = await fetchGymLeadByIdentifier(statusIdentifier);
+        if (gymLead) {
+          setShowStatusModal(false);
+          setStatusIdentifier('');
+          router.push(`/auth/registration-status?gymLeadId=${gymLead.gymLeadId}`);
+        } else {
+          const identifierType = statusIdentifier.includes('@') ? 'email address' : 'mobile number';
+          toast.error(`No application found for this ${identifierType}.`);
+        }
       }
     } catch (err) {
       toast.error('Failed to check status.');
@@ -524,7 +537,7 @@ export default function OtpAuthScreen() {
               <>
                 <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                   <User size={18} color="#6B6B6B" />
-                  <TextInput
+                  <TextInput autoCorrect={false} spellCheck={false}
                     value={name}
                     onChangeText={setName}
                     placeholder="Full Name"
@@ -536,7 +549,7 @@ export default function OtpAuthScreen() {
 
                 <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                   <Phone size={18} color="#6B6B6B" />
-                  <TextInput
+                  <TextInput autoCorrect={false} spellCheck={false}
                     value={phone}
                     onChangeText={setPhone}
                     placeholder="Phone Number"
@@ -549,7 +562,7 @@ export default function OtpAuthScreen() {
 
                 <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                   <MapPin size={18} color="#6B6B6B" />
-                  <TextInput
+                  <TextInput autoCorrect={false} spellCheck={false}
                     value={address}
                     onChangeText={setAddress}
                     placeholder="Address (Optional)"
@@ -563,7 +576,7 @@ export default function OtpAuthScreen() {
             {loginMethod === 'email' && (
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <EnvelopeSimple size={18} color="#6B6B6B" />
-                <TextInput
+                <TextInput autoCorrect={false} spellCheck={false}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="Email Address"
@@ -578,7 +591,7 @@ export default function OtpAuthScreen() {
             {/* {(purpose === 'login' && loginMethod === 'phone' && phoneStep === 'request') && (
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <DeviceMobile size={18} color="#6B6B6B" />
-                <TextInput
+                <TextInput autoCorrect={false} spellCheck={false}
                   value={phone}
                   onChangeText={setPhone}
                   placeholder="Phone Number"
@@ -593,7 +606,7 @@ export default function OtpAuthScreen() {
               <View className="gap-3">
                 <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                   <Key size={18} color="#6B6B6B" />
-                  <TextInput
+                  <TextInput autoCorrect={false} spellCheck={false}
                     value={otpCode}
                     onChangeText={setOtpCode}
                     placeholder="Enter 6-digit OTP"
@@ -612,7 +625,7 @@ export default function OtpAuthScreen() {
             {loginMethod === 'email' && (
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <Key size={18} color="#6B6B6B" />
-                <TextInput
+                <TextInput autoCorrect={false} spellCheck={false}
                   value={password}
                   onChangeText={setPassword}
                   placeholder="Password"
@@ -700,17 +713,27 @@ export default function OtpAuthScreen() {
 
           {purpose === 'login' && (
             <View className="mt-2 mb-4 items-center">
-              <Pressable onPress={() => router.push({ pathname: '/auth/signup', params: { type: typeId } })} className="mb-4">
-                <Text className="text-[#8E8E93] text-sm">
-                  Don't have an account? <Text className="text-[#C3F400] font-semibold">Sign Up</Text>
-                </Text>
-              </Pressable>
+              {typeId !== 'gym_trainer' && (
+                <Pressable onPress={() => {
+                  if (typeId === 'global_trainer') {
+                    router.push('/auth/global-trainer-signup');
+                  } else {
+                    router.push({ pathname: '/auth/signup', params: { type: typeId } });
+                  }
+                }} className="mb-4">
+                  <Text className="text-[#8E8E93] text-sm">
+                    Don't have an account? <Text className="text-[#C3F400] font-semibold">Sign Up</Text>
+                  </Text>
+                </Pressable>
+              )}
 
-              <Pressable onPress={() => setShowStatusModal(true)} className="flex-row items-center justify-center p-2">
-                <Text className="text-[#8E8E93] text-sm">
-                  Applied for Gym Owner? <Text className="text-[#84CC16] font-semibold">Check Status</Text>
-                </Text>
-              </Pressable>
+              {(typeId === 'owner' || typeId === 'global_trainer') && (
+                <Pressable onPress={() => setShowStatusModal(true)} className="flex-row items-center justify-center p-2">
+                  <Text className="text-[#8E8E93] text-sm">
+                    {typeId === 'owner' ? 'Applied for Gym Owner?' : 'Applied for Trainer?'} <Text className="text-[#84CC16] font-semibold">Check Status</Text>
+                  </Text>
+                </Pressable>
+              )}
             </View>
           )}
 
@@ -722,8 +745,8 @@ export default function OtpAuthScreen() {
       </ScrollView>
 
       {showStatusModal && (
-        <View className="absolute inset-0 bg-black/60 justify-end z-50">
-          <View className="bg-[#121212] rounded-t-[32px] p-6 pb-10 border-t border-[#1E1E1E]">
+        <View className="absolute inset-0 bg-black/60 justify-center px-4 z-50">
+          <View className="bg-[#121212] rounded-[32px] p-6 border border-[#1E1E1E]">
             <View className="flex-row justify-between items-center mb-6">
               <Text className="text-white text-xl font-semibold">Check Application Status</Text>
               <Pressable onPress={() => setShowStatusModal(false)} className="w-8 h-8 bg-[#1E1E1E] rounded-full items-center justify-center">
@@ -737,12 +760,15 @@ export default function OtpAuthScreen() {
 
             <View className="flex-row items-center bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-3.5 mb-6">
               <User size={18} color="#6B6B6B" />
-              <TextInput
+              <TextInput autoCorrect={false} spellCheck={false}
                 value={statusIdentifier}
                 onChangeText={setStatusIdentifier}
                 placeholder="Email or Mobile Number"
                 placeholderTextColor="#6B6B6B"
                 autoCapitalize="none"
+                autoComplete="off"
+                textContentType="none"
+                importantForAutofill="no"
                 className="flex-1 text-white text-[14px] p-0 font-medium ml-3"
               />
             </View>

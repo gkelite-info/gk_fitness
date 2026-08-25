@@ -138,7 +138,10 @@ export default function DashboardScreen() {
           return (
             <Pressable
               key={item.id}
-              onPress={() => item.id === 'total-gyms' ? router.push('/(superadmin)/gyms') : null}
+              onPress={() => {
+                if (item.id === 'total-gyms') router.push('/(superadmin)/gyms');
+                else if (item.id === 'active-gyms') router.push({ pathname: '/(superadmin)/dashboard/register', params: { filter: 'active' } } as any);
+              }}
               className="flex-1 bg-[#0F0F0F] border border-[#111827] rounded-2xl p-3 items-center justify-center min-h-[130px] active:opacity-70">
               <Icon size={28} color="#BEF227" weight="fill" />
               <Text className="text-2xl font-semibold text-white mt-2">{item.value}</Text>
@@ -206,7 +209,7 @@ export default function DashboardScreen() {
             {gym.logo ? (
               <Image source={{ uri: gym.logo }} className="w-12 h-12 rounded-xl bg-white mr-3" />
             ) : (
-              <View className="w-12 h-12 rounded-xl bg-[#1C1C1E] items-center justify-center mr-3 border border-[#2A2A2D]"><Text className="text-[10px] font-bold text-[#888888] text-center">NO{'\n'}LOGO</Text></View>
+              <View className="w-12 h-12 rounded-xl bg-[#1C1C1E] items-center justify-center mr-3 border border-[#2A2A2D]"><Text className="text-[10px] font-semibold text-[#888888] text-center">NO{'\n'}LOGO</Text></View>
             )}
             <View className="flex-1">
               <Text className="text-white font-semibold text-base">{gym.gymName}</Text>
@@ -225,7 +228,7 @@ export default function DashboardScreen() {
               </View>
               <View className="flex-row items-center gap-2">
                 <View className="bg-[#064E3B]/40 border border-[#059669]/30 px-3 py-1 rounded-full">
-                  <Text className="text-[#10B981] text-[11px] font-bold tracking-wider">{gym.isActive ? 'Active' : 'Inactive'}</Text>
+                  <Text className="text-[#10B981] text-[11px] font-semibold tracking-wider">{gym.isActive ? 'Active' : 'Inactive'}</Text>
                 </View>
                 <CaretRight size={14} color="#888888" />
               </View>
@@ -251,7 +254,7 @@ export default function DashboardScreen() {
               <Headphones size={16} color="#BEF227" weight="fill" />
             </View>
             <View>
-              <Text className="text-white font-bold text-sm">3</Text>
+              <Text className="text-white font-semibold text-sm">3</Text>
               <Text className="text-[#888888] text-[10px]">Open Requests</Text>
             </View>
           </View>
@@ -266,7 +269,7 @@ export default function DashboardScreen() {
               <CheckCircle size={16} color="#A855F7" weight="bold" />
             </View>
             <View>
-              <Text className="text-white font-bold text-sm">12</Text>
+              <Text className="text-white font-semibold text-sm">12</Text>
               <Text className="text-[#888888] text-[10px]">Resolved</Text>
             </View>
           </View>

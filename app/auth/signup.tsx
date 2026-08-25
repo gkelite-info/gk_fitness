@@ -27,6 +27,7 @@ import { Country, State } from 'country-state-city';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Crypto from 'expo-crypto';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useCreateUser } from '@/hooks/auth/useCreateUser';
 import { useCreateGymLead } from '@/hooks/gymLeads/useCreateGymLead';
 import { useUploadGymLeadLogo } from '@/hooks/gymLeads/useUploadGymLeadLogo';
@@ -106,6 +107,12 @@ export default function SignupScreen() {
   const [website, setWebsite] = useState('');
   const [logo, setLogo] = useState('');
 
+  const [gymEmail, setGymEmail] = useState('');
+  const [gymMobile, setGymMobile] = useState('');
+  const [gymAlternateMobile, setGymAlternateMobile] = useState('');
+  const [gymAddress, setGymAddress] = useState('');
+  const [gymPincode, setGymPincode] = useState('');
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -128,8 +135,21 @@ export default function SignupScreen() {
       });
 
       if (!result.canceled) {
+        const pickedAsset = result.assets[0];
+        let size = pickedAsset.fileSize;
+        if (!size) {
+          const fileInfo = await FileSystem.getInfoAsync(pickedAsset.uri);
+          size = fileInfo.exists ? fileInfo.size : 0;
+        }
+
+        const maxSizeBytes = 2 * 1024 * 1024;
+        if (size && size > maxSizeBytes) {
+          toast.error('Logo image size must be below 2 MB.');
+          return;
+        }
+
         const compressedImage = await ImageManipulator.manipulateAsync(
-          result.assets[0].uri,
+          pickedAsset.uri,
           [],
           { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
         );
@@ -143,8 +163,72 @@ export default function SignupScreen() {
 
   const handleSignup = async () => {
     if (typeId === 'owner') {
-      if (!fullName || !gymName || !email || !phone || !address || !country || !state || !city || !pinCode || !branches || !password || !confirmPassword) {
-        toast.error('Please fill in all required fields.');
+      if (!fullName.trim()) {
+        toast.error('Please enter Owner Name.');
+        return;
+      }
+      if (!email.trim()) {
+        toast.error('Please enter Owner Email.');
+        return;
+      }
+      if (!phone.trim()) {
+        toast.error('Please enter Owner Mobile Number.');
+        return;
+      }
+      if (!address.trim()) {
+        toast.error('Please enter Owner Address.');
+        return;
+      }
+      if (!pinCode.trim()) {
+        toast.error('Please enter Owner PIN Code.');
+        return;
+      }
+      if (!gymName.trim()) {
+        toast.error('Please enter Gym Name.');
+        return;
+      }
+      if (!gymEmail.trim()) {
+        toast.error('Please enter Gym Email.');
+        return;
+      }
+      if (!gymMobile.trim()) {
+        toast.error('Please enter Gym Mobile Number.');
+        return;
+      }
+      if (!gymAddress.trim()) {
+        toast.error('Please enter Gym Address.');
+        return;
+      }
+      if (!country) {
+        toast.error('Please select Gym Country.');
+        return;
+      }
+      if (!state) {
+        toast.error('Please select Gym State.');
+        return;
+      }
+      if (!city.trim()) {
+        toast.error('Please enter Gym City.');
+        return;
+      }
+      if (!gymPincode.trim()) {
+        toast.error('Please enter Gym PIN Code.');
+        return;
+      }
+      if (!branches.trim()) {
+        toast.error('Please enter Number of Branches.');
+        return;
+      }
+      if (!establishYear.trim()) {
+        toast.error('Please enter Establish Year.');
+        return;
+      }
+      if (!password) {
+        toast.error('Please enter Password.');
+        return;
+      }
+      if (!confirmPassword) {
+        toast.error('Please enter Confirm Password.');
         return;
       }
       if (password !== confirmPassword) {
@@ -170,24 +254,24 @@ export default function SignupScreen() {
         }
 
         const payload = {
-          fullName,
-          gymName,
-          email,
-          gymEmail: email,
-          mobile: phone,
-          gymMobile: phone,
-          alternateMobile: alternatePhone || null,
-          gymAlternateMobile: alternatePhone || null,
-          address,
-          gymAddress: address,
-          gymState: state,
-          gymCity: city,
+          fullName: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          mobile: phone.trim(),
+          alternateMobile: alternatePhone.trim() || null,
+          address: address.trim(),
           pincode: parseInt(pinCode, 10),
-          gymPincode: parseInt(pinCode, 10),
+          gymName: gymName.trim(),
+          gymEmail: gymEmail.trim().toLowerCase(),
+          gymMobile: gymMobile.trim(),
+          gymAlternateMobile: gymAlternateMobile.trim() || null,
+          gymState: state,
+          gymCity: city.trim(),
+          gymAddress: gymAddress.trim(),
+          gymPincode: parseInt(gymPincode, 10),
           noOfBranches: parseInt(branches, 10),
-          establishYear: establishYear || new Date().getFullYear().toString(),
-          note: note,
-          website: website || null,
+          establishYear: establishYear.trim() || new Date().getFullYear().toString(),
+          note: note.trim() || null,
+          website: website.trim() || null,
           logo: finalLogoUrl,
           status: 'submitted' as const,
           password: await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password),
@@ -211,8 +295,24 @@ export default function SignupScreen() {
       return;
     }
 
-    if (!fullName || !email || !phone || !password || !confirmPassword) {
-      toast.error('Please fill in all required fields.');
+    if (!fullName.trim()) {
+      toast.error('Please enter Full Name.');
+      return;
+    }
+    if (!email.trim()) {
+      toast.error('Please enter Email.');
+      return;
+    }
+    if (!phone.trim()) {
+      toast.error('Please enter Mobile Number.');
+      return;
+    }
+    if (!password) {
+      toast.error('Please enter Password.');
+      return;
+    }
+    if (!confirmPassword) {
+      toast.error('Please enter Confirm Password.');
       return;
     }
 
@@ -318,7 +418,7 @@ export default function SignupScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView className="flex-1">
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View className="pt-14 pb-6">
+          <View className="pt-5 pb-6">
             <Pressable
               onPress={() => router.back()}
               className="w-10 h-10 bg-[#121212] border border-[#1E1E1E] rounded-full items-center justify-center mb-6"
@@ -359,195 +459,265 @@ export default function SignupScreen() {
           )}
 
           <View className="gap-5 mb-8">
-            {typeId === 'owner' && (
-              <View>
-                <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Category</Text>
-                <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 justify-between">
-                  <TextInput
-                    value="Gym"
-                    editable={false}
-                    className="flex-1 text-[#6B6B6B] text-[14px] p-0 font-medium"
-                  />
-                  <CaretDown size={18} color="#6B6B6B" />
-                </View>
-              </View>
-            )}
-
-            <View>
-              <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">{typeId === 'owner' ? 'Owner Name' : 'Full Name'}</Text>
-              <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                <User size={18} color="#6B6B6B" />
-                <TextInput
-                  value={fullName}
-                  onChangeText={(val) => setFullName(val.replace(/[0-9]/g, ''))}
-                  placeholder={typeId === 'owner' ? "Enter Owner name" : "Enter your full name"}
-                  placeholderTextColor="#6B6B6B"
-                  className="flex-1 text-white text-[14px] p-0 font-medium"
-                />
-              </View>
-            </View>
-
-            {typeId === 'owner' && (
-              <View>
-                <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gym Name</Text>
-                <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                  <User size={18} color="#6B6B6B" />
-                  <TextInput
-                    value={gymName}
-                    onChangeText={setGymName}
-                    placeholder="Enter gym name"
-                    placeholderTextColor="#6B6B6B"
-                    className="flex-1 text-white text-[14px] p-0 font-medium"
-                  />
-                </View>
-              </View>
-            )}
-
-            <View>
-              <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">{typeId === 'owner' ? 'Gym Email' : 'Email'}</Text>
-              <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                <EnvelopeSimple size={18} color="#6B6B6B" />
-                <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder={typeId === 'owner' ? "Enter gym email" : "Enter your email"}
-                  placeholderTextColor="#6B6B6B"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  className="flex-1 text-white text-[14px] p-0 font-medium"
-                />
-              </View>
-            </View>
-
-            <View>
-              <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Mobile Number</Text>
-              <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                <Phone size={18} color="#6B6B6B" />
-                <TextInput
-                  value={phone}
-                  onChangeText={(val) => setPhone(val.replace(/[^0-9]/g, ''))}
-                  placeholder="Enter mobile number"
-                  placeholderTextColor="#6B6B6B"
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  className="flex-1 text-white text-[14px] p-0 font-medium"
-                />
-              </View>
-            </View>
-
-            {typeId === 'owner' && (
-              <View>
-                <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Alternate Mobile Number <Text className="text-[#6B6B6B]">(Optional)</Text></Text>
-                <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                  <Phone size={18} color="#6B6B6B" />
-                  <TextInput
-                    value={alternatePhone}
-                    onChangeText={(val) => setAlternatePhone(val.replace(/[^0-9]/g, ''))}
-                    placeholder="Enter alternate mobile number"
-                    placeholderTextColor="#6B6B6B"
-                    keyboardType="phone-pad"
-                    maxLength={10}
-                    className="flex-1 text-white text-[14px] p-0 font-medium"
-                  />
-                </View>
-              </View>
-            )}
-
-            <View>
-              <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Address</Text>
-              <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 mb-3">
-                <MapPin size={18} color="#6B6B6B" />
-                <TextInput
-                  value={address}
-                  onChangeText={setAddress}
-                  placeholder="House / Flat / Building / Street"
-                  placeholderTextColor="#6B6B6B"
-                  className="flex-1 text-white text-[14px] p-0 font-medium"
-                />
-              </View>
-
-              <View className="flex-row gap-3 mb-3">
-                <View className="flex-1">
-                  <Pressable onPress={() => setCountryModalVisible(true)}>
-                    <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                      <Flag size={18} color="#6B6B6B" />
-                      <TextInput
-                        value={country ? Country.getCountryByCode(country)?.name : ''}
-                        placeholder="Country"
-                        placeholderTextColor="#6B6B6B"
-                        className="flex-1 text-white text-[14px] p-0 font-medium"
-                        editable={false}
-                        pointerEvents="none"
-                      />
-                    </View>
-                  </Pressable>
-
-                  <SearchableModalPicker
-                    visible={countryModalVisible}
-                    onClose={() => setCountryModalVisible(false)}
-                    data={countries}
-                    onSelect={(val: string) => { setCountry(val); setState(''); }}
-                    placeholder="Select Country"
-                    selectedValue={country}
-                  />
-                </View>
-
-                <View className="flex-1">
-                  <Pressable onPress={() => { if (country) setStateModalVisible(true); }}>
-                    <View className={`flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 ${!country ? 'opacity-50' : ''}`}>
-                      <MapTrifold size={18} color="#6B6B6B" />
-                      <TextInput
-                        value={country && state ? State.getStateByCodeAndCountry(state, country)?.name : ''}
-                        placeholder="State"
-                        placeholderTextColor="#6B6B6B"
-                        className="flex-1 text-white text-[14px] p-0 font-medium"
-                        editable={false}
-                        pointerEvents="none"
-                      />
-                    </View>
-                  </Pressable>
-
-                  <SearchableModalPicker
-                    visible={stateModalVisible}
-                    onClose={() => setStateModalVisible(false)}
-                    data={states}
-                    onSelect={(val: string) => setState(val)}
-                    placeholder="Select State"
-                    selectedValue={state}
-                  />
-                </View>
-              </View>
-
-              <View className="flex-row gap-3">
-                <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
-                  <Buildings size={18} color="#6B6B6B" />
-                  <TextInput
-                    value={city}
-                    onChangeText={setCity}
-                    placeholder="City"
-                    placeholderTextColor="#6B6B6B"
-                    className="flex-1 text-white text-[14px] p-0 font-medium"
-                  />
-                </View>
-                <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
-                  <GlobeHemisphereWest size={18} color="#6B6B6B" />
-                  <TextInput
-                    value={pinCode}
-                    onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
-                    placeholder="PIN Code"
-                    placeholderTextColor="#6B6B6B"
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    className="flex-1 text-white text-[14px] p-0 font-medium"
-                  />
-                </View>
-              </View>
-            </View>
-
-            {typeId === 'owner' && (
+            {typeId === 'owner' ? (
               <>
+                <View className="mb-2">
+                  <Text className="text-[#C3F400] text-sm font-semibold tracking-wider">OWNER DETAILS</Text>
+                  <View className="h-[1px] bg-[#1E1E1E] mt-2 mb-2" />
+                </View>
+
                 <View>
-                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">No. of Branches</Text>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner Name <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <User size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={fullName}
+                      onChangeText={(val) => setFullName(val.replace(/[0-9]/g, ''))}
+                      placeholder="Enter Owner name"
+                      placeholderTextColor="#6B6B6B"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner Email <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <EnvelopeSimple size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="Enter owner email"
+                      placeholderTextColor="#6B6B6B"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner Mobile Number <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <Phone size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={phone}
+                      onChangeText={(val) => setPhone(val.replace(/[^0-9]/g, ''))}
+                      placeholder="Enter owner mobile number"
+                      placeholderTextColor="#6B6B6B"
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner Alternate Mobile Number <Text className="text-[#6B6B6B]">(Optional)</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <Phone size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={alternatePhone}
+                      onChangeText={(val) => setAlternatePhone(val.replace(/[^0-9]/g, ''))}
+                      placeholder="Enter owner alternate mobile number"
+                      placeholderTextColor="#6B6B6B"
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner Address <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <MapPin size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={address}
+                      onChangeText={setAddress}
+                      placeholder="Enter owner address"
+                      placeholderTextColor="#6B6B6B"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner PIN Code <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <GlobeHemisphereWest size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={pinCode}
+                      onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
+                      placeholder="Enter owner PIN code"
+                      placeholderTextColor="#6B6B6B"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View className="mt-6 mb-2">
+                  <Text className="text-[#C3F400] text-sm font-semibold tracking-wider">GYM DETAILS</Text>
+                  <View className="h-[1px] bg-[#1E1E1E] mt-2 mb-4" />
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gym Name <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <Buildings size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={gymName}
+                      onChangeText={setGymName}
+                      placeholder="Enter gym name"
+                      placeholderTextColor="#6B6B6B"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gym Email <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <EnvelopeSimple size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={gymEmail}
+                      onChangeText={setGymEmail}
+                      placeholder="Enter gym email"
+                      placeholderTextColor="#6B6B6B"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gym Mobile Number <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <Phone size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={gymMobile}
+                      onChangeText={(val) => setGymMobile(val.replace(/[^0-9]/g, ''))}
+                      placeholder="Enter gym mobile number"
+                      placeholderTextColor="#6B6B6B"
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gym Alternate Mobile Number <Text className="text-[#6B6B6B]">(Optional)</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <Phone size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={gymAlternateMobile}
+                      onChangeText={(val) => setGymAlternateMobile(val.replace(/[^0-9]/g, ''))}
+                      placeholder="Enter gym alternate mobile number"
+                      placeholderTextColor="#6B6B6B"
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gym Address <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <MapPin size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={gymAddress}
+                      onChangeText={setGymAddress}
+                      placeholder="Enter gym address"
+                      placeholderTextColor="#6B6B6B"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <Pressable onPress={() => setCountryModalVisible(true)}>
+                      <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                        <Flag size={18} color="#6B6B6B" />
+                        <TextInput
+                          value={country ? Country.getCountryByCode(country)?.name : ''}
+                          placeholder="Country"
+                          placeholderTextColor="#6B6B6B"
+                          className="flex-1 text-white text-[14px] p-0 font-medium"
+                          editable={false}
+                          pointerEvents="none"
+                        />
+                      </View>
+                    </Pressable>
+
+                    <SearchableModalPicker
+                      visible={countryModalVisible}
+                      onClose={() => setCountryModalVisible(false)}
+                      data={countries}
+                      onSelect={(val: string) => { setCountry(val); setState(''); }}
+                      placeholder="Select Country"
+                      selectedValue={country}
+                    />
+                  </View>
+
+                  <View className="flex-1">
+                    <Pressable onPress={() => { if (country) setStateModalVisible(true); }}>
+                      <View className={`flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 ${!country ? 'opacity-50' : ''}`}>
+                        <MapTrifold size={18} color="#6B6B6B" />
+                        <TextInput
+                          value={country && state ? State.getStateByCodeAndCountry(state, country)?.name : ''}
+                          placeholder="State"
+                          placeholderTextColor="#6B6B6B"
+                          className="flex-1 text-white text-[14px] p-0 font-medium"
+                          editable={false}
+                          pointerEvents="none"
+                        />
+                      </View>
+                    </Pressable>
+
+                    <SearchableModalPicker
+                      visible={stateModalVisible}
+                      onClose={() => setStateModalVisible(false)}
+                      data={states}
+                      onSelect={(val: string) => setState(val)}
+                      placeholder="Select State"
+                      selectedValue={state}
+                    />
+                  </View>
+                </View>
+
+                <View className="flex-row gap-3">
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
+                    <Buildings size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={city}
+                      onChangeText={setCity}
+                      placeholder="City"
+                      placeholderTextColor="#6B6B6B"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
+                    <GlobeHemisphereWest size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={gymPincode}
+                      onChangeText={(val) => setGymPincode(val.replace(/[^0-9]/g, ''))}
+                      placeholder="Gym PIN Code"
+                      placeholderTextColor="#6B6B6B"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">No. of Branches <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <TextInput
                       value={branches}
@@ -561,7 +731,7 @@ export default function SignupScreen() {
                 </View>
 
                 <View>
-                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Establish Year</Text>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Establish Year <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <TextInput
                       value={establishYear}
@@ -613,7 +783,7 @@ export default function SignupScreen() {
                     {logo ? (
                       <Pressable
                         onPress={() => setLogo('')}
-                        className="w-14 h-14 items-center justify-center bg-[#121212] border border-[#1E1E1E] rounded-xl active:opacity-70"
+                        className="w-14 h-14 items-center justify-center bg-[#121212] border border-[#1E1E1E] rounded-xl active:opacity-75"
                       >
                         <X size={20} color="#FF453A" />
                       </Pressable>
@@ -636,11 +806,155 @@ export default function SignupScreen() {
                     />
                   </View>
                 </View>
+
+                <View className="mt-6 mb-2">
+                  <Text className="text-[#C3F400] text-sm font-semibold tracking-wider">ACCOUNT SECURITY</Text>
+                  <View className="h-[1px] bg-[#1E1E1E] mt-2 mb-4" />
+                </View>
+              </>
+            ) : (
+              <>
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Full Name <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <User size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={fullName}
+                      onChangeText={(val) => setFullName(val.replace(/[0-9]/g, ''))}
+                      placeholder="Enter your full name"
+                      placeholderTextColor="#6B6B6B"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Email <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <EnvelopeSimple size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="Enter your email"
+                      placeholderTextColor="#6B6B6B"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Mobile Number <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <Phone size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={phone}
+                      onChangeText={(val) => setPhone(val.replace(/[^0-9]/g, ''))}
+                      placeholder="Enter mobile number"
+                      placeholderTextColor="#6B6B6B"
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Address</Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 mb-3">
+                    <MapPin size={18} color="#6B6B6B" />
+                    <TextInput
+                      value={address}
+                      onChangeText={setAddress}
+                      placeholder="House / Flat / Building / Street"
+                      placeholderTextColor="#6B6B6B"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+
+                  <View className="flex-row gap-3 mb-3">
+                    <View className="flex-1">
+                      <Pressable onPress={() => setCountryModalVisible(true)}>
+                        <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                          <Flag size={18} color="#6B6B6B" />
+                          <TextInput
+                            value={country ? Country.getCountryByCode(country)?.name : ''}
+                            placeholder="Country"
+                            placeholderTextColor="#6B6B6B"
+                            className="flex-1 text-white text-[14px] p-0 font-medium"
+                            editable={false}
+                            pointerEvents="none"
+                          />
+                        </View>
+                      </Pressable>
+
+                      <SearchableModalPicker
+                        visible={countryModalVisible}
+                        onClose={() => setCountryModalVisible(false)}
+                        data={countries}
+                        onSelect={(val: string) => { setCountry(val); setState(''); }}
+                        placeholder="Select Country"
+                        selectedValue={country}
+                      />
+                    </View>
+
+                    <View className="flex-1">
+                      <Pressable onPress={() => { if (country) setStateModalVisible(true); }}>
+                        <View className={`flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 ${!country ? 'opacity-50' : ''}`}>
+                          <MapTrifold size={18} color="#6B6B6B" />
+                          <TextInput
+                            value={country && state ? State.getStateByCodeAndCountry(state, country)?.name : ''}
+                            placeholder="State"
+                            placeholderTextColor="#6B6B6B"
+                            className="flex-1 text-white text-[14px] p-0 font-medium"
+                            editable={false}
+                            pointerEvents="none"
+                          />
+                        </View>
+                      </Pressable>
+
+                      <SearchableModalPicker
+                        visible={stateModalVisible}
+                        onClose={() => setStateModalVisible(false)}
+                        data={states}
+                        onSelect={(val: string) => setState(val)}
+                        placeholder="Select State"
+                        selectedValue={state}
+                      />
+                    </View>
+                  </View>
+
+                  <View className="flex-row gap-3">
+                    <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
+                      <Buildings size={18} color="#6B6B6B" />
+                      <TextInput
+                        value={city}
+                        onChangeText={setCity}
+                        placeholder="City"
+                        placeholderTextColor="#6B6B6B"
+                        className="flex-1 text-white text-[14px] p-0 font-medium"
+                      />
+                    </View>
+                    <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
+                      <GlobeHemisphereWest size={18} color="#6B6B6B" />
+                      <TextInput
+                        value={pinCode}
+                        onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
+                        placeholder="PIN Code"
+                        placeholderTextColor="#6B6B6B"
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        className="flex-1 text-white text-[14px] p-0 font-medium"
+                      />
+                    </View>
+                  </View>
+                </View>
               </>
             )}
 
             <View>
-              <Text className="text-white text-[13px] font-medium mb-2">Password</Text>
+              <Text className="text-white text-[13px] font-medium mb-2">Password <Text className="text-red-500">*</Text></Text>
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <LockKey size={18} color="#6B6B6B" />
                 <TextInput
@@ -659,7 +973,7 @@ export default function SignupScreen() {
             </View>
 
             <View>
-              <Text className="text-white text-[13px] font-medium mb-2">Confirm Password</Text>
+              <Text className="text-white text-[13px] font-medium mb-2">Confirm Password <Text className="text-red-500">*</Text></Text>
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <LockKey size={18} color="#6B6B6B" />
                 <TextInput

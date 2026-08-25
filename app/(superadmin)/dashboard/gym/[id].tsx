@@ -3,6 +3,7 @@ import { View, ScrollView, Pressable, ActivityIndicator, TextInput, FlatList } f
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ConfirmModal from '@/components/ConfirmModal';
 import {
   ArrowLeft,
   MapPin,
@@ -18,6 +19,7 @@ import { useGyms } from '@/hooks/gyms/useGyms';
 import { useGymOwners } from '@/hooks/gymOwners/useGymOwners';
 import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
+import { useToggleGymStatus } from '@/hooks/gyms/useToggleGymStatus';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 
 type Tab = 'customers' | 'trainers' | 'owners';
@@ -26,10 +28,13 @@ export default function GymDetailsTabsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  
+  const { mutateAsync: toggleStatus } = useToggleGymStatus();
+
   const [activeTab, setActiveTab] = useState<Tab>('customers');
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
   const { data: gyms, isLoading: isLoadingGyms } = useGyms();
   const { data: owners, isLoading: isLoadingOwners } = useGymOwners();
@@ -64,7 +69,7 @@ export default function GymDetailsTabsScreen() {
     let name = '';
     let phone = '';
     let isItemActive = false;
-    
+
     if (activeTab === 'owners') {
       name = item.ownerFullname || '';
       phone = item.ownerPhone || '';
@@ -77,11 +82,11 @@ export default function GymDetailsTabsScreen() {
 
     const nameMatch = name.toLowerCase().includes(searchQuery.toLowerCase());
     const phoneMatch = phone.includes(searchQuery);
-    
-    const filterMatch = filter === 'all' || 
-                       (filter === 'active' && isItemActive) || 
-                       (filter === 'inactive' && !isItemActive);
-    
+
+    const filterMatch = filter === 'all' ||
+      (filter === 'active' && isItemActive) ||
+      (filter === 'inactive' && !isItemActive);
+
     return (nameMatch || phoneMatch) && filterMatch;
   });
 
@@ -94,7 +99,7 @@ export default function GymDetailsTabsScreen() {
   const renderTab = (tabId: Tab, icon: React.ReactNode, label: string, count: number) => {
     const isActive = activeTab === tabId;
     return (
-      <Pressable 
+      <Pressable
         onPress={() => {
           setActiveTab(tabId);
           setSearchQuery('');
@@ -113,7 +118,7 @@ export default function GymDetailsTabsScreen() {
   const renderFilterChip = (id: 'all' | 'active' | 'inactive', label: string, count: number) => {
     const isSelected = filter === id;
     return (
-      <Pressable 
+      <Pressable
         onPress={() => setFilter(id)}
         className={`px-4 py-2 rounded-full border ${isSelected ? 'border-[#CCFF00]' : 'border-[#2A2A2D]'}`}
       >
@@ -159,15 +164,15 @@ export default function GymDetailsTabsScreen() {
     }
 
     return (
-      <Pressable 
+      <Pressable
         onPress={() => handleCardPress(item)}
         className="bg-[#1C1C1E] rounded-2xl p-4 mb-3 flex-row items-center active:opacity-80"
       >
         <StaticAvatar uri={avatarUrl} name={name} size={48} className="w-12 h-12 rounded-full mr-4" />
-        
+
         <View className="flex-1">
-          <Text className="text-white text-base font-bold mb-0.5">{name}</Text>
-          <Text className="text-[#CCFF00] text-[10px] font-bold mb-1">{subText}</Text>
+          <Text className="text-white text-base font-semibold mb-0.5">{name}</Text>
+          <Text className="text-[#CCFF00] text-[10px] font-semibold mb-1">{subText}</Text>
           <View className="flex-row items-center">
             <View className="mr-1"><Phone size={12} color="#8E8E93" /></View>
             <Text className="text-[#8E8E93] text-xs">{phone}</Text>
@@ -177,7 +182,7 @@ export default function GymDetailsTabsScreen() {
         <View className="items-end justify-center">
           <View className={`px-2 py-1 rounded-full flex-row items-center border ${isItemActive ? 'border-[#CCFF00]/20 bg-[#CCFF00]/10' : 'border-[#EF4444]/20 bg-[#EF4444]/10'} mb-2`}>
             <View className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isItemActive ? 'bg-[#CCFF00]' : 'bg-[#EF4444]'}`} />
-            <Text className={`text-[10px] font-bold ${isItemActive ? 'text-[#CCFF00]' : 'text-[#EF4444]'}`}>
+            <Text className={`text-[10px] font-semibold ${isItemActive ? 'text-[#CCFF00]' : 'text-[#EF4444]'}`}>
               {isItemActive ? 'Active' : 'Inactive'}
             </Text>
           </View>
@@ -187,42 +192,55 @@ export default function GymDetailsTabsScreen() {
     );
   };
 
+  const handleToggleStatus = async () => {
+    if (!gym) return;
+    setIsTogglingStatus(true);
+    try {
+      await toggleStatus({ gymId: gym.gymId || id, currentStatus: gym.isActive !== false });
+      setIsStatusModalVisible(false);
+    } catch (error) {
+      console.error('Failed to toggle status:', error);
+    } finally {
+      setIsTogglingStatus(false);
+    }
+  };
+
   return (
     <View className="flex-1 bg-[#09090B]">
-      {/* Header */}
       <View className="px-5 pt-4 pb-4 flex-row items-center justify-between border-b border-[#2A2A2D]">
         <View className="flex-row items-center flex-1">
           <Pressable onPress={() => router.back()} className="mr-4 active:opacity-70">
             <ArrowLeft size={24} color="#FFFFFF" />
           </Pressable>
           <View className="w-10 h-10 rounded-xl bg-[#1C1C1E] items-center justify-center mr-3 border border-[#2A2A2D]">
-            <Text className="text-[#CCFF00] text-[10px] font-bold text-center">GK</Text>
+            <Text className="text-[#CCFF00] text-[10px] font-semibold text-center">GK</Text>
           </View>
           <View className="flex-1 pr-2">
-            <Text className="text-white text-lg font-bold" numberOfLines={1}>{gym?.gymName || 'Unknown Gym'}</Text>
+            <Text className="text-white text-lg font-semibold" numberOfLines={1}>{gym?.gymName || 'Unknown Gym'}</Text>
             <View className="flex-row items-center">
               <View className="mr-1"><MapPin size={12} color="#8E8E93" /></View>
               <Text className="text-[#8E8E93] text-xs" numberOfLines={1}>{gym?.city || 'Unknown'}, {gym?.state || 'Unknown'}</Text>
             </View>
           </View>
         </View>
-        
-        <View className={`px-2 py-1 rounded-full flex-row items-center border ${gym?.isActive !== false ? 'border-[#CCFF00]/20 bg-[#CCFF00]/10' : 'border-[#EF4444]/20 bg-[#EF4444]/10'}`}>
+
+        <Pressable 
+          onPress={() => setIsStatusModalVisible(true)}
+          className={`px-2 py-1 rounded-full flex-row items-center border ${gym?.isActive !== false ? 'border-[#CCFF00]/20 bg-[#CCFF00]/10' : 'border-[#EF4444]/20 bg-[#EF4444]/10'}`}
+        >
           <View className={`w-1.5 h-1.5 rounded-full mr-1.5 ${gym?.isActive !== false ? 'bg-[#CCFF00]' : 'bg-[#EF4444]'}`} />
-          <Text className={`text-[10px] font-bold ${gym?.isActive !== false ? 'text-[#CCFF00]' : 'text-[#EF4444]'}`}>
+          <Text className={`text-[10px] font-semibold ${gym?.isActive !== false ? 'text-[#CCFF00]' : 'text-[#EF4444]'}`}>
             {gym?.isActive !== false ? 'Active' : 'Inactive'}
           </Text>
-        </View>
+        </Pressable>
       </View>
 
-      {/* Tabs */}
       <View className="flex-row bg-[#1C1C1E] rounded-xl mx-4 mt-4">
         {renderTab('customers', <Users size={16} color={activeTab === 'customers' ? '#CCFF00' : '#8E8E93'} weight="fill" />, 'Customers', customers?.length || 0)}
         {renderTab('trainers', <Barbell size={16} color={activeTab === 'trainers' ? '#CCFF00' : '#8E8E93'} weight="fill" />, 'Trainers', trainers?.length || 0)}
         {renderTab('owners', <User size={16} color={activeTab === 'owners' ? '#CCFF00' : '#8E8E93'} weight="regular" />, 'Owners', owners?.filter(o => o.gymId === id).length || 0)}
       </View>
 
-      {/* Search & Filters */}
       <View className="px-4 mt-4">
         <View className="flex-row items-center mb-4 gap-3">
           <View className="flex-1 bg-[#1C1C1E] rounded-xl px-4 py-3 flex-row items-center border border-[#2A2A2D]">
@@ -232,7 +250,7 @@ export default function GymDetailsTabsScreen() {
               onChangeText={setSearchQuery}
               placeholder={`Search ${activeTab} by name or phone`}
               placeholderTextColor="#6B7280"
-              className="flex-1 text-white text-sm ml-2 py-0"
+              className="flex-1 text-white text-sm ml-2 py-0 font-sans"
             />
           </View>
           <Pressable className="bg-[#1C1C1E] border border-[#2A2A2D] rounded-xl w-12 h-[46px] items-center justify-center">
@@ -247,7 +265,6 @@ export default function GymDetailsTabsScreen() {
         </ScrollView>
       </View>
 
-      {/* List */}
       <FlatList
         data={filteredData}
         keyExtractor={(item, index) => item.id || item.customerId || item.trainerId || index.toString()}
@@ -259,6 +276,21 @@ export default function GymDetailsTabsScreen() {
             <Text className="text-[#8E8E93] text-base">No {activeTab} found.</Text>
           </View>
         }
+      />
+
+      <ConfirmModal
+        visible={isStatusModalVisible}
+        onClose={() => setIsStatusModalVisible(false)}
+        onConfirm={handleToggleStatus}
+        title={gym?.isActive !== false ? 'Make Gym Inactive' : 'Make Gym Active'}
+        description={
+          gym?.isActive !== false
+            ? 'Are you sure you want to make this gym inactive?'
+            : 'Are you sure you want to active this gym?'
+        }
+        confirmText={isTogglingStatus ? 'Updating...' : 'Confirm'}
+        confirmButtonColor={gym?.isActive !== false ? 'bg-red-500' : 'bg-[#CCFF00]'}
+        confirmTextColor={gym?.isActive !== false ? 'text-white' : 'text-black'}
       />
     </View>
   );

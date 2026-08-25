@@ -34,19 +34,34 @@ import { saveGymOwner, fetchGymOwners } from '@/helpers/gymOwners/gymOwnersHelpe
 import { fetchGymCustomers } from '@/helpers/customers/customerHelper';
 import { fetchTrainers } from '@/helpers/trainers/trainerHelper';
 import { toast } from '@/lib/toast';
+import { fetchGymLeadById, updateGymLeadStatus } from '@/helpers/gymLeads/gymLeadsHelper';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function RegisterGymScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ openForm?: string; editGymId?: string }>();
+  const params = useLocalSearchParams<{ openForm?: string; editGymId?: string; gymLeadId?: string; filter?: string }>();
   const { userId: currentUserId } = useUser();
+
+  const [gymLeadIdState, setGymLeadIdState] = useState<string | null>(null);
+  const [leadPassword, setLeadPassword] = useState<string | null>(null);
 
   const [viewMode, setViewMode] = useState<'list' | 'form' | 'success'>('list');
   const [saving, setSaving] = useState(false);
   const [gyms, setGyms] = useState<any[]>([]);
   const [loadingGyms, setLoadingGyms] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState('');
 
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'inactive'>(
+    (params.filter as 'all' | 'active' | 'inactive') || 'all'
+  );
+
+  useEffect(() => {
+    if (params.filter && ['all', 'active', 'inactive'].includes(params.filter)) {
+      setSelectedFilter(params.filter as 'all' | 'active' | 'inactive');
+      setViewMode('list');
+    }
+  }, [params.filter]);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [gymName, setGymName] = useState('');
@@ -87,9 +102,7 @@ export default function RegisterGymScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Do nothing on focus
       return () => {
-        // When screen loses focus (e.g., tab changed), reset the form
         clearForm();
         setViewMode('list');
       };
@@ -97,6 +110,12 @@ export default function RegisterGymScreen() {
   );
 
   const indianStates = State.getStatesOfCountry('IN');
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadGymsData();
+    setRefreshing(false);
+  }, []);
 
   const loadGymsData = async () => {
     setLoadingGyms(true);
@@ -214,6 +233,93 @@ export default function RegisterGymScreen() {
     fetchEditData();
   }, [params.editGymId]);
 
+  useEffect(() => {
+    const fetchLeadData = async () => {
+      if (params.gymLeadId) {
+        setSaving(true);
+        try {
+          const leadDetails = await fetchGymLeadById(params.gymLeadId);
+          if (leadDetails) {
+            setGymName(leadDetails.gymName || '');
+            setGymEmail(leadDetails.gymEmail || '');
+
+            const gymMobile = leadDetails.gymMobile || leadDetails.mobile || '';
+            if (gymMobile.startsWith('+91')) {
+              setPhoneCode('+91');
+              setPhoneNumber(gymMobile.slice(3));
+            } else {
+              setPhoneCode('+91');
+              setPhoneNumber(gymMobile);
+            }
+
+            const gymAltMobile = leadDetails.gymAlternateMobile || leadDetails.alternateMobile || '';
+            if (gymAltMobile) {
+              if (gymAltMobile.startsWith('+91')) {
+                setAltPhoneCode('+91');
+                setAltPhoneNumber(gymAltMobile.slice(3));
+              } else {
+                setAltPhoneCode('+91');
+                setAltPhoneNumber(gymAltMobile);
+              }
+            }
+
+            setAddress(leadDetails.gymAddress || leadDetails.address || '');
+            setCity(leadDetails.gymCity || '');
+            setStateName(leadDetails.gymState || 'Telangana');
+            setPinCode(leadDetails.gymPincode ? leadDetails.gymPincode.toString() : '');
+
+            setOwnerName(leadDetails.fullName || '');
+            setOwnerEmail(leadDetails.email || '');
+
+            const ownerPhoneVal = leadDetails.mobile || '';
+            if (ownerPhoneVal.startsWith('+91')) {
+              setOwnerPhoneCode('+91');
+              setOwnerPhone(ownerPhoneVal.slice(3));
+            } else {
+              setOwnerPhoneCode('+91');
+              setOwnerPhone(ownerPhoneVal);
+            }
+
+            const ownerAltPhoneVal = leadDetails.alternateMobile || '';
+            if (ownerAltPhoneVal) {
+              if (ownerAltPhoneVal.startsWith('+91')) {
+                setOwnerAltPhoneCode('+91');
+                setOwnerAltPhone(ownerAltPhoneVal.slice(3));
+              } else {
+                setOwnerAltPhoneCode('+91');
+                setOwnerAltPhone(ownerAltPhoneVal);
+              }
+            }
+
+            setBranches(leadDetails.noOfBranches ? leadDetails.noOfBranches.toString() : '');
+            setEstablishedYear(leadDetails.establishYear || '');
+            setWebsite(leadDetails.website || '');
+            setNotes(leadDetails.note || '');
+
+            if (leadDetails.logo) {
+              const { data: publicUrlData } = supabase.storage
+                .from('gym-lead-logos')
+                .getPublicUrl(leadDetails.logo);
+              setLogoUri(publicUrlData.publicUrl);
+            } else {
+              setLogoUri(null);
+            }
+
+            setLeadPassword(leadDetails.password || null);
+            setGymLeadIdState(params.gymLeadId);
+            setViewMode('form');
+          }
+        } catch (e) {
+          console.error('[register.tsx] fetchLeadData error:', e);
+          toast.error('Failed to fetch lead details.');
+        } finally {
+          setSaving(false);
+        }
+      }
+    };
+    fetchLeadData();
+  }, [params.gymLeadId]);
+
   const clearForm = () => {
     setGymName('');
     setGymEmail('');
@@ -234,6 +340,8 @@ export default function RegisterGymScreen() {
     setLogoUri(null);
     setCreatedGymId(null);
     setQrCodeId(null);
+    setGymLeadIdState(null);
+    setLeadPassword(null);
   };
 
   const handleGenerateQR = () => {
@@ -283,6 +391,10 @@ export default function RegisterGymScreen() {
       toast.error("Please enter the owner's phone number.");
       return;
     }
+    if (!qrCodeId) {
+      toast.error("Please generate an Attendance QR Code.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -311,11 +423,14 @@ export default function RegisterGymScreen() {
       if (!editingGymId) {
         const uuid = Crypto.randomUUID();
         const tempPassword = `TK-${uuid.substring(0, 5).toUpperCase()}-${uuid.substring(9, 10).toUpperCase()}`;
-        setTemporaryPassword(tempPassword);
+        const actualPassword = leadPassword || tempPassword;
+        if (!leadPassword) {
+          setTemporaryPassword(tempPassword);
+        }
 
         const { data: authData, error: authError } = await supabaseAdminAuth.auth.signUp({
           email: ownerEmail.trim().toLowerCase(),
-          password: tempPassword,
+          password: actualPassword,
           options: {
             data: {
               name: ownerName.trim(),
@@ -407,6 +522,10 @@ export default function RegisterGymScreen() {
 
       if (!createdOwnerLink) {
         throw new Error('Failed to associate owner user with the gym.');
+      }
+
+      if (gymLeadIdState) {
+        await updateGymLeadStatus(gymLeadIdState, 'approved');
       }
 
       toast.success('Gym and Gym Owner registered successfully!');
@@ -530,8 +649,11 @@ export default function RegisterGymScreen() {
       {viewMode === 'list' && (
         <ScrollView
           className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 }}
-          showsVerticalScrollIndicator={false}>
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 120 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }>
           <View className="mb-4">
             <View className="flex-row items-center gap-2 mb-1">
               {router.canGoBack() && (
@@ -1040,7 +1162,7 @@ export default function RegisterGymScreen() {
 
           <View className="mb-6">
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-xs text-[#888888]">Attendance QR Code (Static)</Text>
+              <Text className="text-xs text-[#888888]">Attendance QR Code (Static) <Text className="text-red-500 text-sm">*</Text></Text>
               {qrCodeId && (
                 <View className="flex-row items-center gap-1">
                   <CheckCircle size={14} color="#CCFF00" weight="fill" />
@@ -1185,41 +1307,51 @@ export default function RegisterGymScreen() {
               <Text className="text-white text-sm">{ownerEmail}</Text>
             </View>
 
-            <Text className="text-[10px] text-[#888888] mb-1.5 font-semibold tracking-wider">TEMPORARY PASSWORD</Text>
-            <View className="bg-[#111622] border border-[#1F293D] rounded-xl p-3.5 flex-row items-center justify-between">
-              <Text className="text-white text-sm font-mono">{temporaryPassword}</Text>
-              <Pressable onPress={handleCopyCredentials} className="active:opacity-75">
-                <ClipboardText size={18} color="#CCFF00" />
-              </Pressable>
-            </View>
-
-            <View className="flex-row items-start gap-2 mt-4 bg-[#CCFF00]/5 border border-[#CCFF00]/10 rounded-xl p-3">
-              <View className="mt-0.5">
-                <WarningCircle size={14} color="#CCFF00" />
+            {gymLeadIdState ? (
+              <View className="bg-[#111622] border border-[#1F293D] rounded-xl p-3.5 flex-row items-center justify-between">
+                <Text className="text-white text-sm">•••••••• (Set during registration)</Text>
               </View>
-              <Text className="flex-1 text-[11px] text-[#CCFF00] leading-4">
-                The owner will be asked to change the password after first login.
-              </Text>
-            </View>
+            ) : (
+              <>
+                <Text className="text-[10px] text-[#888888] mb-1.5 font-semibold tracking-wider">TEMPORARY PASSWORD</Text>
+                <View className="bg-[#111622] border border-[#1F293D] rounded-xl p-3.5 flex-row items-center justify-between">
+                  <Text className="text-white text-sm font-mono">{temporaryPassword}</Text>
+                  <Pressable onPress={handleCopyCredentials} className="active:opacity-75">
+                    <ClipboardText size={18} color="#CCFF00" />
+                  </Pressable>
+                </View>
+
+                <View className="flex-row items-start gap-2 mt-4 bg-[#CCFF00]/5 border border-[#CCFF00]/10 rounded-xl p-3">
+                  <View className="mt-0.5">
+                    <WarningCircle size={14} color="#CCFF00" />
+                  </View>
+                  <Text className="flex-1 text-[11px] text-[#CCFF00] leading-4">
+                    The owner will be asked to change the password after first login.
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
 
           {/* Share/Email/Copy Action Buttons */}
-          <View className="flex-row gap-3 mb-6">
-            <Pressable onPress={handleCopyCredentials} className="flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl py-3.5 items-center justify-center active:opacity-80">
-              <Copy size={20} color="#FFFFFF" />
-              <Text className="text-[#888888] text-[10px] font-semibold tracking-wider mt-1.5">COPY</Text>
-            </Pressable>
+          {!gymLeadIdState && (
+            <View className="flex-row gap-3 mb-6">
+              <Pressable onPress={handleCopyCredentials} className="flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl py-3.5 items-center justify-center active:opacity-80">
+                <Copy size={20} color="#FFFFFF" />
+                <Text className="text-[#888888] text-[10px] font-semibold tracking-wider mt-1.5">COPY</Text>
+              </Pressable>
 
-            <Pressable onPress={handleShare} className="flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl py-3.5 items-center justify-center active:opacity-80">
-              <ShareNetwork size={20} color="#FFFFFF" />
-              <Text className="text-[#888888] text-[10px] font-semibold tracking-wider mt-1.5">SHARE</Text>
-            </Pressable>
+              <Pressable onPress={handleShare} className="flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl py-3.5 items-center justify-center active:opacity-80">
+                <ShareNetwork size={20} color="#FFFFFF" />
+                <Text className="text-[#888888] text-[10px] font-semibold tracking-wider mt-1.5">SHARE</Text>
+              </Pressable>
 
-            <Pressable onPress={handleEmail} className="flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl py-3.5 items-center justify-center active:opacity-80">
-              <EnvelopeSimple size={20} color="#FFFFFF" />
-              <Text className="text-[#888888] text-[10px] font-semibold tracking-wider mt-1.5">EMAIL</Text>
-            </Pressable>
-          </View>
+              <Pressable onPress={handleEmail} className="flex-1 bg-[#0F0F0F] border border-[#1F293D] rounded-xl py-3.5 items-center justify-center active:opacity-80">
+                <EnvelopeSimple size={20} color="#FFFFFF" />
+                <Text className="text-[#888888] text-[10px] font-semibold tracking-wider mt-1.5">EMAIL</Text>
+              </Pressable>
+            </View>
+          )}
 
           {/* View Gym / Back buttons */}
           <Pressable

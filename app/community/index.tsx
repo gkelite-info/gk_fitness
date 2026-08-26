@@ -28,7 +28,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export default function CommunityFeedScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { gymId, userId, profilePhoto } = useUser();
+  const { gymId, userId, profilePhoto, role } = useUser();
 
   const { data: storiesGrouped, refetch: refetchStories } = useActiveStories(gymId ?? null, userId ?? null);
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch: refetchFeed } = useCommunityFeed(gymId ?? null, userId ?? null);
@@ -161,28 +161,41 @@ export default function CommunityFeedScreen() {
 
           {/* Feed */}
           <View className="px-5">
-            {posts.map(post => (
-              <View key={post.gymCommunityPostId} className="bg-[#121214] rounded-3xl p-4 mb-4 border border-[#1F1F22]">
-                
-                {/* Post Header */}
-                <View className="flex-row justify-between items-center mb-3">
-                  <Pressable 
-                    className="flex-row items-center active:opacity-70"
-                    onPress={() => router.push(`/community/profile/${post.createdBy}`)}
-                  >
-                    <StaticAvatar 
-                      uri={post.users?.profilePhoto  || (post.users as any)?.avatar } 
-                      name={post.users?.name}
-                      size={40}
-                      className="w-10 h-10 rounded-full mr-3" 
-                    />
-                    <View>
-                      <Text className="text-white font-bold text-[15px]">{post.users?.name || 'Unknown User'}</Text>
-                      <Text className="text-[#71717A] text-xs mt-0.5">
-                        {new Date(post.createdAt).toLocaleDateString()} • <Text className="text-[#C4EF00] font-medium">{post.users?.role}</Text>
-                      </Text>
-                    </View>
-                  </Pressable>
+            {posts.map(post => {
+              const isSuperAdmin = post.users?.role === 'superadmin';
+              const isOwner = post.users?.role === 'owner';
+              
+              const cardClass = isSuperAdmin 
+                ? "bg-[#1A1C0B] rounded-3xl p-4 mb-4" 
+                : isOwner 
+                  ? "bg-[#0B101C] rounded-3xl p-4 mb-4" 
+                  : "bg-[#121214] rounded-3xl p-4 mb-4 border border-[#1F1F22]";
+
+              const displayName = isSuperAdmin ? "GK-Gym Life" : (post.users?.name || 'Unknown User');
+              const nameColor = isSuperAdmin ? "text-[#C4EF00]" : isOwner ? "text-[#60A5FA]" : "text-white";
+
+              return (
+                <View key={post.gymCommunityPostId} className={cardClass}>
+                  
+                  {/* Post Header */}
+                  <View className="flex-row justify-between items-center mb-3">
+                    <Pressable 
+                      className="flex-row items-center active:opacity-70"
+                      onPress={() => router.push(`/community/profile/${post.createdBy}`)}
+                    >
+                      <StaticAvatar 
+                        uri={post.users?.profilePhoto || (post.users as any)?.avatar} 
+                        name={displayName}
+                        size={40}
+                        className="w-10 h-10 rounded-full mr-3" 
+                      />
+                      <View>
+                        <Text className={`font-bold text-[15px] ${nameColor}`}>{displayName}</Text>
+                        <Text className="text-[#71717A] text-xs mt-0.5">
+                          {new Date(post.createdAt).toLocaleDateString()} • <Text className={isSuperAdmin ? "text-[#C4EF00] font-medium" : isOwner ? "text-[#60A5FA] font-medium" : "text-[#A1A1AA] font-medium"}>{post.users?.role}</Text>
+                        </Text>
+                      </View>
+                    </Pressable>
                   <Pressable className="active:opacity-70 p-1" onPress={() => handleOpenOptions(post)}>
                     <DotsThreeVertical size={20} color="#71717A" weight="bold" />
                   </Pressable>
@@ -224,7 +237,7 @@ export default function CommunityFeedScreen() {
                   </Pressable>
                 </View>
               </View>
-            ))}
+            )})}
             {!isLoading && posts.length === 0 && (
               <View className="items-center justify-center py-10">
                 <Text className="text-[#A1A1AA] text-sm">No posts yet. Be the first to share!</Text>
@@ -244,7 +257,7 @@ export default function CommunityFeedScreen() {
         visible={activeModal === 'options'}
         onClose={() => setActiveModal('none')}
         options={
-          selectedPost?.createdBy === userId
+          selectedPost?.createdBy === userId || role === 'superadmin'
             ? [{ label: 'Delete Post', destructive: true, onPress: () => setActiveModal('confirmDelete') }]
             : [
                 { label: 'Report Post', destructive: true, onPress: () => setActiveModal('confirmReport') },
@@ -260,8 +273,8 @@ export default function CommunityFeedScreen() {
         message="Are you sure you want to delete this post? This action cannot be undone."
         options={[
           { label: 'Delete', destructive: true, onPress: () => {
-              if (selectedPost && userId && gymId) {
-                deletePostMutation.mutate({ postId: selectedPost.gymCommunityPostId, userId, gymId });
+              if (selectedPost && userId) {
+                deletePostMutation.mutate({ postId: selectedPost.gymCommunityPostId, userId, gymId: gymId ?? null, role: role ?? undefined });
               }
               setActiveModal('none');
           }}

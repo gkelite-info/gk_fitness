@@ -7,7 +7,8 @@ import {
   CaretLeft, 
   FadersHorizontal, 
   Heart,
-  NavigationArrow
+  NavigationArrow,
+  DotsThreeVertical
 } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { usePostComments, useAddComment, useDeleteComment } from '@/hooks/community/usePostInteractions';
@@ -19,7 +20,7 @@ export default function CommentsScreen() {
   const router = useRouter();
   const { postId } = useLocalSearchParams<{ postId: string }>();
   const insets = useSafeAreaInsets();
-  const { userId, name, profilePhoto } = useUser();
+  const { userId, name, profilePhoto, role } = useUser();
   const [comment, setComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ id: string, name: string } | null>(null);
 
@@ -97,7 +98,7 @@ export default function CommentsScreen() {
       
       <View className="items-center w-10">
         <Pressable className="items-center active:opacity-70 p-1" onPress={() => handleOpenOptions(item)}>
-          <Heart size={14} color="#71717A" weight="regular" style={{ marginBottom: 4 }} />
+          <DotsThreeVertical size={16} color="#71717A" weight="bold" style={{ marginBottom: 4 }} />
         </Pressable>
       </View>
     </View>
@@ -119,7 +120,8 @@ export default function CommentsScreen() {
   return (
     <KeyboardAvoidingView 
       className="flex-1 bg-[#0A0A0A]" 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
+      keyboardVerticalOffset={0}
     >
       <View>
         <View className="flex-row items-center justify-between px-5 pt-2 pb-4 border-b border-[#1F1F22]">
@@ -260,7 +262,7 @@ export default function CommentsScreen() {
         visible={activeModal === 'options'}
         onClose={() => setActiveModal('none')}
         options={
-          selectedComment?.authorId === userId
+          selectedComment?.authorId === userId || role === 'superadmin'
             ? [{ label: 'Delete Comment', destructive: true, onPress: () => setActiveModal('confirmDelete') }]
             : [{ label: 'Report Comment', destructive: true, onPress: () => setActiveModal('confirmReport') }]
         }
@@ -274,7 +276,7 @@ export default function CommentsScreen() {
         options={[
           { label: 'Delete', destructive: true, onPress: () => {
               if (selectedComment && userId) {
-                deleteCommentMutation.mutate({ commentId: selectedComment.gymCommunityCommentId, userId });
+                deleteCommentMutation.mutate({ commentId: selectedComment.gymCommunityCommentId, userId, role: role ?? undefined });
               }
               setActiveModal('none');
           }}

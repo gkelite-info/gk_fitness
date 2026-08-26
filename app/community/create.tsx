@@ -9,7 +9,7 @@ import { useCreatePost } from '@/hooks/community/useCommunityFeed';
 
 export default function CreatePostScreen() {
   const router = useRouter();
-  const { gymId, userId } = useUser();
+  const { gymId, userId, role } = useUser();
   const [caption, setCaption] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
   
@@ -39,13 +39,20 @@ export default function CreatePostScreen() {
       return;
     }
     
-    if (!gymId || !userId) {
+    const postGymId = role === 'superadmin' ? null : gymId;
+
+    if (role !== 'superadmin' && !postGymId) {
+      Alert.alert('User session not fully loaded.');
+      return;
+    }
+
+    if (!userId) {
       Alert.alert('User session not fully loaded.');
       return;
     }
 
     createPostMutation.mutate(
-      { gymId, userId, caption: caption.trim(), imageUri: imageUri || undefined },
+      { gymId: postGymId ?? null, userId, caption: caption.trim(), imageUri: imageUri || undefined },
       {
         onSuccess: () => {
           router.back();

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
+import { fetchBlockedUsers } from './blockCache';
 
 export async function toggleLike(postId: string, userId: string) {
   try {
@@ -83,22 +84,14 @@ export async function toggleSave(postId: string, userId: string) {
 
 export async function fetchComments(postId: string, currentUserId: string, sortBy: 'newest' | 'oldest' = 'oldest') {
   try {
-    // 1. Fetch blocked users
-    const [blockedByMe, blockedMe] = await Promise.all([
-      supabase.from('gym_community_blocks').select('blockedId').eq('blockerId', currentUserId).eq('is_deleted', false),
-      supabase.from('gym_community_blocks').select('blockerId').eq('blockedId', currentUserId).eq('is_deleted', false)
-    ]);
-    
-    const blockedUserIds = [
-      ...(blockedByMe.data?.map(d => d.blockedId) || []),
-      ...(blockedMe.data?.map(d => d.blockerId) || [])
-    ];
+    // 1. Fetch blocked users (both ways)
+    const blockedUserIds = await fetchBlockedUsers(currentUserId);
 
     let query = supabase
       .from('gym_community_comments')
       .select(`
         *,
-        users!gym_community_comments_authorId_fkey (name, role)
+        users!gym_community_comments_authorId_fkey (name, role, profilePhoto)
       `)
       .eq('gymCommunityPostId', postId)
       .eq('is_deleted', false)
@@ -148,13 +141,18 @@ export async function addComment(postId: string, userId: string, content: string
   }
 }
 
-export async function deleteComment(commentId: string, userId: string) {
+export async function deleteComment(commentId: string, userId: string, role?: string) {
   try {
-    const { error } = await supabase
+    let query = supabase
       .from('gym_community_comments')
       .update({ is_deleted: true, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
-      .eq('gymCommunityCommentId', commentId)
-      .eq('authorId', userId);
+      .eq('gymCommunityCommentId', commentId);
+      
+    if (role !== 'superadmin') {
+      query = query.eq('authorId', userId);
+    }
+    
+    const { error } = await query;
 
     if (error) throw error;
     return true;

@@ -21,61 +21,34 @@ export interface CommunityPost {
   isSavedByMe: boolean;
 }
 
-export async function fetchCommunityPosts(gymId: string, currentUserId: string, page = 0, limit = 10) {
+export async function fetchCommunityPosts(gymId: string | null, currentUserId: string, page = 0, limit = 10) {
   try {
-    // 1. Fetch blocked users (both ways) to comply with Apple UGC
-    const [blockedByMe, blockedMe] = await Promise.all([
-      supabase.from('gym_community_blocks').select('blockedId').eq('blockerId', currentUserId).eq('is_deleted', false),
-      supabase.from('gym_community_blocks').select('blockerId').eq('blockedId', currentUserId).eq('is_deleted', false)
-    ]);
-    
-    const blockedUserIds = [
-      ...(blockedByMe.data?.map(d => d.blockedId) || []),
-      ...(blockedMe.data?.map(d => d.blockerId) || [])
-    ];
+    const { data, error } = await supabase.rpc('get_community_feed', {
+      p_gym_id: gymId,
+      p_user_id: currentUserId,
+      p_offset: page * limit,
+      p_limit: limit
+    });
 
-    // 2. Fetch posts
-    let query = supabase
-      .from('gym_community_posts')
-      .select(`
-        *,
-        users (name, role, profilePhoto),
-        gym_community_likes (likedBy, is_deleted),
-        gym_community_comments (gymCommunityCommentId, is_deleted),
-        gym_community_saves (savedBy, is_deleted)
-      `)
-      .eq('gymId', gymId)
-      .eq('is_deleted', false)
-      .order('createdAt', { ascending: false })
-      .range(page * limit, (page + 1) * limit - 1);
-
-    if (blockedUserIds.length > 0) {
-      query = query.not('createdBy', 'in', `(${blockedUserIds.join(',')})`);
-    }
-
-    const { data, error } = await query;
     if (error) throw error;
 
-    // 3. Format data
-    const formattedPosts: CommunityPost[] = (data || []).map((post: any) => {
-      const activeLikes = post.gym_community_likes?.filter((l: any) => !l.is_deleted) || [];
-      const activeComments = post.gym_community_comments?.filter((c: any) => !c.is_deleted) || [];
-      const activeSaves = post.gym_community_saves?.filter((s: any) => !s.is_deleted) || [];
-
-      return {
-        gymCommunityPostId: post.gymCommunityPostId,
-        gymId: post.gymId,
-        caption: post.caption,
-        imagePath: post.imagePath,
-        createdBy: post.createdBy,
-        createdAt: post.createdAt,
-        users: Array.isArray(post.users) ? post.users[0] : post.users,
-        likesCount: activeLikes.length,
-        commentsCount: activeComments.length,
-        isLikedByMe: activeLikes.some((l: any) => l.likedBy === currentUserId),
-        isSavedByMe: activeSaves.some((s: any) => s.savedBy === currentUserId),
-      };
-    });
+    const formattedPosts: CommunityPost[] = (data || []).map((post: any) => ({
+      gymCommunityPostId: post.gymCommunityPostId,
+      gymId: post.gymId,
+      caption: post.caption,
+      imagePath: post.imagePath,
+      createdBy: post.createdBy,
+      createdAt: post.createdAt,
+      users: {
+        name: post.author_name,
+        role: post.author_role,
+        profilePhoto: post.author_photo
+      },
+      likesCount: Number(post.likes_count) || 0,
+      commentsCount: Number(post.comments_count) || 0,
+      isLikedByMe: post.is_liked_by_me || false,
+      isSavedByMe: post.is_saved_by_me || false,
+    }));
 
     return formattedPosts;
   } catch (error) {
@@ -85,7 +58,7 @@ export async function fetchCommunityPosts(gymId: string, currentUserId: string, 
 }
 
 export async function createCommunityPost(
-  gymId: string, 
+  gymId: string | null, 
   createdBy: string, 
   caption: string, 
   imageUri?: string | null
@@ -98,7 +71,8 @@ export async function createCommunityPost(
       const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: 'base64' });
       const arrayBuffer = base64ToArrayBuffer(base64);
       const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${gymId}/${postId}.${ext}`;
+      const baseFolder = gymId ? gymId : 'global';
+      const fileName = `${baseFolder}/${postId}.${ext}`;
       
       const { error: uploadError } = await supabase.storage
         .from('community-posts')
@@ -135,17 +109,22 @@ export async function createCommunityPost(
   }
 }
 
-export async function deleteCommunityPost(postId: string, userId: string) {
+export async function deleteCommunityPost(postId: string, userId: string, role?: string) {
   try {
-    const { error } = await supabase
+    let query = supabase
       .from('gym_community_posts')
       .update({ 
         is_deleted: true, 
         deletedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
-      .eq('gymCommunityPostId', postId)
-      .eq('createdBy', userId);
+      .eq('gymCommunityPostId', postId);
+      
+    if (role !== 'superadmin') {
+      query = query.eq('createdBy', userId);
+    }
+    
+    const { error } = await query;
 
     if (error) throw error;
     return true;

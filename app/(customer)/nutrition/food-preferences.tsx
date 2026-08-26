@@ -194,9 +194,9 @@ export default function FoodPreferences() {
           </View>
         </View>
 
-        <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#0A0A0A]/95" style={{ paddingBottom: 40 }}>
+        <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#0A0A0A]/95" style={{ paddingBottom: 110 }}>
           <Pressable
-            onPress={() => router.push('/(customer)/nutrition/weekly-meal-planner')}
+            onPress={() => router.push('/(customer)/nutrition/generating-plan')}
             className="bg-[#C4EF00] rounded-[20px] py-4 flex-row items-center justify-center active:opacity-90">
             <Text className="text-black font-semibold text-lg mr-2">Continue</Text>
             <CaretRight size={18} color="#000000" weight="bold" />

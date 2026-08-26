@@ -188,7 +188,35 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
-          name="nutrition/weekly-meal-planner"
+          name="nutrition/generating-plan"
+          options={{
+            href: null,
+            headerShown: true,
+          }}
+        />
+        <Tabs.Screen
+          name="nutrition/my-nutrition-plan"
+          options={{
+            href: null,
+            headerShown: true,
+          }}
+        />
+        <Tabs.Screen
+          name="nutrition/meal-detail"
+          options={{
+            href: null,
+            headerShown: true,
+          }}
+        />
+        <Tabs.Screen
+          name="nutrition/swap-meal"
+          options={{
+            href: null,
+            headerShown: true,
+          }}
+        />
+        <Tabs.Screen
+          name="nutrition/nutrition-preferences"
           options={{
             href: null,
             headerShown: true,

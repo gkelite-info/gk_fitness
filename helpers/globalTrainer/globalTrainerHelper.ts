@@ -64,6 +64,43 @@ export async function fetchGlobalTrainers() {
   return data ?? [];
 }
 
+export async function fetchGlobalTrainersPaginated(
+  page: number = 1,
+  limit: number = 10,
+  searchQuery?: string,
+  statusFilter?: string,
+  sortOrder: 'newest' | 'oldest' = 'newest'
+) {
+  let query = supabase
+    .from('global_trainers')
+    .select('*', { count: 'exact' })
+    .eq('is_deleted', false);
+
+  if (statusFilter && statusFilter !== 'all') {
+    query = query.eq('isActive', statusFilter === 'active');
+  }
+
+  if (searchQuery) {
+    query = query.or(`fullName.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,mobile.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,state.ilike.%${searchQuery}%,specialization.ilike.%${searchQuery}%`);
+  }
+
+  query = query.order('createdAt', { ascending: sortOrder === 'oldest' });
+
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
+  query = query.range(from, to);
+
+  const { data, count, error } = await query;
+
+  if (error) {
+    console.error('[globalTrainerHelper] fetchGlobalTrainersPaginated Error:', error);
+    throw error;
+  }
+
+  return { data: data ?? [], total: count ?? 0 };
+}
+
 export async function fetchGlobalTrainerById(globalTrainerId: string) {
   const { data, error } = await supabase
     .from('global_trainers')

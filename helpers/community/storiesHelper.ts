@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { fetchBlockedUsers } from './blockCache';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Crypto from 'expo-crypto';
 import { base64ToArrayBuffer } from '@/components/imageCompressor';
@@ -28,16 +29,8 @@ export interface GymCommunityStory {
 
 export async function fetchActiveStories(gymId: string, currentUserId: string) {
   try {
-    // 1. Fetch blocked users (both ways)
-    const [blockedByMe, blockedMe] = await Promise.all([
-      supabase.from('gym_community_blocks').select('blockedId').eq('blockerId', currentUserId).eq('is_deleted', false),
-      supabase.from('gym_community_blocks').select('blockerId').eq('blockedId', currentUserId).eq('is_deleted', false)
-    ]);
-    
-    const blockedUserIds = [
-      ...(blockedByMe.data?.map(d => d.blockedId) || []),
-      ...(blockedMe.data?.map(d => d.blockerId) || [])
-    ];
+    // 1. Fetch blocked users (both ways) using cache helper
+    const blockedUserIds = await fetchBlockedUsers(currentUserId);
 
     // 2. Fetch non-expired, non-deleted stories for the gym
     const now = new Date().toISOString();

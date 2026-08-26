@@ -146,7 +146,7 @@ export default function NutritionAnalysis() {
           <CaretRight size={14} color="#555555" weight="bold" />
         </View>
 
-        <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#0A0A0A]/95" style={{ paddingBottom: 40 }}>
+        <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#0A0A0A]/95" style={{ paddingBottom: 110 }}>
           <Pressable
             onPress={() => router.push('/(customer)/nutrition/food-preferences')}
             className="bg-[#C4EF00] rounded-[20px] py-4 flex-row items-center justify-center active:opacity-90">

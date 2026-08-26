@@ -300,7 +300,7 @@ export default function OwnerDashboardScreen() {
             <Pressable
               key={action.id}
               onPress={() => {
-                if (action.id === 'add-customer') {
+                if (action.id === 'add-member') {
                   router.push('/(owner)/dashboard/customers');
                 } else if (action.id === 'open-qr') {
                   router.push('/(owner)/dashboard/qr');

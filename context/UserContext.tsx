@@ -59,6 +59,9 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!initialCheckCompleted.current) return;
       setSession(newSession);
+      if (event === 'SIGNED_OUT') {
+        queryClient.clear();
+      }
     });
 
     return () => {

@@ -106,7 +106,7 @@ export function useAddComment() {
       return await addComment(postId, userId, content, parentId);
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['post-comments', variables.postId] });
+      queryClient.invalidateQueries({ queryKey: ['comments', variables.postId] });
       // We should also invalidate feed to update comment counts, but this might be expensive.
       // queryClient.invalidateQueries(['community-feed']);
     }
@@ -117,11 +117,11 @@ export function useDeleteComment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ commentId, userId }: { commentId: string, userId: string }) => {
-      return await deleteComment(commentId, userId);
+    mutationFn: async ({ commentId, userId, role }: { commentId: string, userId: string, role?: string }) => {
+      return await deleteComment(commentId, userId, role);
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['post-comments'] });
+      queryClient.invalidateQueries({ queryKey: ['comments'] });
     }
   });
 }

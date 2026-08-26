@@ -1,10 +1,11 @@
 import React, { useCallback } from 'react';
-import { View, Pressable, SafeAreaView, Platform } from 'react-native';
+import { View, Pressable, Platform, ScrollView } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { router, Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { User, Buildings, Barbell, Globe, ShieldCheck, CaretRight } from 'phosphor-react-native';
 import { clearSelectedGym } from '@/helpers/tenantHelper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ACCOUNT_TYPES = [
   { id: 'individual', title: 'Individual', icon: User, color: '#C3F400' },
@@ -15,6 +16,8 @@ const ACCOUNT_TYPES = [
 ];
 
 export default function AccountTypeScreen() {
+  const insets = useSafeAreaInsets();
+
   useFocusEffect(
     useCallback(() => {
       clearSelectedGym();
@@ -30,9 +33,18 @@ export default function AccountTypeScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#09090B]">
+    <View className="flex-1 bg-[#09090B]">
       <Stack.Screen options={{ headerShown: false }} />
-      <View className="flex-1 px-6 pt-20 pb-8">
+      <ScrollView 
+        className="flex-1"
+        contentContainerStyle={{ 
+          flexGrow: 1, 
+          paddingTop: insets.top + 40, 
+          paddingBottom: insets.bottom + 24,
+          paddingHorizontal: 24
+        }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="items-center mb-10">
           <View className="flex-row items-center justify-center mb-3">
             <Text className="text-white text-3xl font-semibold tracking-widest">GK</Text>
@@ -77,7 +89,7 @@ export default function AccountTypeScreen() {
           })}
         </View>
 
-        <View className="flex-row items-center justify-center mt-auto">
+        <View className="flex-row items-center justify-center mt-10">
           <View className="mr-2">
             <ShieldCheck size={20} color="#C3F400" weight="regular" />
           </View>
@@ -85,7 +97,7 @@ export default function AccountTypeScreen() {
             Your fitness journey, our priority.
           </Text>
         </View>
-      </View>
-    </SafeAreaView>
+      </ScrollView>
+    </View>
   );
 }

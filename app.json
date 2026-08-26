@@ -56,7 +56,8 @@
       "buildNumber": "15",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "UIViewControllerBasedStatusBarAppearance": false
+        "UIViewControllerBasedStatusBarAppearance": false,
+        "NSMotionUsageDescription": "GK Fitness needs access to your device motion data to accurately track your daily step count and calculate calories burned during your active workout sessions."
       }
     },
     "android": {

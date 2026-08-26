@@ -71,6 +71,48 @@ export async function fetchGyms(createdBy?: string) {
   return data ?? [];
 }
 
+export async function fetchGymsPaginated(
+  page: number = 1,
+  limit: number = 10,
+  searchQuery?: string,
+  statusFilter?: string,
+  createdBy?: string,
+  sortOrder: 'newest' | 'oldest' = 'newest'
+) {
+  let query = supabase
+    .from('gyms')
+    .select('*', { count: 'exact' })
+    .eq('is_deleted', false);
+
+  if (createdBy) {
+    query = query.eq('createdBy', createdBy);
+  }
+
+  if (statusFilter && statusFilter !== 'all') {
+    query = query.eq('isActive', statusFilter === 'active');
+  }
+
+  if (searchQuery) {
+    query = query.or(`gymName.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,state.ilike.%${searchQuery}%,gymEmail.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`);
+  }
+
+  query = query.order('createdAt', { ascending: sortOrder === 'oldest' });
+
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
+  query = query.range(from, to);
+
+  const { data, count, error } = await query;
+
+  if (error) {
+    console.error('[gymHelper] fetchGymsPaginated Error:', error);
+    throw error;
+  }
+
+  return { data: data ?? [], total: count ?? 0 };
+}
+
 export async function fetchGymById(gymId: string) {
   const { data, error } = await supabase
     .from('gyms')

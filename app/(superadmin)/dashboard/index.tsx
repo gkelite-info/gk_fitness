@@ -31,7 +31,7 @@ const OVERVIEW_DATA = [
 
 const QUICK_ACTIONS_DATA = [
   { id: 'register-gym', icon: Buildings, label: 'Register\nNew Gym' },
-  { id: 'create-owner', icon: UserPlus, label: 'Create Owner Account' },
+  { id: 'create-global-trainer', icon: UserPlus, label: 'Create Global\nTrainer' },
   { id: 'support-requests', icon: Headphones, label: 'Support\nRequests' },
 ];
 
@@ -94,11 +94,15 @@ export default function DashboardScreen() {
 
   const handleQuickAction = (id: string) => {
     if (id === 'register-gym') {
-      router.push('/(superadmin)/dashboard/register');
+      router.push('/(superadmin)/dashboard/gym' as any);
     } else if (id === 'view-gyms') {
-      router.push('/(superadmin)/gyms');
+      router.push('/(superadmin)/dashboard/gym' as any);
     } else if (id === 'gym-owners') {
       router.push('/(superadmin)/leads/gym-owners');
+    } else if (id === 'global-trainers') {
+      router.push('/(superadmin)/leads/global-trainers');
+    } else if (id === 'create-global-trainer') {
+      router.push('/(superadmin)/dashboard/globalTrainers' as any);
     }
   };
 
@@ -126,7 +130,9 @@ export default function DashboardScreen() {
 
         <View className="flex-row items-center gap-1.5 px-3 py-2 rounded-xl bg-[#111622] border border-[#1F293D]">
           <Calendar size={16} color="#888888" weight="regular" />
-          <Text className="text-xs font-medium text-white">20 July 2026</Text>
+          <Text className="text-xs font-medium text-white">
+            {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </Text>
         </View>
       </View>
 
@@ -139,8 +145,8 @@ export default function DashboardScreen() {
             <Pressable
               key={item.id}
               onPress={() => {
-                if (item.id === 'total-gyms') router.push('/(superadmin)/gyms');
-                else if (item.id === 'active-gyms') router.push({ pathname: '/(superadmin)/dashboard/register', params: { filter: 'active' } } as any);
+                if (item.id === 'total-gyms') router.push('/(superadmin)/dashboard/gym' as any);
+                else if (item.id === 'active-gyms') router.push({ pathname: '/(superadmin)/dashboard/gym', params: { filter: 'active' } } as any);
               }}
               className="flex-1 bg-[#0F0F0F] border border-[#111827] rounded-2xl p-3 items-center justify-center min-h-[130px] active:opacity-70">
               <Icon size={28} color="#BEF227" weight="fill" />
@@ -193,9 +199,8 @@ export default function DashboardScreen() {
 
       <View className="flex-row items-center justify-between mt-6 mb-4">
         <Text className="text-xl font-semibold text-white">Recently Registered Gyms</Text>
-        <Pressable className="flex-row items-center gap-1" onPress={() => router.push('/(superadmin)/gyms')}>
+        <Pressable className="flex-row items-center gap-1" onPress={() => router.push('/(superadmin)/dashboard/gym' as any)}>
           <Text className="text-[13px] font-medium text-[#BEF227]">View All</Text>
-          <CaretRight size={12} color="#BEF227" weight="bold" />
         </Pressable>
       </View>
 

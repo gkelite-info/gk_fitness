@@ -45,6 +45,7 @@ export default function SuperAdminLayout() {
       <Tabs.Screen name="customers/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="trainers/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="leads/gym-owners" options={{ href: null }} />
+      <Tabs.Screen name="leads/global-trainers" options={{ href: null }} />
     </Tabs>
   );
 }

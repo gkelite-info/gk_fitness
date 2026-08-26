@@ -93,6 +93,13 @@ export default function OwnerDashboardScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
   const isToday = (date: Date) => {
     const today = new Date();
     return (
@@ -206,7 +213,7 @@ export default function OwnerDashboardScreen() {
 
       <View className="mb-6">
         <Text className="text-2xl font-semibold text-white mb-0.5">
-          Good Morning, {name || 'User'} 👋
+          {getGreeting()}, {name || 'User'} 👋
         </Text>
         <Text className="text-sm font-medium" style={{ color: '#C5C9AC' }}>
           {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })}

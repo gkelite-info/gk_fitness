@@ -10,11 +10,12 @@ import {
   CalendarBlank,
   Phone,
   EnvelopeSimple,
-  Buildings
+  Globe,
+  Barbell
 } from 'phosphor-react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { useGymLeads } from '@/hooks/gymLeads/useGymLeads';
-import { updateGymLeadStatus } from '@/helpers/gymLeads/gymLeadsHelper';
+import { useGlobalTrainerLeads } from '@/hooks/globalTrainerLeads/useGlobalTrainerLeads';
+import { updateGlobalTrainerLeadStatus } from '@/helpers/globalTrainerLeads/globalTrainerLeadsHelper';
 import { toast } from '@/lib/toast';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -49,14 +50,14 @@ const LeadCard = ({ item, onStatusPress }: { item: any; onStatusPress: (item: an
       <View className="flex-row items-start justify-between mb-3">
         <View className="flex-row items-center flex-1 pr-2">
           <View className="w-10 h-10 rounded-full bg-[#2A2A2D] items-center justify-center mr-3 shrink-0">
-            <Buildings size={20} color="#BEF227" />
+            <Globe size={20} color="#BEF227" />
           </View>
 
           <View className="flex-1 justify-center">
-            <Text className="text-white text-base font-semibold mb-1" numberOfLines={1}>{item.gymName || 'Unknown Gym'}</Text>
+            <Text className="text-white text-base font-semibold mb-1" numberOfLines={1}>{item.fullName || 'Unknown Trainer'}</Text>
             <View className="flex-row items-center">
               <MapPin size={12} color="#8E8E93" />
-              <Text className="text-[#8E8E93] text-xs ml-1 flex-1" numberOfLines={1}>{item.gymCity || 'City'}, {item.gymState || 'State'}</Text>
+              <Text className="text-[#8E8E93] text-xs ml-1 flex-1" numberOfLines={1}>{item.city || 'City'}, {item.state || 'State'}</Text>
             </View>
           </View>
         </View>
@@ -76,7 +77,10 @@ const LeadCard = ({ item, onStatusPress }: { item: any; onStatusPress: (item: an
       </View>
 
       <View className="bg-[#2A2A2D] rounded-xl p-3 mb-3">
-        <Text className="text-white font-medium mb-2">{item.fullName}</Text>
+        <View className="flex-row items-center mb-1.5">
+          <Barbell size={12} color="#8E8E93" />
+          <Text className="text-white font-medium text-[11px] ml-1.5 capitalize">{item.specialization} ({item.experience} yrs exp.)</Text>
+        </View>
         <View className="flex-row items-center mb-1.5">
           <Phone size={12} color="#8E8E93" />
           <Text className="text-[#8E8E93] text-[11px] ml-1.5">{item.mobile}</Text>
@@ -117,7 +121,7 @@ const LeadCardSkeleton = () => (
   </View>
 );
 
-export default function GymOwnerLeadsScreen() {
+export default function GlobalTrainerLeadsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
@@ -149,7 +153,7 @@ export default function GymOwnerLeadsScreen() {
     setAccumulatedLeads([]);
   }, [debouncedSearch, statusFilter]);
 
-  const { data, isLoading, refetch, isFetching } = useGymLeads(page, limit, debouncedSearch, statusFilter);
+  const { data, isLoading, refetch, isFetching } = useGlobalTrainerLeads(page, limit, debouncedSearch, statusFilter);
 
   useEffect(() => {
     if (data?.data) {
@@ -157,10 +161,10 @@ export default function GymOwnerLeadsScreen() {
         setAccumulatedLeads(data.data);
       } else {
         setAccumulatedLeads((prev) => {
-          const newDataMap = new Map(data.data.map((l: any) => [l.gymLeadId, l]));
-          const updatedPrev = prev.map(l => newDataMap.has(l.gymLeadId) ? newDataMap.get(l.gymLeadId) : l);
-          const prevIds = new Set(prev.map(l => l.gymLeadId));
-          const newUnique = data.data.filter((l: any) => !prevIds.has(l.gymLeadId));
+          const newDataMap = new Map(data.data.map((l: any) => [l.globalTrainerLeadId, l]));
+          const updatedPrev = prev.map(l => newDataMap.has(l.globalTrainerLeadId) ? newDataMap.get(l.globalTrainerLeadId) : l);
+          const prevIds = new Set(prev.map(l => l.globalTrainerLeadId));
+          const newUnique = data.data.filter((l: any) => !prevIds.has(l.globalTrainerLeadId));
           return [...updatedPrev, ...newUnique];
         });
       }
@@ -191,17 +195,17 @@ export default function GymOwnerLeadsScreen() {
     if (!selectedLead) return;
     setIsUpdating(true);
     try {
-      await updateGymLeadStatus(selectedLead.gymLeadId, 'underreview');
+      await updateGlobalTrainerLeadStatus(selectedLead.globalTrainerLeadId, 'underreview');
       toast.success('Lead set to Under Review. Redirecting to registration...');
 
       setAccumulatedLeads([]);
       setPage(1);
 
-      await queryClient.resetQueries({ queryKey: ['gymLeads'] });
+      await queryClient.resetQueries({ queryKey: ['globalTrainerLeads'] });
 
       router.push({
-        pathname: '/(superadmin)/dashboard/register',
-        params: { gymLeadId: selectedLead.gymLeadId }
+        pathname: '/(superadmin)/dashboard/globalTrainers/register' as any,
+        params: { globalTrainerLeadId: selectedLead.globalTrainerLeadId }
       });
     } catch (error) {
       toast.error('Failed to process approval');
@@ -215,13 +219,13 @@ export default function GymOwnerLeadsScreen() {
     if (!selectedLead) return;
     setIsUpdating(true);
     try {
-      await updateGymLeadStatus(selectedLead.gymLeadId, 'rejected');
-      toast.success('Gym Lead Rejected!');
+      await updateGlobalTrainerLeadStatus(selectedLead.globalTrainerLeadId, 'rejected');
+      toast.success('Global Trainer Lead Rejected!');
 
       setAccumulatedLeads([]);
       setPage(1);
 
-      await queryClient.resetQueries({ queryKey: ['gymLeads'] });
+      await queryClient.resetQueries({ queryKey: ['globalTrainerLeads'] });
     } catch (error) {
       toast.error('Failed to process rejection');
     } finally {
@@ -233,13 +237,13 @@ export default function GymOwnerLeadsScreen() {
     if (!selectedLead) return;
     setIsUpdating(true);
     try {
-      await updateGymLeadStatus(selectedLead.gymLeadId, newStatus);
+      await updateGlobalTrainerLeadStatus(selectedLead.globalTrainerLeadId, newStatus);
       toast.success(`Status updated to ${getStatusLabel(newStatus)}`);
 
       setAccumulatedLeads([]);
       setPage(1);
 
-      await queryClient.resetQueries({ queryKey: ['gymLeads'] });
+      await queryClient.resetQueries({ queryKey: ['globalTrainerLeads'] });
     } catch (error) {
       toast.error('Failed to update status');
     } finally {
@@ -261,7 +265,7 @@ export default function GymOwnerLeadsScreen() {
             <CaretLeft size={20} color="#FFFFFF" />
           </Pressable>
           <View>
-            <Text className="text-white text-xl font-semibold">Gym Owners Leads</Text>
+            <Text className="text-white text-xl font-semibold">Global Trainer Leads</Text>
             <Text className="text-[#8E8E93] text-xs mt-0.5">Manage incoming applications</Text>
           </View>
         </View>
@@ -272,7 +276,7 @@ export default function GymOwnerLeadsScreen() {
           <MagnifyingGlass size={20} color="#8E8E93" />
           <TextInput
             className="flex-1 text-white ml-2 text-[15px] font-sans"
-            placeholder="Search gym, name, email or mobile..."
+            placeholder="Search trainer name, email or mobile..."
             placeholderTextColor="#8E8E93"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -301,7 +305,7 @@ export default function GymOwnerLeadsScreen() {
 
       <FlatList
         data={accumulatedLeads}
-        keyExtractor={(item) => item.gymLeadId || Math.random().toString()}
+        keyExtractor={(item) => item.globalTrainerLeadId || Math.random().toString()}
         renderItem={({ item }) => <LeadCard item={item} onStatusPress={handleStatusPress} />}
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}
         showsVerticalScrollIndicator={false}
@@ -330,7 +334,7 @@ export default function GymOwnerLeadsScreen() {
                 No Leads Found
               </Text>
               <Text className="text-[#8E8E93] text-sm text-center">
-                {searchQuery ? "Try adjusting your search terms" : "There are no gym owner applications yet"}
+                {searchQuery ? "Try adjusting your search terms" : "There are no global trainer applications yet"}
               </Text>
             </View>
           )
@@ -362,7 +366,7 @@ export default function GymOwnerLeadsScreen() {
               <View className="w-12 h-1.5 bg-[#2A2A2D] rounded-full mb-4" />
               <Text className="text-white text-lg font-semibold">Change Status</Text>
               <Text className="text-[#8E8E93] text-sm mt-1">
-                {selectedLead?.gymName} ({selectedLead?.fullName})
+                {selectedLead?.fullName}
               </Text>
             </View>
 
@@ -412,26 +416,26 @@ export default function GymOwnerLeadsScreen() {
         visible={confirmModalVisible}
         onClose={() => setConfirmModalVisible(false)}
         onConfirm={handleConfirmApprove}
-        title="Approve Lead & Register Gym"
-        description={`Are you sure you want to approve "${selectedLead?.gymName || 'this gym'}"? This will set the lead status to "Under Review" and redirect you to complete the registration.`}
+        title="Approve Lead & Create Trainer"
+        description={`Are you sure you want to approve "${selectedLead?.fullName || 'this trainer'}"? This will set the lead status to "Under Review" and redirect you to complete the registration.`}
         confirmText="Confirm"
         cancelText="Cancel"
         confirmButtonColor="bg-[#BEF227]"
         confirmTextColor="text-black"
-        icon={<Buildings size={40} color="#BEF227" />}
+        icon={<Globe size={40} color="#BEF227" />}
       />
 
       <ConfirmModal
         visible={rejectModalVisible}
         onClose={() => setRejectModalVisible(false)}
         onConfirm={handleConfirmReject}
-        title="Reject Gym Lead"
-        description={`Are you sure you want to reject "${selectedLead?.gymName || 'this gym'}"?`}
+        title="Reject Global Trainer"
+        description={`Are you sure you want to reject "${selectedLead?.fullName || 'this trainer'}"?`}
         confirmText="Reject"
         cancelText="Cancel"
         confirmButtonColor="bg-[#EF4444]"
         confirmTextColor="text-white"
-        icon={<Buildings size={40} color="#EF4444" />}
+        icon={<Globe size={40} color="#EF4444" />}
       />
     </View>
   );

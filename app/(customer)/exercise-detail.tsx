@@ -4,8 +4,8 @@ import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Info, Play, Barbell, Lightbulb, CaretLeft, CaretRight, CheckCircle, Pause, ArrowCounterClockwise } from 'phosphor-react-native';
 import { Video, ResizeMode } from 'expo-av';
-import { useWorkoutPlanDayById } from '@/hooks/workout/useWorkoutPlanDayById';
-import { useWorkoutPlanDayExercises } from '@/hooks/workout/useWorkoutPlanDayExercises';
+import { useWorkoutPlanDayById } from '@/hooks/customerWorkouts/useWorkoutPlanDayById';
+import { useWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/useWorkoutPlanDayExercises';
 
 export default function ExerciseDetail() {
   const params = useLocalSearchParams<{
@@ -21,7 +21,7 @@ export default function ExerciseDetail() {
 
   const { data: dayData, isLoading: isLoadingDay } = useWorkoutPlanDayById(params.dayId);
   const { data: eData, isLoading: isLoadingExercises } = useWorkoutPlanDayExercises(params.dayId);
-  
+
   const exercises = React.useMemo(() => {
     return eData ? [...eData].sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : [];
   }, [eData]);
@@ -222,36 +222,36 @@ export default function ExerciseDetail() {
                   resizeMode="contain"
                 />
               ) : (
-              <>
-                <Video
-                  ref={videoRef}
-                  source={localVideoSource}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode={ResizeMode.CONTAIN}
-                  shouldPlay
-                  isLooping
-                  isMuted={true}
-                />
+                <>
+                  <Video
+                    ref={videoRef}
+                    source={localVideoSource}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode={ResizeMode.CONTAIN}
+                    shouldPlay
+                    isLooping
+                    isMuted={true}
+                  />
 
-                <View className="absolute bottom-4 right-4 flex-row gap-x-3">
-                  <Pressable
-                    onPress={startOver}
-                    className="w-12 h-12 rounded-full bg-black/60 items-center justify-center border border-white/20 active:bg-black/80"
-                  >
-                    <ArrowCounterClockwise size={24} color="#FFF" />
-                  </Pressable>
-                  <Pressable
-                    onPress={togglePlayPause}
-                    className="w-12 h-12 rounded-full bg-black/60 items-center justify-center border border-white/20 active:bg-black/80"
-                  >
-                    {isPlaying ? (
-                      <Pause size={24} color="#FFF" weight="fill" />
-                    ) : (
-                      <Play size={24} color="#FFF" weight="fill" />
-                    )}
-                  </Pressable>
-                </View>
-              </>
+                  <View className="absolute bottom-4 right-4 flex-row gap-x-3">
+                    <Pressable
+                      onPress={startOver}
+                      className="w-12 h-12 rounded-full bg-black/60 items-center justify-center border border-white/20 active:bg-black/80"
+                    >
+                      <ArrowCounterClockwise size={24} color="#FFF" />
+                    </Pressable>
+                    <Pressable
+                      onPress={togglePlayPause}
+                      className="w-12 h-12 rounded-full bg-black/60 items-center justify-center border border-white/20 active:bg-black/80"
+                    >
+                      {isPlaying ? (
+                        <Pause size={24} color="#FFF" weight="fill" />
+                      ) : (
+                        <Play size={24} color="#FFF" weight="fill" />
+                      )}
+                    </Pressable>
+                  </View>
+                </>
               )
             ) : (
               <>

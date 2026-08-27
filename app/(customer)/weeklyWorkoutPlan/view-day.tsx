@@ -6,19 +6,19 @@ import { ArrowLeft, Star, Clock, Info, X } from 'phosphor-react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { fetchWorkoutPlanDayById } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
-import { useWorkoutPlanDayById } from '@/hooks/workout/useWorkoutPlanDayById';
-import { useWorkoutPlanDayExercises } from '@/hooks/workout/useWorkoutPlanDayExercises';
+import { useWorkoutPlanDayById } from '@/hooks/customerWorkouts/useWorkoutPlanDayById';
+import { useWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/useWorkoutPlanDayExercises';
 
 export default function ViewDay() {
   const { dayId } = useLocalSearchParams<{ dayId: string }>();
-  
+
   const { data: dayData, isLoading: isLoadingDay } = useWorkoutPlanDayById(dayId);
   const { data: eData, isLoading: isLoadingExercises } = useWorkoutPlanDayExercises(dayId);
-  
+
   const exercises = React.useMemo(() => {
     return eData ? [...eData].sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : [];
   }, [eData]);
-  
+
   const isLoading = isLoadingDay || isLoadingExercises;
 
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
@@ -188,15 +188,15 @@ export default function ViewDay() {
         onRequestClose={() => setIsModalVisible(false)}
       >
         <View className="flex-1 bg-black/95 justify-center items-center">
-          <Pressable 
-            onPress={() => setIsModalVisible(false)} 
+          <Pressable
+            onPress={() => setIsModalVisible(false)}
             className="absolute top-12 right-6 p-2 z-50 bg-[#18181B] rounded-full border border-[#262626]"
           >
             <X size={24} color="#FFF" />
           </Pressable>
-          
+
           <Text className="text-[#D4FF00] text-xl font-bold mb-6 mx-4 text-center">{videoTitle}</Text>
-          
+
           <View className="w-full h-80 bg-black">
             {selectedVideo && (
               (videoTitle?.toLowerCase().includes('chin up') || videoTitle?.toLowerCase().includes('chin-up') || videoTitle?.toLowerCase().includes('chinups')) ? (

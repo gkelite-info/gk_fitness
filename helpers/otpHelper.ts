@@ -46,7 +46,6 @@ export interface CreateUserParams {
 }
 
 export async function createUser(userData: CreateUserParams) {
-  console.log('[otpHelper] createUser called with userData:', userData);
   const insertData: any = {
     name: userData.name,
     email: userData.email,
@@ -66,8 +65,6 @@ export async function createUser(userData: CreateUserParams) {
   } else {
     insertData.userId = Crypto.randomUUID();
   }
-  
-  console.log('[otpHelper] createUser insertData prepared:', insertData);
 
   const { data, error } = await supabase
     .from('users')
@@ -79,7 +76,6 @@ export async function createUser(userData: CreateUserParams) {
     throw error;
   }
 
-  console.log('[otpHelper] createUser successful. Supabase returned data:', data);
   return data ? data[0] : null;
 }
 

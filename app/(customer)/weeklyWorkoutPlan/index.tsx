@@ -8,7 +8,7 @@ import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/custom
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 
-import { useCustomerWeeklyPlan } from '@/hooks/workout/useCustomerWeeklyPlan';
+import { useCustomerWeeklyPlan } from '@/hooks/customerWorkouts/useCustomerWeeklyPlan';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function WeeklyWorkoutPlan() {
@@ -83,8 +83,8 @@ export default function WeeklyWorkoutPlan() {
         <Text className="text-[#8E8E8E] text-base">Review and customize your weekly schedule.</Text>
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >

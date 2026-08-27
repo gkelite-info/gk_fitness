@@ -5,10 +5,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { CaretLeft, Trash, MagnifyingGlass, Plus, Clock, Barbell } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
-import { useCustomerWeeklyPlan } from '@/hooks/workout/useCustomerWeeklyPlan';
-import { useWorkoutPlanDayById } from '@/hooks/workout/useWorkoutPlanDayById';
-import { useWorkoutPlanDayExercises } from '@/hooks/workout/useWorkoutPlanDayExercises';
-import { useSaveWorkoutDayExercises, useMakeRestDay } from '@/hooks/workout/useMutateCustomerWorkoutPlan';
+import { useCustomerWeeklyPlan } from '@/hooks/customerWorkouts/useCustomerWeeklyPlan';
+import { useWorkoutPlanDayById } from '@/hooks/customerWorkouts/useWorkoutPlanDayById';
+import { useWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/useWorkoutPlanDayExercises';
+import { useSaveWorkoutDayExercises, useMakeRestDay } from '@/hooks/customerWorkouts/useMutateCustomerWorkoutPlan';
 import ConfirmModal from '@/components/ConfirmModal';
 
 const ADDITIONAL_EXERCISES = [

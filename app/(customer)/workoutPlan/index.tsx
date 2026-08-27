@@ -8,7 +8,7 @@ import { useUser } from '@/context/UserContext';
 import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
-import { useCustomerWeeklyPlan } from '@/hooks/workout/useCustomerWeeklyPlan';
+import { useCustomerWeeklyPlan } from '@/hooks/customerWorkouts/useCustomerWeeklyPlan';
 
 const ShimmerBox = () => {
   const opacity = useRef(new Animated.Value(0.3)).current;
@@ -50,9 +50,9 @@ export default function BuildWeeklyPlan() {
   const { existingDays, targetDay } = useLocalSearchParams<{ existingDays?: string, targetDay?: string }>();
   const { userId } = useUser();
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const existingDaysList = React.useMemo(() => existingDays ? existingDays.split(',') : [], [existingDays]);
-  
+
   const { data: loadedPlanDays, isLoading: isQueryLoading } = useCustomerWeeklyPlan(
     (existingDaysList.length > 0 && selectedDays.length === 0) ? userId : null
   );
@@ -63,9 +63,9 @@ export default function BuildWeeklyPlan() {
         setIsLoading(true);
         return;
       }
-      
+
       setIsLoading(false);
-      
+
       if (loadedPlanDays) {
         setPlanDays(loadedPlanDays);
       }

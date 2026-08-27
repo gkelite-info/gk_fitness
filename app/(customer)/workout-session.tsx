@@ -3,6 +3,8 @@ import { View, ScrollView, Pressable, Image, StyleSheet } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, CaretDown, CaretRight, Lightbulb, ArrowRight, Barbell } from 'phosphor-react-native';
+import { Video, ResizeMode } from 'expo-av';
+import { supabase } from '@/lib/supabase';
 import { useWorkoutPlanDayById } from '@/hooks/customerWorkouts/useWorkoutPlanDayById';
 import { useWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/useWorkoutPlanDayExercises';
 import { useWorkoutPlanDays } from '@/hooks/customerWorkouts/useWorkoutPlanDays';
@@ -88,6 +90,12 @@ export default function WorkoutSession() {
     { name: 'Cable Crossovers', sets: '3 sets', reps: '15 reps', image: { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' } },
   ];
 
+  const getFullVideoUrl = (url?: string | null) => {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return supabase.storage.from('workout-videos').getPublicUrl(url).data.publicUrl;
+  };
+
   return (
     <View className="flex-1 bg-[#0A0A0A] pt-12 pb-28 px-4">
       <View className="flex-row items-center mb-6">
@@ -126,7 +134,9 @@ export default function WorkoutSession() {
                 ) : (
                   <>
                     <Text className={`text-[10px] font-semibold mb-1 ${d.active ? 'text-black' : d.isToday ? 'text-[#DFFF00]' : 'text-[#8E8E8E]'}`}>{d.name}</Text>
-                    <Text className={`text-xs font-semibold ${d.active ? 'text-black' : d.isToday ? 'text-[#DFFF00]' : 'text-white'}`}>{d.label}</Text>
+                    <Text className={`text-xs font-semibold ${d.active ? 'text-black' : d.isToday ? 'text-[#DFFF00]' : 'text-white'}`}>
+                      {d.label ? d.label.charAt(0).toUpperCase() + d.label.slice(1) : ''}
+                    </Text>
                   </>
                 )}
               </Pressable>
@@ -157,7 +167,10 @@ export default function WorkoutSession() {
               ) : (
                 <>
                   <Text className="text-white text-lg font-semibold mb-1">
-                    {dayData?.workoutType?.toLowerCase() === 'rest' && exercises.length > 0 ? 'Custom Workout' : (dayData?.workoutType || 'Chest Day')}
+                    {(() => {
+                      const text = dayData?.workoutType?.toLowerCase() === 'rest' && exercises.length > 0 ? 'Custom Workout' : (dayData?.workoutType || 'Chest Day');
+                      return text.charAt(0).toUpperCase() + text.slice(1);
+                    })()}
                   </Text>
                   <Text className="text-[#8E8E8E] text-xs mb-1">Focus: Pectorals and Triceps</Text>
                   <Text className="text-[#8E8E8E] text-xs flex-row items-center">
@@ -194,34 +207,63 @@ export default function WorkoutSession() {
                   </View>
                 ))
               ) : (
-                (exercises.length > 0 ? exercises : placeholderExercises).map((item, index) => (
-                  <Pressable
-                    key={index}
-                    onPress={() => router.push({
-                      pathname: '/(customer)/exercise-detail',
-                      params: {
-                        dayId: activeDayId,
-                        exerciseIndex: index
-                      }
-                    })}
-                    className="flex-row items-center bg-[#18181B] rounded-2xl p-3 border border-[#262626]"
-                  >
-                    <Image
-                      source={item.image || { uri: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop' }}
-                      style={{ width: 50, height: 50, borderRadius: 10, marginRight: 12 }}
-                    />
-                    <View className="w-5 h-5 rounded-full border border-[#DFFF00] items-center justify-center mr-3">
-                      <Text className="text-[#DFFF00] text-[10px] font-semibold">{index + 1}</Text>
-                    </View>
+                (exercises.length > 0 ? exercises : placeholderExercises).map((item, index) => {
+                  const fullVideoUrl = getFullVideoUrl(item.videoUrl);
 
-                    <View className="flex-1 mr-2">
-                      <Text className="text-white text-sm font-semibold mb-1">{item.exerciseName || item.name}</Text>
-                      <Text className="text-[#8E8E8E] text-xs">{item.sets || '3 sets'} • {item.reps || '10 reps'}</Text>
-                    </View>
+                  return (
+                    <Pressable
+                      key={index}
+                      onPress={() => router.push({
+                        pathname: '/(customer)/exercise-detail',
+                        params: {
+                          dayId: activeDayId,
+                          exerciseIndex: index
+                        }
+                      })}
+                      className="flex-row items-center bg-[#18181B] rounded-2xl p-3 border border-[#262626]"
+                    >
+                      {fullVideoUrl ? (
+                        fullVideoUrl.toLowerCase().endsWith('.gif') ? (
+                          <Image
+                            source={{ uri: fullVideoUrl }}
+                            style={{ width: 50, height: 50, borderRadius: 10, marginRight: 12 }}
+                            resizeMode="contain"
+                          />
+                        ) : (
+                          <View style={{ width: 50, height: 50, borderRadius: 10, marginRight: 12, overflow: 'hidden' }}>
+                            <Video
+                              source={{ uri: fullVideoUrl }}
+                              style={{ width: '100%', height: '100%' }}
+                              resizeMode={ResizeMode.COVER}
+                              shouldPlay
+                              isLooping
+                              isMuted
+                            />
+                          </View>
+                        )
+                      ) : (
+                        <Image
+                          source={item.image || { uri: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop' }}
+                          style={{ width: 50, height: 50, borderRadius: 10, marginRight: 12 }}
+                        />
+                      )}
+                      <View className="w-5 h-5 rounded-full border border-[#DFFF00] items-center justify-center mr-3">
+                        <Text className="text-[#DFFF00] text-[10px] font-semibold">{index + 1}</Text>
+                      </View>
 
-                    <CaretRight size={16} color="#555" />
-                  </Pressable>
-                ))
+                      <View className="flex-1 mr-2">
+                        <Text className="text-white text-sm font-semibold mb-1">
+                          {(() => {
+                            const name = item.exerciseName || item.name || '';
+                            return name.charAt(0).toUpperCase() + name.slice(1);
+                          })()}
+                        </Text>
+                      </View>
+
+                      <CaretRight size={16} color="#555" />
+                    </Pressable>
+                  )
+                })
               )}
             </View>
           </>

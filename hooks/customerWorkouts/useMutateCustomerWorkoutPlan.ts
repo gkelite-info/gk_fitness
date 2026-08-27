@@ -14,10 +14,13 @@ export function useSaveWorkoutDayExercises() {
       for (const ex of newExercises) {
         await saveWorkoutPlanDayExercise({
           planDayId: currentPlanDayId,
+          workoutVideoId: ex.workoutVideoId,
           exerciseName: ex.exerciseName,
           category: ex.category,
           reps: ex.reps,
           order: ex.order,
+          image: ex.image,
+          videoUrl: ex.videoUrl,
         });
       }
     },
@@ -82,6 +85,7 @@ export function useSwapWorkoutDays() {
             ...sourceData,
             planDayId: sourcePlanDayId,
             workoutType: targetData.workoutType,
+            workoutId: targetData.workoutId,
             durationMinutes: targetData.durationMinutes,
           });
 
@@ -89,6 +93,7 @@ export function useSwapWorkoutDays() {
             ...targetData,
             planDayId: targetPlanDayId,
             workoutType: sourceData.workoutType,
+            workoutId: sourceData.workoutId,
             durationMinutes: sourceData.durationMinutes,
           });
 
@@ -108,6 +113,7 @@ export function useSwapWorkoutDays() {
             planId: activePlanId,
             dayOfWeek: targetDayOfWeek,
             workoutType: sourceData.workoutType,
+            workoutId: sourceData.workoutId,
             durationMinutes: sourceData.durationMinutes,
           });
 
@@ -115,6 +121,7 @@ export function useSwapWorkoutDays() {
             ...sourceData,
             planDayId: sourcePlanDayId,
             workoutType: 'Rest',
+            workoutId: null,
             durationMinutes: 0,
           });
 
@@ -133,6 +140,7 @@ export function useSwapWorkoutDays() {
             planId: activePlanId,
             dayOfWeek: sourceDayOfWeek,
             workoutType: targetData.workoutType,
+            workoutId: targetData.workoutId,
             durationMinutes: targetData.durationMinutes,
           });
 
@@ -140,6 +148,7 @@ export function useSwapWorkoutDays() {
             ...targetData,
             planDayId: targetPlanDayId,
             workoutType: 'Rest',
+            workoutId: null,
             durationMinutes: 0,
           });
 

@@ -1,87 +1,13 @@
-import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, Image, TextInput } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, ScrollView, Pressable, Image, TextInput, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Star, Plus, Check, MagnifyingGlass } from 'phosphor-react-native';
+import { ArrowLeft, Star, Plus, Check, MagnifyingGlass, ArrowsClockwise } from 'phosphor-react-native';
 import { useWorkoutPlan, ExerciseItem } from './_layout';
+import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
+import { Video, ResizeMode } from 'expo-av';
+import { supabase } from '@/lib/supabase';
 
-// Dynamic exercise database mapping
-const PRESET_EXERCISES: { [key: string]: { name: string; category: string; reps: string; isRecommended: boolean }[] } = {
-  Chest: [
-    { name: "Bench Press", category: "Compound", reps: "8-10 reps", isRecommended: true },
-    { name: "Incline Dumbbell Press", category: "Compound", reps: "8-12 reps", isRecommended: true },
-    { name: "Chest Press Machine", category: "Compound", reps: "10-12 reps", isRecommended: true },
-    { name: "Cable Fly", category: "Isolation", reps: "12-15 reps", isRecommended: true },
-    { name: "Push-ups", category: "Bodyweight", reps: "12-15 reps", isRecommended: true },
-    { name: "Pec Deck", category: "Isolation", reps: "12-15 reps", isRecommended: false },
-    { name: "Dips", category: "Compound", reps: "10-12 reps", isRecommended: false }
-  ],
-  Back: [
-    { name: "Deadlift", category: "Compound", reps: "6-8 reps", isRecommended: true },
-    { name: "Lat Pulldown", category: "Compound", reps: "10-12 reps", isRecommended: true },
-    { name: "Seated Row", category: "Compound", reps: "8-12 reps", isRecommended: true },
-    { name: "Single-Arm Row", category: "Isolation", reps: "10-12 reps", isRecommended: true },
-    { name: "Pull-ups", category: "Bodyweight", reps: "8-10 reps", isRecommended: true },
-    { name: "T-Bar Row", category: "Compound", reps: "8-10 reps", isRecommended: false },
-    { name: "Hyper-extensions", category: "Bodyweight", reps: "12-15 reps", isRecommended: false }
-  ],
-  Legs: [
-    { name: "Squats", category: "Compound", reps: "8-10 reps", isRecommended: true },
-    { name: "Leg Press", category: "Compound", reps: "10-12 reps", isRecommended: true },
-    { name: "Romanian Deadlift", category: "Compound", reps: "8-12 reps", isRecommended: true },
-    { name: "Leg Extension", category: "Isolation", reps: "12-15 reps", isRecommended: true },
-    { name: "Calf Raises", category: "Isolation", reps: "15-20 reps", isRecommended: true },
-    { name: "Lunges", category: "Compound", reps: "10-12 reps", isRecommended: false },
-    { name: "Hamstring Curls", category: "Isolation", reps: "12-15 reps", isRecommended: false }
-  ],
-  Arms: [
-    { name: "Bicep Curls", category: "Isolation", reps: "10-12 reps", isRecommended: true },
-    { name: "Hammer Curls", category: "Isolation", reps: "10-12 reps", isRecommended: true },
-    { name: "Tricep Pushdown", category: "Isolation", reps: "12-15 reps", isRecommended: true },
-    { name: "Overhead Extension", category: "Isolation", reps: "10-12 reps", isRecommended: true },
-    { name: "Chin-ups", category: "Bodyweight", reps: "8-10 reps", isRecommended: true },
-    { name: "Skull Crushers", category: "Compound", reps: "10-12 reps", isRecommended: false },
-    { name: "Preacher Curls", category: "Isolation", reps: "10-12 reps", isRecommended: false }
-  ],
-  Shoulders: [
-    { name: "Overhead Press", category: "Compound", reps: "8-10 reps", isRecommended: true },
-    { name: "Lateral Raises", category: "Isolation", reps: "12-15 reps", isRecommended: true },
-    { name: "Front Raises", category: "Isolation", reps: "10-12 reps", isRecommended: true },
-    { name: "Reverse Pec Deck", category: "Isolation", reps: "12-15 reps", isRecommended: true },
-    { name: "Shrugs", category: "Isolation", reps: "10-12 reps", isRecommended: true },
-    { name: "Arnold Press", category: "Compound", reps: "10-12 reps", isRecommended: false },
-    { name: "Face Pulls", category: "Isolation", reps: "12-15 reps", isRecommended: false }
-  ],
-  Core: [
-    { name: "Plank", category: "Bodyweight", reps: "60s hold", isRecommended: true },
-    { name: "Crunches", category: "Bodyweight", reps: "15-20 reps", isRecommended: true },
-    { name: "Leg Raises", category: "Bodyweight", reps: "12-15 reps", isRecommended: true },
-    { name: "Russian Twists", category: "Bodyweight", reps: "20 reps", isRecommended: true },
-    { name: "Hanging Knee Raise", category: "Bodyweight", reps: "12-15 reps", isRecommended: true },
-    { name: "Cable Woodchoppers", category: "Isolation", reps: "12 reps", isRecommended: false },
-    { name: "Bicycle Crunches", category: "Bodyweight", reps: "20 reps", isRecommended: false }
-  ],
-  Cardio: [
-    { name: "Treadmill Run", category: "Cardio", reps: "20 mins", isRecommended: true },
-    { name: "Stationary Bike", category: "Cardio", reps: "15 mins", isRecommended: true },
-    { name: "Rowing Machine", category: "Cardio", reps: "10 mins", isRecommended: true },
-    { name: "Jump Rope", category: "Cardio", reps: "3x 2 mins", isRecommended: true },
-    { name: "Elliptical", category: "Cardio", reps: "20 mins", isRecommended: true },
-    { name: "Stair Climber", category: "Cardio", reps: "15 mins", isRecommended: false },
-    { name: "HIIT Circuits", category: "Cardio", reps: "15 mins", isRecommended: false }
-  ],
-  Yoga: [
-    { name: "Downward Dog Pose", category: "Flexibility", reps: "60s hold", isRecommended: true },
-    { name: "Warrior Pose", category: "Flexibility", reps: "45s each", isRecommended: true },
-    { name: "Cobra Pose", category: "Flexibility", reps: "30s hold", isRecommended: true },
-    { name: "Child Pose", category: "Flexibility", reps: "90s hold", isRecommended: true },
-    { name: "Tree Pose", category: "Balance", reps: "45s each", isRecommended: true },
-    { name: "Bridge Pose", category: "Flexibility", reps: "60s hold", isRecommended: false },
-    { name: "Cat Cow Pose", category: "Mobility", reps: "10 flows", isRecommended: false }
-  ]
-};
-
-// Match muscle group image placeholders
 const IMAGE_MAP: { [key: string]: any } = {
   Chest: require('../../../assets/chest-stood.png'),
   Back: require('../../../assets/back-stood.png'),
@@ -95,30 +21,52 @@ export default function CustomizeWorkout() {
   const { planDays, setPlanDays } = useWorkoutPlan();
   const [loading, setLoading] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [accumulatedVideos, setAccumulatedVideos] = useState<any[]>([]);
+
+  const { data: fetchResult, isLoading: isVideosLoading, isFetching } = useWorkoutVideos(page, limit, muscleGroup);
+
+  const total = fetchResult?.total || 0;
+  const totalPages = Math.ceil(total / limit) || 1;
+  const hasMore = page < totalPages;
+
+  useEffect(() => {
+    if (fetchResult?.data) {
+      if (page === 1) {
+        setAccumulatedVideos(fetchResult.data);
+      } else {
+        setAccumulatedVideos((prev) => {
+          const prevIds = new Set(prev.map((v) => v.workoutVideoId));
+          const newUnique = fetchResult.data.filter((v: any) => !prevIds.has(v.workoutVideoId));
+          return [...prev, ...newUnique];
+        });
+      }
+    }
+  }, [fetchResult, page]);
+
   const currentPlan = planDays[day || ''];
 
-  // Set initial state from existing exercises, or defaults
+  const allPresets = useMemo(() => {
+    return accumulatedVideos.map((video: any, index: number) => ({
+      name: video.exerciseName || 'Unknown Exercise',
+      category: 'Exercise',
+      reps: '10-12 reps',
+      isRecommended: index < 5,
+      videoUrl: video.videoUrl,
+      workoutVideoId: video.workoutVideoId,
+    }));
+  }, [accumulatedVideos]);
+
   const [selectedExercises, setSelectedExercises] = useState<ExerciseItem[]>(() => {
     if (currentPlan && currentPlan.exercises && currentPlan.exercises.length > 0) {
       return currentPlan.exercises;
     }
-    // Default to recommended items from preset list
-    const presets = PRESET_EXERCISES[muscleGroup || ''] || [];
-    return presets
-      .filter(ex => ex.isRecommended)
-      .map((ex, idx) => ({
-        exerciseName: ex.name,
-        category: ex.category,
-        reps: ex.reps,
-        order: idx
-      }));
+    return [];
   });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchInput, setShowSearchInput] = useState(false);
-
-  // Group preset exercises into "Recommended" and "Others"
-  const allPresets = PRESET_EXERCISES[muscleGroup || ''] || [];
 
   const recommendedPresets = useMemo(() => {
     return allPresets.filter(p => p.isRecommended);
@@ -134,14 +82,14 @@ export default function CustomizeWorkout() {
     return selectedExercises.some(ex => ex.exerciseName === name);
   };
 
-  const handleToggleRecommended = (name: string, category: string, reps: string) => {
+  const handleToggleRecommended = (name: string, category: string, reps: string, videoUrl: string, workoutVideoId: string) => {
     try {
       if (isChecked(name)) {
         setSelectedExercises(selectedExercises.filter(ex => ex.exerciseName !== name));
       } else {
         setSelectedExercises([
           ...selectedExercises,
-          { exerciseName: name, category, reps, order: selectedExercises.length }
+          { exerciseName: name, category, reps, videoUrl, workoutVideoId, order: selectedExercises.length }
         ]);
       }
     } catch (error) {
@@ -149,12 +97,12 @@ export default function CustomizeWorkout() {
     }
   };
 
-  const handleAddOther = (name: string, category: string, reps: string) => {
+  const handleAddOther = (name: string, category: string, reps: string, videoUrl: string, workoutVideoId: string) => {
     try {
       if (!isChecked(name)) {
         setSelectedExercises([
           ...selectedExercises,
-          { exerciseName: name, category, reps, order: selectedExercises.length }
+          { exerciseName: name, category, reps, videoUrl, workoutVideoId, order: selectedExercises.length }
         ]);
       }
     } catch (error) {
@@ -170,6 +118,7 @@ export default function CustomizeWorkout() {
       setPlanDays(prev => ({
         ...prev,
         [day]: {
+          ...prev[day],
           dayOfWeek: day,
           workoutType: muscleGroup as any,
           exercises: selectedExercises,
@@ -188,8 +137,35 @@ export default function CustomizeWorkout() {
 
   const exerciseImage = IMAGE_MAP[muscleGroup || ''] || IMAGE_MAP.default;
 
+  const renderMedia = (videoUrl: string | undefined, opacity: boolean = false) => {
+    if (videoUrl) {
+      const publicUrl = videoUrl.startsWith('http')
+        ? videoUrl
+        : supabase.storage.from('workout-videos').getPublicUrl(videoUrl).data.publicUrl;
+
+      return (
+        <View className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] overflow-hidden bg-black ${opacity ? 'opacity-70' : ''}`}>
+          <Video
+            source={{ uri: publicUrl }}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode={ResizeMode.COVER}
+            useNativeControls={false}
+            shouldPlay={false}
+          />
+        </View>
+      );
+    }
+    return (
+      <Image
+        source={exerciseImage}
+        className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] ${opacity ? 'opacity-70' : ''}`}
+        resizeMode="cover"
+      />
+    );
+  };
+
   return (
-    <View className="flex-1 bg-[#0A0A0A] px-5 pt-12 pb-28 justify-between">
+    <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
       <View className="flex-row items-center justify-between mb-4">
         <Pressable
           onPress={() => router.push({ pathname: '/(customer)/workoutPlan/choose-muscle', params: { day } })}
@@ -225,122 +201,134 @@ export default function CustomizeWorkout() {
           </View>
         </View>
 
-        {/* Recommended List */}
-        <Text className="text-[#8E8E8E] text-xs font-semibold mb-4 tracking-wider">RECOMMENDED ({recommendedPresets.length})</Text>
+        {isVideosLoading && page === 1 ? (
+          <ActivityIndicator size="large" color="#C4EF00" className="mt-10" />
+        ) : (
+          <>
+            {recommendedPresets.length > 0 && (
+              <Text className="text-[#8E8E8E] text-xs font-semibold mb-4 tracking-wider">RECOMMENDED ({recommendedPresets.length})</Text>
+            )}
 
-        <View className="gap-3 mb-8">
-          {recommendedPresets.map((ex) => {
-            const selected = isChecked(ex.name);
-            return (
+            <View className="gap-3 mb-8">
+              {recommendedPresets.map((ex) => {
+                const selected = isChecked(ex.name);
+                return (
+                  <Pressable
+                    key={ex.name}
+                    onPress={() => handleToggleRecommended(ex.name, ex.category, ex.reps, ex.videoUrl, ex.workoutVideoId)}
+                    className={`flex-row items-center border p-3.5 rounded-2xl justify-between ${selected ? 'border-[#C4EF00]/30 bg-[#161616]' : 'border-[#27272A] bg-[#111111]'
+                      }`}
+                  >
+                    <View className="flex-row items-center flex-1">
+                      {renderMedia(ex.videoUrl)}
+                      <View className="flex-1 pr-2">
+                        <Text className="text-white font-semibold text-base">{ex.name}</Text>
+                        <View className="flex-row items-center gap-1.5 mt-1">
+                          <View className="bg-[#27272A] px-2 py-0.5 rounded-md">
+                            <Text className="text-[#8E8E8E] text-[10px] font-semibold">{ex.category}</Text>
+                          </View>
+                          {/* <Text className="text-[#8E8E8E] text-xs">• {ex.reps}</Text> */}
+                        </View>
+                      </View>
+                    </View>
+
+                    <View className={`w-6 h-6 rounded-full border items-center justify-center ${selected
+                      ? 'border-[#C4EF00] bg-[#C4EF00]'
+                      : 'border-[#27272A]'
+                      }`}>
+                      {selected && <Check size={12} color="#000" weight="bold" />}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-[#8E8E8E] text-xs font-semibold tracking-wider">MORE {muscleGroup?.toUpperCase()} EXERCISES</Text>
               <Pressable
-                key={ex.name}
-                onPress={() => handleToggleRecommended(ex.name, ex.category, ex.reps)}
-                className={`flex-row items-center border p-3.5 rounded-2xl justify-between ${selected ? 'border-[#C4EF00]/30 bg-[#161616]' : 'border-[#27272A] bg-[#111111]'
-                  }`}
+                onPress={() => setShowSearchInput(!showSearchInput)}
+                className="flex-row items-center gap-1.5 active:opacity-75"
               >
-                <View className="flex-row items-center flex-1">
-                  {/* Exercise Image Thumbnail */}
-                  <Image
-                    source={exerciseImage}
-                    className="w-14 h-14 rounded-xl mr-4 border border-[#242424]"
-                    resizeMode="cover"
-                  />
-                  <View className="flex-1 pr-2">
-                    <Text className="text-white font-semibold text-base">{ex.name}</Text>
-                    <View className="flex-row items-center gap-1.5 mt-1">
-                      <View className="bg-[#27272A] px-2 py-0.5 rounded-md">
-                        <Text className="text-[#8E8E8E] text-[10px] font-semibold">{ex.category}</Text>
-                      </View>
-                      <Text className="text-[#8E8E8E] text-xs">• {ex.reps}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Custom Checkbox */}
-                <View className={`w-6 h-6 rounded-full border items-center justify-center ${selected
-                  ? 'border-[#C4EF00] bg-[#C4EF00]'
-                  : 'border-[#27272A]'
-                  }`}>
-                  {selected && <Check size={12} color="#000" weight="bold" />}
-                </View>
+                <MagnifyingGlass size={15} color="#C4EF00" weight="bold" />
+                <Text className="text-[#C4EF00] text-xs font-semibold">Search</Text>
               </Pressable>
-            );
-          })}
-        </View>
+            </View>
 
-        {/* Search header / title */}
-        <View className="flex-row justify-between items-center mb-4">
-          <Text className="text-[#8E8E8E] text-xs font-semibold tracking-wider">MORE {muscleGroup?.toUpperCase()} EXERCISES</Text>
-          <Pressable
-            onPress={() => setShowSearchInput(!showSearchInput)}
-            className="flex-row items-center gap-1.5 active:opacity-75"
-          >
-            <MagnifyingGlass size={15} color="#C4EF00" weight="bold" />
-            <Text className="text-[#C4EF00] text-xs font-semibold">Search</Text>
-          </Pressable>
-        </View>
-
-        {/* Search Input field */}
-        {showSearchInput && (
-          <View className="bg-[#111111] border border-[#27272A] rounded-2xl flex-row items-center px-4 py-3 mb-4 w-full">
-            <MagnifyingGlass size={18} color="#8E8E8E" />
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search other exercises..."
-              placeholderTextColor="#8E8E8E"
-              className="flex-1 text-white ml-2 text-sm"
-              keyboardAppearance="dark"
-            />
-          </View>
-        )}
-
-        {/* Other Exercises List */}
-        <View className="gap-3">
-          {otherPresets.map((ex) => {
-            const added = isChecked(ex.name);
-            return (
-              <View
-                key={ex.name}
-                className={`flex-row items-center border p-3.5 rounded-2xl justify-between ${added ? 'border-[#C4EF00]/20 bg-[#161616]/50' : 'border-[#27272A] bg-[#111111]'
-                  }`}
-              >
-                <View className="flex-row items-center flex-1">
-                  <Image
-                    source={IMAGE_MAP.default}
-                    className="w-14 h-14 rounded-xl mr-4 border border-[#242424] opacity-70"
-                    resizeMode="cover"
-                  />
-                  <View className="flex-1 pr-2">
-                    <Text className="text-white font-semibold text-base">{ex.name}</Text>
-                    <View className="flex-row items-center gap-1.5 mt-1">
-                      <View className="bg-[#27272A] px-2 py-0.5 rounded-md">
-                        <Text className="text-[#8E8E8E] text-[10px] font-semibold">{ex.category}</Text>
-                      </View>
-                      <Text className="text-[#8E8E8E] text-xs">• {ex.reps}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Add button */}
-                <Pressable
-                  onPress={() => handleAddOther(ex.name, ex.category, ex.reps)}
-                  disabled={added}
-                  className={`w-8 h-8 rounded-full border items-center justify-center ${added
-                    ? 'border-[#C4EF00]/20 bg-[#C4EF00]/10'
-                    : 'border-[#C4EF00] bg-transparent active:bg-[#C4EF00]/10'
-                    }`}
-                >
-                  {added ? (
-                    <Check size={14} color="#C4EF00" weight="bold" />
-                  ) : (
-                    <Plus size={14} color="#C4EF00" weight="bold" />
-                  )}
-                </Pressable>
+            {showSearchInput && (
+              <View className="bg-[#111111] border border-[#27272A] rounded-2xl flex-row items-center px-4 py-3 mb-4 w-full">
+                <MagnifyingGlass size={18} color="#8E8E8E" />
+                <TextInput
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Search other exercises..."
+                  placeholderTextColor="#8E8E8E"
+                  className="flex-1 text-white ml-2 text-sm font-sans"
+                  keyboardAppearance="dark"
+                />
               </View>
-            );
-          })}
-        </View>
+            )}
+
+            <View className="gap-3">
+              {otherPresets.map((ex) => {
+                const added = isChecked(ex.name);
+                return (
+                  <View
+                    key={ex.name}
+                    className={`flex-row items-center border p-3.5 rounded-2xl justify-between ${added ? 'border-[#C4EF00]/20 bg-[#161616]/50' : 'border-[#27272A] bg-[#111111]'
+                      }`}
+                  >
+                    <View className="flex-row items-center flex-1">
+                      {renderMedia(ex.videoUrl, true)}
+                      <View className="flex-1 pr-2">
+                        <Text className="text-white font-semibold text-base">{ex.name}</Text>
+                        <View className="flex-row items-center gap-1.5 mt-1">
+                          <View className="bg-[#27272A] px-2 py-0.5 rounded-md">
+                            <Text className="text-[#8E8E8E] text-[10px] font-semibold">{ex.category}</Text>
+                          </View>
+                          {/* <Text className="text-[#8E8E8E] text-xs">• {ex.reps}</Text> */}
+                        </View>
+                      </View>
+                    </View>
+
+                    <Pressable
+                      onPress={() => handleAddOther(ex.name, ex.category, ex.reps, ex.videoUrl, ex.workoutVideoId)}
+                      disabled={added}
+                      className={`w-8 h-8 rounded-full border items-center justify-center ${added
+                        ? 'border-[#C4EF00]/20 bg-[#C4EF00]/10'
+                        : 'border-[#C4EF00] bg-transparent active:bg-[#C4EF00]/10'
+                        }`}
+                    >
+                      {added ? (
+                        <Check size={14} color="#C4EF00" weight="bold" />
+                      ) : (
+                        <Plus size={14} color="#C4EF00" weight="bold" />
+                      )}
+                    </Pressable>
+                  </View>
+                );
+              })}
+
+              {hasMore && !searchQuery && (
+                <View className="py-4 items-center">
+                  <Pressable
+                    onPress={() => setPage(p => p + 1)}
+                    disabled={isFetching}
+                    className="flex-row items-center gap-x-2 bg-[#141414] border border-[#2A2A2A] px-4 py-2.5 rounded-xl active:opacity-70"
+                  >
+                    {isFetching ? (
+                      <ActivityIndicator size="small" color="#C4EF00" />
+                    ) : (
+                      <>
+                        <ArrowsClockwise size={16} color="#C4EF00" />
+                        <Text className="text-white text-sm font-semibold">Load More</Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          </>
+        )}
 
         <Pressable
           onPress={handleSaveWorkout}

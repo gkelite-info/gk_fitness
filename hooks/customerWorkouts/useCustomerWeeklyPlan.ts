@@ -23,6 +23,7 @@ export function useCustomerWeeklyPlan(userId: string | null | undefined) {
           loadedPlanDays[d.dayOfWeek] = {
             dayOfWeek: d.dayOfWeek,
             workoutType: d.workoutType,
+            workoutId: d.workoutId || null,
             durationMinutes: d.durationMinutes,
             exercises: exs,
             planDayId: d.planDayId

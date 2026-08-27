@@ -100,7 +100,7 @@ export default function BuildWeeklyPlan() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] px-5 pt-12 pb-28 justify-between">
+    <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
       <View className="flex-row items-center justify-between mb-4">
         <Pressable
           onPress={() => router.replace('/(customer)/workout')}
@@ -111,13 +111,13 @@ export default function BuildWeeklyPlan() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center', paddingBottom: 20 }}>
-        <View className="items-center justify-center mb-6 bg-[#161616] p-6 rounded-full border border-[#242424] w-36 h-36">
-          <Robot size={64} color="#C4EF00" weight="fill" />
+        <View className="items-center justify-center mb-6 bg-[#161616] p-6 rounded-full border border-[#242424] w-26 h-26">
+          <Robot size={44} color="#C4EF00" weight="fill" />
         </View>
 
         <Text className="text-white text-3xl font-semibold text-center mb-2">Build Your</Text>
-        <Text className="text-[#C4EF00] text-4xl font-black text-center mb-3">Weekly Plan</Text>
-        <Text className="text-[#8E8E8E] text-base text-center px-4 mb-8 leading-5">
+        <Text className="text-[#C4EF00] text-4xl font-semibold text-center mb-3">Weekly Plan</Text>
+        <Text className="text-[#8E8E8E] text-sm text-center px-4 mb-5 leading-5">
           Choose the days you'd like to crush your workouts.
         </Text>
 
@@ -128,7 +128,7 @@ export default function BuildWeeklyPlan() {
           </View>
         </View>
 
-        <View className="flex-row flex-wrap justify-between w-full mb-8">
+        <View className="flex-row flex-wrap justify-between w-full">
           {isLoading ? (
             DAYS_OF_WEEK.map((day) => (
               <ShimmerBox key={day} />
@@ -162,7 +162,7 @@ export default function BuildWeeklyPlan() {
           )}
         </View>
 
-        <View className="flex-row bg-[#161616] p-4 rounded-2xl border border-[#242424] items-center w-full mb-6">
+        <View className="flex-row bg-[#161616] p-4 rounded-2xl border border-[#242424] items-center w-full mb-3">
           <View className="mr-3">
             <Lightbulb size={24} color="#C4EF00" weight="fill" />
           </View>

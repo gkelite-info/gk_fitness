@@ -4,9 +4,11 @@ import { Text } from '@/components/nativewindui/Text';
 import { router } from 'expo-router';
 import { ArrowLeft, CaretRight, Calendar, Lightbulb } from 'phosphor-react-native';
 import { useWorkoutPlan } from './_layout';
+import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 
 export default function AssignDays() {
   const { selectedDays, planDays, setPlanDays } = useWorkoutPlan();
+  const { data: dbWorkouts } = useWorkouts();
 
   useEffect(() => {
     if (selectedDays.length === 0) {
@@ -48,9 +50,13 @@ export default function AssignDays() {
           workoutType = split[index % split.length];
         }
 
+        const dbWorkout = dbWorkouts?.find(w => w.workoutType.toLowerCase() === workoutType.toLowerCase());
+
         newPlanDays[day] = {
+          ...newPlanDays[day],
           dayOfWeek: day,
           workoutType,
+          workoutId: dbWorkout?.workoutId || null,
           exercises: newPlanDays[day]?.exercises || []
         };
       });
@@ -70,7 +76,7 @@ export default function AssignDays() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] px-5 pt-12 pb-28 justify-between">
+    <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
       <View className="flex-row items-center mb-6">
         <Pressable
           onPress={() => router.push('/(customer)/workoutPlan' as any)}

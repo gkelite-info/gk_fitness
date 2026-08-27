@@ -4,6 +4,7 @@ import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmModal from '@/components/ConfirmModal';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import {
   ArrowLeft,
   MapPin,
@@ -36,10 +37,29 @@ export default function GymDetailsTabsScreen() {
   const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
-  const { data: gyms, isLoading: isLoadingGyms } = useGyms();
-  const { data: owners, isLoading: isLoadingOwners } = useGymOwners();
-  const { data: trainers, isLoading: isLoadingTrainers } = useGymTrainers(id);
-  const { data: customers, isLoading: isLoadingCustomers } = useGymCustomers(id);
+  const { data: gyms, isLoading: isLoadingGyms, refetch: refetchGyms } = useGyms();
+  const { data: owners, isLoading: isLoadingOwners, refetch: refetchOwners } = useGymOwners();
+  const { data: trainers, isLoading: isLoadingTrainers, refetch: refetchTrainers } = useGymTrainers(id);
+  const { data: customers, isLoading: isLoadingCustomers, refetch: refetchCustomers } = useGymCustomers(id);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refetchGyms && refetchGyms(),
+        refetchOwners && refetchOwners(),
+        refetchTrainers && refetchTrainers(),
+        refetchCustomers && refetchCustomers()
+      ]);
+    } catch (error) {
+      console.error('Failed to refresh gym details:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchGyms, refetchOwners, refetchTrainers, refetchCustomers]);
+
 
   const gym = gyms?.find((g) => g.gymId === id || g.id === id);
 
@@ -51,20 +71,16 @@ export default function GymDetailsTabsScreen() {
     );
   }
 
-  // Current active dataset
   let currentData: any[] = [];
   if (activeTab === 'customers') currentData = customers || [];
   if (activeTab === 'trainers') currentData = trainers || [];
   if (activeTab === 'owners') {
-    // Owners might just be the gym.owner string in the basic schema, or fetched via useGymOwners
     currentData = owners?.filter(o => o.gymId === id) || [];
-    // If empty, let's mock one for the UI demonstration if gym has an owner string
     if (currentData.length === 0 && gym?.owner) {
       currentData = [{ id: 'owner-1', name: gym.owner, phone: '+91 98765 00000', isActive: true, role: 'Owner' }];
     }
   }
 
-  // Filter & Search
   const filteredData = currentData.filter(item => {
     let name = '';
     let phone = '';
@@ -135,7 +151,6 @@ export default function GymDetailsTabsScreen() {
     } else if (activeTab === 'trainers' && item.gymTrainerId) {
       router.push(`/(superadmin)/trainers/${item.gymTrainerId}`);
     } else if (activeTab === 'owners') {
-      // Owners view doesn't exist uniquely yet, could route to owners list or similar
     }
   };
 
@@ -224,7 +239,7 @@ export default function GymDetailsTabsScreen() {
           </View>
         </View>
 
-        <Pressable 
+        <Pressable
           onPress={() => setIsStatusModalVisible(true)}
           className={`px-2 py-1 rounded-full flex-row items-center border ${gym?.isActive !== false ? 'border-[#CCFF00]/20 bg-[#CCFF00]/10' : 'border-[#EF4444]/20 bg-[#EF4444]/10'}`}
         >
@@ -269,6 +284,7 @@ export default function GymDetailsTabsScreen() {
         data={filteredData}
         keyExtractor={(item, index) => item.id || item.customerId || item.trainerId || index.toString()}
         renderItem={renderCard}
+        refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={

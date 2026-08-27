@@ -180,7 +180,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
       newErrors.phone = 'Please enter a valid 10-digit mobile number starting with 6-9.';
     }
 
-    if (email.trim()) {
+    if (email.trim() || email.length === 0) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.trim())) {
         newErrors.email = 'Please enter a valid email format.';
@@ -470,7 +470,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
         </View>
 
         <View className="mb-4">
-          <Text className="text-white text-xs mb-2">Full Name *</Text>
+          <Text className="text-white text-xs mb-2">Full Name <Text className="text-red-500">*</Text></Text>
           <TextInput
             placeholder="Enter full name"
             placeholderTextColor="#666"
@@ -492,7 +492,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
 
         <View className="flex-row gap-4">
           <View className="flex-1">
-            <Text className="text-white text-xs mb-2">Date of Birth *</Text>
+            <Text className="text-white text-xs mb-2">Date of Birth <Text className="text-red-500">*</Text></Text>
             <Pressable
               onPress={() => setDobModalVisible(true)}
               className={`flex-row items-center justify-between px-3.5 py-3.5 rounded-xl border active:opacity-80 ${errors.dateOfBirth ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
@@ -511,7 +511,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
           </View>
 
           <View className="flex-1">
-            <Text className="text-white text-xs mb-2">Gender *</Text>
+            <Text className="text-white text-xs mb-2">Gender <Text className="text-red-500">*</Text></Text>
             <Pressable
               onPress={handleGenderSelect}
               className={`flex-row items-center justify-between px-3.5 py-3.5 rounded-xl border active:opacity-80 ${errors.gender ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
@@ -537,7 +537,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
 
         <View className="flex-row gap-4">
           <View className="flex-[1.2]">
-            <Text className="text-white text-xs mb-2">Phone Number *</Text>
+            <Text className="text-white text-xs mb-2">Phone Number <Text className="text-red-500">*</Text></Text>
             <View className="flex-row gap-4">
               <Pressable className="bg-[#161616] flex-row items-center px-3 py-3.5 rounded-xl border border-[#242424]">
                 <Text className="text-white mr-1">{phoneCode}</Text>
@@ -572,12 +572,14 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
         </View>
 
         <View className="flex-1 mt-6">
-          <Text className="text-white text-xs mb-2">Email Address</Text>
+          <Text className="text-white text-xs mb-2">Email Address <Text className="text-red-500">*</Text></Text>
           <TextInput
             placeholder="customer@email.com"
             placeholderTextColor="#666"
             keyboardType="email-address"
             autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
             clearButtonMode="while-editing"
             value={email}
             onChangeText={(txt) => {
@@ -598,12 +600,12 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
       <View className="mb-8">
         <View className="flex-row items-center mb-4">
           <ShieldCheck size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Emergency Contact *</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Emergency Contact <Text className="text-red-500">*</Text></Text>
         </View>
 
         <View className="flex-row gap-4 mb-4">
           <View className="flex-1">
-            <Text className="text-white text-xs mb-2">Contact Name *</Text>
+            <Text className="text-white text-xs mb-2">Contact Name <Text className="text-red-500">*</Text></Text>
             <TextInput
               placeholder="Enter contact name"
               placeholderTextColor="#666"
@@ -625,7 +627,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
 
         </View>
         <View className="flex-1">
-          <Text className="text-white text-xs mb-2">Relationship *</Text>
+          <Text className="text-white text-xs mb-2">Relationship <Text className="text-red-500">*</Text></Text>
           <Pressable
             onPress={handleRelationshipSelect}
             className={`flex-row items-center justify-between px-3.5 py-3.5 rounded-xl border active:opacity-80 ${errors.emergencyRelationship ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
@@ -642,7 +644,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
         </View>
 
         <View className="pr-2 mt-6">
-          <Text className="text-white text-xs mb-2">Contact Phone *</Text>
+          <Text className="text-white text-xs mb-2">Contact Phone <Text className="text-red-500">*</Text></Text>
           <View className="flex-row gap-4">
             <Pressable className="bg-[#161616] flex-row items-center px-3 py-3.5 rounded-xl border border-[#242424]">
               <Text className="text-white mr-1">{emergencyPhoneCode}</Text>
@@ -678,11 +680,11 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
       <View className="mb-8">
         <View className="flex-row items-center mb-4">
           <IdentificationCard size={20} color="#C3F400" weight="fill" />
-          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Membership Information *</Text>
+          <Text className="text-[#C3F400] font-semibold tracking-wider ml-2 uppercase text-sm">Membership Information <Text className="text-red-500">*</Text></Text>
         </View>
 
         <View className="mb-4">
-          <Text className="text-white text-xs mb-2">Membership Plan *</Text>
+          <Text className="text-white text-xs mb-2">Membership Plan <Text className="text-red-500">*</Text></Text>
           <Pressable
             onPress={handlePlanSelect}
             className={`flex-row items-center justify-between px-4 py-3.5 rounded-xl border active:opacity-80 ${errors.plan ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
@@ -700,7 +702,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
 
         <View className="flex-row gap-4">
           <View className="flex-1">
-            <Text className="text-white text-xs mb-2">Start Date *</Text>
+            <Text className="text-white text-xs mb-2">Start Date <Text className="text-red-500">*</Text></Text>
             <Pressable
               onPress={() => setStartModalVisible(true)}
               className={`flex-row items-center justify-between px-3.5 py-3.5 rounded-xl border active:opacity-80 ${errors.startDate ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
@@ -718,7 +720,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
             )}
           </View>
           <View className="flex-1">
-            <Text className="text-white text-xs mb-2">Expiry Date *</Text>
+            <Text className="text-white text-xs mb-2">Expiry Date <Text className="text-red-500">*</Text></Text>
             <Pressable
               onPress={() => setExpiryModalVisible(true)}
               className={`flex-row items-center justify-between px-3.5 py-3.5 rounded-xl border active:opacity-80 ${errors.expiryDate ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
@@ -752,7 +754,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
         </View>
       </View>
 
-      <View className="pt-4 pb-16 mt-2">
+      <View className="pt-4 mt-2">
         <Pressable
           disabled={loading}
           onPress={handleSubmit}

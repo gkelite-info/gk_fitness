@@ -375,7 +375,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
           style={{ minHeight: 56 }}
           className="w-full h-14 rounded-2xl bg-[#C3F400] flex-row items-center justify-center shadow-lg active:opacity-85 px-4"
         >
-          <Text className="text-black font-black text-base uppercase tracking-wider">RETURN TO TRAINERS</Text>
+          <Text className="text-black text-base uppercase tracking-wider">RETURN TO TRAINERS</Text>
         </Pressable>
       </View>
     );
@@ -413,7 +413,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
         </View>
 
         <View className="mb-4">
-          <Text className="text-white text-xs mb-2">Full Name *</Text>
+          <Text className="text-white text-xs mb-2">Full Name <Text className="text-red-500">*</Text></Text>
           <TextInput
             placeholder="Enter full name"
             placeholderTextColor="#666"
@@ -423,7 +423,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
               clearError('fullName');
               setFullName(txt);
             }}
-            className={`text-white px-4 py-3.5 rounded-xl border ${errors.fullName ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
+            className={`text-white font-sans px-4 py-3.5 rounded-xl border ${errors.fullName ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
           />
           {errors.fullName && (
             <View className="flex-row items-center mt-1.5 ml-1">
@@ -434,7 +434,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
         </View>
 
         <View className="mb-4">
-          <Text className="text-white text-xs mb-2">Date of Birth *</Text>
+          <Text className="text-white text-xs mb-2">Date of Birth <Text className="text-red-500">*</Text></Text>
           <Pressable
             onPress={() => setDobModalVisible(true)}
             className={`flex-row items-center justify-between px-4 py-3.5 rounded-xl border active:opacity-80 ${errors.dateOfBirth ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
@@ -453,7 +453,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
         </View>
 
         <View className="mb-4">
-          <Text className="text-white text-xs mb-2">Gender *</Text>
+          <Text className="text-white text-xs mb-2">Gender <Text className="text-red-500">*</Text></Text>
           <Pressable
             onPress={handleGenderSelect}
             className={`flex-row items-center justify-between px-4 py-3.5 rounded-xl border active:opacity-80 ${errors.gender ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
@@ -477,7 +477,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
         </View>
 
         <View className="mb-4">
-          <Text className="text-white text-xs mb-2">Phone Number *</Text>
+          <Text className="text-white text-xs mb-2">Phone Number <Text className="text-red-500">*</Text></Text>
           <View className="flex-row gap-2">
             <Pressable className="bg-[#161616] flex-row items-center px-3 py-3.5 rounded-xl border border-[#242424]">
               <Text className="text-white mr-1">{phoneCode}</Text>
@@ -493,7 +493,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
                 clearError('phone');
                 setPhone(txt);
               }}
-              className={`flex-1 text-white px-4 py-3.5 rounded-xl border ${errors.phone ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
+              className={`flex-1 text-white px-4 py-3.5 rounded-xl font-sans border ${errors.phone ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
             />
           </View>
           {errors.phone && (
@@ -505,7 +505,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
         </View>
 
         <View className="mb-4">
-          <Text className="text-white text-xs mb-2">Email Address *</Text>
+          <Text className="text-white text-xs mb-2">Email Address <Text className="text-red-500">*</Text></Text>
           <TextInput
             placeholder="trainer@gymname.com"
             placeholderTextColor="#666"
@@ -517,7 +517,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
               clearError('email');
               setEmail(txt);
             }}
-            className={`text-white px-4 py-3.5 rounded-xl border ${errors.email ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
+            className={`text-white font-sans px-4 py-3.5 rounded-xl border ${errors.email ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
           />
           {errors.email && (
             <View className="flex-row items-center mt-1.5 ml-1">
@@ -571,7 +571,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
                 clearError('experience');
                 setExperience(txt);
               }}
-              className={`text-white px-4 py-3.5 rounded-xl border ${errors.experience ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
+              className={`text-white font-sans px-4 py-3.5 rounded-xl border ${errors.experience ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
             />
           </View>
           <View className="flex-1">
@@ -596,7 +596,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
             clearButtonMode="while-editing"
             value={qualification}
             onChangeText={setQualification}
-            className="bg-[#161616] text-white px-4 py-3.5 rounded-xl border border-[#242424]"
+            className="bg-[#161616] font-sans text-white px-4 py-3.5 rounded-xl border border-[#242424]"
           />
         </View>
       </View>
@@ -658,7 +658,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
             textAlignVertical="top"
             value={bio}
             onChangeText={setBio}
-            className="bg-[#161616] text-white px-4 py-3.5 rounded-xl border border-[#242424] min-h-[100px]"
+            className="bg-[#161616] font-sans text-white px-4 py-3.5 rounded-xl border border-[#242424] min-h-[100px]"
           />
         </View>
 
@@ -669,7 +669,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
             placeholderTextColor="#666"
             value={languages}
             onChangeText={setLanguages}
-            className="bg-[#161616] text-white px-4 py-3.5 rounded-xl border border-[#242424]"
+            className="bg-[#161616] font-sans text-white px-4 py-3.5 rounded-xl border border-[#242424]"
           />
         </View>
       </View>
@@ -688,19 +688,19 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
         </View>
       </View>
 
-      <View className="pt-4 pb-16 mt-2">
+      <View className="pt-4 mt-2">
         <Pressable
           disabled={loading}
           onPress={handleSubmit}
           style={{ minHeight: 56 }}
-          className="w-full h-14 rounded-2xl bg-[#C3F400] flex-row items-center justify-center shadow-lg active:opacity-85 disabled:opacity-50 gap-2.5 px-4"
+          className="w-full h-5 rounded-2xl bg-[#C3F400] flex-row items-center justify-center shadow-lg active:opacity-85 disabled:opacity-50 gap-2.5 px-4"
         >
           {loading ? (
             <ActivityIndicator size="small" color="#000" />
           ) : (
             <Check size={24} color="#000" weight="bold" />
           )}
-          <Text className="text-black font-black text-base uppercase tracking-wider">
+          <Text className="text-black font-bold text-base uppercase tracking-wider">
             {loading ? 'CREATING ACCOUNT...' : 'SAVE & CREATE TRAINER'}
           </Text>
         </Pressable>

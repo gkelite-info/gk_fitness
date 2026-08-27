@@ -89,7 +89,7 @@ export default function WorkoutCountdown() {
           <View className="mb-2.5">
             <Text className="text-[40px] text-[#DFFF00]">🏋️</Text>
           </View>
-          <Text className="text-white text-[40px] font-semibold mb-[30px]">{workoutType || 'Chest Day'}</Text>
+          <Text className="text-white text-[40px] font-semibold mb-[30px]">{workoutType ? workoutType.charAt(0).toUpperCase() + workoutType.slice(1) : 'Chest Day'}</Text>
 
           <View className="flex-row items-center">
             <View className="items-center px-[30px]">

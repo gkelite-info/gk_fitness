@@ -23,17 +23,27 @@ export function useCustomerMuscleGroupWorkouts(userId: string | null | undefined
 
       let allExercises: WorkoutPlanDayExerciseAttributes[] = [];
 
-      const filteredDays = muscleGroup && muscleGroup !== 'All' 
-        ? days.filter((day: any) => day.workoutType?.toLowerCase() === muscleGroup.toLowerCase())
-        : days;
-
-      for (const day of filteredDays) {
+      for (const day of days) {
         const exercises = await fetchWorkoutPlanDayExercises(day.planDayId);
         const exercisesWithContext = exercises.map(ex => ({
           ...ex,
           dayWorkoutType: day.workoutType,
         }));
         allExercises = [...allExercises, ...exercisesWithContext];
+      }
+
+      if (muscleGroup && muscleGroup !== 'All') {
+        const target = muscleGroup.toLowerCase();
+        allExercises = allExercises.filter((ex: any) => {
+          const cat = ex.category?.toLowerCase() || '';
+          const dayType = ex.dayWorkoutType?.toLowerCase() || '';
+          return cat === target ||
+            cat.startsWith(target.slice(0, 4)) ||
+            target.startsWith(cat.slice(0, 4)) ||
+            dayType === target ||
+            dayType.startsWith(target.slice(0, 4)) ||
+            target.startsWith(dayType.slice(0, 4));
+        });
       }
 
       return allExercises;

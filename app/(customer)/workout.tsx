@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Image, Pressable, TextInput, Modal } from 'react-native';
+import { View, ScrollView, Image, Pressable, TextInput, Modal, FlatList, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { ArrowRightIcon, CaretRightIcon, ClockIcon, HandWavingIcon, Check, Bell, LightningIcon, CalendarIcon, StarIcon, CheckCircleIcon, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass, Robot, CalendarPlus, Sparkle, XCircle, CaretLeft, X } from 'phosphor-react-native';
+import { ArrowRightIcon, CaretRightIcon, ClockIcon, HandWavingIcon, Check, Bell, LightningIcon, CalendarIcon, StarIcon, CheckCircleIcon, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass, Robot, CalendarPlus, Sparkle, XCircle, CaretLeft, X, ArrowsClockwise } from 'phosphor-react-native';
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from 'expo-av';
 import { useNavigation, router } from 'expo-router';
@@ -115,7 +115,7 @@ export default function CustomerWorkout() {
         ) : activeTab === 'Equipment' ? (
           <EquipmentView />
         ) : !activeTab ? ( */}
-        {activeTab === 'Full Body Workout' || activeTab === 'Upper Body Workout' || activeTab === 'Lower Body Workout' ? (
+        {activeTab === 'Full Body Workout' || activeTab === 'Upper Body Workout' || activeTab === 'Lower Body Workout' || activeTab === 'Abs Workout' ? (
           <View className="w-full mt-2">
             <Pressable onPress={() => setActiveTab(null)} className="flex-row items-center gap-2 mb-2 active:opacity-70">
               <CaretLeft size={20} color="white" weight="bold" />
@@ -125,7 +125,8 @@ export default function CustomerWorkout() {
               filterTabs={
                 activeTab === 'Upper Body Workout' ? ['All', 'Chest', 'Back', 'Shoulders'] :
                   activeTab === 'Lower Body Workout' ? ['All', 'Legs'] :
-                    undefined
+                    activeTab === 'Abs Workout' ? ['All', 'Abs'] :
+                      undefined
               }
             />
           </View>
@@ -246,7 +247,12 @@ export default function CustomerWorkout() {
                 <View className='flex flex-row items-center justify-between gap-2 w-full mt-5 bg-[#191919] p-3 pb-0 rounded-xl'>
                   <View className='w-[50%] h-full gap-3 pb-4'>
                     <Text className='text-[#C4EF00] text-xs font-semibold tracking-wider'>TODAY'S WORKOUT</Text>
-                    <Text className='text-xl text-white font-semibold'>{todayWorkout?.type || 'Rest Day'}</Text>
+                    <Text className='text-xl text-white font-semibold'>
+                      {(() => {
+                        const type = todayWorkout?.type || 'Rest Day';
+                        return type.charAt(0).toUpperCase() + type.slice(1);
+                      })()}
+                    </Text>
 
                     {todayWorkout?.type !== 'Rest' && (
                       <>
@@ -305,7 +311,7 @@ export default function CustomerWorkout() {
                       className='bg-[#111111] w-[48%] mb-3 p-3 flex-row items-center rounded-xl border border-[#1D1D1D] active:opacity-70'
                       key={index}
                       onPress={() => {
-                        if (item.text === 'Full Body Workout' || item.text === 'Upper Body Workout' || item.text === 'Lower Body Workout') {
+                        if (item.text === 'Full Body Workout' || item.text === 'Upper Body Workout' || item.text === 'Lower Body Workout' || item.text === 'Abs Workout') {
                           setActiveTab(item.text);
                         }
                       }}
@@ -398,10 +404,16 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
   const { userId } = useUser();
   const [activeSubTab, setActiveSubTab] = useState('All');
   const [savedWorkouts, setSavedWorkouts] = useState<Record<string, boolean>>({});
-
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [videoTitle, setVideoTitle] = useState('');
+
+  const [page, setPage] = useState(1);
+  const limit = 5;
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeSubTab]);
 
   const openVideo = (exerciseName: string, videoSource: any) => {
     if (videoSource) {
@@ -411,7 +423,7 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
     }
   };
 
-  const { data: recommendedExercises = [], isLoading } = useCustomerMuscleGroupWorkouts(userId, activeSubTab);
+  const { data: recommendedExercises = [], isLoading, isFetching } = useCustomerMuscleGroupWorkouts(userId, activeSubTab);
 
   const toggleSave = (title: string) => {
     setSavedWorkouts(prev => ({ ...prev, [title]: !prev[title] }));
@@ -423,6 +435,7 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
     { name: 'Back', image: require('../../assets/back-stood.png') },
     { name: 'Shoulders', image: require('../../assets/shoulders-stood.png') },
     { name: 'Legs', image: require('../../assets/workout_legs.jpg') },
+    { name: 'Abs', image: require('../../assets/workout_abs.jpg') },
   ];
 
   if (filterTabs) {
@@ -446,11 +459,15 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
       { title: 'Leg Day Blast', subtitle: 'Quads • Hamstrings', time: '50 min', exercisesCount: '6 Exercises', image: require('../../assets/workout_legs.jpg') },
       { title: 'Lower Body Strength', subtitle: 'Glutes Focus', time: '45 min', exercisesCount: '5 Exercises', image: require('../../assets/kettlebell-burn.png') },
     ],
+    Abs: [
+      { title: 'Core Crusher', subtitle: 'Abs Focus', time: '20 min', exercisesCount: '5 Exercises', image: require('../../assets/workout_abs.jpg') },
+      { title: 'Six Pack Abs', subtitle: 'Core Strength', time: '15 min', exercisesCount: '4 Exercises', image: require('../../assets/workout_abs.jpg') },
+    ],
   };
   if (filterTabs) {
     popularWorkoutsMap['All'] = filterTabs.filter(t => t !== 'All').flatMap(t => popularWorkoutsMap[t] || []);
   } else {
-    popularWorkoutsMap['All'] = [...popularWorkoutsMap['Chest'], ...popularWorkoutsMap['Back'], ...popularWorkoutsMap['Shoulders'], ...popularWorkoutsMap['Legs']];
+    popularWorkoutsMap['All'] = [...popularWorkoutsMap['Chest'], ...popularWorkoutsMap['Back'], ...popularWorkoutsMap['Shoulders'], ...popularWorkoutsMap['Legs'], ...popularWorkoutsMap['Abs']];
   }
 
   const currentPopular = popularWorkoutsMap[activeSubTab] || popularWorkoutsMap['All'];
@@ -590,57 +607,31 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
       }
       return { ...ex, video: videoSource || ex.video };
     });
-
     let recs = mappedRecommended;
-
     if (filterTabs && filterTabs.length > 0) {
       const allowedCategories = filterTabs.filter(t => t !== 'All').map(t => t.toLowerCase());
       if (allowedCategories.length > 0) {
         recs = recs.filter(r => {
-          const cat = (r.category || r.dayWorkoutType || '').toLowerCase();
-          if (!cat) return true;
-          return allowedCategories.some(allowed => cat.includes(allowed));
+          const cat = r.category?.toLowerCase() || '';
+          const dayType = r.dayWorkoutType?.toLowerCase() || '';
+          if (!cat && !dayType) return true;
+
+          return allowedCategories.some(allowed =>
+            cat === allowed ||
+            cat.startsWith(allowed.slice(0, 4)) ||
+            allowed.startsWith(cat.slice(0, 4)) ||
+            dayType === allowed ||
+            dayType.startsWith(allowed.slice(0, 4)) ||
+            allowed.startsWith(dayType.slice(0, 4))
+          );
         });
       }
     }
-
-    const hasCategory = (cat: string) => recs.some(r =>
-      r.dayWorkoutType?.toLowerCase() === cat.toLowerCase() ||
-      r.category?.toLowerCase() === cat.toLowerCase()
-    );
-
-    if (activeSubTab === 'All') {
-      const allRecs = [...recs];
-      if (!hasCategory('chest') && (!filterTabs || filterTabs.includes('Chest'))) allRecs.push(...placeholderRecommendedMap['Chest']);
-      if (!hasCategory('back') && (!filterTabs || filterTabs.includes('Back'))) allRecs.push(...placeholderRecommendedMap['Back']);
-      if (!hasCategory('shoulders') && (!filterTabs || filterTabs.includes('Shoulders'))) {
-        allRecs.push(
-          { exerciseName: 'Shoulder Press', category: 'Shoulders', reps: '10-12 reps', image: require('../../assets/workout_upperbody.jpg'), video: require('../../assets/videos/tri_che_shou_video.mp4') },
-          { exerciseName: 'Lateral Raises', category: 'Shoulders', reps: '12-15 reps', image: require('../../assets/workout_upperbody.jpg'), video: require('../../assets/videos/tri_che_shou_video.mp4') }
-        );
-      }
-      if (!hasCategory('legs') && (!filterTabs || filterTabs.includes('Legs'))) {
-        allRecs.push(
-          { exerciseName: 'Squats', category: 'Legs', reps: '10-12 reps', image: require('../../assets/workout_legs.jpg'), video: require('../../assets/videos/squat_exercise_video.mp4') },
-          { exerciseName: 'Leg Press', category: 'Legs', reps: '12-15 reps', image: require('../../assets/workout_legs.jpg'), video: require('../../assets/videos/legpress_exercise_video.mp4') }
-        );
-      }
-      recs = allRecs;
-    } else if (activeSubTab === 'Shoulders' && recs.length === 0) {
-      recs = [
-        { exerciseName: 'Shoulder Press', category: 'Shoulders', reps: '10-12 reps', image: require('../../assets/workout_upperbody.jpg'), video: require('../../assets/videos/tri_che_shou_video.mp4') },
-        { exerciseName: 'Lateral Raises', category: 'Shoulders', reps: '12-15 reps', image: require('../../assets/workout_upperbody.jpg'), video: require('../../assets/videos/tri_che_shou_video.mp4') },
-      ];
-    } else if (activeSubTab === 'Legs' && recs.length === 0) {
-      recs = [
-        { exerciseName: 'Squats', category: 'Legs', reps: '10-12 reps', image: require('../../assets/workout_legs.jpg'), video: require('../../assets/videos/squat_exercise_video.mp4') },
-        { exerciseName: 'Leg Press', category: 'Legs', reps: '12-15 reps', image: require('../../assets/workout_legs.jpg'), video: require('../../assets/videos/legpress_exercise_video.mp4') },
-      ];
-    } else if (recs.length === 0) {
-      recs = placeholderRecommendedMap[activeSubTab] || [];
-    }
     return recs;
-  }, [recommendedExercises, activeSubTab]);
+  }, [recommendedExercises, filterTabs]);
+
+  const paginatedRecommended = currentRecommended.slice(0, page * limit);
+  const hasMore = paginatedRecommended.length < currentRecommended.length;
 
   return (
     <View className="w-full mt-5 gap-6">
@@ -662,14 +653,14 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
         })}
       </ScrollView>
 
-      <View className="bg-[#111111] p-5 rounded-3xl border border-[#1D1D1D] gap-4 w-full">
+      {/* <View className="bg-[#111111] p-5 rounded-3xl border border-[#1D1D1D] gap-4 w-full">
         <Text className="text-white text-lg font-semibold">Create Your Own Workout</Text>
         <Text className="text-[#8E8E8E] text-sm leading-5">Select muscle groups, equipment and duration to get your custom plan.</Text>
         <Pressable className="bg-[#C4EF00] flex-row items-center justify-center py-3 px-5 rounded-full self-start gap-2 mt-2">
           <Text className="text-black font-semibold text-sm">Build Workout</Text>
           <ArrowRightIcon size={16} color="black" weight="bold" />
         </Pressable>
-      </View>
+      </View> */}
 
       <View className="w-full gap-4 mt-2">
         <Text className="text-white font-semibold text-xl">Popular {activeSubTab !== 'All' ? activeSubTab : ''} Workouts</Text>
@@ -705,16 +696,22 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
 
       <View className="w-full gap-4 mt-2">
         <Text className="text-white font-semibold text-xl">Recommended For You</Text>
-        {isLoading ? (
-          <Text className="text-[#8E8E8E] mt-4">Loading your workout plan exercises...</Text>
+        {(isLoading || isFetching) && currentRecommended.length === 0 ? (
+          <View className="mt-8 items-center justify-center">
+            <ActivityIndicator size="large" color="#C4EF00" />
+          </View>
         ) : currentRecommended.length === 0 ? (
           <View className="bg-[#111111] border border-[#1D1D1D] rounded-2xl p-5 mt-2">
-            <Text className="text-[#8E8E8E] text-center leading-5">No exercises have been found in your weekly plan{activeSubTab !== 'All' ? ` for ${activeSubTab}` : ''}.</Text>
+            <Text className="text-[#8E8E8E] text-center leading-5">No workouts have been found in your weekly plan{activeSubTab !== 'All' ? ` for ${activeSubTab}` : ''}.</Text>
           </View>
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-            {currentRecommended.map((workout, i) => (
-              <View key={i} className="bg-[#111111] rounded-3xl border border-[#1D1D1D] pb-4" style={{ width: 220 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 12, paddingRight: 20 }}
+          >
+            {paginatedRecommended.map((workout, index) => (
+              <View key={index} className="bg-[#111111] rounded-3xl border border-[#1D1D1D] pb-4" style={{ width: 220 }}>
                 <View className="w-full h-48 bg-[#1a1a1a] rounded-t-3xl items-center justify-center overflow-hidden">
                   {workout.video ? (
                     (workout.exerciseName.toLowerCase().includes('chin up') || workout.exerciseName.toLowerCase().includes('chin-up') || workout.exerciseName.toLowerCase().includes('chinups') || workout.exerciseName.toLowerCase().includes('woodchopper') || workout.exerciseName.toLowerCase().includes('wood chopper')) ? (
@@ -748,7 +745,6 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
                     </Pressable>
                   )}
                   <View className="absolute top-3 left-3 flex-row gap-1">
-                    {/* <View className="bg-black/60 p-1.5 rounded-lg border border-white/20"><Barbell size={14} color="white" /></View> */}
                     <View className="bg-[#C4EF00] p-1.5 rounded-lg"><Barbell size={14} color="black" weight="fill" /></View>
                   </View>
                   <View className="absolute top-3 right-3">
@@ -764,6 +760,26 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
                 </View>
               </View>
             ))}
+            {hasMore ? (
+              <View className="justify-center px-4 ml-3" style={{ height: 192 }}>
+                {isFetching ? (
+                  <ActivityIndicator size="small" color="#C4EF00" />
+                ) : (
+                  <Pressable
+                    onPress={() => setPage(p => p + 1)}
+                    className="flex-row items-center justify-center gap-x-2 bg-[#1a2000] border border-[#C4EF00]/50 px-5 py-4 rounded-2xl active:opacity-70"
+                    style={{ height: 128 }}
+                  >
+                    <ArrowsClockwise size={20} color="#C4EF00" />
+                    <Text className="text-[#C4EF00] text-base font-semibold">Load More</Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : currentRecommended.length > limit ? (
+              <View className="justify-center px-4 ml-3" style={{ height: 192 }}>
+                <Text className="text-[#666666] text-sm font-medium text-center w-24">End of list</Text>
+              </View>
+            ) : null}
           </ScrollView>
         )}
       </View>

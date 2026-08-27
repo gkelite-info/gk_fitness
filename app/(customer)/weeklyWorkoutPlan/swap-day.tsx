@@ -8,11 +8,26 @@ import { useCustomerWorkoutPlans } from '@/hooks/customerWorkouts/useCustomerWor
 import { useCustomerWeeklyPlan } from '@/hooks/customerWorkouts/useCustomerWeeklyPlan';
 import { useSwapWorkoutDays } from '@/hooks/customerWorkouts/useMutateCustomerWorkoutPlan';
 import { toast } from '@/lib/toast';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function SwapDay() {
   const { dayId } = useLocalSearchParams<{ dayId: string }>();
   const { userId } = useUser();
   const [selectedDayId, setSelectedDayId] = useState('');
+  
+  const queryClient = useQueryClient();
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsManualRefreshing(true);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['customerWorkoutPlans', userId] }),
+      queryClient.invalidateQueries({ queryKey: ['customerWeeklyPlan', userId] })
+    ]);
+    setIsManualRefreshing(false);
+  };
+
   const { data: plans } = useCustomerWorkoutPlans(userId);
   const activePlanId = plans?.find((p: any) => p.isActive)?.planId || null;
   const { data: loadedPlanDays, isLoading: isQueryLoading } = useCustomerWeeklyPlan(userId);
@@ -47,8 +62,8 @@ export default function SwapDay() {
         dayOfWeek: dayStr,
         dayAbbr: dayStr.substring(0, 3).toUpperCase(),
         date: dates[index],
-        title: isRest ? 'Rest Day' : dayData.workoutType,
-        subtitle: isRest ? 'Recovery & relax' : (dayData.workoutType || ''),
+        title: isRest ? 'Rest Day' : (dayData.workoutType ? dayData.workoutType.charAt(0).toUpperCase() + dayData.workoutType.slice(1) : ''),
+        subtitle: isRest ? 'Recovery & relax' : (dayData.workoutType ? dayData.workoutType.charAt(0).toUpperCase() + dayData.workoutType.slice(1) : ''),
         exercises: exercisesCount,
         duration: dayData?.durationMinutes || (exercisesCount > 0 ? (exercisesCount * 5) + 10 : 0),
         isRest: isRest,
@@ -105,7 +120,11 @@ export default function SwapDay() {
           <ActivityIndicator size="large" color="#D4FF00" />
         </View>
       ) : currentWorkout ? (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={{ paddingBottom: 120 }}
+          refreshControl={<CustomRefreshControl refreshing={isManualRefreshing} onRefresh={handleRefresh} />}
+        >
           <Text className="text-[#D4FF00] text-[11px] font-semibold tracking-widest uppercase mb-3 ml-1">
             Current Workout
           </Text>

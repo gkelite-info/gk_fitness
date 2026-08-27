@@ -205,7 +205,7 @@ export default function CustomerHome() {
           {todayWorkoutDayId && todayWorkoutType ? (
             <>
               <Text className="text-white text-2xl font-semibold mb-2">
-                {todayWorkoutType}
+                {todayWorkoutType.charAt(0).toUpperCase() + todayWorkoutType.slice(1)}
               </Text>
 
               <View className="flex-row items-center gap-3 mb-4">

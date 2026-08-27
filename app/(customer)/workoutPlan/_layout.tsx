@@ -7,17 +7,20 @@ export interface ExerciseItem {
   reps: string;
   order: number;
   image?: string | null;
+  videoUrl?: string | null;
+  workoutVideoId?: string | null;
 }
 
 export interface WorkoutDay {
   dayOfWeek: string;
-  workoutType?: "Chest" | "Back" | "Legs" | "Arms" | "Shoulders" | "Core" | "Cardio" | "Yoga" | "Rest" | null;
+  workoutType?: string | null;
+  workoutId?: string | null;
   durationMinutes?: number | null;
   exercises: ExerciseItem[];
 }
 
 interface WorkoutPlanContextType {
-  selectedDays: string[]; // e.g. ['Monday', 'Tuesday']
+  selectedDays: string[];
   setSelectedDays: React.Dispatch<React.SetStateAction<string[]>>;
   planDays: { [key: string]: WorkoutDay };
   setPlanDays: React.Dispatch<React.SetStateAction<{ [key: string]: WorkoutDay }>>;

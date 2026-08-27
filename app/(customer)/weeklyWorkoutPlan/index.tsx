@@ -54,10 +54,10 @@ export default function WeeklyWorkoutPlan() {
       const exercisesCount = dayData?.exercises?.length || 0;
 
       return {
-        id: dayData?.planDayId || dayStr, // use planDayId if present for valid UUID routing
+        id: dayData?.planDayId || dayStr,
         dayAbbr: dayStr.substring(0, 3).toUpperCase(),
         date: dates[index],
-        type: isRest ? 'Rest Day' : dayData.workoutType,
+        type: isRest ? 'Rest Day' : (dayData.workoutType ? dayData.workoutType.charAt(0).toUpperCase() + dayData.workoutType.slice(1) : ''),
         exercises: exercisesCount,
         duration: dayData?.durationMinutes || (exercisesCount > 0 ? (exercisesCount * 5) + 10 : 0),
         isRest: isRest,

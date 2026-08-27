@@ -166,21 +166,10 @@ export default function OtpAuthScreen() {
         }
 
         if (authError) {
-          try {
-            const passwordHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
-            const gymLead = await fetchGymLeadByCredentials(targetEmail, passwordHash);
-
-            if (gymLead) {
-              setLoading(false);
-              router.replace(`/auth/registration-status?gymLeadId=${gymLead.gymLeadId}`);
-              return;
-            }
-          } catch (err) {
-            console.error('[otp-auth] error checking gym leads:', err);
-          }
-
           let errorMessage = authError.message || 'Unable to sign in.';
-          if (errorMessage.includes('sql:') || errorMessage.includes('converting NULL')) {
+          if (errorMessage === 'Invalid login credentials') {
+            errorMessage = 'Email not confirmed';
+          } else if (errorMessage.includes('sql:') || errorMessage.includes('converting NULL')) {
             errorMessage = 'Your account is currently recovering. Please try again or contact support.';
           }
           toast.error(errorMessage);

@@ -4,6 +4,7 @@ import * as Crypto from 'expo-crypto';
 export interface WorkoutPlanDayAttributes {
   planDayId?: string;
   planId: string;
+  workoutId?: string | null;
   dayOfWeek: string;
   workoutType: string;
   durationMinutes?: number | null;
@@ -15,6 +16,7 @@ export interface WorkoutPlanDayAttributes {
 export interface SaveWorkoutPlanDayParams {
   planDayId?: string;
   planId: string;
+  workoutId?: string | null;
   dayOfWeek: string;
   workoutType: string;
   durationMinutes?: number | null;
@@ -65,6 +67,7 @@ export async function saveWorkoutPlanDay(dayData: SaveWorkoutPlanDayParams) {
       .from('workout_plan_days')
       .update({
         planId: dayData.planId,
+        workoutId: dayData.workoutId,
         dayOfWeek: dayData.dayOfWeek,
         workoutType: dayData.workoutType,
         durationMinutes: dayData.durationMinutes,
@@ -87,6 +90,7 @@ export async function saveWorkoutPlanDay(dayData: SaveWorkoutPlanDayParams) {
         {
           planDayId: generatedPlanDayId,
           planId: dayData.planId,
+          workoutId: dayData.workoutId || null,
           dayOfWeek: dayData.dayOfWeek,
           workoutType: dayData.workoutType,
           durationMinutes: dayData.durationMinutes || null,

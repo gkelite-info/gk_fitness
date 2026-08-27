@@ -71,6 +71,7 @@ export default function ReviewPlan() {
           planId,
           dayOfWeek: day,
           workoutType,
+          workoutId: isWorkoutDay ? dayPlan?.workoutId : null,
           durationMinutes,
         });
 
@@ -81,11 +82,13 @@ export default function ReviewPlan() {
             const ex = dayPlan.exercises[idx];
             await saveWorkoutPlanDayExercise({
               planDayId: insertedDay.planDayId,
+              workoutVideoId: ex.workoutVideoId || null,
               exerciseName: ex.exerciseName,
               category: ex.category,
               reps: ex.reps,
               order: idx,
               image: ex.image || null,
+              videoUrl: ex.videoUrl || null,
             });
           }
         }

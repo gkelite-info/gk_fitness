@@ -125,6 +125,13 @@ export default function SignupScreen() {
   const { mutateAsync: uploadGymLeadLogo, isPending: isUploadLogoPending } = useUploadGymLeadLogo();
   const isPending = isCreateUserPending || isCreateGymLeadPending || isUploadLogoPending;
 
+  const handlePhoneInput = (setter: React.Dispatch<React.SetStateAction<string>>) => (val: string) => {
+    const cleaned = val.replace(/[^0-9]/g, '');
+    if (cleaned.length === 0 || /^[6-9]/.test(cleaned)) {
+      setter(cleaned);
+    }
+  };
+
   const pickImage = async () => {
     try {
       let result = await ImagePicker.launchImageLibraryAsync({
@@ -502,7 +509,7 @@ export default function SignupScreen() {
                     <Phone size={18} color="#6B6B6B" />
                     <TextInput autoCorrect={false} spellCheck={false}
                       value={phone}
-                      onChangeText={(val) => setPhone(val.replace(/[^0-9]/g, ''))}
+                      onChangeText={handlePhoneInput(setPhone)}
                       placeholder="Enter owner mobile number"
                       placeholderTextColor="#6B6B6B"
                       keyboardType="phone-pad"
@@ -518,7 +525,7 @@ export default function SignupScreen() {
                     <Phone size={18} color="#6B6B6B" />
                     <TextInput autoCorrect={false} spellCheck={false}
                       value={alternatePhone}
-                      onChangeText={(val) => setAlternatePhone(val.replace(/[^0-9]/g, ''))}
+                      onChangeText={handlePhoneInput(setAlternatePhone)}
                       placeholder="Enter owner alternate mobile number"
                       placeholderTextColor="#6B6B6B"
                       keyboardType="phone-pad"
@@ -599,7 +606,7 @@ export default function SignupScreen() {
                     <Phone size={18} color="#6B6B6B" />
                     <TextInput autoCorrect={false} spellCheck={false}
                       value={gymMobile}
-                      onChangeText={(val) => setGymMobile(val.replace(/[^0-9]/g, ''))}
+                      onChangeText={handlePhoneInput(setGymMobile)}
                       placeholder="Enter gym mobile number"
                       placeholderTextColor="#6B6B6B"
                       keyboardType="phone-pad"
@@ -615,7 +622,7 @@ export default function SignupScreen() {
                     <Phone size={18} color="#6B6B6B" />
                     <TextInput autoCorrect={false} spellCheck={false}
                       value={gymAlternateMobile}
-                      onChangeText={(val) => setGymAlternateMobile(val.replace(/[^0-9]/g, ''))}
+                      onChangeText={handlePhoneInput(setGymAlternateMobile)}
                       placeholder="Enter gym alternate mobile number"
                       placeholderTextColor="#6B6B6B"
                       keyboardType="phone-pad"
@@ -850,7 +857,7 @@ export default function SignupScreen() {
                     <Phone size={18} color="#6B6B6B" />
                     <TextInput autoCorrect={false} spellCheck={false}
                       value={phone}
-                      onChangeText={(val) => setPhone(val.replace(/[^0-9]/g, ''))}
+                      onChangeText={handlePhoneInput(setPhone)}
                       placeholder="Enter mobile number"
                       placeholderTextColor="#6B6B6B"
                       keyboardType="phone-pad"

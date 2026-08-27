@@ -8,7 +8,7 @@ import { triggerMediumHaptic } from '@/lib/haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCustomerDashboardData } from '@/hooks/workout/useCustomerDashboardData';
+import { useCustomerDashboardData } from '@/hooks/customerWorkouts/useCustomerDashboardData';
 import { useCustomerOnboardingStatus, sessionSkippedUsers } from '@/hooks/auth/useCustomerOnboardingStatus';
 import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';

@@ -27,7 +27,7 @@ export default function WorkoutCountdown() {
           const { sound } = await Audio.Sound.createAsync(require('../../assets/tick.mp3'));
           localSound = sound;
         } catch (error) {
-          console.log('Error loading sound:', error);
+          // console.log('Error loading sound:', error);
         }
 
         if (!isMounted) return;

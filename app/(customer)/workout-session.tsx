@@ -3,9 +3,9 @@ import { View, ScrollView, Pressable, Image, StyleSheet } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, CaretDown, CaretRight, Lightbulb, ArrowRight, Barbell } from 'phosphor-react-native';
-import { useWorkoutPlanDayById } from '@/hooks/workout/useWorkoutPlanDayById';
-import { useWorkoutPlanDayExercises } from '@/hooks/workout/useWorkoutPlanDayExercises';
-import { useWorkoutPlanDays } from '@/hooks/workout/useWorkoutPlanDays';
+import { useWorkoutPlanDayById } from '@/hooks/customerWorkouts/useWorkoutPlanDayById';
+import { useWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/useWorkoutPlanDayExercises';
+import { useWorkoutPlanDays } from '@/hooks/customerWorkouts/useWorkoutPlanDays';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function WorkoutSession() {
@@ -17,7 +17,7 @@ export default function WorkoutSession() {
 
   const { data: dayData, isLoading: isLoadingDay, refetch: refetchDay } = useWorkoutPlanDayById(activeDayId);
   const { data: eData, isLoading: isLoadingExercises, refetch: refetchExercises } = useWorkoutPlanDayExercises(activeDayId);
-  
+
   useEffect(() => {
     if (dayData?.planId && !planId) {
       setPlanId(dayData.planId);
@@ -42,11 +42,11 @@ export default function WorkoutSession() {
 
   const daysList = React.useMemo(() => {
     const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    
+
     const dayOrderMap: Record<string, number> = {
       monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7
     };
-    
+
     let sortedDays = [];
     if (!allDays || allDays.length === 0) {
       sortedDays = [
@@ -103,8 +103,8 @@ export default function WorkoutSession() {
         </View>
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -245,7 +245,7 @@ export default function WorkoutSession() {
         )}
 
         {isActiveDayToday && !isRestDay && (
-          <Pressable 
+          <Pressable
             onPress={() => router.push({
               pathname: '/(customer)/workout-countdown',
               params: {

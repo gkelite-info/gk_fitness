@@ -49,12 +49,19 @@ export interface SaveGlobalTrainerParams {
   isActive?: boolean;
 }
 
-export async function fetchGlobalTrainers() {
-  const { data, error } = await supabase
+export async function fetchGlobalTrainers(searchQuery?: string) {
+  let query = supabase
     .from('global_trainers')
-    .select('*')
+    .select('*, users(profilePhoto)')
     .eq('is_deleted', false)
     .order('createdAt', { ascending: false });
+
+  if (searchQuery && searchQuery.trim()) {
+    const q = searchQuery.trim();
+    query = query.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('[globalTrainerHelper] fetchGlobalTrainers Error:', error);

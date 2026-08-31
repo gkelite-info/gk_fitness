@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { Navbar } from '@/components/Navbar';
 import { CustomTabBar } from '@/components/CustomTabBar';
 import { PedometerProvider } from '@/hooks/fitness/usePedometer';
- 
+
 export default function CustomerLayout() {
   return (
     <PedometerProvider>
@@ -29,7 +29,7 @@ export default function CustomerLayout() {
             title: 'Home',
           }}
         />
- 
+
         <Tabs.Screen
           name="explore"
           options={{
@@ -222,9 +222,21 @@ export default function CustomerLayout() {
             headerShown: true,
           }}
         />
+        <Tabs.Screen
+          name="trainer/book-trainer"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="trainer/trainer-request"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
       </Tabs>
     </PedometerProvider>
   );
 }
- 
- 

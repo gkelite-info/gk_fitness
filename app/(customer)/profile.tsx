@@ -14,6 +14,7 @@ import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { usePersonalTrainerRequestsByUser } from '@/hooks/personalTrainerRequests/usePersonalTrainerRequests';
 import { queryClient } from '@/lib/react-query';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
@@ -35,7 +36,12 @@ export default function ProfileScreen() {
 function ProfileView({ data, customerData, onboardingData, loading, fallbackUser }: { data: typeof mockProfileData, customerData: any, onboardingData: any, loading: boolean, fallbackUser: any }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { status, trainer } = useTrainerStore();
+  const { trainer } = useTrainerStore();
+  const userId = customerData?.userId || fallbackUser?.userId;
+  const { data: trainerRequests } = usePersonalTrainerRequestsByUser(userId);
+
+  const activeRequest = trainerRequests?.[0];
+  const realStatus = activeRequest ? activeRequest.applicationStatus : 'none';
 
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -64,7 +70,6 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
   const displayFullName = customerData?.fullName || fallbackUser?.name || data.user.fullName;
   const displayEmail = customerData?.email || fallbackUser?.email || data.user.email;
 
-  //mock avatar
   const displayAvatar = data.user.avatarUrl;
 
   const displayWeight = onboardingData?.weight || data.progress.currentWeight;
@@ -152,21 +157,21 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
           )}
           <MenuItem icon={<User size={20} color="#D4FF00" />} title="Personal Information" subtitle="Update your personal details" onPress={() => router.push('/(customer)/edit-profile')} />
           <MenuItem icon={<Target size={20} color="#D4FF00" />} title="Goals & Preferences" subtitle="Manage your fitness goals and preferences" onPress={() => router.push('/(customer)/goals-preferences')} />
-          {status === 'approved' ? (
+          {realStatus === 'approved' ? (
             <MenuItem
               icon={<User size={20} color="#000000" weight="bold" />}
               title="My Trainer"
-              subtitle={`Training with ${trainer.name}`}
+              subtitle={`Training with ${activeRequest?.gymTrainer?.name || trainer.name}`}
               iconContainerStyle="bg-[#D4FF00]"
               onPress={() => router.push('/(customer)/my-trainer')}
             />
-          ) : status === 'pending' ? (
+          ) : realStatus === 'submitted' ? (
             <MenuItem
               icon={<BookOpen size={20} color="#000000" weight="bold" />}
               title="Trainer Request"
               subtitle="Request pending gym approval"
               iconContainerStyle="bg-[#FF9F0A]"
-              onPress={() => router.push('/(customer)/trainer-request')}
+              onPress={() => router.push('/(customer)/trainer/trainer-request')}
             />
           ) : (
             <MenuItem
@@ -175,21 +180,21 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
               subtitle="Find and book a personal trainer"
               isNew={true}
               iconContainerStyle="bg-[#D4FF00]"
-              onPress={() => router.push('/(customer)/book-trainer')}
+              onPress={() => router.push('/(customer)/trainer/book-trainer')}
             />
           )}
           <MenuItem icon={<Star size={20} color="#D4FF00" />} title="Membership & Subscription" subtitle="Manage your plan and billing" />
           <MenuItem icon={<Bell size={20} color="#D4FF00" />} title="Notifications" subtitle="Manage your notification preferences" />
-          <MenuItem 
-            icon={<ShieldCheck size={20} color="#D4FF00" />} 
-            title="Privacy & Security" 
-            subtitle="Manage your privacy and security settings" 
+          <MenuItem
+            icon={<ShieldCheck size={20} color="#D4FF00" />}
+            title="Privacy & Security"
+            subtitle="Manage your privacy and security settings"
             onPress={() => router.push('/(customer)/privacy-policy')}
           />
-          <MenuItem 
-            icon={<Question size={20} color="#D4FF00" />} 
-            title="Help & Support" 
-            subtitle="Get help and support" 
+          <MenuItem
+            icon={<Question size={20} color="#D4FF00" />}
+            title="Help & Support"
+            subtitle="Get help and support"
             onPress={() => router.push('/(customer)/help-support')}
           />
           <MenuItem
@@ -204,7 +209,6 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
         </View>
       </ScrollView>
 
-      {/* Sign Out Confirmation Modal */}
       <Modal
         animationType="fade"
         transparent={true}

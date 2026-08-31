@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 
-export function useCustomerProfile(userId: string | null) {
+export function useCustomerProfile(userId: string | null | undefined) {
   return useQuery({
     queryKey: ['customerProfile', userId],
     queryFn: async () => {
@@ -23,8 +23,8 @@ export function useCustomerProfile(userId: string | null) {
       if (customerRes.error) throw customerRes.error;
       // It's okay if onboarding throws an error because it's maybeSingle, but if it's a real error we throw
       if (onboardingRes.error && onboardingRes.error.code !== 'PGRST116') {
-         // PGRST116 is multiple rows returned but single expected. maybeSingle handles 0 or 1 rows.
-         throw onboardingRes.error;
+        // PGRST116 is multiple rows returned but single expected. maybeSingle handles 0 or 1 rows.
+        throw onboardingRes.error;
       }
 
       return {

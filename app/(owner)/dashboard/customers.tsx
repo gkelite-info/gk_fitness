@@ -23,7 +23,7 @@ import { useUser } from '@/context/UserContext';
 import { getOwnerGymId } from '@/helpers/trainers/trainerHelper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCustomers } from '@/hooks/users/useCustomers';
-import { useTrainers } from '@/hooks/users/useTrainers';
+import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import { useGymMembershipPlans } from '@/hooks/useGymMembershipPlans';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
@@ -47,7 +47,6 @@ const ShimmerCard = () => {
 
   return (
     <View className="bg-[#161616] border border-[#242424] rounded-2xl p-4 mb-4 relative overflow-hidden">
-      {/* Base Skeleton layout */}
       <View className="flex-row justify-between items-start mb-4">
         <View className="flex-row">
           <View className="w-14 h-14 rounded-full bg-[#242424]" />
@@ -65,7 +64,6 @@ const ShimmerCard = () => {
         <View className="w-48 h-4 bg-[#242424] rounded" />
       </View>
 
-      {/* Sweeping Gradient Overlay */}
       <Animated.View
         style={{
           position: 'absolute',
@@ -97,13 +95,11 @@ export default function CustomersScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [gymId, setGymId] = useState<string | null>(null);
 
-  // Debounce search
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(handler);
   }, [search]);
 
-  // Fetch gym ID
   useEffect(() => {
     if (userId) {
       getOwnerGymId(userId).then(setGymId);
@@ -113,35 +109,47 @@ export default function CustomersScreen() {
   const { data: membershipPlans = [] } = useGymMembershipPlans(userId);
 
   const customersQuery = useCustomers(gymId, filter, debouncedSearch, planFilter);
-  const trainersQuery = useTrainers(gymId, filter, debouncedSearch);
+  const { data: gymTrainers, isLoading: isTrainersLoading, refetch: refetchTrainers } = useGymTrainers(gymId || undefined, !!gymId);
 
-  const currentQuery = activeTab === 'customers' ? customersQuery : trainersQuery;
+  let trainersData = gymTrainers || [];
+  if (filter === 'active') trainersData = trainersData.filter((t: any) => t.is_Active);
+  if (filter === 'expired') trainersData = trainersData.filter((t: any) => !t.is_Active);
+  if (debouncedSearch) trainersData = trainersData.filter((t: any) =>
+    t.fullName?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    t.phone?.includes(debouncedSearch)
+  );
 
-  const displayData = currentQuery.data?.pages.flatMap(page => page.data) || [];
-  const totalCount = currentQuery.data?.pages[0]?.count || 0;
+  const displayData = activeTab === 'customers'
+    ? (customersQuery.data?.pages.flatMap(page => page.data) || [])
+    : trainersData;
 
-  // For Initial loading state
-  const loading = currentQuery.isLoading;
-  // For infinite scroll
-  const loadingMore = currentQuery.isFetchingNextPage;
-  // For pull to refresh
+  const totalCount = activeTab === 'customers'
+    ? (customersQuery.data?.pages[0]?.count || 0)
+    : trainersData.length;
+
+  const loading = activeTab === 'customers' ? customersQuery.isLoading : isTrainersLoading;
+  const loadingMore = activeTab === 'customers' ? customersQuery.isFetchingNextPage : false;
+
   const [refreshing, setRefreshing] = useState(false);
 
   const handleLoadMore = () => {
-    if (currentQuery.hasNextPage && !currentQuery.isFetchingNextPage) {
-      currentQuery.fetchNextPage();
+    if (activeTab === 'customers' && customersQuery.hasNextPage && !customersQuery.isFetchingNextPage) {
+      customersQuery.fetchNextPage();
     }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await currentQuery.refetch();
+    if (activeTab === 'customers') {
+      await customersQuery.refetch();
+    } else {
+      await refetchTrainers();
+    }
     setRefreshing(false);
   };
 
   const renderHeader = () => (
     <View>
-      {/* Top Tabs */}
       <AnimatedTabs
         tabs={[
           { id: 'customers', label: 'Customers', icon: Users },
@@ -173,7 +181,6 @@ export default function CustomersScreen() {
         </Pressable>
       </View>
 
-      {/* Header Action */}
       <View className="flex-row justify-between items-center mb-6">
         <View>
           <Text className="text-[#A1A1AA] text-[10px] font-semibold tracking-wider mb-1 uppercase">
@@ -197,7 +204,6 @@ export default function CustomersScreen() {
         </Pressable>
       </View>
 
-      {/* Pills and Dropdown */}
       <View className="flex-row justify-between items-center mb-6">
         <View className="flex-row gap-3 flex-1">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
@@ -240,7 +246,7 @@ export default function CustomersScreen() {
         </View>
 
         {activeTab === 'customers' && (
-          <Pressable 
+          <Pressable
             className="px-3 py-1.5 rounded-xl bg-[#CCF200] flex-row items-center gap-1 active:opacity-80 ml-2"
             onPress={() => {
               triggerSelectionHaptic();
@@ -255,7 +261,6 @@ export default function CustomersScreen() {
         )}
       </View>
 
-      {/* Initial Loading Shimmer */}
       {loading && (
         <View>
           <ShimmerCard />
@@ -264,7 +269,6 @@ export default function CustomersScreen() {
         </View>
       )}
 
-      {/* Empty State */}
       {!loading && displayData.length === 0 && (
         <View className="mt-4 items-center justify-center py-10 bg-[#161616] border border-[#242424] rounded-3xl">
           <Users size={48} color="#242424" weight="fill" />
@@ -295,7 +299,6 @@ export default function CustomersScreen() {
 
     return (
       <View className="bg-[#161616] border border-[#242424] rounded-2xl p-4 mb-4">
-        {/* User Info Row */}
         <View className="flex-row justify-between items-start mb-4">
           <View className="flex-row">
             <View className="relative">
@@ -378,7 +381,7 @@ export default function CustomersScreen() {
           <View className="bg-[#121214] rounded-t-3xl overflow-hidden pb-10" style={{ minHeight: 250 }}>
             <View className="w-12 h-1.5 bg-[#27272A] rounded-full self-center mt-3 mb-6" />
             <Text className="text-white text-xl font-bold px-6 mb-4">Select Plan Filter</Text>
-            
+
             <ScrollView className="max-h-80 px-4">
               <Pressable
                 className={`flex-row items-center justify-between p-4 rounded-2xl mb-2 ${planFilter === 'All' ? 'bg-[#18181B] border border-[#27272A]' : ''}`}
@@ -395,7 +398,7 @@ export default function CustomersScreen() {
                   </View>
                 )}
               </Pressable>
-              
+
               {membershipPlans.map((plan: any) => (
                 <Pressable
                   key={plan.planId}

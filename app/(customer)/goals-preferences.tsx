@@ -114,10 +114,14 @@ function GoalsPreferencesView({ userId, preferences, saveMutation }: { userId: s
     });
   };
 
+  const handleBack = () => {
+    router.push('/(customer)/profile');
+  };
+
   return (
     <View className="flex-1 bg-[#0F0F0F] pb-20" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center px-4 py-3 border-b border-[#1A1A1A]">
-        <Pressable onPress={() => router.back()} className="p-2">
+        <Pressable onPress={handleBack} className="p-2">
           <CaretLeft size={24} color="#FFFFFF" weight="bold" />
         </Pressable>
         <Text className="flex-1 text-center text-white text-lg font-semibold">Goals & Preferences</Text>

@@ -8,15 +8,16 @@ export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'frida
 export interface GymTrainerAttributes {
   gymTrainerId: string;
   gymId: string;
+  userId?: string | null;
   fullName: string;
-  dateOfBirth: string; // YYYY-MM-DD
+  dateOfBirth: string;
   gender: TrainerGender | string;
   phone: string;
   alternatePhone?: string | null;
   email: string;
   specialization: string;
   experienceYears: number;
-  dateOfJoining: string; // YYYY-MM-DD
+  dateOfJoining: string;
   qualification: string;
   bio?: string | null;
   languagesSpeaks: string[];
@@ -49,27 +50,26 @@ export interface TrainerScheduleAttributes {
 export interface SaveGymTrainerParams {
   gymTrainerId?: string;
   gymId?: string;
+  userId?: string | null;
   fullName: string;
-  dateOfBirth: string; // Raw or formatted date string
+  dateOfBirth: string;
   gender: TrainerGender | string;
   phone: string;
   alternatePhone?: string | null;
   email: string;
   specialization: string;
   experienceYears: number | string;
-  dateOfJoining?: string; // Raw or formatted date string
+  dateOfJoining?: string;
   qualification: string;
   bio?: string | null;
   languagesSpeaks?: string[] | string;
   createdBy: string;
   shiftPreference?: 'morning' | 'evening' | 'both' | string;
-  workingDays?: string[]; // e.g. ['mon', 'wed', 'fri'] or ['monday', 'wednesday']
+  workingDays?: string[];
   is_Active?: boolean;
 }
 
-/**
- * Utility to convert short or raw day strings into full enum weekday names required by Postgres.
- */
+
 export function mapDayToEnum(dayStr: string): string {
   const clean = dayStr.toLowerCase().trim();
   const dayMap: Record<string, string> = {
@@ -91,9 +91,7 @@ export function mapDayToEnum(dayStr: string): string {
   return dayMap[clean] || clean;
 }
 
-/**
- * Utility to convert raw dates like "MM/DD/YYYY" or "DD/MM/YYYY" to PostgreSQL YYYY-MM-DD format.
- */
+
 export function formatToPgDate(dateStr?: string): string {
   if (!dateStr || !dateStr.trim()) {
     return new Date().toISOString().split('T')[0];
@@ -122,9 +120,7 @@ export function formatToPgDate(dateStr?: string): string {
   return new Date().toISOString().split('T')[0];
 }
 
-/**
- * Dynamically resolves the gymId for an owner/admin by checking gym_owners or gyms table.
- */
+
 export async function getOwnerGymId(ownerUserId: string): Promise<string | null> {
   try {
     const { data: ownerRecord } = await supabase
@@ -163,18 +159,21 @@ export async function getOwnerGymId(ownerUserId: string): Promise<string | null>
   }
 }
 
-/**
- * Fetch all active gym trainers, optionally filtered by gymId.
- */
-export async function fetchTrainers(gymId?: string) {
+
+export async function fetchTrainers(gymId?: string, searchQuery?: string) {
   let query = supabase
     .from('gym_trainers')
-    .select('*')
+    .select('*, users!gym_trainers_userId_fkey(profilePhoto)')
     .eq('is_deleted', false)
     .order('createdAt', { ascending: false });
 
   if (gymId) {
     query = query.eq('gymId', gymId);
+  }
+
+  if (searchQuery && searchQuery.trim()) {
+    const q = searchQuery.trim();
+    query = query.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
   }
 
   const { data, error } = await query;
@@ -185,9 +184,7 @@ export async function fetchTrainers(gymId?: string) {
   return data ?? [];
 }
 
-/**
- * Fetch a single trainer by ID along with their schedules.
- */
+
 export async function fetchTrainerById(gymTrainerId: string) {
   const { data: trainer, error: trainerErr } = await supabase
     .from('gym_trainers')
@@ -210,13 +207,10 @@ export async function fetchTrainerById(gymTrainerId: string) {
   return { trainer, schedules: schedules || [] };
 }
 
-/**
- * Orchestrates atomic creation across 3 tables (users, gym_trainers, gym_trainer_schedules)
- * with Supabase Auth registration, credential generation, and full transaction rollback on verification failure.
- */
+
 export async function saveGymTrainer(params: SaveGymTrainerParams) {
   const now = new Date().toISOString();
-  
+
   let resolvedGymId: string | null | undefined = params.gymId;
   if (!resolvedGymId) {
     resolvedGymId = await getOwnerGymId(params.createdBy);
@@ -228,7 +222,7 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
   const dobPg = formatToPgDate(params.dateOfBirth);
   const dojPg = formatToPgDate(params.dateOfJoining || now);
   const experienceInt = typeof params.experienceYears === 'string' ? parseInt(params.experienceYears, 10) || 0 : params.experienceYears;
-  
+
   let languagesArr: string[] = ['English'];
   if (Array.isArray(params.languagesSpeaks)) {
     languagesArr = params.languagesSpeaks.map(l => l.trim()).filter(Boolean);
@@ -239,7 +233,6 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
   const cleanEmail = params.email.trim().toLowerCase();
   const cleanPhone = params.phone.trim();
 
-  // Generate random temporary password (format TR-XXXXX-X)
   const uuid = Crypto.randomUUID();
   const temporaryPassword = `TR-${uuid.substring(0, 5).toUpperCase()}-${uuid.substring(9, 10).toUpperCase()}`;
 
@@ -247,7 +240,6 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
   let isNewUser = false;
 
   try {
-    // STEP 1: Supabase Auth Signup & Users Table Insertion
     if (!targetUserId) {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -268,7 +260,6 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
       targetUserId = authData?.user?.id;
 
       if (!targetUserId) {
-        // Fallback check if user exists in db or create manual UUID
         const { data: existingUser } = await supabase
           .from('users')
           .select('userId, role')
@@ -283,7 +274,6 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
       }
     }
 
-    // Insert or update public.users table (Table 1)
     const { data: existingUserRecord } = await supabase
       .from('users')
       .select('userId')
@@ -310,9 +300,9 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
       }
     }
 
-    // STEP 2: Insert / Update public.gym_trainers (Table 2)
     const trainerPayload = {
       gymTrainerId: targetUserId,
+      userId: targetUserId,
       gymId: resolvedGymId,
       fullName: params.fullName.trim(),
       dateOfBirth: dobPg,
@@ -356,10 +346,8 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
       savedTrainer = data ? data[0] : null;
     }
 
-    // STEP 3: Insert into public.gym_trainer_schedules (Table 3)
     const daysToAssign = (params.workingDays && params.workingDays.length > 0) ? params.workingDays : ['monday', 'wednesday', 'friday'];
-    
-    // Clear old schedule rows if updating
+
     await supabase.from('gym_trainer_schedules').delete().eq('gymTrainerId', targetUserId);
 
     const isMorning = params.shiftPreference === 'morning' || params.shiftPreference === 'both';
@@ -390,22 +378,18 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
       throw new Error(`Table 3 (gym_trainer_schedules) insertion failed: ${schedErr.message}`);
     }
 
-    // STEP 4: STRICT 3-TABLE VERIFICATION & ATOMIC CHECK
-    // Verify Table 1 (users)
     const { data: verUser, error: verUserErr } = await supabase
       .from('users')
       .select('userId')
       .eq('userId', targetUserId)
       .maybeSingle();
-      
-    // Verify Table 2 (gym_trainers)
+
     const { data: verTrainer, error: verTrainerErr } = await supabase
       .from('gym_trainers')
       .select('gymTrainerId')
       .eq('gymTrainerId', targetUserId)
       .maybeSingle();
 
-    // Verify Table 3 (gym_trainer_schedules)
     const { data: verSched, error: verSchedErr } = await supabase
       .from('gym_trainer_schedules')
       .select('trainerScheduleId')
@@ -431,8 +415,7 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
 
   } catch (error: any) {
     console.error('[trainerHelper] Atomic Transaction Error or Verification Failure. Rolling back across 3 tables...', error);
-    
-    // ATOMIC ROLLBACK: Remove any records written during this attempt if any step failed
+
     if (targetUserId) {
       try {
         await supabase.from('gym_trainer_schedules').delete().eq('gymTrainerId', targetUserId);

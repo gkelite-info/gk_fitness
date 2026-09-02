@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { View, ScrollView, Pressable, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
@@ -56,19 +56,9 @@ const OPERATIONS = [
 ];
 
 
-
-const MONTHLY_DATA = [
-  { month: 'JAN', height: '35%', active: false },
-  { month: 'FEB', height: '55%', active: false },
-  { month: 'MAR', height: '45%', active: false },
-  { month: 'APR', height: '70%', active: false },
-  { month: 'MAY', height: '40%', active: false },
-  { month: 'JUN', height: '85%', active: false },
-  { month: 'JUL', height: '75%', active: true, value: '₹42K' },
-];
-
 export default function OwnerDashboardScreen() {
   const { name, gymId, userId } = useUser();
+  const chartScrollViewRef = useRef<ScrollView>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -207,6 +197,57 @@ export default function OwnerDashboardScreen() {
   };
 
   const growthValue = calculateMonthlyGrowth();
+
+  const formatCurrency = (val: number) => {
+    if (val === 0) return '₹0';
+    if (val >= 100000) return `₹${Math.round((val / 100000) * 10) / 10}L`;
+    if (val >= 1000) return `₹${Math.round((val / 1000) * 10) / 10}K`;
+    return `₹${Math.round(val)}`;
+  };
+
+  const monthlyRevenueData = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonthIndex = now.getMonth();
+    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+    // Only show months up to and including the current month
+    const monthsToShow = monthNames.slice(0, currentMonthIndex + 1);
+
+    const monthlyRev: Record<string, number> = {};
+    monthsToShow.forEach(m => { monthlyRev[m] = 0; });
+
+    if (payments) {
+      payments.forEach((payment: any) => {
+        const amount = Number(payment.amountPaid || 0);
+        if (amount > 0 && payment.paymentDate) {
+          const pDate = new Date(payment.paymentDate);
+          if (pDate.getFullYear() === currentYear) {
+            const monthKey = monthNames[pDate.getMonth()];
+            if (monthlyRev[monthKey] !== undefined) {
+              monthlyRev[monthKey] += amount;
+            }
+          }
+        }
+      });
+    }
+
+    const chartData = monthsToShow.map(month => ({
+      month,
+      value: monthlyRev[month],
+    }));
+
+    const maxVal = Math.max(...chartData.map(d => d.value), 1);
+
+    return chartData.map((d, i) => ({
+      month: d.month,
+      value: d.value,
+      height: `${Math.max((d.value / maxVal) * 100, d.value > 0 ? 5 : 2)}%`,
+      active: i === chartData.length - 1,
+      isPrevious: i === chartData.length - 2,
+      formattedValue: d.value > 0 ? formatCurrency(d.value) : undefined,
+    }));
+  }, [payments]);
 
   const onRefresh = useCallback(async () => {
     triggerMediumHaptic();
@@ -361,7 +402,7 @@ export default function OwnerDashboardScreen() {
         })}
       </View>
 
-      <Text className="text-base font-semibold text-white mb-3">Today's Operations</Text>
+      <Text className="text-base font-semibold text-white mb-3">Today&apos;s Operations</Text>
       <View className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 flex-row justify-between mb-6">
         {OPERATIONS.map((op, index) => {
           const IconComp = op.icon;
@@ -440,35 +481,56 @@ export default function OwnerDashboardScreen() {
       </View>
 
       <View className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4">
-        <View className="h-44 flex-row items-end justify-between px-1 pt-6 pb-2">
-          {MONTHLY_DATA.map((item) => (
-            <View key={item.month} className="items-center flex-1 h-full justify-end px-1">
-              {item.active && item.value && (
-                <View className="bg-[#CCF200] px-2 py-0.5 rounded-md mb-2">
-                  <Text className="text-[10px] font-semibold text-black">{item.value}</Text>
+        <ScrollView
+          ref={chartScrollViewRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          onContentSizeChange={() => {
+            chartScrollViewRef.current?.scrollToEnd({ animated: false });
+          }}
+          onLayout={() => {
+            setTimeout(() => {
+              chartScrollViewRef.current?.scrollToEnd({ animated: false });
+            }, 100);
+          }}
+        >
+          <View>
+            <View style={{ height: 176, flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 4, paddingTop: 24, paddingBottom: 8 }}>
+              {monthlyRevenueData.map((item) => (
+                <View key={item.month} style={{ alignItems: 'center', width: 44, justifyContent: 'flex-end', height: '100%', marginRight: 4 }}>
+                  {item.active && item.formattedValue && (
+                    <View className="bg-[#CCF200] px-2 py-0.5 rounded-md mb-2">
+                      <Text className="text-[10px] font-semibold text-black">{item.formattedValue}</Text>
+                    </View>
+                  )}
+                  {!item.active && item.formattedValue && (
+                    <Text className="text-[8px] font-bold mb-1" style={{ color: '#888888', width: 50, textAlign: 'center' }} numberOfLines={1}>
+                      {item.formattedValue}
+                    </Text>
+                  )}
+                  <View
+                    className="rounded-t-lg"
+                    style={{
+                      width: 24,
+                      height: item.height as `${number}%`,
+                      backgroundColor: (item.active || item.isPrevious) ? '#CCF200' : '#343535',
+                    }}
+                  />
                 </View>
-              )}
-              <View
-                className="w-full rounded-t-lg"
-                style={{
-                  height: item.height as `${number}%`,
-                  backgroundColor: item.active ? '#CCF200' : '#343535',
-                }}
-              />
+              ))}
             </View>
-          ))}
-        </View>
 
-        <View className="flex-row justify-between px-1 pt-2 border-t border-[#1F293D]/50">
-          {MONTHLY_DATA.map((item) => (
-            <Text
-              key={item.month}
-              className="flex-1 text-center text-[10px] font-semibold"
-              style={{ color: item.active ? '#CCF200' : '#888888' }}>
-              {item.month}
-            </Text>
-          ))}
-        </View>
+            <View style={{ flexDirection: 'row', paddingHorizontal: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(31,41,61,0.5)' }}>
+              {monthlyRevenueData.map((item) => (
+                <Text
+                  key={item.month}
+                  style={{ width: 44, textAlign: 'center', marginRight: 4, fontSize: 10, fontWeight: '600', color: (item.active || item.isPrevious) ? '#CCF200' : '#888888' }}>
+                  {item.month}
+                </Text>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
       </View>
 
     </ScrollView>

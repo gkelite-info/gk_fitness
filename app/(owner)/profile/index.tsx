@@ -26,6 +26,7 @@ import {
   Globe,
   UsersThree,
   ArrowUp,
+  ArrowDown,
   CreditCard,
   PencilSimple,
   Crown,
@@ -67,11 +68,35 @@ export default function OwnerProfileScreen() {
 
   const { data: trainers } = useGymTrainers(gymId ?? undefined);
   const totalTrainers = trainers?.length || 0;
+  const activeTrainersCount = trainers?.filter((t: any) => t.is_Active !== false).length || 0;
 
   const { data: membershipPlans } = useGymMembershipPlans(userId ?? null);
   const totalPlans = membershipPlans?.length || 0;
 
-  const getThisMonthCount = (items?: any[]) => {
+  const getNetGrowthThisMonth = (items?: any[]) => {
+    if (!items) return 0;
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    let added = 0;
+    let removed = 0;
+    
+    items.forEach(item => {
+      if (item.createdAt && new Date(item.createdAt) >= startOfMonth) {
+        added++;
+      }
+      if (
+        (item.is_deleted === true || item.is_Active === false) && 
+        item.updatedAt && new Date(item.updatedAt) >= startOfMonth
+      ) {
+        removed++;
+      }
+    });
+    
+    return added - removed;
+  };
+
+  const getNewPlansThisMonth = (items?: any[]) => {
     if (!items) return 0;
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -81,9 +106,12 @@ export default function OwnerProfileScreen() {
     }).length;
   };
 
-  const newCustomersThisMonth = getThisMonthCount(customers);
-  const newTrainersThisMonth = getThisMonthCount(trainers);
-  const newPlansThisMonth = getThisMonthCount(membershipPlans);
+  const netCustomersThisMonth = getNetGrowthThisMonth(customers);
+  const netTrainersThisMonth = getNetGrowthThisMonth(trainers);
+  const newPlansThisMonth = getNewPlansThisMonth(membershipPlans);
+
+  const totalActiveMembers = activeCustomersCount + activeTrainersCount;
+  const totalNetMembersThisMonth = netCustomersThisMonth + netTrainersThisMonth;
 
   const handleSignOut = async () => {
     try {
@@ -113,7 +141,6 @@ export default function OwnerProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="bg-[#161616] rounded-3xl p-6 items-center mt-2 border border-[#1F1F22]">
-
           <View className="w-[84px] h-[84px] rounded-2xl bg-[#000000] border border-[#C4EF00] items-center justify-center mb-4">
             <Barbell size={32} color="#C4EF00" weight="fill" />
             <Text className="text-[#C4EF00] text-[8px] font-semibold tracking-wider mt-1 text-center px-1" numberOfLines={1}>{gym?.gymName?.toUpperCase() || 'GYM'}</Text>
@@ -167,10 +194,18 @@ export default function OwnerProfileScreen() {
           <View className="w-[31%] bg-[#161616] rounded-xl p-3 border border-[#1F1F22]">
             <UsersThree size={22} color="#C4EF00" weight="fill" style={{ marginBottom: 6 }} />
             <Text className="text-[#A1A1AA] text-[9px] mb-1">Active Members</Text>
-            <Text className="text-white text-lg font-semibold mb-3">{activeCustomersCount}</Text>
+            <Text className="text-white text-lg font-semibold mb-3">{totalActiveMembers}</Text>
             <View className="flex-row items-center mt-auto">
-              <ArrowUp size={10} color="#C4EF00" weight="bold" />
-              <Text className="text-[#C4EF00] text-[9px] font-semibold ml-0.5">{newCustomersThisMonth > 0 ? `${newCustomersThisMonth} this month` : '0 this month'}</Text>
+              {totalNetMembersThisMonth >= 0 ? (
+                <ArrowUp size={10} color="#C4EF00" weight="bold" />
+              ) : (
+                <ArrowDown size={10} color="#EF4444" weight="bold" />
+              )}
+              <Text className={`text-[9px] font-semibold ml-0.5 ${totalNetMembersThisMonth >= 0 ? 'text-[#C4EF00]' : 'text-[#EF4444]'}`}>
+                {totalNetMembersThisMonth === 0 
+                  ? '0 this month' 
+                  : `${Math.abs(totalNetMembersThisMonth)} ${totalNetMembersThisMonth > 0 ? 'higher' : 'lower'}`}
+              </Text>
             </View>
             <View className="absolute left-0 top-2 bottom-2 w-1 bg-[#C4EF00] rounded-r-full" />
           </View>
@@ -180,8 +215,16 @@ export default function OwnerProfileScreen() {
             <Text className="text-[#A1A1AA] text-[9px] mb-1">Total Trainers</Text>
             <Text className="text-white text-lg font-semibold mb-3">{totalTrainers}</Text>
             <View className="flex-row items-center mt-auto">
-              <ArrowUp size={10} color="#C4EF00" weight="bold" />
-              <Text className="text-[#C4EF00] text-[9px] font-semibold ml-0.5">{newTrainersThisMonth > 0 ? `${newTrainersThisMonth} this month` : '0 this month'}</Text>
+              {netTrainersThisMonth >= 0 ? (
+                <ArrowUp size={10} color="#C4EF00" weight="bold" />
+              ) : (
+                <ArrowDown size={10} color="#EF4444" weight="bold" />
+              )}
+              <Text className={`text-[9px] font-semibold ml-0.5 ${netTrainersThisMonth >= 0 ? 'text-[#C4EF00]' : 'text-[#EF4444]'}`}>
+                {netTrainersThisMonth === 0 
+                  ? '0 this month' 
+                  : `${Math.abs(netTrainersThisMonth)} ${netTrainersThisMonth > 0 ? 'higher' : 'lower'}`}
+              </Text>
             </View>
             <View className="absolute left-0 top-2 bottom-2 w-1 bg-[#F97316] rounded-r-full" />
           </View>
@@ -209,6 +252,12 @@ export default function OwnerProfileScreen() {
             title="Membership Plans"
             subtitle="Create, edit and manage membership plans"
             onPress={() => router.push('/(owner)/membership')}
+          />
+          <MenuItem
+            icon={<UsersThree size={18} color="#C4EF00" weight="fill" />}
+            title="Personal Training"
+            subtitle="Manage trainer requests and assign trainers"
+            onPress={() => router.push('/(owner)/profile/personal-training' as any)}
           />
           <MenuItem
             icon={<Barbell size={18} color="#C4EF00" weight="fill" />}

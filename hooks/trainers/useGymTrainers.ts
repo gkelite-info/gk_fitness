@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchTrainers } from '@/helpers/trainers/trainerHelper';
+import { fetchTrainers, fetchTrainerById } from '@/helpers/trainers/trainerHelper';
 
 export function useGymTrainers(gymId?: string, enabled: boolean = true, searchQuery?: string) {
   return useQuery({
@@ -9,5 +9,16 @@ export function useGymTrainers(gymId?: string, enabled: boolean = true, searchQu
       return data;
     },
     enabled,
+  });
+}
+
+export function useGymTrainerById(gymTrainerId?: string) {
+  return useQuery({
+    queryKey: ['trainer', gymTrainerId],
+    queryFn: async () => {
+      if (!gymTrainerId) return null;
+      return await fetchTrainerById(gymTrainerId);
+    },
+    enabled: !!gymTrainerId,
   });
 }

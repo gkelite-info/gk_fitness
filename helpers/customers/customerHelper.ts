@@ -295,3 +295,18 @@ export async function fetchGymCustomersPaginated(
   }
   return { data: data ?? [], total: count || 0 };
 }
+
+export async function fetchGymCustomerById(customerId: string) {
+  const { data, error } = await supabase
+    .from('gym_customers')
+    .select('*, user:users(address)')
+    .eq('customerId', customerId)
+    .eq('is_deleted', false)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[customerHelper] fetchGymCustomerById Error:', error);
+    throw error;
+  }
+  return data;
+}

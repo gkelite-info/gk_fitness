@@ -188,7 +188,7 @@ export async function fetchTrainers(gymId?: string, searchQuery?: string) {
 export async function fetchTrainerById(gymTrainerId: string) {
   const { data: trainer, error: trainerErr } = await supabase
     .from('gym_trainers')
-    .select('*')
+    .select('*, users!gym_trainers_userId_fkey(profilePhoto)')
     .eq('gymTrainerId', gymTrainerId)
     .eq('is_deleted', false)
     .maybeSingle();

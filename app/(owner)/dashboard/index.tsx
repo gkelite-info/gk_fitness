@@ -6,6 +6,8 @@ import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
 import { useGymAttendanceToday } from '@/hooks/attendance/useGymAttendanceToday';
 import { useGymPayments } from '@/hooks/useGymPayments';
 import { useGymCustomerMembershipPlans } from '@/hooks/useGymCustomerMembershipPlans';
+import { useCustomerTrainersByGym } from '@/hooks/customerTrainers/useCustomerTrainers';
+import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { router } from 'expo-router';
@@ -53,29 +55,7 @@ const OPERATIONS = [
   { id: 'renewals', icon: CalendarCheck, value: '0', label: 'RENEWALS' },
 ];
 
-const ALERTS = [
-  {
-    id: 'expiring',
-    icon: Warning,
-    iconColor: '#EF4444',
-    bg: '#2B0E10',
-    title: '0 Customerships expiring tomorrow',
-  },
-  {
-    id: 'leave',
-    icon: UserMinus,
-    iconColor: '#888888',
-    bg: '#242424',
-    title: 'Trainer leave pending approval',
-  },
-  {
-    id: 'ticket',
-    icon: EnvelopeSimple,
-    iconColor: '#CCF200',
-    bg: '#242810',
-    title: 'New support ticket received',
-  },
-];
+
 
 const MONTHLY_DATA = [
   { month: 'JAN', height: '35%', active: false },
@@ -130,6 +110,8 @@ export default function OwnerDashboardScreen() {
   const { data: attendances, refetch: refetchAttendances, error: attendanceError } = useGymAttendanceToday(gymId ?? undefined, selectedDateStr);
   const { data: payments, refetch: refetchPayments } = useGymPayments(userId ?? null);
   const { data: customerPlans, refetch: refetchCustomerPlans } = useGymCustomerMembershipPlans(userId ?? null);
+  const { data: gymCustomerTrainers, refetch: refetchTrainers } = useCustomerTrainersByGym(gymId ?? undefined);
+  const { data: gymTrainers, refetch: refetchGymTrainers } = useGymTrainers(gymId ?? undefined);
 
   const activeCustomersCount = customerPlans?.filter((plan: any) => {
     if (!plan.startDate || !plan.endDate) return false;
@@ -139,9 +121,51 @@ export default function OwnerDashboardScreen() {
     return acc;
   }, new Set<string>()).size || 0;
 
+  const activeTrainersCount = gymTrainers?.filter((t: any) => t.is_Active !== false).length || 0;
+
   const checkInsCount = attendances
     ? new Set(attendances.map((att: any) => att.customerId)).size
     : 0;
+
+  const getTomorrowYYYYMMDD = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const tomorrowStr = getTomorrowYYYYMMDD();
+  const expiringCount = customerPlans
+    ? new Set(customerPlans.filter((p: any) => p.endDate === tomorrowStr).map((p: any) => p.customerId)).size
+    : 0;
+
+  const ALERTS = [
+    {
+      id: 'expiring',
+      icon: Warning,
+      iconColor: '#EF4444',
+      bg: '#2B0E10',
+      title: `${expiringCount} Customership${expiringCount === 1 ? '' : 's'} expiring tomorrow`,
+    },
+    {
+      id: 'leave',
+      icon: UserMinus,
+      iconColor: '#888888',
+      bg: '#242424',
+      title: 'Trainer leave pending approval',
+    },
+    {
+      id: 'ticket',
+      icon: EnvelopeSimple,
+      iconColor: '#CCF200',
+      bg: '#242810',
+      title: 'New support ticket received',
+    },
+  ];
+
+  const activePtSessionsCount = gymCustomerTrainers?.filter((ct: any) => ct.isActive).length || 0;
 
   const revenueToday = payments?.reduce((sum, payment) => {
     if (payment.paymentDate === selectedDateStr) {
@@ -192,14 +216,16 @@ export default function OwnerDashboardScreen() {
         refetchCustomers(),
         refetchAttendances(),
         refetchPayments(),
-        refetchCustomerPlans()
+        refetchCustomerPlans(),
+        refetchTrainers(),
+        refetchGymTrainers()
       ]);
     } catch (error) {
       console.error('[Dashboard] Refresh error:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchCustomers, refetchAttendances, refetchPayments, refetchCustomerPlans]);
+  }, [refetchCustomers, refetchAttendances, refetchPayments, refetchCustomerPlans, refetchTrainers, refetchGymTrainers]);
 
   return (
     <ScrollView
@@ -273,7 +299,7 @@ export default function OwnerDashboardScreen() {
           const IconComp = item.icon;
           let displayValue = item.value;
           if (item.id === 'active-members' || item.id === 'active-customers') {
-            displayValue = activeCustomersCount.toString();
+            displayValue = (activeCustomersCount + activeTrainersCount).toString();
           } else if (item.id === 'check-ins') {
             displayValue = checkInsCount.toString();
           } else if (item.id === 'revenue-today') {
@@ -339,6 +365,11 @@ export default function OwnerDashboardScreen() {
       <View className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 flex-row justify-between mb-6">
         {OPERATIONS.map((op, index) => {
           const IconComp = op.icon;
+          let displayValue = op.value;
+          if (op.id === 'pt-sessions') {
+            displayValue = activePtSessionsCount.toString();
+          }
+
           return (
             <React.Fragment key={op.id}>
               {index > 0 && <View className="w-[1px] bg-[#1F293D] my-1" />}
@@ -355,7 +386,7 @@ export default function OwnerDashboardScreen() {
               >
                 <IconComp size={22} color="#CCF200" weight="bold" />
                 <Text className="text-xl font-semibold text-white mt-2 mb-0.5">
-                  {op.value}
+                  {displayValue}
                 </Text>
                 <Text className="text-[10px] font-semibold text-[#888888] tracking-wider text-center">
                   {op.label}
@@ -368,11 +399,11 @@ export default function OwnerDashboardScreen() {
 
       <View className="flex-row items-center justify-between mb-3">
         <Text className="text-base font-semibold text-white">Alerts & Reminders</Text>
-        <Pressable className="active:opacity-70">
+        {/* <Pressable className="active:opacity-70">
           <Text className="text-xs font-semibold" style={{ color: '#CCF200' }}>
             View All
           </Text>
-        </Pressable>
+        </Pressable> */}
       </View>
 
       <View className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-3 mb-6 gap-y-3">

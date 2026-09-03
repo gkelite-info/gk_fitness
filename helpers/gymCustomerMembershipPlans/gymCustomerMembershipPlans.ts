@@ -32,7 +32,7 @@ export interface SaveGymCustomerMembershipPlanParams {
 export async function fetchGymCustomerMembershipPlans(gymId?: string, customerId?: string) {
   let query = supabase
     .from('gym_customer_membership_plans')
-    .select('*, plan:gym_membership_plans(planName)')
+    .select('*, plan:gym_membership_plans(planName), gym_customers(fullName, email, phone, is_Active, users(profilePhoto, status, createdAt))')
     .eq('is_deleted', false)
     .order('createdAt', { ascending: false });
 
@@ -181,20 +181,28 @@ export async function fetchGymCustomerMembershipPlansPaginated(
   gymId: string,
   page: number,
   limit: number,
-  searchQuery?: string
+  searchQuery?: string,
+  sortOrder: 'newest' | 'oldest' = 'newest',
+  planId?: string
 ) {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
   let query = supabase
     .from('gym_customer_membership_plans')
-    .select('*, gym_customers!inner(fullName, email, phone, users(profilePhoto)), gym_membership_plans(planName, durationMonths, price)', { count: 'exact' })
+    .select('*, gym_customers!inner(fullName, email, phone, is_Active, users!inner(profilePhoto, status, createdAt)), gym_membership_plans(planName, durationMonths, price)', { count: 'exact' })
     .eq('gymId', gymId)
     .eq('is_deleted', false)
-    .order('endDate', { ascending: true });
+    .eq('gym_customers.is_Active', true)
+    .eq('gym_customers.users.status', 'active')
+    .order('createdAt', { ascending: sortOrder === 'oldest' });
 
   if (searchQuery) {
     query = query.ilike('gym_customers.fullName', `%${searchQuery}%`);
+  }
+  
+  if (planId) {
+    query = query.eq('planId', planId);
   }
 
   const { data, count, error } = await query.range(from, to);

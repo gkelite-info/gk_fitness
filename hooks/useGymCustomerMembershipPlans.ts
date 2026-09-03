@@ -40,18 +40,16 @@ export function useGymCustomerMembershipPlans(userId: string | null, customerId?
   });
 }
 
-export function useGymCustomerMembershipPlansPaginated(userId: string | null, page = 1, limit = 10, searchQuery?: string) {
+export function useGymCustomerMembershipPlansPaginated(userId: string | null, page = 1, limit = 10, searchQuery?: string, sortOrder: 'newest' | 'oldest' = 'newest', planId?: string) {
   return useQuery({
-    queryKey: ['gymCustomerMembershipPlansPaginated', userId, page, limit, searchQuery],
+    queryKey: ['gymCustomerMembershipPlansPaginated', userId, page, limit, searchQuery, sortOrder, planId],
     queryFn: async () => {
       if (!userId) return { data: [], total: 0 };
       const gymId = await getOwnerGymId(userId);
       if (!gymId) return { data: [], total: 0 };
 
-      // Make sure to import this from helper if not already exported properly, but we can just use the dynamic import or add it to imports.
-      // Wait, let's just make sure it's imported at the top.
       const { fetchGymCustomerMembershipPlansPaginated } = await import('@/helpers/gymCustomerMembershipPlans/gymCustomerMembershipPlans');
-      return await fetchGymCustomerMembershipPlansPaginated(gymId, page, limit, searchQuery);
+      return await fetchGymCustomerMembershipPlansPaginated(gymId, page, limit, searchQuery, sortOrder, planId);
     },
     enabled: !!userId,
   });

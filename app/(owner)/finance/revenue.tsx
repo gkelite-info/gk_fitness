@@ -137,7 +137,7 @@ export default function RevenueScreen() {
     };
   }, [allPayments, customerPlans, membershipPlans, customersData]);
 
-  const colors = ['#84CC16', '#A855F7', '#71717A', '#F97316', '#3B82F6'];
+  const colors = ['#CCFF00', '#C084FC', '#60A5FA', '#FACC15', '#33401D'];
 
   const formatCurrency = (val: number) => {
     return `₹${Math.round(val).toLocaleString('en-IN')}`;
@@ -180,13 +180,17 @@ export default function RevenueScreen() {
           <Text className="text-[#8E8E93] font-medium text-sm mb-4">Revenue by Membership Plan</Text>
           <View className="bg-[#121214] rounded-3xl">
             {revenueByPlan.length > 0 ? revenueByPlan.map((plan, index) => (
-              <View key={plan.planId} className={`flex-row items-center justify-between p-5 ${index < revenueByPlan.length - 1 ? 'border-b border-[#27272A]' : ''}`}>
+              <Pressable 
+                key={plan.planId} 
+                className={`flex-row items-center justify-between p-5 ${index < revenueByPlan.length - 1 ? 'border-b border-[#27272A]' : ''}`}
+                onPress={() => router.push(`/(owner)/finance/membership-plan/${plan.planId}?colorIndex=${index}`)}
+              >
                 <View className="flex-row items-center">
                   <View className="w-3 h-3 rounded-full mr-4" style={{ backgroundColor: colors[index % colors.length] }} />
                   <Text className="text-white font-semibold text-sm">{plan.planName}</Text>
                 </View>
                 <Text className="text-white font-semibold text-sm">{formatCurrency(plan.revenue)}</Text>
-              </View>
+              </Pressable>
             )) : (
               <View className="p-5 items-center">
                 <Text className="text-[#8E8E93] text-sm">No revenue today</Text>

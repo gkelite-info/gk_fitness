@@ -58,7 +58,7 @@ export async function fetchGlobalTrainers(searchQuery?: string) {
 
   if (searchQuery && searchQuery.trim()) {
     const q = searchQuery.trim();
-    query = query.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
+    query = query.or(`fullName.ilike.%${q}%`);
   }
 
   const { data, error } = await query;
@@ -88,7 +88,7 @@ export async function fetchGlobalTrainersPaginated(
   }
 
   if (searchQuery) {
-    query = query.or(`fullName.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,mobile.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,state.ilike.%${searchQuery}%,specialization.ilike.%${searchQuery}%`);
+    query = query.or(`fullName.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,mobile.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,state.ilike.%${searchQuery}%`);
   }
 
   query = query.order('createdAt', { ascending: sortOrder === 'oldest' });

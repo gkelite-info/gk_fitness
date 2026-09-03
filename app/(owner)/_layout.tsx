@@ -60,6 +60,12 @@ export default function OwnerLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="trainers/index"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

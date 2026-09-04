@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, Image, Modal } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CaretLeft, CheckCircle, Star, Users, Medal, Tag, ArrowRight, CaretDown } from 'phosphor-react-native';
+import { CaretLeft, CheckCircle, Star, Users, Medal, Tag, ArrowRight, CaretDown, Calendar } from 'phosphor-react-native';
 import { startApprovalSimulation } from '@/constants/trainerStore';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 
@@ -16,13 +16,6 @@ export default function TrainerProfileScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.push('/(customer)/trainer/book-trainer');
-    }
-  }
 
   if (!trainer) {
     return (
@@ -89,7 +82,7 @@ export default function TrainerProfileScreen() {
   return (
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center px-4 py-3">
-        <Pressable onPress={handleBack} className="p-2 bg-[#1A1A1A] rounded-full">
+        <Pressable onPress={() => router.back()} className="p-2 bg-[#1A1A1A] rounded-full">
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
       </View>
@@ -137,26 +130,6 @@ export default function TrainerProfileScreen() {
             <Text className="text-white font-semibold">{certifications[0]?.name || 'Cert'}</Text>
             <Text className="text-[#8E8E93] text-[10px] mt-1">CERTIFIED</Text>
           </View>
-        </View>
-
-        <View className="p-4 bg-[#0F0F0F]/90 border-t border-[#1A1A1A]">
-          <Pressable
-            onPress={() => {
-              router.push({
-                pathname: '/(customer)/trainer/trainer-request',
-                params: {
-                  id: trainer.gymTrainerId || trainer.globalTrainerId || trainer.id,
-                  trainerName: fullName,
-                  specializations: JSON.stringify(expertise)
-                }
-              });
-            }}
-            className="bg-[#CCFF00] py-4 rounded-full flex-row justify-center items-center shadow-lg"
-            style={{ shadowColor: '#CCFF00', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 }}
-          >
-            <Text className="text-black text-base font-semibold mr-2">Choose {fullName} as My Trainer</Text>
-            <ArrowRight size={18} color="#000000" weight="bold" />
-          </Pressable>
         </View>
 
         <View className="flex-row mx-4 mb-8 bg-[#1A1A1A] rounded-2xl p-4 border border-[#27272A] justify-between items-center">
@@ -276,6 +249,55 @@ export default function TrainerProfileScreen() {
               </View>
             ))}
           </View>
+        </View>
+
+        <View className="mb-8">
+          <View className="px-4 mb-4">
+            <Text className="text-white text-xl font-semibold tracking-tight">PT Packages</Text>
+            <Text className="text-[#A1A1AA] text-[13px] mt-1">Choose a duration that fits your goal.</Text>
+          </View>
+
+          <View className="flex-row gap-4 px-4">
+            <Pressable className="flex-1 bg-[#1A1A1A] border border-[#CCFF00] rounded-3xl p-5 items-center">
+              <View className="w-12 h-12 rounded-full bg-[#CCFF00]/10 items-center justify-center mb-4">
+                <Calendar size={24} color="#CCFF00" weight="regular" />
+              </View>
+              <Text className="text-white font-semibold text-sm mb-1 uppercase tracking-wider">1 DAY</Text>
+              <Text className="text-[#CCFF00] font-semibold text-2xl mb-4">₹ 799</Text>
+              <View className="w-full h-[1px] bg-[#27272A] mb-3" />
+              <Text className="text-[#8E8E93] text-xs font-medium">Single PT session</Text>
+            </Pressable>
+
+            <Pressable className="flex-1 bg-[#1A1A1A] border border-[#27272A] rounded-3xl p-5 items-center">
+              <View className="w-12 h-12 rounded-full bg-[#A855F7]/10 items-center justify-center mb-4">
+                <Calendar size={24} color="#A855F7" weight="regular" />
+              </View>
+              <Text className="text-white font-semibold text-sm mb-1 uppercase tracking-wider">1 MONTH</Text>
+              <Text className="text-[#A855F7] font-semibold text-2xl mb-4">₹ 4,999</Text>
+              <View className="w-full h-[1px] bg-[#27272A] mb-3" />
+              <Text className="text-[#8E8E93] text-xs font-medium">Monthly PT package</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View className="p-4 bg-[#0F0F0F]/90 border-t border-[#1A1A1A]">
+          <Pressable
+            onPress={() => {
+              router.push({
+                pathname: '/(customer)/trainer/trainer-request',
+                params: {
+                  id: trainer.gymTrainerId || trainer.globalTrainerId || trainer.id,
+                  trainerName: fullName,
+                  specializations: JSON.stringify(expertise)
+                }
+              });
+            }}
+            className="bg-[#CCFF00] py-4 rounded-full flex-row justify-center items-center shadow-lg"
+            style={{ shadowColor: '#CCFF00', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 }}
+          >
+            <Text className="text-black text-base font-semibold mr-2">Choose {fullName} as My Trainer</Text>
+            <ArrowRight size={18} color="#000000" weight="bold" />
+          </Pressable>
         </View>
       </ScrollView>
     </View>

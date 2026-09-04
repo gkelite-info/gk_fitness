@@ -32,7 +32,6 @@ export default function AddTrainerScreen() {
 
   return (
     <View className="flex-1 bg-[#0A0A0A] pt-12">
-      {/* Header */}
       <View className="flex-row items-center px-5 mb-6">
         <Pressable
           onPress={() => router.back()}
@@ -53,7 +52,6 @@ export default function AddTrainerScreen() {
       </View>
 
       <KeyboardDismissView className="flex-1" contentContainerStyle={{ padding: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        {/* Top Tabs with Native Reanimated Gliding Selection */}
         <AnimatedTabs
           tabs={[
             { id: 'customers', label: 'Customers', icon: Users },
@@ -74,7 +72,6 @@ export default function AddTrainerScreen() {
         )}
       </KeyboardDismissView>
 
-      {/* Footer Buttons */}
       <View className="flex-row gap-3 p-4 bg-[#0A0A0A] border-t border-[#161616]">
         <Pressable
           disabled={isSubmitting}

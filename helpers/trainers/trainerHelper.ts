@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
 import { createUser } from '@/helpers/otpHelper';
+import { rollbackRegistrationData } from '@/helpers/registrationRollbackHelper';
 
 export type TrainerGender = 'male' | 'female' | 'other';
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -238,9 +239,31 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
 
   let targetUserId = params.gymTrainerId;
   let isNewUser = false;
+  let isNewAuthUser = false;
 
   try {
     if (!targetUserId) {
+      // Pre-check for phone or email existing in users table before Auth signup
+      const { data: phoneConflict } = await supabase
+        .from('users')
+        .select('userId')
+        .eq('phone', cleanPhone)
+        .maybeSingle();
+
+      if (phoneConflict) {
+        throw new Error(`users_phone_key3: Mobile number ${cleanPhone} is already registered.`);
+      }
+
+      const { data: emailConflict } = await supabase
+        .from('users')
+        .select('userId')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (emailConflict) {
+        throw new Error(`users_email_key: Email address ${cleanEmail} is already registered.`);
+      }
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
         password: temporaryPassword,
@@ -258,6 +281,9 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
       }
 
       targetUserId = authData?.user?.id;
+      if (authData?.user?.id) {
+        isNewAuthUser = true;
+      }
 
       if (!targetUserId) {
         const { data: existingUser } = await supabase
@@ -414,21 +440,23 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
     };
 
   } catch (error: any) {
-    console.error('[trainerHelper] Atomic Transaction Error or Verification Failure. Rolling back across 3 tables...', error);
+    console.error('[trainerHelper] Save error detected. Executing automatic rollback...', error);
 
-    if (targetUserId) {
-      try {
-        await supabase.from('gym_trainer_schedules').delete().eq('gymTrainerId', targetUserId);
-        await supabase.from('gym_trainers').delete().eq('gymTrainerId', targetUserId);
-        if (isNewUser) {
-          await supabase.from('users').delete().eq('userId', targetUserId);
-        }
-      } catch (rollbackErr) {
-        console.error('[trainerHelper] Error during cleanup rollback:', rollbackErr);
-      }
-    }
+    const createdTables: ('gym_trainer_schedules' | 'gym_trainers' | 'users' | 'supabase_auth')[] = [
+      'gym_trainer_schedules',
+      'gym_trainers',
+    ];
+    if (isNewUser) createdTables.push('users');
+    if (isNewAuthUser) createdTables.push('supabase_auth');
 
-    throw new Error(error?.message || 'Failed to complete atomic registration across the 3 tables.');
+    await rollbackRegistrationData({
+      userId: targetUserId,
+      email: cleanEmail,
+      phone: cleanPhone,
+      createdTables,
+    });
+
+    throw error;
   }
 }
 

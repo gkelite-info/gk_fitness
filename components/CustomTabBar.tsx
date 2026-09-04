@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, TouchableOpacity, TouchableWithoutFeedback, Dimensions, Text } from 'react-native';
-import { usePathname } from 'expo-router';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -17,6 +16,7 @@ import {
   ClipboardText,
   CurrencyDollar,
   Binoculars,
+  UsersThree,
 } from 'phosphor-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -46,7 +46,6 @@ export function CustomTabBar({
       className="absolute bottom-0 bg-transparent"
       style={{ width: SCREEN_WIDTH, height: 75 + bottomInset }}
     >
-      {/* Dark background container */}
       <View
         className="absolute bottom-0 left-0 right-0 bg-[#121214] border-t border-[#27272A] rounded-t-[20px]"
         style={{ height: 58 + bottomInset }}
@@ -58,8 +57,8 @@ export function CustomTabBar({
         {state.routes
           .filter((route) => {
             const { options } = descriptors[route.key];
-            const isHidden = 
-              (options.tabBarItemStyle && (options.tabBarItemStyle as any).display === 'none') || 
+            const isHidden =
+              (options.tabBarItemStyle && (options.tabBarItemStyle as any).display === 'none') ||
               (options as any).href === null;
             return !isHidden;
           })
@@ -108,6 +107,8 @@ export function CustomTabBar({
 
             const renderIcon = () => {
               const name = route.name.toLowerCase();
+              if (name.includes('customer')) return <UsersThree size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
+              if (name.includes('plan')) return <Barbell size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
               if (name.includes('gym')) return <Buildings size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
               if (name.includes('owner')) return <Users size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;
               if (name.includes('support')) return <Headphones size={iconSize} color={iconColor} weight={isFocused ? 'fill' : 'regular'} />;

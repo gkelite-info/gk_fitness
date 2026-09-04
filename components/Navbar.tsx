@@ -22,7 +22,6 @@ export function Navbar() {
   const { announcements, loading, hasNew, clearHasNew } = useRealtimeAnnouncements(gymId);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  // Hide navbar on dynamic profile pages (e.g. /community/profile/abc123) but NOT on /community/profile (saved posts)
   const isProfilePage = pathname === '/community/profile' ? false : pathname.includes('/profile');
   if (isProfilePage) {
     return null;
@@ -59,8 +58,8 @@ export function Navbar() {
               }
             }}
           >
-            <StaticAvatar 
-              uri={profilePhoto} 
+            <StaticAvatar
+              uri={profilePhoto}
               name={name || 'User'}
               size={40}
               className="h-10 w-10 rounded-full"

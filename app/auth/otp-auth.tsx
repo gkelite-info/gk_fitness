@@ -222,7 +222,9 @@ export default function OtpAuthScreen() {
           }
 
           refreshUserContext();
-
+          toast.success('Signed in successfully!');
+          navigateBasedOnRole(fetchedRole);
+          return;
         }
 
         toast.success('Signed in successfully!');

@@ -132,12 +132,16 @@ export async function getUserRole(userId: string, email?: string): Promise<strin
 
 
 export function navigateBasedOnRole(role: string | null) {
-  if (role === 'superadmin') {
+  const normalizedRole = role?.trim().toLowerCase();
+  
+  if (normalizedRole === 'superadmin') {
     router.replace('/(superadmin)/dashboard');
-  } else if (role === 'owner') {
+  } else if (normalizedRole === 'owner') {
     router.replace('/(owner)/dashboard');
-  } else if (role === 'doctor') {
+  } else if (normalizedRole === 'doctor') {
     router.replace('/(doctor)/patients');
+  } else if (normalizedRole === 'trainer') {
+    router.replace('/(trainer)/home');
   } else {
     router.replace('/(customer)/home');
   }

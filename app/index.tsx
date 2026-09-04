@@ -31,12 +31,15 @@ export default function Index() {
   }
 
   if (role) {
-    if (role === 'superadmin') {
+    const normalizedRole = role.trim().toLowerCase();
+    if (normalizedRole === 'superadmin') {
       return <Redirect href="/(superadmin)/dashboard" />;
-    } else if (role === 'owner') {
+    } else if (normalizedRole === 'owner') {
       return <Redirect href="/(owner)/dashboard" />;
-    } else if (role === 'doctor') {
+    } else if (normalizedRole === 'doctor') {
       return <Redirect href="/(doctor)/patients" />;
+    } else if (normalizedRole === 'trainer') {
+      return <Redirect href="/(trainer)/home" />;
     } else {
       return <Redirect href="/(customer)/home" />;
     }

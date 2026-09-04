@@ -39,7 +39,7 @@ export default function ExploreScreen() {
           <View className="flex-1 p-6 justify-between">
             <View>
               <View className="w-12 h-12 rounded-xl border border-[#D4FF00] items-center justify-center mb-6">
-                <IdentificationCard size={24} color="#D4FF00" weight="regular" />
+                <IdentificationCard size={24} color="#D4FF00" weight="fill" />
               </View>
 
               <Text className="text-white text-2xl font-semibold mb-2 tracking-tight">Trainers</Text>
@@ -79,7 +79,7 @@ export default function ExploreScreen() {
           <View className="flex-1 p-6 justify-between">
             <View>
               <View className="w-12 h-12 rounded-xl border border-[#A855F7] bg-[#2D144A]/30 items-center justify-center mb-6">
-                <Tote size={24} color="#A855F7" weight="regular" />
+                <Tote size={24} color="#A855F7" weight="fill" />
               </View>
 
               <Text className="text-white text-2xl font-semibold mb-2 tracking-tight">Shop</Text>
@@ -119,7 +119,7 @@ export default function ExploreScreen() {
           <View className="flex-1 p-6 justify-between">
             <View>
               <View className="w-12 h-12 rounded-xl border border-[#38BDF8] bg-[#0C2B47]/30 items-center justify-center mb-6">
-                <Ticket size={24} color="#38BDF8" weight="regular" />
+                <Ticket size={24} color="#38BDF8" weight="fill" />
               </View>
 
               <Text className="text-white text-2xl font-semibold mb-2 tracking-tight">Gym Pass</Text>

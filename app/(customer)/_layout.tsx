@@ -7,6 +7,7 @@ export default function CustomerLayout() {
   return (
     <PedometerProvider>
       <Tabs
+        backBehavior="history"
         tabBar={(props) => <CustomTabBar {...props} centerRouteName="home" />}
         screenOptions={{
           header: () => <Navbar />,
@@ -231,6 +232,20 @@ export default function CustomerLayout() {
         />
         <Tabs.Screen
           name="trainer/trainer-request"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="explore/trainers"
+          options={{
+            href: null,
+            headerShown: true,
+          }}
+        />
+        <Tabs.Screen
+          name="explore/[id]"
           options={{
             href: null,
             headerShown: false,

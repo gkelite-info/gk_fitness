@@ -72,6 +72,7 @@ export default function RootLayout() {
               <Stack>
                 <Stack.Screen name="index" options={{ headerShown: false }} />
                 <Stack.Screen name="(customer)" options={{ headerShown: false }} />
+                <Stack.Screen name="(trainer)" options={{ headerShown: false }} />
                 <Stack.Screen name="(owner)" options={{ headerShown: false }} />
                 <Stack.Screen name="(superadmin)" options={{ headerShown: false }} />
                 <Stack.Screen name="(doctor)" options={{ headerShown: false }} />

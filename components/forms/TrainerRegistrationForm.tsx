@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   TextInput,
@@ -34,6 +34,7 @@ import {
 } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { saveGymTrainer, SaveGymTrainerParams } from '@/helpers/trainers/trainerHelper';
+import { parseRegistrationError } from '@/helpers/registrationRollbackHelper';
 import { router } from 'expo-router';
 import { triggerSuccessHaptic, triggerErrorHaptic, triggerLightHaptic } from '@/lib/haptics';
 import { DatePickerModal } from '@/components/DatePickerModal';
@@ -160,8 +161,22 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
       newErrors.email = 'Please enter a valid email address.';
     }
 
-    if (experience.trim() && isNaN(Number(experience.trim()))) {
+    if (!experience.trim()) {
+      newErrors.experience = 'Experience is required.';
+    } else if (isNaN(Number(experience.trim()))) {
       newErrors.experience = 'Experience must be a numeric value in years.';
+    }
+
+    if (!joiningDate) {
+      newErrors.joiningDate = 'Joining date is required.';
+    }
+
+    if (!qualification.trim()) {
+      newErrors.qualification = 'Qualification is required.';
+    }
+
+    if (!languages.trim()) {
+      newErrors.languages = 'Languages spoken is required.';
     }
 
     if (activeDays.length === 0) {
@@ -235,7 +250,19 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
       console.error('[TrainerRegistrationForm] Save Error:', err);
       toast.dismiss();
       triggerErrorHaptic();
-      toast.error('Unable to create trainer account. Please ensure email or phone is unique and try again.');
+
+      const { isEmailDuplicate, isPhoneDuplicate, userFacingMessage } = parseRegistrationError(err);
+
+      if (isEmailDuplicate && isPhoneDuplicate) {
+        toast.error('email already exists');
+        toast.error('mobile already exists');
+      } else if (isEmailDuplicate) {
+        toast.error('email already exists');
+      } else if (isPhoneDuplicate) {
+        toast.error('mobile already exists');
+      } else {
+        toast.error(userFacingMessage || 'Unable to create trainer account. Please ensure email or phone is unique.');
+      }
     } finally {
       setLoading(false);
     }
@@ -491,8 +518,13 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
               value={phone}
               onChangeText={(txt) => {
                 clearError('phone');
-                setPhone(txt);
+                let cleaned = txt.replace(/\D/g, '');
+                if (cleaned.length > 0 && !/^[6-9]/.test(cleaned)) {
+                  cleaned = '';
+                }
+                setPhone(cleaned);
               }}
+              maxLength={10}
               className={`flex-1 text-white px-4 py-3.5 rounded-xl font-sans border ${errors.phone ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
             />
           </View>
@@ -560,7 +592,7 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
 
         <View className="flex-row gap-4 mb-4">
           <View className="flex-1">
-            <Text className="text-white text-xs mb-2">Experience (Years)</Text>
+            <Text className="text-white text-xs mb-2">Experience (Years) <Text className="text-red-500">*</Text></Text>
             <TextInput
               placeholder="e.g. 5"
               placeholderTextColor="#666"
@@ -573,31 +605,52 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
               }}
               className={`text-white font-sans px-4 py-3.5 rounded-xl border ${errors.experience ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
             />
+            {errors.experience && (
+              <View className="flex-row items-center mt-1 ml-1">
+                <WarningCircle size={12} color="#EF4444" />
+                <Text className="text-red-400 text-[10px] ml-1">{errors.experience}</Text>
+              </View>
+            )}
           </View>
           <View className="flex-1">
-            <Text className="text-white text-xs mb-2">Joining Date</Text>
+            <Text className="text-white text-xs mb-2">Joining Date <Text className="text-red-500">*</Text></Text>
             <Pressable
               onPress={() => setJoiningModalVisible(true)}
-              className="bg-[#161616] flex-row items-center justify-between px-3 py-3.5 rounded-xl border border-[#242424] active:opacity-80"
+              className={`flex-row items-center justify-between px-3 py-3.5 rounded-xl border active:opacity-80 ${errors.joiningDate ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
             >
               <Text className={joiningDate ? 'text-white text-xs font-medium' : 'text-[#666] text-xs'}>
                 {joiningDate || 'Select Date'}
               </Text>
-              <CalendarBlank size={16} color="#A1A1AA" />
+              <CalendarBlank size={16} color={errors.joiningDate ? '#EF4444' : '#A1A1AA'} />
             </Pressable>
+            {errors.joiningDate && (
+              <View className="flex-row items-center mt-1 ml-1">
+                <WarningCircle size={12} color="#EF4444" />
+                <Text className="text-red-400 text-[10px] ml-1">{errors.joiningDate}</Text>
+              </View>
+            )}
           </View>
         </View>
 
         <View className="mb-4">
-          <Text className="text-white text-xs mb-2">Qualification / Certification</Text>
+          <Text className="text-white text-xs mb-2">Qualification / Certification <Text className="text-red-500">*</Text></Text>
           <TextInput
             placeholder="NASM Certified Trainer, BSc Sports Science"
             placeholderTextColor="#666"
             clearButtonMode="while-editing"
             value={qualification}
-            onChangeText={setQualification}
-            className="bg-[#161616] font-sans text-white px-4 py-3.5 rounded-xl border border-[#242424]"
+            onChangeText={(txt) => {
+              clearError('qualification');
+              setQualification(txt);
+            }}
+            className={`font-sans text-white px-4 py-3.5 rounded-xl border ${errors.qualification ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
           />
+          {errors.qualification && (
+            <View className="flex-row items-center mt-1.5 ml-1">
+              <WarningCircle size={14} color="#EF4444" />
+              <Text className="text-red-400 text-xs ml-1">{errors.qualification}</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -663,14 +716,23 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
         </View>
 
         <View className="mb-4">
-          <Text className="text-white text-xs mb-2">Languages Spoken (comma separated)</Text>
+          <Text className="text-white text-xs mb-2">Languages Spoken (comma separated) <Text className="text-red-500">*</Text></Text>
           <TextInput
             placeholder="e.g. English, Hindi, Telugu"
             placeholderTextColor="#666"
             value={languages}
-            onChangeText={setLanguages}
-            className="bg-[#161616] font-sans text-white px-4 py-3.5 rounded-xl border border-[#242424]"
+            onChangeText={(txt) => {
+              clearError('languages');
+              setLanguages(txt);
+            }}
+            className={`font-sans text-white px-4 py-3.5 rounded-xl border ${errors.languages ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
           />
+          {errors.languages && (
+            <View className="flex-row items-center mt-1.5 ml-1">
+              <WarningCircle size={14} color="#EF4444" />
+              <Text className="text-red-400 text-xs ml-1">{errors.languages}</Text>
+            </View>
+          )}
         </View>
       </View>
 

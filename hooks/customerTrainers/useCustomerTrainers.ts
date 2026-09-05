@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchCustomerTrainersByGym, fetchAssignedTrainersByCustomer, fetchCustomerTrainerById, saveCustomerTrainer, deleteCustomerTrainer, toggleCustomerTrainerActiveStatus, SaveCustomerTrainerParams } from '@/helpers/customerTrainers/customerTrainersHelper';
+import { fetchCustomerTrainersByGym, fetchAssignedTrainersByCustomer, fetchAssignedCustomersByTrainer, fetchAssignedCustomersByTrainerPaginated, fetchCustomerTrainerById, saveCustomerTrainer, deleteCustomerTrainer, toggleCustomerTrainerActiveStatus, SaveCustomerTrainerParams } from '@/helpers/customerTrainers/customerTrainersHelper';
 
 export function useCustomerTrainersByGym(gymId?: string) {
   return useQuery({
@@ -22,6 +22,30 @@ export function useAssignedTrainersByCustomer(customerId?: string) {
       return data;
     },
     enabled: !!customerId,
+  });
+}
+
+export function useAssignedCustomersByTrainer(gymTrainerId?: string) {
+  return useQuery({
+    queryKey: ['customerTrainers', 'trainer', gymTrainerId],
+    queryFn: async () => {
+      if (!gymTrainerId) return [];
+      const data = await fetchAssignedCustomersByTrainer(gymTrainerId);
+      return data;
+    },
+    enabled: !!gymTrainerId,
+  });
+}
+
+export function usePaginatedAssignedCustomersByTrainer(gymTrainerId?: string, page = 1, limit = 10, searchQuery?: string) {
+  return useQuery({
+    queryKey: ['customerTrainers', 'trainer', gymTrainerId, page, limit, searchQuery],
+    queryFn: async () => {
+      if (!gymTrainerId) return { data: [], total: 0 };
+      const res = await fetchAssignedCustomersByTrainerPaginated(gymTrainerId, page, limit, searchQuery);
+      return res;
+    },
+    enabled: !!gymTrainerId,
   });
 }
 

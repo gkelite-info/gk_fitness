@@ -2,14 +2,23 @@ import React from 'react';
 import { View, ScrollView, Text, Image, Pressable } from 'react-native';
 import { CaretRight, Plus, Users, User, ArrowRight, ClipboardText, Bag, Star } from 'phosphor-react-native';
 import { useRouter } from 'expo-router';
+import { useUser } from '@/context/UserContext';
 
 export default function TrainerHome() {
   const router = useRouter();
+  const { name } = useUser();
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
 
   return (
     <ScrollView className="flex-1 bg-[#09090B]" contentContainerStyle={{ paddingBottom: 100 }}>
-      <View className="px-5 pt-12 pb-6">
-        <Text className="text-white text-[28px] font-semibold">Good Morning, <Text className="text-[#CCFF00]">Rahul</Text> 👋</Text>
+      <View className="px-5 pt-5 pb-6">
+        <Text className="text-white text-[28px] font-semibold">{getGreeting()}, <Text className="text-[#CCFF00]">{name?.split(' ')[0] || 'Trainer'}</Text> 👋</Text>
         <Text className="text-[#A3A3A3] text-sm mt-1">Strength & Conditioning Coach</Text>
       </View>
 
@@ -63,7 +72,7 @@ export default function TrainerHome() {
             </View>
             <View className="flex-row items-center justify-between mt-2 pt-3 border-t border-[#1A1A1A]">
               <Text className="text-[#A3A3A3] text-[10px]">Scheduled today</Text>
-              <Pressable 
+              <Pressable
                 onPress={() => router.push('/(trainer)/session-history' as any)}
                 className="w-5 h-5 rounded-full border border-[#CCFF00] items-center justify-center active:opacity-70"
               >
@@ -84,7 +93,7 @@ export default function TrainerHome() {
             </View>
             <View className="flex-row items-center justify-between mt-2 pt-3 border-t border-[#1A1A1A]">
               <Text className="text-[#A3A3A3] text-[10px]">Assigned to you</Text>
-              <Pressable 
+              <Pressable
                 onPress={() => router.push('/(trainer)/pt-customers' as any)}
                 className="w-5 h-5 rounded-full border border-[#CCFF00] items-center justify-center active:opacity-70"
               >
@@ -98,7 +107,7 @@ export default function TrainerHome() {
       <View className="px-5 mb-6">
         <View className="flex-row justify-between items-center mb-3">
           <Text className="text-[#CCFF00] text-xs font-semibold tracking-wider">NEW ASSIGNMENTS</Text>
-          <Pressable 
+          <Pressable
             className="flex-row items-center active:opacity-70"
             onPress={() => router.push('/(trainer)/new-assignments' as any)}
           >

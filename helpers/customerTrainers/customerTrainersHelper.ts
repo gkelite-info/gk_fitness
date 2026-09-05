@@ -81,6 +81,58 @@ export async function fetchAssignedTrainersByCustomer(customerId: string) {
   return data ?? [];
 }
 
+export async function fetchAssignedCustomersByTrainer(gymTrainerId: string) {
+  const { data, error } = await supabase
+    .from('customer_trainers')
+    .select('*, customer:gym_customers(*)')
+    .eq('gymTrainerId', gymTrainerId)
+    .eq('isActive', true)
+    .eq('is_deleted', false)
+    .order('assignedOn', { ascending: false });
+
+  if (error) {
+    console.error('[customerTrainersHelper] fetchAssignedCustomersByTrainer Error:', error);
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+export async function fetchAssignedCustomersByTrainerPaginated(
+  gymTrainerId: string,
+  page = 1,
+  limit = 10,
+  searchQuery?: string
+) {
+  let query = supabase
+    .from('customer_trainers')
+    .select('*, customer:gym_customers(*, users(profilePhoto))', { count: 'exact' })
+    .eq('gymTrainerId', gymTrainerId)
+    .eq('isActive', true)
+    .eq('is_deleted', false)
+    .order('assignedOn', { ascending: false });
+
+  if (searchQuery && searchQuery.trim().length > 0) {
+    query = query.ilike('customer.fullName', `%${searchQuery.trim()}%`);
+  }
+
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+  query = query.range(from, to);
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    console.error('[customerTrainersHelper] fetchAssignedCustomersByTrainerPaginated Error:', error);
+    throw error;
+  }
+
+  return {
+    data: data ?? [],
+    total: count ?? 0,
+  };
+}
+
 export async function saveCustomerTrainer(assignmentData: SaveCustomerTrainerParams) {
   const now = new Date().toISOString();
 

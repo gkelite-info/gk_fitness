@@ -136,7 +136,7 @@ export default function AssignTrainerConfirmScreen() {
         {
           onSuccess: () => {
             setModalVisible(false);
-            router.navigate('/(owner)/profile/personal-training'); // or just go back a few screens
+            router.navigate('/(owner)/profile/personal-training' as any); // or just go back a few screens
           }
         }
       );

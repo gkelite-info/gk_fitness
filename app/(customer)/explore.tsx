@@ -21,7 +21,7 @@ export default function ExploreScreen() {
       >
         <Pressable
           className="w-full rounded-[24px] overflow-hidden mb-6 h-[260px] active:opacity-90"
-          onPress={() => router.push('/(customer)/explore/trainers')}
+          onPress={() => router.push('/(customer)/explore/trainers' as any)}
         >
           <Image
             source={require('../../assets/explore_trainers.png')}

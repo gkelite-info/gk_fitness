@@ -141,7 +141,7 @@ export function navigateBasedOnRole(role: string | null) {
   } else if (normalizedRole === 'doctor') {
     router.replace('/(doctor)/patients');
   } else if (normalizedRole === 'trainer') {
-    router.replace('/(trainer)/home');
+    router.replace('/(trainer)/home' as any);
   } else {
     router.replace('/(customer)/home');
   }

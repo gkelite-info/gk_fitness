@@ -3,9 +3,37 @@ import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { CaretLeftIcon as CaretLeft, UserIcon as User, TargetIcon as Target, LeafIcon as Leaf, ForkKnifeIcon as ForkKnife, FlameIcon as Flame, GlobeIcon as Globe, BellIcon as Bell, ProhibitIcon as Prohibit, PintGlassIcon as Glass, MagicWandIcon as MagicWand, LockIcon as Lock, CaretRightIcon as CaretRight } from 'phosphor-react-native';
+import { useCustomerMealPlan } from '@/hooks/customerMealPlans/useCustomerMealPlan';
+import { useOnboarding } from '../(onboarding)/_OnboardingContext';
+import { useUser } from '@/context/UserContext';
+import { ActivityIndicator } from 'react-native';
 
 export default function NutritionPreferences() {
   const router = useRouter();
+  const { userId } = useUser();
+  const { data: mealPlan, isLoading: isLoadingPlan } = useCustomerMealPlan(userId ?? undefined);
+  const { data: onboardingData, loading: isLoadingOnboarding } = useOnboarding();
+
+  if (isLoadingPlan || isLoadingOnboarding) {
+    return (
+      <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
+        <ActivityIndicator size="large" color="#C4EF00" />
+      </View>
+    );
+  }
+
+  const calories = mealPlan?.targetCalories || 0;
+
+  const formatGoal = (goal: string) => {
+    if (!goal) return 'Maintain Fitness';
+    return goal.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase());
+  };
+
+  const goalTitle = formatGoal(onboardingData?.primaryGoal || '');
+  const dietType = onboardingData?.dietType || 'Balanced';
+  const mealsPerDay = onboardingData?.mealsPerDay || 4;
+  const waterGoal = onboardingData?.dailyWaterGoal || 3000;
+  const allergies = onboardingData?.foodAllergies || [];
 
   return (
     <View className="flex-1 bg-[#0A0A0A] pb-28">
@@ -42,28 +70,28 @@ export default function NutritionPreferences() {
             <View className="flex-1 items-center px-1 border-r border-[#222222]">
               <Target size={16} color="#C4EF00" weight="bold" style={{ marginBottom: 4 }} />
               <Text className="text-[#8E8E93] text-[9px] font-bold tracking-wider mb-1">GOAL</Text>
-              <Text className="text-white text-[11px] font-bold mb-1 text-center">Weight Loss</Text>
-              <Text className="text-[#555555] text-[8px] text-center leading-[10px]">Lose fat & build a healthier you</Text>
+              <Text className="text-white text-[11px] font-bold mb-1 text-center">{goalTitle}</Text>
+              <Text className="text-[#555555] text-[8px] text-center leading-[10px]">Your primary objective</Text>
             </View>
 
             <View className="flex-1 items-center px-1 border-r border-[#222222]">
               <Leaf size={16} color="#C4EF00" weight="fill" style={{ marginBottom: 4 }} />
               <Text className="text-[#8E8E93] text-[9px] font-bold tracking-wider mb-1">DIET</Text>
-              <Text className="text-white text-[11px] font-bold mb-1 text-center">Vegetarian</Text>
-              <Text className="text-[#555555] text-[8px] text-center leading-[10px]">No meat, includes dairy & eggs</Text>
+              <Text className="text-white text-[11px] font-bold mb-1 text-center">{dietType}</Text>
+              <Text className="text-[#555555] text-[8px] text-center leading-[10px]">Your dietary preference</Text>
             </View>
 
             <View className="flex-1 items-center px-1 border-r border-[#222222]">
               <ForkKnife size={16} color="#C4EF00" weight="bold" style={{ marginBottom: 4 }} />
               <Text className="text-[#8E8E93] text-[9px] font-bold tracking-wider mb-1">MEALS</Text>
-              <Text className="text-white text-[11px] font-bold mb-1 text-center">4 Meals / Day</Text>
-              <Text className="text-[#555555] text-[8px] text-center leading-[10px]">Breakfast, Lunch, Snack, Dinner</Text>
+              <Text className="text-white text-[11px] font-bold mb-1 text-center">{mealsPerDay} Meals / Day</Text>
+              <Text className="text-[#555555] text-[8px] text-center leading-[10px]">Daily frequency</Text>
             </View>
 
             <View className="flex-1 items-center px-1">
               <Flame size={16} color="#C4EF00" weight="fill" style={{ marginBottom: 4 }} />
               <Text className="text-[#8E8E93] text-[9px] font-bold tracking-wider mb-1">CALORIES</Text>
-              <Text className="text-white text-[11px] font-bold mb-1 text-center">1,850 kcal</Text>
+              <Text className="text-white text-[11px] font-bold mb-1 text-center">{calories} kcal</Text>
               <Text className="text-[#555555] text-[8px] text-center leading-[10px]">Daily calorie target</Text>
             </View>
           </View>
@@ -82,7 +110,7 @@ export default function NutritionPreferences() {
               <Text className="text-[#8E8E93] text-[10px]">Your primary fitness objective</Text>
             </View>
             <View className="flex-row items-center">
-              <Text className="text-[#C4EF00] text-xs font-bold mr-2">Weight Loss</Text>
+              <Text className="text-[#C4EF00] text-xs font-bold mr-2">{goalTitle}</Text>
               <CaretRight size={14} color="#555555" />
             </View>
           </Pressable>
@@ -96,7 +124,7 @@ export default function NutritionPreferences() {
               <Text className="text-[#8E8E93] text-[10px]">Your dietary preference</Text>
             </View>
             <View className="flex-row items-center">
-              <Text className="text-[#C4EF00] text-xs font-bold mr-2">Vegetarian</Text>
+              <Text className="text-[#C4EF00] text-xs font-bold mr-2">{dietType}</Text>
               <CaretRight size={14} color="#555555" />
             </View>
           </Pressable>
@@ -110,7 +138,7 @@ export default function NutritionPreferences() {
               <Text className="text-[#8E8E93] text-[10px]">How many meals you prefer daily</Text>
             </View>
             <View className="flex-row items-center">
-              <Text className="text-[#C4EF00] text-xs font-bold mr-2">4 Meals</Text>
+              <Text className="text-[#C4EF00] text-xs font-bold mr-2">{mealsPerDay} Meals</Text>
               <CaretRight size={14} color="#555555" />
             </View>
           </Pressable>
@@ -137,13 +165,14 @@ export default function NutritionPreferences() {
               <Text className="text-white text-sm font-bold mb-1">Allergies</Text>
               <Text className="text-[#8E8E93] text-[10px]">Any food allergies we should know</Text>
             </View>
-            <View className="flex-row items-center">
-              <View className="border border-[#C4EF00]/50 rounded-full px-2 py-0.5 mr-1">
-                <Text className="text-[#C4EF00] text-[8px] font-bold">PEANUTS</Text>
-              </View>
-              <View className="border border-[#C4EF00]/50 rounded-full px-2 py-0.5 mr-2">
-                <Text className="text-[#C4EF00] text-[8px] font-bold">SHELLFISH</Text>
-              </View>
+            <View className="flex-row items-center flex-wrap max-w-[150px] justify-end">
+              {allergies.length > 0 ? allergies.map((allergy, index) => (
+                <View key={index} className="border border-[#C4EF00]/50 rounded-full px-2 py-0.5 mr-1 mb-1">
+                  <Text className="text-[#C4EF00] text-[8px] font-bold">{allergy.toUpperCase()}</Text>
+                </View>
+              )) : (
+                <Text className="text-[#8E8E93] text-[10px] font-bold mr-2">None</Text>
+              )}
               <CaretRight size={14} color="#555555" />
             </View>
           </Pressable>
@@ -171,7 +200,7 @@ export default function NutritionPreferences() {
               <Text className="text-[#8E8E93] text-[10px]">Daily water intake target</Text>
             </View>
             <View className="flex-row items-center">
-              <Text className="text-[#C4EF00] text-xs font-bold mr-2">3.0 Liters / Day</Text>
+              <Text className="text-[#C4EF00] text-xs font-bold mr-2">{waterGoal / 1000} Liters / Day</Text>
               <CaretRight size={14} color="#555555" />
             </View>
           </Pressable>
@@ -193,8 +222,11 @@ export default function NutritionPreferences() {
       </ScrollView>
 
       <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#0A0A0A]/95" style={{ paddingBottom: 110 }}>
-        <Pressable className="bg-[#C4EF00] rounded-[20px] py-4 items-center justify-center active:opacity-90 mb-4">
-          <Text className="text-black font-bold text-lg">Save Changes</Text>
+        <Pressable
+          onPress={() => router.push('/(customer)/nutrition/generating-plan')}
+          className="bg-[#C4EF00] rounded-[20px] py-4 items-center justify-center active:opacity-90 mb-4"
+        >
+          <Text className="text-black font-bold text-lg">Regenerate Meal Plan</Text>
         </Pressable>
         <View className="flex-row items-center justify-center">
           <Lock size={12} color="#555555" weight="fill" style={{ marginRight: 6 }} />

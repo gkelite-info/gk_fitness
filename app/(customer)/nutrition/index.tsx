@@ -2,6 +2,10 @@ import React from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
+import { ActivityIndicator } from 'react-native';
+import { useCustomerMealPlan } from '@/hooks/customerMealPlans/useCustomerMealPlan';
+import { useUser } from '@/context/UserContext';
 import {
   CaretLeft,
   ChartBar,
@@ -17,10 +21,26 @@ import {
 
 export default function NutritionAnalysis() {
   const router = useRouter();
+  const { userId } = useUser();
+  const { data: fullPlan, isLoading } = useCustomerMealPlan(userId as any);
+
+  useEffect(() => {
+    if (!isLoading && fullPlan && fullPlan.days && fullPlan.days.length > 0) {
+      router.replace('/(customer)/nutrition/my-nutrition-plan');
+    }
+  }, [isLoading, fullPlan, router]);
 
   const handleBack = () => {
     router.push('/(customer)/home');
   };
+
+  if (isLoading || (fullPlan && fullPlan.days && fullPlan.days.length > 0)) {
+    return (
+      <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
+        <ActivityIndicator size="large" color="#C4EF00" />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-[#0A0A0A] pb-28">

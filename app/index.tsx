@@ -39,7 +39,7 @@ export default function Index() {
     } else if (normalizedRole === 'doctor') {
       return <Redirect href="/(doctor)/patients" />;
     } else if (normalizedRole === 'trainer') {
-      return <Redirect href="/(trainer)/home" />;
+      return <Redirect href={"/(trainer)/home" as any} />;
     } else {
       return <Redirect href="/(customer)/home" />;
     }

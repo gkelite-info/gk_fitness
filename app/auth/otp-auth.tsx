@@ -704,7 +704,7 @@ export default function OtpAuthScreen() {
 
           {purpose === 'login' && (
             <View className="mt-2 mb-4 items-center">
-              {typeId !== 'gym_trainer' && (
+              {typeId !== 'gym_trainer' && typeId !== 'customer' && (
                 <Pressable onPress={() => {
                   if (typeId === 'global_trainer') {
                     router.push('/auth/global-trainer-signup');

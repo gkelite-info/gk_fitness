@@ -9,6 +9,7 @@ import { useOnboarding } from './_OnboardingContext';
 import { saveCustomerOnboarding } from '@/helpers/onboardingHelper';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 const DIETS = [
   { id: 'vegetarian', title: 'Vegetarian', icon: Leaf },
@@ -24,6 +25,7 @@ const ALLERGIES = ['Nuts', 'Dairy', 'Gluten', 'Soy', 'Shellfish'];
 export default function Step4() {
   const { data, updateData } = useOnboarding();
   const { userId } = useUser();
+  const queryClient = useQueryClient();
   const [customAllergy, setCustomAllergy] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -36,6 +38,7 @@ export default function Step4() {
     setSaving(true);
     try {
       await saveCustomerOnboarding(userId, data, customAllergy);
+      await queryClient.invalidateQueries({ queryKey: ['customerOnboardingStatus', userId] });
       router.push('/(customer)/(onboarding)/step5');
     } catch (err: any) {
       toast.error('Could not save your preferences. Try again.');

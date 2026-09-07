@@ -20,6 +20,9 @@ export type OnboardingData = {
   mealsPerDay: number | null;
   foodAllergies: string[];
   dailyWaterGoal: number;
+  preferredCuisine?: string;
+  calorieDistribution?: string;
+  goalTimeframe?: string;
 };
 
 type OnboardingContextType = {
@@ -44,6 +47,7 @@ const initialData: OnboardingData = {
   mealsPerDay: null,
   foodAllergies: [],
   dailyWaterGoal: 3.0,
+  goalTimeframe: '',
 };
 
 const OnboardingContext = createContext<OnboardingContextType>({

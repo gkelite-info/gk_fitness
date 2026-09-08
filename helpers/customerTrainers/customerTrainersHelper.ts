@@ -10,6 +10,8 @@ export interface CustomerTrainerAttributes {
   weekDays: string[];
   timings: string;
   assignedBy: string;
+  renewalOn?: string | Date | null;
+  expiryOn?: string | Date | null;
   isActive?: boolean;
   is_deleted?: boolean;
   createdAt?: string | Date;
@@ -25,6 +27,8 @@ export interface SaveCustomerTrainerParams {
   weekDays: string[];
   timings: string;
   assignedBy: string;
+  renewalOn?: string | Date | null;
+  expiryOn?: string | Date | null;
   isActive?: boolean;
 }
 
@@ -84,10 +88,11 @@ export async function fetchAssignedTrainersByCustomer(customerId: string) {
 export async function fetchAssignedCustomersByTrainer(gymTrainerId: string) {
   const { data, error } = await supabase
     .from('customer_trainers')
-    .select('*, customer:gym_customers(*)')
+    .select('*, customer:gym_customers(*, users(profilePhoto))')
     .eq('gymTrainerId', gymTrainerId)
     .eq('isActive', true)
     .eq('is_deleted', false)
+    .is('deletedAt', null)
     .order('assignedOn', { ascending: false });
 
   if (error) {
@@ -137,9 +142,7 @@ export async function saveCustomerTrainer(assignmentData: SaveCustomerTrainerPar
   const now = new Date().toISOString();
 
   if (assignmentData.customerTrainerId) {
-    const { data, error } = await supabase
-      .from('customer_trainers')
-      .update({
+    const updatePayload: any = {
         gymId: assignmentData.gymId,
         customerId: assignmentData.customerId,
         gymTrainerId: assignmentData.gymTrainerId,
@@ -148,7 +151,13 @@ export async function saveCustomerTrainer(assignmentData: SaveCustomerTrainerPar
         assignedBy: assignmentData.assignedBy,
         isActive: assignmentData.isActive ?? true,
         updatedAt: now,
-      })
+    };
+    if (assignmentData.renewalOn !== undefined) updatePayload.renewalOn = assignmentData.renewalOn;
+    if (assignmentData.expiryOn !== undefined) updatePayload.expiryOn = assignmentData.expiryOn;
+
+    const { data, error } = await supabase
+      .from('customer_trainers')
+      .update(updatePayload)
       .eq('customerTrainerId', assignmentData.customerTrainerId)
       .select();
 
@@ -160,10 +169,7 @@ export async function saveCustomerTrainer(assignmentData: SaveCustomerTrainerPar
     return data ? data[0] : null;
   } else {
     const generatedId = assignmentData.customerTrainerId || Crypto.randomUUID();
-    const { data, error } = await supabase
-      .from('customer_trainers')
-      .insert([
-        {
+    const insertPayload: any = {
           customerTrainerId: generatedId,
           gymId: assignmentData.gymId,
           customerId: assignmentData.customerId,
@@ -176,8 +182,13 @@ export async function saveCustomerTrainer(assignmentData: SaveCustomerTrainerPar
           is_deleted: false,
           createdAt: now,
           updatedAt: now,
-        },
-      ])
+    };
+    if (assignmentData.renewalOn !== undefined) insertPayload.renewalOn = assignmentData.renewalOn;
+    if (assignmentData.expiryOn !== undefined) insertPayload.expiryOn = assignmentData.expiryOn;
+
+    const { data, error } = await supabase
+      .from('customer_trainers')
+      .insert([insertPayload])
       .select();
 
     if (error) {

@@ -289,12 +289,10 @@ export default function WorkoutSession() {
         {isActiveDayToday && !isRestDay && (
           <Pressable
             onPress={() => router.push({
-              pathname: '/(customer)/workout-countdown',
+              pathname: '/(customer)/exercise-detail',
               params: {
                 dayId: activeDayId,
-                workoutType: dayData?.workoutType || 'Workout',
-                duration: dayData?.durationMinutes || '50',
-                exercisesCount: exercises.length
+                exerciseIndex: 0
               }
             })}
             className="bg-[#DFFF00] w-full rounded-2xl p-4 flex-row items-center justify-center">

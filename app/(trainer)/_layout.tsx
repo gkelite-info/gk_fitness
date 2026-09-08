@@ -76,6 +76,13 @@ export default function TrainerLayout() {
           headerShown: true,
         }}
       />
+      <Tabs.Screen
+        name="weeklyWorkoutPlan"
+        options={{
+          href: null,
+          headerShown: true,
+        }}
+      />
     </Tabs>
   );
 }

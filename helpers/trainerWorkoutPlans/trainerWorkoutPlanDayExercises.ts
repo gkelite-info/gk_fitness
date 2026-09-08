@@ -49,6 +49,26 @@ export async function fetchTrainerWorkoutPlanDayExercises(planDayId?: string) {
   return data ?? [];
 }
 
+export async function fetchPaginatedTrainerWorkoutPlanDayExercises(planDayId: string | null | undefined, page: number, limit: number) {
+  if (!planDayId) return { data: [], total: 0 };
+  const offset = (page - 1) * limit;
+
+  const { data, error, count } = await supabase
+    .from('trainer_workout_plan_day_exercises')
+    .select('*', { count: 'exact' })
+    .eq('planDayId', planDayId)
+    .is('deletedAt', null)
+    .order('order', { ascending: true })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.error('[trainerWorkoutPlanDayExercisesHelper] fetchPaginatedTrainerWorkoutPlanDayExercises Error:', error);
+    throw error;
+  }
+
+  return { data: data ?? [], total: count ?? 0 };
+}
+
 export async function fetchTrainerWorkoutPlanDayExerciseById(dayExerciseId: string) {
   const { data, error } = await supabase
     .from('trainer_workout_plan_day_exercises')

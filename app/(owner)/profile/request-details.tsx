@@ -63,6 +63,10 @@ export default function RequestDetailsScreen() {
       updateStatus({ personalTrainerRequestId: requestId, status: modalAction }, {
         onSuccess: () => {
           if (modalAction === 'approved' && request && currentGymOwner?.gymOwnerId && gymCustomer?.gymId) {
+            const assignedDate = new Date();
+            const expiryDate = new Date(assignedDate);
+            expiryDate.setMonth(expiryDate.getMonth() + 1);
+
             saveTrainer({
               gymId: gymCustomer.gymId,
               customerId: request.requestedBy,
@@ -70,6 +74,8 @@ export default function RequestDetailsScreen() {
               weekDays: Array.isArray(request.preferredWorkoutDays) ? request.preferredWorkoutDays : (typeof request.preferredWorkoutDays === 'string' ? request.preferredWorkoutDays.split(',').map((s: string) => s.trim()) : []),
               timings: request.preferredWorkoutTime || '-',
               assignedBy: currentGymOwner.gymOwnerId,
+              renewalOn: assignedDate.toISOString(),
+              expiryOn: expiryDate.toISOString(),
               isActive: true
             }, {
               onSuccess: () => {

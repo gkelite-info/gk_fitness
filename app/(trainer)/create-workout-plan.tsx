@@ -4,11 +4,14 @@ import { ArrowLeft, MagnifyingGlass, Funnel, CalendarBlank, ArrowRight, User } f
 import { useRouter } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { usePaginatedAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
+import { useTrainerWorkoutPlansByCreator } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlans';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function CreateWorkoutPlanScreen() {
   const router = useRouter();
   const { userId } = useUser();
+
+  const { data: trainerPlans } = useTrainerWorkoutPlansByCreator(userId ?? undefined);
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
@@ -131,6 +134,7 @@ export default function CreateWorkoutPlanScreen() {
 
     const isSelected = selectedCustomerId === customer.customerId;
     const profilePic = customer.users?.profilePhoto;
+    const hasActivePlan = trainerPlans?.some((plan: any) => plan.userId === customer.customerId && plan.isActive);
 
     return (
       <Pressable
@@ -151,8 +155,10 @@ export default function CreateWorkoutPlanScreen() {
             <Text className="text-[#6B7280] text-[10px] font-medium">{customer.customId || 'No ID'}</Text>
           </View>
           <View className="flex-row items-center">
-            <CalendarBlank size={12} color="#CCFF00" weight="regular" />
-            <Text className="text-[#CCFF00] text-[11px] ml-1.5 font-medium">No workout plan yet</Text>
+            <CalendarBlank size={12} color={hasActivePlan ? "#10B981" : "#CCFF00"} weight="regular" />
+            <Text className={`text-[11px] ml-1.5 font-medium ${hasActivePlan ? 'text-[#10B981]' : 'text-[#CCFF00]'}`}>
+              {hasActivePlan ? "Active workout plan" : "No workout plan yet"}
+            </Text>
           </View>
         </View>
 

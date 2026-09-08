@@ -1,12 +1,28 @@
-import React from 'react';
-import { View, ScrollView, Text, Image, Pressable } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, ScrollView, Text, Image, Pressable, ActivityIndicator } from 'react-native';
 import { CaretRight, Plus, Users, User, ArrowRight, ClipboardText, Bag, Star } from 'phosphor-react-native';
 import { useRouter } from 'expo-router';
 import { useUser } from '@/context/UserContext';
+import { useAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
 
 export default function TrainerHome() {
   const router = useRouter();
-  const { name } = useUser();
+  const { userId, name } = useUser();
+
+  const { data: assignments, isLoading: loadingAssignments } = useAssignedCustomersByTrainer(userId ?? undefined);
+
+  const todaySessionsCount = useMemo(() => {
+    if (!assignments) return 0;
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const fullDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const today = days[new Date().getDay()];
+    const todayFull = fullDays[new Date().getDay()];
+
+    return assignments.filter((assignment: any) => {
+      const daysArr = assignment.weekDays || [];
+      return daysArr.includes(today) || daysArr.includes(todayFull);
+    }).length;
+  }, [assignments]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -67,7 +83,11 @@ export default function TrainerHome() {
               </View>
               <View>
                 <Text className="text-[#A3A3A3] text-xs">PT Sessions</Text>
-                <Text className="text-white text-2xl font-semibold">3</Text>
+                {loadingAssignments ? (
+                  <ActivityIndicator size="small" color="#CCFF00" style={{ alignSelf: 'flex-start', marginTop: 4 }} />
+                ) : (
+                  <Text className="text-white text-2xl font-semibold">{todaySessionsCount}</Text>
+                )}
               </View>
             </View>
             <View className="flex-row items-center justify-between mt-2 pt-3 border-t border-[#1A1A1A]">
@@ -88,7 +108,11 @@ export default function TrainerHome() {
               </View>
               <View>
                 <Text className="text-[#A3A3A3] text-xs">PT Customers</Text>
-                <Text className="text-white text-2xl font-semibold">12</Text>
+                {loadingAssignments ? (
+                  <ActivityIndicator size="small" color="#CCFF00" style={{ alignSelf: 'flex-start', marginTop: 4 }} />
+                ) : (
+                  <Text className="text-white text-2xl font-semibold">{assignments?.length || 0}</Text>
+                )}
               </View>
             </View>
             <View className="flex-row items-center justify-between mt-2 pt-3 border-t border-[#1A1A1A]">
@@ -155,7 +179,10 @@ export default function TrainerHome() {
       <View className="px-5 mb-6">
         <Text className="text-[#CCFF00] text-xs font-semibold tracking-wider mb-3">QUICK ACTIONS</Text>
         <View className="flex-row justify-between">
-          <Pressable className="bg-[#141414] rounded-2xl p-4 border border-[#1A1A1A] flex-1 mr-2 flex-row items-center justify-between">
+          <Pressable
+            className="bg-[#141414] rounded-2xl p-4 border border-[#1A1A1A] flex-1 mr-2 flex-row items-center justify-between"
+            onPress={() => router.push('/(trainer)/create-workout-plan' as any)}
+          >
             <View className="flex-row items-center flex-1">
               <View className="w-10 h-10 rounded-full bg-[#1A1A1A] items-center justify-center mr-2 border border-[#2A2A2A]">
                 <ClipboardText size={18} color="#A3A3A3" />
@@ -201,7 +228,7 @@ export default function TrainerHome() {
               </View>
             </View>
             <View className="bg-[#CCFF00] px-2 py-1 rounded-full flex-row items-center">
-              <Text className="text-black text-[12px] font-semibold mr-1">4</Text>
+              <Text className="text-black text-[12px] font-semibold mr-1">0</Text>
               <Text className="text-black text-[9px] font-semibold">PENDING</Text>
             </View>
           </View>

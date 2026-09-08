@@ -94,19 +94,23 @@ export default function PlansScreen() {
 
 function PlanCard({ plan }: { plan: any }) {
   const router = useRouter();
-  
+
   const customerName = plan.customer?.fullName || 'Unknown Customer';
   const customId = plan.customer?.customId || 'No ID';
   const profilePhoto = plan.customer?.users?.profilePhoto;
-  
+
   const workoutDaysCount = plan.days?.filter((d: any) => d.workoutType !== 'Rest').length || 0;
-  
-  // Format date nicely
+
   const updateDate = plan.updatedAt ? new Date(plan.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Unknown';
 
   const handlePress = () => {
-    // Optionally navigate to view/edit the plan
-    // router.push({ pathname: '/(trainer)/workoutPlan/edit', params: { planId: plan.planId } });
+    const customerId = plan.userId || plan.customer?.customerId;
+    if (customerId) {
+      router.push({
+        pathname: '/(trainer)/weeklyWorkoutPlan',
+        params: { customerId }
+      } as any);
+    }
   };
 
   return (

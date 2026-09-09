@@ -2,8 +2,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useUser } from '@/context/UserContext';
 import { supabaseFitnessService } from '@/lib/services/supabaseFitnessService';
 import { Pedometer } from 'expo-sensors';
-import { Platform } from 'react-native';
+import { Platform, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  initialize,
+  requestPermission,
+  readRecords,
+} from 'react-native-health-connect';
 
 interface PedometerContextValue {
   isAvailable: boolean;
@@ -25,6 +30,34 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
   const [debugInfo, setDebugInfo] = useState('');
   const { userId } = useUser();
 
+  const syncSteps = async (isMounted: boolean) => {
+    try {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const now = new Date();
+
+      if (Platform.OS === 'ios') {
+        const result = await Pedometer.getStepCountAsync(startOfDay, now);
+        if (isMounted && result) setSteps(result.steps);
+      } else if (Platform.OS === 'android') {
+        // Use Health Connect to fetch steps (includes background history)
+        const result = await readRecords('Steps', {
+          timeRangeFilter: {
+            operator: 'between',
+            startTime: startOfDay.toISOString(),
+            endTime: now.toISOString(),
+          },
+        });
+        
+        // Sum up the step count from all records
+        const totalSteps = result.records.reduce((sum: number, record: any) => sum + (record.count || 0), 0);
+        if (isMounted) setSteps(totalSteps);
+      }
+    } catch (e) {
+      console.warn("Error syncing steps:", e);
+    }
+  };
+
   useEffect(() => {
     let subscription: Pedometer.Subscription | null = null;
     let isMounted = true;
@@ -32,95 +65,50 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
     const subscribe = async () => {
       try {
         if (Platform.OS === 'android') {
-          setDebugInfo('Requesting permissions...');
-          const { status } = await Pedometer.requestPermissionsAsync();
+          setDebugInfo('Initializing Health Connect...');
           
-          if (status !== 'granted') {
+          try {
+            const isInitialized = await initialize();
+            if (!isInitialized) {
+              throw new Error("Failed to initialize Health Connect");
+            }
+
+            setDebugInfo('Requesting Health Connect permissions...');
+            await requestPermission([
+              { accessType: 'read', recordType: 'Steps' },
+            ]);
+            
+            if (isMounted) setIsAvailable(true);
+            setDebugInfo('Health Connect Ready.');
+            
+            // Sync immediately on mount
+            await syncSteps(isMounted);
+
+          } catch (err: any) {
+            console.warn("Health Connect Error:", err);
             if (isMounted) {
               setIsAvailable(false);
-              setDebugInfo(`Permission denied. Status: ${status}`);
-            }
-            return;
-          }
-        }
-
-        setDebugInfo(`Checking sensor availability...`);
-        const available = await Pedometer.isAvailableAsync();
-        
-        if (isMounted) {
-          setIsAvailable(available);
-          setDebugInfo(`Sensor Available: ${available}`);
-        }
-
-        if (!available) return;
-
-        if (Platform.OS === 'ios') {
-          const end = new Date();
-          const start = new Date();
-          start.setHours(0, 0, 0, 0);
-          
-          const result = await Pedometer.getStepCountAsync(start, end);
-          const initialSteps = result ? result.steps : 0;
-          if (isMounted) setSteps(initialSteps);
-
-          subscription = Pedometer.watchStepCount(watchResult => {
-            if (isMounted) setSteps(initialSteps + watchResult.steps);
-          });
-        } else if (Platform.OS === 'android') {
-          let currentTotalSteps = 0;
-          try {
-            const end = new Date();
-            const start = new Date();
-            start.setHours(0, 0, 0, 0);
-            
-            const result = await Pedometer.getStepCountAsync(start, end);
-            currentTotalSteps = result ? result.steps : 0;
-          } catch (err) {
-            console.warn('Pedometer.getStepCountAsync failed on Android (expected on some devices/SDKs):', err);
-            // Fallback to 0 so we can at least track steps while the app is open using watchStepCount
-            currentTotalSteps = 0;
-          }
-          
-          const todayDate = new Date().toISOString().split('T')[0];
-          const stateKey = `@android_pedometer_state_${todayDate}`;
-          
-          let state = {
-            lastTotalSteps: currentTotalSteps,
-            accumulatedSteps: 0,
-          };
-          
-          const cachedState = await AsyncStorage.getItem(stateKey);
-          if (cachedState) {
-            try {
-              const parsed = JSON.parse(cachedState);
-              if (currentTotalSteps < parsed.lastTotalSteps) {
-                state.accumulatedSteps = parsed.accumulatedSteps;
-                state.lastTotalSteps = currentTotalSteps;
-              } else {
-                const diff = currentTotalSteps - parsed.lastTotalSteps;
-                state.accumulatedSteps = parsed.accumulatedSteps + diff;
-                state.lastTotalSteps = currentTotalSteps;
-              }
-            } catch (e) {
-              console.warn('Failed to parse pedometer state', e);
+              setDebugInfo(`Health Connect Error: ${err.message || JSON.stringify(err)}`);
             }
           }
+        } else if (Platform.OS === 'ios') {
+          // Keep using Expo Pedometer for iOS (uses Apple Health natively)
+          setDebugInfo(`Checking sensor availability...`);
+          const available = await Pedometer.isAvailableAsync();
           
-          await AsyncStorage.setItem(stateKey, JSON.stringify(state));
-          
-          let currentDailySteps = state.accumulatedSteps;
-          if (isMounted) setSteps(currentDailySteps);
+          if (isMounted) {
+            setIsAvailable(available);
+            setDebugInfo(`Sensor Available: ${available}`);
+          }
 
-          subscription = Pedometer.watchStepCount(watchResult => {
-            if (!isMounted) return;
-            const newTotalDaily = currentDailySteps + watchResult.steps;
-            setSteps(newTotalDaily);
-            
-            const updatedState = {
-              lastTotalSteps: currentTotalSteps + watchResult.steps,
-              accumulatedSteps: newTotalDaily
-            };
-            AsyncStorage.setItem(stateKey, JSON.stringify(updatedState)).catch(() => {});
+          if (!available) return;
+
+          await syncSteps(isMounted);
+
+          // Watch for live step updates while app is open
+          subscription = Pedometer.watchStepCount(() => {
+            // Re-sync full Apple Health count to ensure accuracy
+            syncSteps(isMounted);
           });
         }
       } catch (e) {
@@ -131,17 +119,24 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
     subscribe();
 
+    // Re-sync steps every time the app comes back to the foreground
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        syncSteps(isMounted);
+      }
+    };
+    const appStateSub = AppState.addEventListener('change', handleAppStateChange);
+
     return () => {
       isMounted = false;
-      if (subscription) {
-        subscription.remove();
-      }
+      if (subscription) subscription.remove();
+      appStateSub.remove();
     };
   }, []);
 
   const calories = Math.round(steps * 0.04);
 
-  // Auto-sync debouncer: syncs to Supabase 10 seconds after user stops walking
+  // Auto-sync debouncer: syncs to Supabase 10 seconds after user stops walking or data updates
   useEffect(() => {
     if (!userId || steps === 0) return;
 

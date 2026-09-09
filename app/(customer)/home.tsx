@@ -30,7 +30,8 @@ import {
 } from 'phosphor-react-native';
 import { usePedometer } from '@/hooks/fitness/usePedometer';
 import { useFitnessStats } from '@/hooks/fitness/useFitnessStats';
-
+import { useWorkoutStreak } from '@/hooks/customerWorkouts/useWorkoutStreak';
+import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
 
 
 export default function CustomerHome() {
@@ -39,6 +40,8 @@ export default function CustomerHome() {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const { data: dashboardData, isLoading: isLoadingDashboard, refetch: refetchDashboard } = useCustomerDashboardData(userId);
+  const { data: streakData } = useWorkoutStreak();
+  const { data: weeklyStats, refetch: refetchWeeklyStats } = useWeeklyStats(userId);
   const { data: onboardingStatus, isLoading: isCheckingOnboarding, refetch: refetchOnboarding } = useCustomerOnboardingStatus(userId);
 
   const todayWorkoutDayId = dashboardData?.todayWorkout?.dayId || null;
@@ -124,6 +127,7 @@ export default function CustomerHome() {
         refetchOnboarding(),
         refetchStats(),
         fetchMembershipInfo(),
+        refetchWeeklyStats(),
       ]);
     } catch (error) {
       console.error('[Customer Home] Refresh error:', error);
@@ -151,14 +155,37 @@ export default function CustomerHome() {
     );
   }
 
-  const weeklyBars = [
-    { day: 'M', height: 45, active: true },
-    { day: 'T', height: 75, active: true },
-    { day: 'W', height: 60, active: true },
-    { day: 'T', height: 85, active: true },
-    { day: 'F', height: 25, active: false },
-    { day: 'S', height: 35, active: false },
-    { day: 'S', height: 20, active: false },
+  const waterCompletion = Math.min((weeklyStats?.totals.water || 0) / (weeklyStats?.totals.waterGoal || 1), 1);
+  const stepsCompletion = Math.min((weeklyStats?.totals.steps || 0) / (weeklyStats?.totals.stepGoal || 1), 1);
+  const workoutCompletion = Math.min((weeklyStats?.totals.workouts || 0) / (weeklyStats?.totals.workoutGoal || 1), 1);
+
+  const overallCompletion = Math.round(((waterCompletion + stepsCompletion + workoutCompletion) / 3) * 100) || 0;
+
+  const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+  const dynamicWeeklyBars = weeklyStats?.thisWeek?.map((d) => {
+    const dateObj = new Date(d.date);
+    const dayStr = daysOfWeek[dateObj.getDay()];
+    
+    const waterP = Math.min((d.waterIntake || 0) / (d.waterGoal || 1), 1);
+    const stepP = Math.min((d.steps || 0) / (d.stepGoal || 1), 1);
+    const workP = Math.min((d.activeMinutes || 0) > 0 ? 1 : 0, 1);
+    
+    const dailyHeight = Math.round(((waterP + stepP + workP) / 3) * 100);
+
+    return {
+      day: dayStr,
+      height: dailyHeight || 5, // minimum height
+      active: dailyHeight >= 50
+    };
+  }) || [
+    { day: 'M', height: 5, active: false },
+    { day: 'T', height: 5, active: false },
+    { day: 'W', height: 5, active: false },
+    { day: 'T', height: 5, active: false },
+    { day: 'F', height: 5, active: false },
+    { day: 'S', height: 5, active: false },
+    { day: 'S', height: 5, active: false },
   ];
 
   return (
@@ -339,18 +366,21 @@ export default function CustomerHome() {
           </View>
         </Pressable>
 
-        <View className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4">
+        <Pressable 
+          onPress={() => router.push('/(customer)/streak-details')}
+          className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4 active:opacity-80"
+        >
           <View className="w-8 h-8 rounded-full bg-[#FB923C]/10 items-center justify-center mb-2">
             <Lightning size={20} color="#FB923C" weight="fill" />
           </View>
-          <Text className="text-white text-3xl font-semibold mt-1">12</Text>
-          <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
-            DAY STREAK
+          <Text className="text-white text-3xl font-semibold mt-1">{streakData?.currentStreak || 0}</Text>
+          <Text className="text-[#8E8E8E] text-[11px] font-semibold tracking-wider mt-1">
+            WORKOUT STREAK
           </Text>
           <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
-            <View className="h-full bg-[#FB923C] rounded-full" style={{ width: '85%' }} />
+            <View className="h-full bg-[#FB923C] rounded-full" style={{ width: `${Math.min(((streakData?.currentStreak || 0) / 7) * 100, 100)}%` }} />
           </View>
-        </View>
+        </Pressable>
       </View>
 
       <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4">
@@ -358,7 +388,7 @@ export default function CustomerHome() {
           <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider">
             WEEKLY PROGRESS
           </Text>
-          <Pressable className="flex-row items-center gap-1 active:opacity-80">
+          <Pressable onPress={() => router.push('/(customer)/weekly-progress')} className="flex-row items-center gap-1 active:opacity-80">
             <Text className="text-[#8E8E93] text-xs font-medium">View All</Text>
             <ArrowRight size={13} color="#8E8E93" />
           </Pressable>
@@ -367,21 +397,21 @@ export default function CustomerHome() {
         <View className="flex-row items-end justify-between">
           <View className="justify-end mb-2">
             <View className="flex-row items-baseline">
-              <Text className="text-white text-4xl font-semibold">68</Text>
+              <Text className="text-white text-4xl font-semibold">{overallCompletion}</Text>
               <Text className="text-white text-xl font-semibold ml-0.5">%</Text>
             </View>
             <Text className="text-[#8E8E93] text-xs font-medium mt-1">Completed</Text>
           </View>
 
           <View className="flex-row items-end gap-2.5">
-            {weeklyBars.map((item, index) => (
+            {dynamicWeeklyBars.map((item, index) => (
               <View key={index} className="items-center gap-2">
                 <View className="w-3.5 h-20 bg-[#1E1E1E] rounded-full justify-end overflow-hidden">
                   <View
                     className="w-full rounded-full"
                     style={{
                       height: `${item.height}%`,
-                      backgroundColor: item.active ? '#C4EF00' : '#2A2A2A',
+                      backgroundColor: item.height > 5 ? `rgba(196, 239, 0, ${Math.max(item.height / 100, 0.2)})` : '#2A2A2A',
                     }}
                   />
                 </View>

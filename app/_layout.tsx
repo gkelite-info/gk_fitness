@@ -1,6 +1,6 @@
 import '@/global.css';
 
-import { ThemeProvider as NavThemeProvider } from '@react-navigation/native';
+import { ThemeProvider as NavThemeProvider } from 'expo-router';
 import * as Device from 'expo-device';
 import { Link, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -66,6 +66,7 @@ export default function RootLayout() {
         persistOptions={{ persister: asyncStoragePersister }}
       >
         <UserProvider>
+          {/* @ts-ignore - backgroundColor works in Expo StatusBar */}
           <StatusBar style="light" backgroundColor="#0A0A0A" />
           <GestureHandlerRootView style={{ flex: 1 }}>
             <NavThemeProvider value={NAV_THEME['dark']}>

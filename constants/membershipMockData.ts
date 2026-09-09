@@ -12,6 +12,7 @@ export interface MembershipPlan {
   priceNumeric: string;
   billingCycle: string;
   duration: string;
+  durationMonths?: number;
   membersCount: number;
   membersText: string;
   features: string[];

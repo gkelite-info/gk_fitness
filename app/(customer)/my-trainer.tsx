@@ -20,9 +20,9 @@ const TIME_SLOTS = [
 export default function MyTrainerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { 
-    trainer, selectedSlot, setSelectedSlot, bookSelectedSlot, 
-    nextSessionTime, isSessionCancelled, cancelSession, resetTrainer 
+  const {
+    trainer, selectedSlot, setSelectedSlot, bookSelectedSlot,
+    nextSessionTime, isSessionCancelled, cancelSession, resetTrainer
   } = useTrainerStore();
 
   const [showPlanModal, setShowPlanModal] = useState(false);
@@ -41,42 +41,42 @@ export default function MyTrainerScreen() {
         <Pressable onPress={() => router.back()} className="p-2 -ml-1 active:opacity-70">
           <CaretLeft size={22} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="flex-1 text-center text-white text-xl font-bold mr-8">My Trainer</Text>
+        <Text className="flex-1 text-center text-white text-xl font-semibold mr-8">My Trainer</Text>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
-        
+
         <View className="bg-[#141414] rounded-3xl p-4 border border-[#222222] mb-5 flex-row items-center justify-between">
           <View className="flex-row items-center flex-1 pr-2">
             <View className="relative">
-              <Image 
-                source={{ uri: trainer.image }} 
+              <Image
+                source={{ uri: trainer.image }}
                 className="w-16 h-16 rounded-full border border-[#27272A]"
               />
               <View className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#00FF66] rounded-full border-2 border-[#141414]" />
             </View>
-            
+
             <View className="ml-3.5 flex-1">
               <View className="flex-row items-center justify-between">
-                <Text className="text-white text-lg font-bold mr-1" numberOfLines={1}>{trainer.name}</Text>
-                <Pressable 
+                <Text className="text-white text-lg font-semibold mr-1" numberOfLines={1}>{trainer.name}</Text>
+                <Pressable
                   onPress={() => router.push(`/(customer)/trainer/${trainer.id}` as any)}
                   className="flex-row items-center active:opacity-70"
                 >
-                  <Text className="text-[#D4FF00] text-xs font-bold mr-1">View Profile</Text>
+                  <Text className="text-[#D4FF00] text-xs font-semibold mr-1">View Profile</Text>
                   <CaretRight size={12} color="#D4FF00" weight="bold" />
                 </Pressable>
               </View>
-              
+
               <Text className="text-[#8E8E93] text-[11px] mt-0.5 mb-1.5" numberOfLines={1}>{trainer.specialty}</Text>
-              
+
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center">
                   <Star size={12} color="#D4FF00" weight="fill" />
-                  <Text className="text-white text-xs font-bold ml-1">{trainer.rating}</Text>
+                  <Text className="text-white text-xs font-semibold ml-1">{trainer.rating}</Text>
                   <Text className="text-[#8E8E93] text-xs ml-1">({trainer.reviews} Reviews)</Text>
                 </View>
-                
+
                 <View className="flex-row items-center ml-2">
                   <ShieldCheck size={14} color="#D4FF00" weight="fill" />
                   <Text className="text-[#D4FF00] text-[10px] font-extrabold ml-1 tracking-wider">ACTIVE</Text>
@@ -96,8 +96,8 @@ export default function MyTrainerScreen() {
                 PERSONAL TRAINING PLAN
               </Text>
             </View>
-            
-            <Pressable 
+
+            <Pressable
               onPress={() => setShowPlanModal(true)}
               className="bg-[#202022] px-3.5 py-1.5 rounded-full flex-row items-center active:opacity-70"
             >
@@ -112,25 +112,25 @@ export default function MyTrainerScreen() {
               <Text className="text-white font-extrabold text-[13px]">12 Sessions</Text>
               <Text className="text-[#8E8E93] text-[9px] mt-0.5">/ Month</Text>
             </View>
-            
+
             <View className="w-[1px] h-9 bg-[#27272A] mx-1.5" />
-            
+
             <View className="flex-1 px-1">
               <Text className="text-[#8E8E93] text-[9px] font-medium mb-1">Remaining Sessions</Text>
               <Text className="text-[#D4FF00] font-extrabold text-lg leading-6">08</Text>
               <Text className="text-[#8E8E93] text-[9px] mt-0.5">of 12</Text>
             </View>
-            
+
             <View className="w-[1px] h-9 bg-[#27272A] mx-1.5" />
-            
+
             <View className="flex-1 px-1">
               <Text className="text-[#8E8E93] text-[9px] font-medium mb-1">Renewal In</Text>
               <Text className="text-[#D4FF00] font-extrabold text-[13px]">18 Days</Text>
               <Text className="text-[#8E8E93] text-[9px] mt-0.5">on 02 Aug 2026</Text>
             </View>
-            
+
             <View className="w-[1px] h-9 bg-[#27272A] mx-1.5" />
-            
+
             <View className="flex-1 pl-1">
               <Text className="text-[#8E8E93] text-[9px] font-medium mb-1">Next Renewal</Text>
               <Text className="text-white font-extrabold text-[13px]">02 Aug 2026</Text>
@@ -140,23 +140,23 @@ export default function MyTrainerScreen() {
         </View>
 
         <Text className="text-white text-xs font-extrabold uppercase tracking-wider mb-3 ml-1">NEXT SESSION</Text>
-        
+
         <View className="bg-[#141414] rounded-3xl p-5 border border-[#222222] mb-7">
           <View className="flex-row items-center mb-6">
             <View className="w-14 h-14 bg-[#222224] rounded-2xl items-center justify-center mr-4 border border-[#2E2E30]">
               <Barbell size={28} color="#66666A" weight="fill" />
             </View>
-            
+
             <View className="flex-1">
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-white text-base font-bold">Upper Body Strength</Text>
+                <Text className="text-white text-base font-semibold">Upper Body Strength</Text>
                 {isSessionCancelled && (
                   <View className="bg-[#3A1010] border border-[#FF3B30] px-2 py-0.5 rounded-md">
-                    <Text className="text-[#FF3B30] text-[10px] font-bold uppercase">Cancelled</Text>
+                    <Text className="text-[#FF3B30] text-[10px] font-semibold uppercase">Cancelled</Text>
                   </View>
                 )}
               </View>
-              
+
               <View className="flex-row items-center justify-start">
                 <View className="flex-row items-center mr-6">
                   <CalendarBlank size={14} color="#8E8E93" />
@@ -165,7 +165,7 @@ export default function MyTrainerScreen() {
                     <Text className="text-white text-xs font-semibold mt-0.5">16 Jul 2026</Text>
                   </View>
                 </View>
-                
+
                 <View className="flex-row items-center">
                   <Clock size={14} color="#8E8E93" />
                   <View className="ml-1.5">
@@ -178,16 +178,16 @@ export default function MyTrainerScreen() {
           </View>
 
           <View className="flex-row gap-3">
-            <Pressable 
+            <Pressable
               onPress={() => {
                 setShowAllSlotsModal(true);
               }}
               className="flex-1 border border-[#D4FF00] bg-[#1C2307] rounded-2xl py-3.5 items-center justify-center active:opacity-70"
             >
-              <Text className="text-[#D4FF00] font-bold text-sm">Reschedule</Text>
+              <Text className="text-[#D4FF00] font-semibold text-sm">Reschedule</Text>
             </Pressable>
-            
-            <Pressable 
+
+            <Pressable
               onPress={() => {
                 if (isSessionCancelled) {
                   Alert.alert('Info', 'This session is already cancelled. Select a slot below to re-book.');
@@ -198,7 +198,7 @@ export default function MyTrainerScreen() {
               className={`flex-1 border ${isSessionCancelled ? 'border-[#444] bg-[#222]' : 'border-[#6B1C1C] bg-[#220B0B]'} rounded-2xl py-3.5 flex-row items-center justify-center active:opacity-70`}
             >
               <XCircle size={17} color={isSessionCancelled ? '#8E8E93' : '#FF3B30'} weight="fill" />
-              <Text className={`${isSessionCancelled ? 'text-[#8E8E93]' : 'text-[#FF3B30]'} font-bold text-sm ml-2`}>
+              <Text className={`${isSessionCancelled ? 'text-[#8E8E93]' : 'text-[#FF3B30]'} font-semibold text-sm ml-2`}>
                 {isSessionCancelled ? 'Cancelled' : 'Cancel Session'}
               </Text>
             </Pressable>
@@ -208,7 +208,7 @@ export default function MyTrainerScreen() {
         <View className="flex-row items-center justify-between mb-3.5 px-1">
           <Text className="text-white text-xs font-extrabold uppercase tracking-wider">BOOK A SLOT</Text>
           <Pressable onPress={() => setShowAllSlotsModal(true)} className="flex-row items-center active:opacity-70">
-            <Text className="text-[#D4FF00] text-xs font-bold mr-1">View All Slots</Text>
+            <Text className="text-[#D4FF00] text-xs font-semibold mr-1">View All Slots</Text>
             <CaretRight size={12} color="#D4FF00" weight="bold" />
           </Pressable>
         </View>
@@ -220,9 +220,8 @@ export default function MyTrainerScreen() {
               <Pressable
                 key={slot.time}
                 onPress={() => setSelectedSlot(slot.time)}
-                className={`rounded-2xl py-3 px-4 w-[112px] items-center justify-center border ${
-                  isSelected ? 'bg-[#1D2507] border-2 border-[#D4FF00]' : 'bg-[#141414] border-[#262628]'
-                } active:opacity-80`}
+                className={`rounded-2xl py-3 px-4 w-[112px] items-center justify-center border ${isSelected ? 'bg-[#1D2507] border-2 border-[#D4FF00]' : 'bg-[#141414] border-[#262628]'
+                  } active:opacity-80`}
               >
                 <Text className={`font-extrabold text-[15px] mb-1.5 ${isSelected ? 'text-[#D4FF00]' : 'text-white'}`}>
                   {slot.time}
@@ -248,53 +247,53 @@ export default function MyTrainerScreen() {
         </Pressable>
 
         <View className="flex-row justify-between gap-x-3 mb-7">
-          <Pressable 
+          <Pressable
             onPress={() => Alert.alert('Workout Plan', 'Displaying your personalized 12-week Strength & Conditioning plan.')}
             className="bg-[#141414] rounded-2xl p-4 flex-1 items-center justify-center border border-[#222222] active:opacity-75"
           >
             <View className="mb-2">
               <ClipboardText size={26} color="#D4FF00" weight="regular" />
             </View>
-            <Text className="text-white text-[13px] font-bold text-center mb-0.5">Workout Plan</Text>
+            <Text className="text-white text-[13px] font-semibold text-center mb-0.5">Workout Plan</Text>
             <Text className="text-[#8E8E93] text-[10px] text-center font-medium">View your plan</Text>
           </Pressable>
-          
-          <Pressable 
+
+          <Pressable
             onPress={() => router.push('/(customer)/progress')}
             className="bg-[#141414] rounded-2xl p-4 flex-1 items-center justify-center border border-[#222222] active:opacity-75"
           >
             <View className="mb-2">
               <ChartBar size={26} color="#D4FF00" weight="regular" />
             </View>
-            <Text className="text-white text-[13px] font-bold text-center mb-0.5">Progress</Text>
+            <Text className="text-white text-[13px] font-semibold text-center mb-0.5">Progress</Text>
             <Text className="text-[#8E8E93] text-[10px] text-center font-medium">Track progress</Text>
           </Pressable>
-          
-          <Pressable 
+
+          <Pressable
             onPress={() => Alert.alert('Session History', 'You have completed 4 sessions this month with excellent consistency!')}
             className="bg-[#141414] rounded-2xl p-4 flex-1 items-center justify-center border border-[#222222] active:opacity-75"
           >
             <View className="mb-2">
               <CalendarCheck size={26} color="#D4FF00" weight="regular" />
             </View>
-            <Text className="text-white text-[13px] font-bold text-center mb-0.5">Session History</Text>
+            <Text className="text-white text-[13px] font-semibold text-center mb-0.5">Session History</Text>
             <Text className="text-[#8E8E93] text-[10px] text-center font-medium">View past sessions</Text>
           </Pressable>
         </View>
 
-        <Pressable 
+        <Pressable
           onPress={() => setShowChangeModal(true)}
           className="bg-[#141414] rounded-3xl p-4 border border-[#222222] mb-8 flex-row items-center justify-between active:opacity-80"
         >
           <View className="w-11 h-11 rounded-full bg-[#232910] border border-[#3E4A15] items-center justify-center mr-4">
             <UserCircle size={26} color="#D4FF00" weight="regular" />
           </View>
-          
+
           <View className="flex-1 mr-2">
-            <Text className="text-white text-[15px] font-bold">Request Trainer Change</Text>
+            <Text className="text-white text-[15px] font-semibold">Request Trainer Change</Text>
             <Text className="text-[#8E8E93] text-xs mt-0.5">Trainer changes are subject to gym approval.</Text>
           </View>
-          
+
           <CaretRight size={18} color="#D4FF00" weight="bold" />
         </Pressable>
 
@@ -308,10 +307,10 @@ export default function MyTrainerScreen() {
               <Text className="text-white text-lg font-extrabold uppercase ml-2.5">Personal Training Plan</Text>
             </View>
             <Text className="text-[#A1A1AA] text-sm leading-6 mb-6">
-              Your ongoing subscription covers <Text className="text-white font-bold">12 1-on-1 personal coaching sessions</Text> every month with your verified trainer.{'\n\n'}
+              Your ongoing subscription covers <Text className="text-white font-semibold">12 1-on-1 personal coaching sessions</Text> every month with your verified trainer.{'\n\n'}
               • Unused sessions carry over for 7 days.{'\n'}
               • Reschedule up to 3 hours prior without losing a session credit.{'\n'}
-              • Next recurring billing is on <Text className="text-[#D4FF00] font-bold">02 Aug 2026</Text> (₹7,999).
+              • Next recurring billing is on <Text className="text-[#D4FF00] font-semibold">02 Aug 2026</Text> (₹7,999).
             </Text>
             <Pressable onPress={() => setShowPlanModal(false)} className="bg-[#D4FF00] py-3.5 rounded-2xl items-center">
               <Text className="text-black font-extrabold text-base">Got It</Text>
@@ -328,7 +327,7 @@ export default function MyTrainerScreen() {
             </View>
             <Text className="text-white text-xl font-extrabold text-center mb-2">Slot Confirmed!</Text>
             <Text className="text-[#A1A1AA] text-sm text-center leading-5 mb-6">
-              Your next training session with <Text className="text-white font-bold">{trainer.name}</Text> is scheduled for <Text className="text-[#D4FF00] font-bold">Tomorrow at {selectedSlot}</Text>.
+              Your next training session with <Text className="text-white font-semibold">{trainer.name}</Text> is scheduled for <Text className="text-[#D4FF00] font-semibold">Tomorrow at {selectedSlot}</Text>.
             </Text>
             <Pressable onPress={() => setShowSuccessModal(false)} className="bg-[#D4FF00] w-full py-3.5 rounded-2xl items-center">
               <Text className="text-black font-extrabold text-base">Awesome</Text>
@@ -341,7 +340,7 @@ export default function MyTrainerScreen() {
         <View className="flex-1 bg-black/80 justify-end">
           <View className="bg-[#141414] rounded-t-3xl p-6 border-t border-[#2A2A2E] max-h-[80%]">
             <View className="flex-row justify-between items-center mb-5">
-              <Text className="text-white text-lg font-bold">Select Available Slot</Text>
+              <Text className="text-white text-lg font-semibold">Select Available Slot</Text>
               <Pressable onPress={() => setShowAllSlotsModal(false)} className="p-2">
                 <Text className="text-[#8E8E93] font-semibold text-sm">Close</Text>
               </Pressable>
@@ -363,11 +362,10 @@ export default function MyTrainerScreen() {
                     setSelectedSlot(s.time);
                     setShowAllSlotsModal(false);
                   }}
-                  className={`w-[48%] p-3.5 rounded-2xl border flex-row justify-between items-center ${
-                    selectedSlot === s.time ? 'bg-[#1D2507] border-[#D4FF00]' : 'bg-[#1C1C1E] border-[#2C2C2E]'
-                  }`}
+                  className={`w-[48%] p-3.5 rounded-2xl border flex-row justify-between items-center ${selectedSlot === s.time ? 'bg-[#1D2507] border-[#D4FF00]' : 'bg-[#1C1C1E] border-[#2C2C2E]'
+                    }`}
                 >
-                  <Text className={`font-bold ${selectedSlot === s.time ? 'text-[#D4FF00]' : 'text-white'}`}>{s.time}</Text>
+                  <Text className={`font-semibold ${selectedSlot === s.time ? 'text-[#D4FF00]' : 'text-white'}`}>{s.time}</Text>
                   <View className="w-2.5 h-2.5 rounded-full bg-[#00FF66]" />
                 </Pressable>
               ))}
@@ -398,24 +396,24 @@ export default function MyTrainerScreen() {
               In the real application, your request will be reviewed by gym admins.{'\n\n'}
               <Text className="text-white font-semibold">For simulation purposes:</Text> Would you like to reset your trainer booking status so you can test the "Book Trainer" & approval flow from scratch?
             </Text>
-            
-            <Pressable 
+
+            <Pressable
               onPress={() => {
                 setShowChangeModal(false);
                 resetTrainer();
                 router.replace('/(customer)/profile');
-              }} 
+              }}
               className="bg-[#2D1212] border border-[#FF3B30] py-3.5 rounded-2xl items-center flex-row justify-center mb-3 active:opacity-75"
             >
               <Trash size={18} color="#FF3B30" weight="bold" />
               <Text className="text-[#FF3B30] font-extrabold text-base ml-2">Reset & Re-test Booking Flow</Text>
             </Pressable>
-            
-            <Pressable 
-              onPress={() => setShowChangeModal(false)} 
+
+            <Pressable
+              onPress={() => setShowChangeModal(false)}
               className="bg-[#262628] py-3.5 rounded-2xl items-center active:opacity-75"
             >
-              <Text className="text-white font-bold text-base">Keep Current Trainer</Text>
+              <Text className="text-white font-semibold text-base">Keep Current Trainer</Text>
             </Pressable>
           </View>
         </View>

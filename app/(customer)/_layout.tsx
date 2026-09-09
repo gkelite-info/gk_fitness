@@ -251,6 +251,42 @@ export default function CustomerLayout() {
             headerShown: false,
           }}
         />
+        <Tabs.Screen
+          name="memberships/index"
+          options={{
+            href: null,
+            headerShown: true,
+          }}
+        />
+        <Tabs.Screen
+          name="memberships/details"
+          options={{
+            href: null,
+            headerShown: true,
+          }}
+        />
+        <Tabs.Screen
+          name="memberships/review"
+          options={{
+            href: null,
+            headerShown: true,
+          }}
+        />
+        <Tabs.Screen
+          name="memberships/payment"
+          options={{
+            href: null,
+            headerShown: true,
+          }}
+        />
+        <Tabs.Screen
+          name="memberships/success"
+          options={{
+            href: null,
+            headerShown: true
+            ,
+          }}
+        />
       </Tabs>
     </PedometerProvider>
   );

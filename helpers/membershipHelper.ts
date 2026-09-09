@@ -66,10 +66,21 @@ export async function fetchGymMembershipPlans(gymId: string): Promise<Membership
       ?.map((mapping: any) => mapping.features?.featureName)
       .filter(Boolean) || [];
 
-    const durationMonths = plan.durationMonths || 1;
+    const rawDuration = plan.durationMonths;
+    let durationMonths = 1;
+    if (rawDuration) {
+      const rawStr = String(rawDuration).toLowerCase().trim();
+      if (rawStr.includes('year')) {
+        const yearMatch = rawStr.match(/\d+/);
+        durationMonths = yearMatch ? parseInt(yearMatch[0], 10) * 12 : 12;
+      } else {
+        const numMatch = rawStr.match(/\d+/);
+        durationMonths = numMatch ? parseInt(numMatch[0], 10) : 1;
+      }
+    }
     const durationString = durationMonths === 1 ? '1 Month' : durationMonths === 12 ? '1 Year' : `${durationMonths} Months`;
     const billingCycle = durationMonths >= 12 ? '/ Year' : '/ Month';
-    
+
     return {
       id: plan.planId,
       name: plan.planName,
@@ -77,6 +88,7 @@ export async function fetchGymMembershipPlans(gymId: string): Promise<Membership
       priceNumeric: plan.price.toString(),
       billingCycle: billingCycle,
       duration: durationString,
+      durationMonths: durationMonths,
       membersCount: 0,
       membersText: '0 Members',
       features: features.length > 0 ? features : ['Standard Gym Access'],
@@ -90,7 +102,7 @@ export async function upsertMembershipPlans(gymId: string, createdBy: string, dr
     const isNew = draft.id.startsWith('plan-');
     let planId = draft.id;
     const priceNum = parseInt(draft.price || '0', 10);
-    
+
     let durationMonths = 1;
     if (draft.duration.toLowerCase().includes('year')) {
       durationMonths = 12;
@@ -115,7 +127,7 @@ export async function upsertMembershipPlans(gymId: string, createdBy: string, dr
         })
         .select('planId')
         .single();
-        
+
       if (insertError || !newPlan) {
         console.error('Error inserting plan:', insertError);
         continue;
@@ -131,18 +143,18 @@ export async function upsertMembershipPlans(gymId: string, createdBy: string, dr
           updatedAt: new Date().toISOString()
         })
         .eq('planId', planId);
-        
+
       if (updateError) {
         console.error('Error updating plan:', updateError);
         continue;
       }
-      
+
       await supabase
         .from('gym_membership_plan_features')
         .delete()
         .eq('planId', planId);
     }
-    
+
     if (draft.selectedFeatureIds && draft.selectedFeatureIds.length > 0) {
       const featureMappings = draft.selectedFeatureIds.map(fid => ({
         planFeatureId: Crypto.randomUUID(),
@@ -151,11 +163,11 @@ export async function upsertMembershipPlans(gymId: string, createdBy: string, dr
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }));
-      
+
       const { error: featureError } = await supabase
         .from('gym_membership_plan_features')
         .insert(featureMappings);
-        
+
       if (featureError) {
         console.error('Error inserting features:', featureError);
       }
@@ -166,13 +178,13 @@ export async function upsertMembershipPlans(gymId: string, createdBy: string, dr
 export async function deleteMembershipPlan(planId: string) {
   const { error } = await supabase
     .from('gym_membership_plans')
-    .update({ 
-      is_deleted: true, 
-      is_Active: false, 
-      deletedAt: new Date().toISOString() 
+    .update({
+      is_deleted: true,
+      is_Active: false,
+      deletedAt: new Date().toISOString()
     })
     .eq('planId', planId);
-    
+
   if (error) {
     console.error('Error deleting plan:', error);
   }

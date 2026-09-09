@@ -3,7 +3,7 @@ import { View, ScrollView, Image, Pressable, TextInput, Modal, FlatList, Activit
 import { Text } from '@/components/nativewindui/Text';
 import { ArrowRightIcon, CaretRightIcon, ClockIcon, HandWavingIcon, Check, Bell, LightningIcon, CalendarIcon, StarIcon, CheckCircleIcon, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass, Robot, CalendarPlus, Sparkle, XCircle, CaretLeft, X, ArrowsClockwise } from 'phosphor-react-native';
 import { BlurView } from 'expo-blur';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from '@/components/ui/Video';
 import { useNavigation, router } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
@@ -728,7 +728,6 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
                         shouldPlay={false}
                         isLooping={false}
                         isMuted={true}
-                        positionMillis={1000}
                       />
                     )
                   ) : (
@@ -933,3 +932,4 @@ function EquipmentView() {
     </View>
   );
 }
+

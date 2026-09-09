@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, TextInput, Image, ActivityIndicator, FlatL
 import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { CaretLeft, Trash, MagnifyingGlass, Plus, Clock, Barbell, ArrowsClockwise } from 'phosphor-react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from '@/components/ui/Video';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 import { useCustomerWeeklyPlan } from '@/hooks/customerWorkouts/useCustomerWeeklyPlan';
@@ -478,3 +478,4 @@ export default function EditWorkoutDay() {
     </View>
   );
 }
+

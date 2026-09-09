@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ImageBackground, Pressable } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 import { X } from 'phosphor-react-native';
 
 export default function WorkoutCountdown() {
@@ -14,27 +14,20 @@ export default function WorkoutCountdown() {
   }>();
 
   const [countdown, setCountdown] = useState(3);
+  const player = useAudioPlayer(require('../../assets/tick.mp3'));
+
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
       let interval: ReturnType<typeof setInterval>;
-      let localSound: Audio.Sound | null = null;
 
       async function startCountdown() {
         setCountdown(3);
 
-        try {
-          const { sound } = await Audio.Sound.createAsync(require('../../assets/tick.mp3'));
-          localSound = sound;
-        } catch (error) {
-          // console.log('Error loading sound:', error);
-        }
-
         if (!isMounted) return;
 
-        if (localSound) {
-          localSound.replayAsync();
-        }
+        player.seekTo(0);
+        player.play();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
         interval = setInterval(() => {
@@ -44,9 +37,8 @@ export default function WorkoutCountdown() {
               return 0;
             }
 
-            if (localSound) {
-              localSound.replayAsync();
-            }
+            player.seekTo(0);
+            player.play();
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
             return prev - 1;
           });
@@ -58,11 +50,8 @@ export default function WorkoutCountdown() {
       return () => {
         isMounted = false;
         if (interval) clearInterval(interval);
-        if (localSound) {
-          localSound.unloadAsync();
-        }
       };
-    }, [])
+    }, [player])
   );
 
   useEffect(() => {

@@ -6,9 +6,11 @@ import { useUser } from '@/context/UserContext';
 import { CaretLeft, CaretDown, CalendarBlank, CaretUp, Info, CheckCircle } from 'phosphor-react-native';
 import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
 import { useWorkoutStreak } from '@/hooks/customerWorkouts/useWorkoutStreak';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function WeeklyProgressScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { userId } = useUser();
   const { data: stats, isLoading } = useWeeklyStats(userId);
   const { data: streakData } = useWorkoutStreak();
@@ -33,17 +35,14 @@ export default function WeeklyProgressScreen() {
 
   // Get date range string
   const getWeekRangeString = () => {
-    if (!thisWeek || thisWeek.length === 0) return 'Loading...';
-    const startDate = new Date(thisWeek[0].date);
-    const endDate = new Date(thisWeek[thisWeek.length - 1].date);
-    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
-    const startStr = startDate.toLocaleDateString('en-GB', options);
-    const endStr = endDate.toLocaleDateString('en-GB', options);
-    const year = endDate.getFullYear();
-    return `${startStr} - ${endStr}, ${year}`;
+    if (!thisWeek || thisWeek.length === 0) return 'This Week';
+    const firstDate = new Date(thisWeek[0].date);
+    const lastDate = new Date(thisWeek[thisWeek.length - 1].date);
+    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+    return `${firstDate.toLocaleDateString('en-US', options)} - ${lastDate.toLocaleDateString('en-US', options)}`;
   };
 
-  // Bar Chart renderer
+  // Helper to render mini vertical bar charts
   const renderBarChart = (
     data: any[],
     getValue: (d: any) => number,
@@ -70,7 +69,6 @@ export default function WeeklyProgressScreen() {
           {data.map((d, index) => {
             const val = getValue(d);
             const height = Math.max((val / maxVal) * chartHeight, 4); // min 4px
-            const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
             return (
               <View key={index} className="items-center" style={{ width: '13%' }}>
@@ -79,7 +77,7 @@ export default function WeeklyProgressScreen() {
                   className="w-2.5 rounded-t-full rounded-b-sm mb-1.5" 
                   style={{ height, backgroundColor: color }} 
                 />
-                <Text className="text-[#8E8E93] text-[9px] font-medium">{dayLabels[index]}</Text>
+                <Text className="text-[#8E8E93] text-[9px] font-medium">{d.day}</Text>
               </View>
             );
           })}
@@ -89,10 +87,10 @@ export default function WeeklyProgressScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A]">
+    <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: Math.max(insets.top + 8, 28) }}>
       <ScrollView 
         className="flex-1" 
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 40 + insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}

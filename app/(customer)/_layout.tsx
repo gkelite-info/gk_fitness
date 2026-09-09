@@ -298,6 +298,7 @@ export default function CustomerLayout() {
           options={{
             href: null,
             headerShown: false,
+            tabBarStyle: { display: 'none' },
           }}
         />
         <Tabs.Screen
@@ -305,6 +306,7 @@ export default function CustomerLayout() {
           options={{
             href: null,
             headerShown: false,
+            tabBarStyle: { display: 'none' },
           }}
         />
       </Tabs>

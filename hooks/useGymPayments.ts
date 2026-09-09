@@ -30,6 +30,17 @@ export function useGymPaymentsPaginated(userId: string | null, page: number = 1,
   });
 }
 
+export function useCustomerGymPaymentsPaginated(customerId: string | null, page: number = 1, limit: number = 10) {
+  return useQuery({
+    queryKey: ['customerGymPaymentsPaginated', customerId, page, limit],
+    queryFn: async () => {
+      if (!customerId) return { data: [], total: 0 };
+      return await fetchGymPaymentsPaginated(undefined, page, limit, { customerId });
+    },
+    enabled: !!customerId,
+  });
+}
+
 export function useSaveGymPayment() {
   const queryClient = useQueryClient();
 

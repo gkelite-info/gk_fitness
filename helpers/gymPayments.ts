@@ -68,7 +68,7 @@ export async function fetchGymPaymentsPaginated(
   gymId?: string,
   page: number = 1,
   limit: number = 10,
-  filters?: { tab?: string; searchQuery?: string }
+  filters?: { tab?: string; searchQuery?: string; customerId?: string }
 ) {
   let query = supabase
     .from('gym_payments')
@@ -92,6 +92,10 @@ export async function fetchGymPaymentsPaginated(
 
   if (filters?.searchQuery) {
     query = query.ilike('gym_customers.fullName', `%${filters.searchQuery}%`);
+  }
+
+  if (filters?.customerId) {
+    query = query.eq('customerId', filters.customerId);
   }
 
   if (filters?.tab === 'Today') {

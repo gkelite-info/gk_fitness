@@ -183,7 +183,12 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
               onPress={() => router.push('/(customer)/trainer/book-trainer')}
             />
           )}
-          <MenuItem icon={<Star size={20} color="#D4FF00" />} title="Membership & Subscription" subtitle="Manage your plan and billing" />
+          <MenuItem
+            icon={<Star size={20} color="#D4FF00" />}
+            title="Membership & Subscription"
+            subtitle="Manage your plan and billing"
+            onPress={() => router.push('/(customer)/memberships' as any)}
+          />
           <MenuItem icon={<Bell size={20} color="#D4FF00" />} title="Notifications" subtitle="Manage your notification preferences" />
           <MenuItem
             icon={<ShieldCheck size={20} color="#D4FF00" />}

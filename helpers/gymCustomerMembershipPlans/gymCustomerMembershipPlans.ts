@@ -32,7 +32,7 @@ export interface SaveGymCustomerMembershipPlanParams {
 export async function fetchGymCustomerMembershipPlans(gymId?: string, customerId?: string) {
   let query = supabase
     .from('gym_customer_membership_plans')
-    .select('*, plan:gym_membership_plans(planName), gym_customers(fullName, email, phone, is_Active, users(profilePhoto, status, createdAt))')
+    .select('*, plan:gym_membership_plans(planName, durationMonths, price), gym_customers(fullName, email, phone, gymId, is_Active, users(profilePhoto, status, createdAt))')
     .eq('is_deleted', false)
     .order('createdAt', { ascending: false });
 
@@ -73,21 +73,81 @@ export async function fetchGymCustomerMembershipPlanById(id: string) {
 export async function saveGymCustomerMembershipPlan(planData: SaveGymCustomerMembershipPlanParams) {
   const now = new Date().toISOString();
 
+  let targetPlanId = planData.GymCustomerMembershipPlanId;
   let isUpdate = false;
-  if (planData.GymCustomerMembershipPlanId) {
+  let existingPlan = null;
+
+  if (targetPlanId) {
     const { data } = await supabase
       .from('gym_customer_membership_plans')
-      .select('GymCustomerMembershipPlanId')
-      .eq('GymCustomerMembershipPlanId', planData.GymCustomerMembershipPlanId)
+      .select('*')
+      .eq('GymCustomerMembershipPlanId', targetPlanId)
       .eq('is_deleted', false)
       .maybeSingle();
 
     if (data) {
       isUpdate = true;
+      existingPlan = data;
     }
   }
 
-  if (isUpdate && planData.GymCustomerMembershipPlanId) {
+  if (!isUpdate && planData.customerId) {
+    let query = supabase
+      .from('gym_customer_membership_plans')
+      .select('*')
+      .eq('customerId', planData.customerId)
+      .eq('is_deleted', false);
+    if (planData.gymId) {
+      query = query.eq('gymId', planData.gymId);
+    }
+    const { data } = await query.order('createdAt', { ascending: false }).limit(1).maybeSingle();
+
+    if (data) {
+      targetPlanId = data.GymCustomerMembershipPlanId;
+      isUpdate = true;
+      existingPlan = data;
+    }
+  }
+
+  let finalStartDate = planData.startDate;
+  let finalEndDate = planData.endDate;
+
+  if (!finalStartDate || !finalEndDate) {
+    let durationMonths = 1;
+    if (planData.planId) {
+      const { data: planInfo } = await supabase
+        .from('gym_membership_plans')
+        .select('durationMonths')
+        .eq('planId', planData.planId)
+        .maybeSingle();
+      if (planInfo?.durationMonths) {
+        // durationMonths is VARCHAR — could be "1", "3", "1 month", "1 year", etc.
+        const rawStr = String(planInfo.durationMonths).toLowerCase().trim();
+        if (rawStr.includes('year')) {
+          const yearMatch = rawStr.match(/\d+/);
+          durationMonths = yearMatch ? parseInt(yearMatch[0], 10) * 12 : 12;
+        } else {
+          const numMatch = rawStr.match(/\d+/);
+          durationMonths = numMatch ? parseInt(numMatch[0], 10) : 1;
+        }
+      }
+    }
+
+    const nowDate = new Date();
+    finalStartDate = nowDate.toISOString();
+
+    const calculatedEnd = new Date(nowDate);
+    const targetDay = nowDate.getDate();
+    calculatedEnd.setMonth(calculatedEnd.getMonth() + durationMonths);
+    if (calculatedEnd.getDate() !== targetDay) {
+      calculatedEnd.setDate(0);
+    }
+    finalEndDate = calculatedEnd.toISOString();
+  }
+
+  const finalIsActive = planData.is_Active !== undefined ? planData.is_Active : true;
+
+  if (isUpdate && targetPlanId) {
     const { data, error } = await supabase
       .from('gym_customer_membership_plans')
       .update({
@@ -95,13 +155,12 @@ export async function saveGymCustomerMembershipPlan(planData: SaveGymCustomerMem
         gymId: planData.gymId,
         planId: planData.planId,
         customAmount: planData.customAmount || 0,
-        startDate: planData.startDate || null,
-        endDate: planData.endDate || null,
-        is_Active: planData.is_Active ?? true,
+        startDate: finalStartDate,
+        endDate: finalEndDate,
+        is_Active: finalIsActive,
         updatedAt: now,
       })
-      .eq('GymCustomerMembershipPlanId', planData.GymCustomerMembershipPlanId)
-      .eq('createdBy', planData.createdBy)
+      .eq('GymCustomerMembershipPlanId', targetPlanId)
       .select();
 
     if (error) {
@@ -110,17 +169,17 @@ export async function saveGymCustomerMembershipPlan(planData: SaveGymCustomerMem
 
     return data ? data[0] : null;
   } else {
-    const generatedId = planData.GymCustomerMembershipPlanId || Crypto.randomUUID();
+    const generatedId = targetPlanId || Crypto.randomUUID();
     const insertPayload = {
       GymCustomerMembershipPlanId: generatedId,
       customerId: planData.customerId,
       gymId: planData.gymId,
       planId: planData.planId,
       customAmount: planData.customAmount || 0,
-      startDate: planData.startDate || null,
-      endDate: planData.endDate || null,
+      startDate: finalStartDate,
+      endDate: finalEndDate,
       createdBy: planData.createdBy,
-      is_Active: planData.is_Active ?? true,
+      is_Active: finalIsActive,
       is_deleted: false,
       createdAt: now,
       updatedAt: now,
@@ -200,7 +259,7 @@ export async function fetchGymCustomerMembershipPlansPaginated(
   if (searchQuery) {
     query = query.ilike('gym_customers.fullName', `%${searchQuery}%`);
   }
-  
+
   if (planId) {
     query = query.eq('planId', planId);
   }

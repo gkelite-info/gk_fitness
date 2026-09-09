@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, ScrollView, Image, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
@@ -13,7 +14,7 @@ import { useCustomerOnboardingStatus, sessionSkippedUsers } from '@/hooks/auth/u
 import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
-import { fetchGymCustomerMembershipPlans } from '@/helpers/gymCustomerMembershipPlans/gymCustomerMembershipPlans';
+import { fetchGymCustomerMembershipPlans, toggleGymCustomerMembershipPlanActiveStatus } from '@/helpers/gymCustomerMembershipPlans/gymCustomerMembershipPlans';
 import {
   Star,
   QrCode,
@@ -55,48 +56,60 @@ export default function CustomerHome() {
 
 
 
-  useEffect(() => {
-    async function fetchMembershipInfo() {
-      if (!userId) return;
-      try {
-        const plans = await fetchGymCustomerMembershipPlans(undefined, userId);
-        const activePlan = plans.find((p: any) => p.is_Active && p.endDate);
-        if (activePlan) {
-          const end = new Date(activePlan.endDate);
-          const now = new Date();
-          const diffTime = end.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          const currentDaysLeft = diffDays > 0 ? diffDays : 0;
-          setDaysLeft(currentDaysLeft);
+  const fetchMembershipInfo = React.useCallback(async () => {
+    if (!userId) return;
+    try {
+      const plans = await fetchGymCustomerMembershipPlans(undefined, userId);
+      const activePlan = plans.find((p: any) => p.is_Active && p.endDate);
+      if (activePlan) {
+        const end = new Date(activePlan.endDate);
+        const now = new Date();
+        const diffTime = end.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const currentDaysLeft = diffDays > 0 ? diffDays : 0;
+        
+        if (diffDays <= 0) {
+          await toggleGymCustomerMembershipPlanActiveStatus(activePlan.GymCustomerMembershipPlanId, true);
+          setDaysLeft(0);
+          setProgressPercentage(0);
+          setPlanName('EXPIRED');
+          return;
+        }
 
-          let percentage = 0;
-          if (activePlan.startDate) {
-            const start = new Date(activePlan.startDate);
-            const totalTime = end.getTime() - start.getTime();
-            const totalDays = Math.ceil(totalTime / (1000 * 60 * 60 * 24));
-            if (totalDays > 0) {
-              percentage = (currentDaysLeft / totalDays) * 100;
-              percentage = Math.min(Math.max(percentage, 0), 100);
-            }
-          }
-          setProgressPercentage(percentage);
+        setDaysLeft(currentDaysLeft);
 
-          const { data: planDetails } = await supabase
-            .from('gym_membership_plans')
-            .select('planName')
-            .eq('planId', activePlan.planId)
-            .maybeSingle();
-
-          if (planDetails?.planName) {
-            setPlanName(planDetails.planName.toUpperCase());
+        let percentage = 0;
+        if (activePlan.startDate) {
+          const start = new Date(activePlan.startDate);
+          const totalTime = end.getTime() - start.getTime();
+          const totalDays = Math.ceil(totalTime / (1000 * 60 * 60 * 24));
+          if (totalDays > 0) {
+            percentage = (currentDaysLeft / totalDays) * 100;
+            percentage = Math.min(Math.max(percentage, 0), 100);
           }
         }
-      } catch (err) {
-        console.error('Error fetching membership info', err);
+        setProgressPercentage(percentage);
+
+        const { data: planDetails } = await supabase
+          .from('gym_membership_plans')
+          .select('planName')
+          .eq('planId', activePlan.planId)
+          .maybeSingle();
+
+        if (planDetails?.planName) {
+          setPlanName(planDetails.planName.toUpperCase());
+        }
       }
+    } catch (err) {
+      console.error('Error fetching membership info', err);
     }
-    fetchMembershipInfo();
   }, [userId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchMembershipInfo();
+    }, [fetchMembershipInfo])
+  );
 
   const today = new Date().toISOString().split('T')[0];
   const { steps, calories } = usePedometer();
@@ -110,13 +123,14 @@ export default function CustomerHome() {
         refetchDashboard(),
         refetchOnboarding(),
         refetchStats(),
+        fetchMembershipInfo(),
       ]);
     } catch (error) {
       console.error('[Customer Home] Refresh error:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchDashboard, refetchOnboarding, refetchStats]);
+  }, [refetchDashboard, refetchOnboarding, refetchStats, fetchMembershipInfo]);
 
   const waterGoal = stats?.waterGoalML || 2500;
   const waterTotal = stats?.totalWaterML || 0;
@@ -175,26 +189,45 @@ export default function CustomerHome() {
               {planName}
             </Text>
           </View>
+          {typeof daysLeft === 'number' && daysLeft > 0 ? (
+            <>
+              <View className="flex-row items-baseline gap-2 mb-3">
+                <Text className="text-white text-4xl font-semibold">{daysLeft}</Text>
+                <Text className="text-[#8E8E93] text-sm font-medium">Days Left</Text>
+              </View>
 
-          <View className="flex-row items-baseline gap-2 mb-3">
-            <Text className="text-white text-4xl font-semibold">{daysLeft}</Text>
-            <Text className="text-[#8E8E93] text-sm font-medium">Days Left</Text>
-          </View>
-
-          <View className="w-full h-1.5 bg-[#262626] rounded-full overflow-hidden">
-            <View className="h-full bg-[#D7FF00] rounded-full" style={{ width: `${progressPercentage}%` }} />
-          </View>
+              <View className="w-full h-1.5 bg-[#262626] rounded-full overflow-hidden">
+                <View className="h-full bg-[#D7FF00] rounded-full" style={{ width: `${progressPercentage}%` }} />
+              </View>
+            </>
+          ) : (
+            <View className="mb-1">
+              <Text className="text-[#EF4444] text-xl font-semibold mb-1">Plan Expired</Text>
+              <Text className="text-[#8E8E93] text-xs font-medium mb-3">Renew your plan to continue your journey.</Text>
+              {/* @ts-ignore */}
+              <Pressable className="bg-[#D7FF00] py-2.5 px-5 rounded-xl self-start active:opacity-80"
+                onPress={() => router.push('/(customer)/memberships' as any)}
+              >
+                <Text className="text-black text-xs font-semibold tracking-wide">RENEW PLAN</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
-        <View className="w-[1px] h-16 bg-[#262626] mx-2" />
+        {typeof daysLeft === 'number' && daysLeft > 0 && (
+          <>
+            <View className="w-[1px] h-16 bg-[#262626] mx-2" />
 
-        <Pressable onPress={openCamera} className="items-center justify-center pl-2 active:opacity-80">
-          <View className="w-12 h-12 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] items-center justify-center mb-1">
-            <QrCode size={26} color="#D7FF00" />
-          </View>
-          <Text className="text-white text-[11px] font-semibold text-center">Check-in</Text>
-          <Text className="text-[#8E8E93] text-[10px] text-center">(QR)</Text>
-        </Pressable>
+            {/* @ts-ignore */}
+            <Pressable onPress={openCamera} className="items-center justify-center pl-2 active:opacity-80">
+              <View className="w-12 h-12 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] items-center justify-center mb-1">
+                <QrCode size={26} color="#D7FF00" />
+              </View>
+              <Text className="text-white text-[11px] font-semibold text-center">Check-in</Text>
+              <Text className="text-[#8E8E93] text-[10px] text-center">(QR)</Text>
+            </Pressable>
+          </>
+        )}
       </View>
 
       <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 relative overflow-hidden flex-row items-center justify-between">
@@ -376,7 +409,7 @@ export default function CustomerHome() {
               <ForkKnife size={14} color="#C0F905" weight="fill" />
             </View>
             <View className="flex-row items-baseline gap-1.5">
-              <Text className="text-[#C0F905] text-lg font-bold">3</Text>
+              <Text className="text-[#C0F905] text-lg font-semibold">3</Text>
               <Text className="text-[#8E8E93] text-xs font-medium">of <Text className="text-[#D4D4D4] font-semibold text-sm">4</Text> meals planned</Text>
             </View>
           </View>

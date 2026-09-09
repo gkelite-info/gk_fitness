@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator } from 'react-native';
 import { useCustomerMealPlan } from '@/hooks/customerMealPlans/useCustomerMealPlan';
@@ -24,22 +24,16 @@ export default function NutritionAnalysis() {
   const { userId } = useUser();
   const { data: fullPlan, isLoading } = useCustomerMealPlan(userId as any);
 
-  useEffect(() => {
-    if (!isLoading && fullPlan && fullPlan.days && fullPlan.days.length > 0) {
-      router.replace('/(customer)/nutrition/my-nutrition-plan');
-    }
-  }, [isLoading, fullPlan, router]);
-
-  const handleBack = () => {
-    router.push('/(customer)/home');
-  };
-
-  if (isLoading || (fullPlan && fullPlan.days && fullPlan.days.length > 0)) {
+  if (isLoading) {
     return (
       <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
         <ActivityIndicator size="large" color="#C4EF00" />
       </View>
     );
+  }
+
+  if (fullPlan && fullPlan.days && fullPlan.days.length > 0) {
+    return <Redirect href="/(customer)/nutrition/my-nutrition-plan" />;
   }
 
   return (
@@ -49,7 +43,7 @@ export default function NutritionAnalysis() {
         contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable onPress={handleBack} className="w-10 h-10 rounded-full bg-[#1A1A1A] border border-[#222222] items-center justify-center mb-6 active:opacity-80">
+        <Pressable onPress={() => router.push('/(customer)/home')} className="w-10 h-10 rounded-full bg-[#1A1A1A] border border-[#222222] items-center justify-center mb-6 active:opacity-80">
           <CaretLeft size={20} color="#FFFFFF" />
         </Pressable>
 

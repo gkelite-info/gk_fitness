@@ -2,18 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { View, ScrollView, Pressable, Image, ImageBackground, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeftIcon as ArrowLeft, StarIcon as Star, CaretDownIcon as CaretDown } from 'phosphor-react-native';
+import { ArrowLeftIcon as ArrowLeft, StarIcon as Star, CaretDownIcon as CaretDown, SunIcon as Sun, CheckIcon as Check } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
+import { fetchGlobalMeals, fetchMealIngredients } from '@/helpers/globalMeals/globalMeals';
+import { saveMealPlanDayMeal } from '@/helpers/customerMealPlans/mealPlanDayMeals';
+import { useUser } from '@/context/UserContext';
+import { fetchCustomerOnboarding } from '@/helpers/onboardingHelper';
+import { getEligibleMealsForUser } from '@/lib/mealEngine';
+import { Modal } from 'react-native';
 
 export default function MealDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { userId } = useUser();
   const [meal, setMeal] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [alternatives, setAlternatives] = useState<any[]>([]);
+  const [visibleLimit, setVisibleLimit] = useState(5);
 
   useEffect(() => {
-    async function loadMeal() {
+    async function loadData() {
       if (!id) return;
+      setLoading(true);
+      setMeal(null);
+      setAlternatives([]);
+      
       const { data, error } = await supabase
         .from('customer_meal_plan_day_meals')
         .select('*')
@@ -22,11 +35,58 @@ export default function MealDetail() {
       
       if (data) {
         setMeal(data);
+        
+        // Fetch alternatives
+        let t = data.mealType;
+        if (t.startsWith('SNACK')) t = 'SNACK';
+        
+        const allMeals = await fetchGlobalMeals();
+        let eligibleMeals = allMeals;
+
+        if (userId) {
+          const profile = await fetchCustomerOnboarding(userId);
+          if (profile) {
+            eligibleMeals = getEligibleMealsForUser(allMeals, profile);
+          }
+        }
+
+        const typePool = eligibleMeals.filter(m => m.mealType.toUpperCase() === t && m.globalMealId !== data.globalMealId);
+        
+        // Scale them based on current meal calories
+        const targetCals = data.calories || 300;
+        const scaledAlternatives = typePool.map(alt => {
+          const baseCals = alt.calories || targetCals;
+          let scalar = targetCals / baseCals;
+          if (alt.isScalable) {
+            scalar = Math.max(alt.minScale || 0.5, Math.min(scalar, alt.maxScale || 2.5));
+          } else {
+            scalar = 1;
+          }
+          
+          const scaledProtein = alt.protein ? Math.round(alt.protein * scalar) : Math.round((targetCals * 0.30) / 4);
+          const scaledCarbs = alt.carbs ? Math.round(alt.carbs * scalar) : Math.round((targetCals * 0.45) / 4);
+          const scaledFat = alt.fat ? Math.round(alt.fat * scalar) : Math.round((targetCals * 0.25) / 9);
+          const scaledFiber = alt.fiber ? Math.round(alt.fiber * scalar) : Math.round(scaledCarbs * 0.15);
+
+          return {
+            ...alt,
+            scaledCalories: alt.calories ? Math.round(alt.calories * scalar) : Math.round(targetCals),
+            scaledProtein,
+            scaledCarbs,
+            scaledFat,
+            scaledFiber,
+            scalar
+          };
+        });
+
+        // Sort by closest calories and take top 20
+        scaledAlternatives.sort((a, b) => Math.abs(a.scaledCalories - targetCals) - Math.abs(b.scaledCalories - targetCals));
+        setAlternatives(scaledAlternatives.slice(0, 20));
       }
       setLoading(false);
     }
-    loadMeal();
-  }, [id]);
+    loadData();
+  }, [id, userId]);
 
   if (loading || !meal) {
     return (
@@ -38,6 +98,8 @@ export default function MealDetail() {
 
   const ingredients = Array.isArray(meal.ingredientsJson) ? meal.ingredientsJson : [];
   const steps = Array.isArray(meal.recipeInstructions) ? meal.recipeInstructions : [];
+  const totalWeight = Math.round(ingredients.reduce((sum: number, ing: any) => sum + (Number(ing.quantity) || 0), 0));
+  const fiberAmount = meal.fiber || Math.round((meal.carbs || 0) * 0.15);
 
   return (
     <View className="flex-1 bg-[#0A0A0A] pb-28">
@@ -94,8 +156,12 @@ export default function MealDetail() {
               <Text className="text-[#8E8E93] text-[10px]">Fat</Text>
             </View>
             <View className="items-center">
-              <Text className="text-white text-lg font-bold mb-1">{meal.prepTimeMinutes || 30}</Text>
-              <Text className="text-[#8E8E93] text-[10px]">mins</Text>
+              <Text className="text-white text-lg font-bold mb-1">{fiberAmount}g</Text>
+              <Text className="text-[#8E8E93] text-[10px]">Fiber</Text>
+            </View>
+            <View className="items-center">
+              <Text className="text-white text-lg font-bold mb-1">{meal.weight || totalWeight}g</Text>
+              <Text className="text-[#8E8E93] text-[10px]">Weight</Text>
             </View>
           </View>
 
@@ -121,42 +187,65 @@ export default function MealDetail() {
               )}
             </View>
           </View>
-
-          <View className="flex-row items-center justify-between mb-6">
-            <Text className="text-white text-lg font-bold">Cooking Steps</Text>
-          </View>
-
-          <View className="mb-8">
-            {steps.map((step: any, idx: number) => {
-              const isLast = idx === steps.length - 1;
-              const text = typeof step === 'string' ? step : (step.text || JSON.stringify(step));
-              return (
-                <View key={idx} className="flex-row items-start relative mb-6">
-                  {!isLast && (
-                    <View className="absolute left-3 top-8 bottom-[-24px] w-[1px] bg-[#333333]" />
-                  )}
-                  <View className={`w-6 h-6 rounded-full items-center justify-center mr-4 z-10 ${idx === 0 ? 'bg-[#C4EF00]' : 'bg-[#0A0A0A] border border-[#C4EF00]'}`}>
-                    <Text className={`text-[10px] font-bold ${idx === 0 ? 'text-black' : 'text-[#C4EF00]'}`}>{idx + 1}</Text>
+          {/* Alternatives List */}
+          <View className="mt-8">
+            <Text className="text-white text-lg font-bold mb-4">Swap with other options</Text>
+            
+            <View className="gap-y-4">
+              {alternatives.slice(0, visibleLimit).map((alt) => (
+                <Pressable
+                  key={alt.globalMealId}
+                  onPress={() => router.push({ 
+                    pathname: '/(customer)/nutrition/alternative-meal-detail', 
+                    params: { 
+                      globalMealId: alt.globalMealId, 
+                      slotId: meal.customerMealPlanDayMealId, 
+                      targetCalories: meal.calories 
+                    } 
+                  })}
+                  className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 flex-row"
+                >
+                  <View className="flex-1 pr-4">
+                    <Text className="text-white text-base font-bold mb-2 mt-1">{alt.mealName}</Text>
+                    <Text className="text-[#8E8E93] text-[11px] leading-4 mb-4">
+                      {alt.description}
+                    </Text>
+  
+                    <View className="flex-row items-center">
+                      <View className="mr-4">
+                        <Text className="text-white text-[12px] font-bold mb-0.5">{alt.scaledCalories}</Text>
+                        <Text className="text-[#8E8E93] text-[8px] uppercase tracking-wider">Kcal</Text>
+                      </View>
+                      <View className="w-[1px] h-6 bg-[#333333] mr-4" />
+                      <View className="flex-row items-center gap-x-3">
+                        <Text className="text-white text-[10px] font-bold"><Text className="text-[#4ADE80]">P</Text> {alt.scaledProtein}g</Text>
+                        <Text className="text-white text-[10px] font-bold"><Text className="text-[#FBBF24]">C</Text> {alt.scaledCarbs}g</Text>
+                        <Text className="text-white text-[10px] font-bold"><Text className="text-[#A78BFA]">F</Text> {alt.scaledFat}g</Text>
+                        <Text className="text-white text-[10px] font-bold"><Text className="text-white">Fi</Text> {alt.scaledFiber}g</Text>
+                      </View>
+                    </View>
                   </View>
-                  <Text className="text-[#8E8E93] text-xs leading-5 flex-1 pr-4">{text}</Text>
-                </View>
-              )
-            })}
-            {steps.length === 0 && (
-              <Text className="text-[#8E8E93] text-[11px]">No cooking steps available.</Text>
-            )}
+                  <View className="w-24 h-24 rounded-2xl overflow-hidden bg-[#1A1A1A] ml-2">
+                    <Image source={{ uri: alt.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600&auto=format&fit=crop' }} className="w-full h-full" resizeMode="cover" />
+                  </View>
+                 
+                </Pressable>
+              ))}
+              {visibleLimit < alternatives.length && (
+                <Pressable 
+                  onPress={() => setVisibleLimit(prev => prev + 5)}
+                  className="mt-2 py-3 items-center justify-center border border-[#333333] rounded-full"
+                >
+                  <Text className="text-[#C4EF00] text-sm font-bold">Load More</Text>
+                </Pressable>
+              )}
+              {alternatives.length === 0 && (
+                <Text className="text-[#8E8E93] text-[11px]">No alternative options found.</Text>
+              )}
+            </View>
           </View>
-
         </View>
       </ScrollView>
-
-      <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#0A0A0A]/95" style={{ paddingBottom: 120 }}>
-        <Pressable 
-          onPress={() => router.push({ pathname: '/(customer)/nutrition/swap-meal', params: { id: meal.customerMealPlanDayMealId, targetCalories: meal.calories } })}
-          className="bg-[#C4EF00] rounded-[20px] py-4 items-center justify-center active:opacity-90">
-          <Text className="text-black font-bold text-lg">Swap Meal</Text>
-        </Pressable>
-      </View>
     </View>
   );
 }

@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, Image, ActivityIndicator, Modal, FlatList 
 import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, Clock, Info, X, ArrowsClockwise } from 'phosphor-react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from '@/components/ui/Video';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainerWorkoutPlanDayById } from '@/helpers/trainerWorkoutPlans/trainerWorkoutPlanDays';
 import { fetchTrainerWorkoutPlanDayExercises } from '@/helpers/trainerWorkoutPlans/trainerWorkoutPlanDayExercises';

@@ -4,25 +4,33 @@ import { Text } from '@/components/nativewindui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { CaretRight, CalendarBlank, FileText, CaretLeft } from 'phosphor-react-native';
+import { useProgressData } from '@/hooks/fitness/useProgressData';
+import { useUpdateMeasurements } from '@/hooks/fitness/useUpdateProgress';
+import { useUser } from '@/context/UserContext';
+import { ActivityIndicator, Alert } from 'react-native';
 
 const MEASUREMENT_FIELDS = [
   { key: 'chest', label: 'Chest', defaultValue: '102', unit: 'cm' },
   { key: 'waist', label: 'Waist', defaultValue: '84', unit: 'cm' },
-  { key: 'shoulders', label: 'Shoulders', defaultValue: '118', unit: 'cm' },
+  { key: 'hips', label: 'Hips', defaultValue: '98', unit: 'cm' },
   { key: 'biceps', label: 'Biceps', defaultValue: '39', unit: 'cm' },
   { key: 'forearms', label: 'Forearms', defaultValue: '31', unit: 'cm' },
   { key: 'thighs', label: 'Thighs', defaultValue: '60', unit: 'cm' },
   { key: 'calves', label: 'Calves', defaultValue: '40', unit: 'cm' },
-  { key: 'neck', label: 'Neck', defaultValue: '38', unit: 'cm' },
-  { key: 'bodyFat', label: 'Body Fat', defaultValue: '18', unit: '%' },
+  { key: 'bodyFatPercentage', label: 'Body Fat', defaultValue: '18', unit: '%' },
 ];
 
 export default function UpdateMeasurementsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { userId } = useUser();
+  const { data: progressData } = useProgressData(userId || null);
+  const { mutateAsync: updateMeasurements, isPending } = useUpdateMeasurements();
   
+  const current = progressData?.measurementHistory?.[0] || {};
+
   const [values, setValues] = useState<Record<string, string>>(
-    MEASUREMENT_FIELDS.reduce((acc, field) => ({ ...acc, [field.key]: field.defaultValue }), {})
+    MEASUREMENT_FIELDS.reduce((acc, field) => ({ ...acc, [field.key]: ((current as any)[field.key] || '').toString() }), {})
   );
   const [notes, setNotes] = useState('');
 
@@ -30,17 +38,39 @@ export default function UpdateMeasurementsScreen() {
     setValues(prev => ({ ...prev, [key]: value }));
   };
 
+  const handleSave = async () => {
+    if (!userId) return;
+    try {
+      const formattedMeasurements: any = {};
+      Object.keys(values).forEach(key => {
+        if (values[key]) {
+          formattedMeasurements[key] = Number(values[key]);
+        }
+      });
+      formattedMeasurements.notes = notes || undefined;
+      
+      await updateMeasurements({
+        userId: userId,
+        measurements: formattedMeasurements
+      });
+      router.back();
+    } catch (e: any) {
+      console.error("Save Measurements Error:", e);
+      Alert.alert("Error saving measurements", e.message || JSON.stringify(e));
+    }
+  };
+
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-[#09090B]"
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View className="flex-1">
           <ScrollView 
             className="flex-1"
             contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             <View className="px-5 pt-6 pb-4">
               
@@ -76,12 +106,14 @@ export default function UpdateMeasurementsScreen() {
                     >
                       <Text className="text-white text-[15px]">{field.label}</Text>
                       <View className="flex-row items-center">
-                        <View className="bg-[#09090B] rounded-lg px-3 py-1.5 min-w-[60px] items-center border border-[#2A2A2D]/30 mr-2">
+                        <View className="bg-[#09090B] rounded-lg min-w-[60px] border border-[#2A2A2D]/30 mr-2 flex-row">
                           <TextInput
-                            className="text-white text-[15px] font-bold p-0 text-center"
+                            className="flex-1 text-white text-[15px] font-bold px-3 py-1.5 text-center"
                             keyboardType="numeric"
                             value={values[field.key]}
                             onChangeText={(val) => updateValue(field.key, val)}
+                            placeholder="0"
+                            placeholderTextColor="#48484A"
                           />
                         </View>
                         <Text className="text-[#8E8E93] text-[13px] w-6">{field.unit}</Text>
@@ -133,16 +165,20 @@ export default function UpdateMeasurementsScreen() {
           >
             <Pressable 
               className="bg-[#D4FF00] rounded-full py-4 flex-row items-center justify-between px-6 active:opacity-80 shadow-lg"
-              onPress={() => router.back()}
+              onPress={handleSave}
+              disabled={isPending}
             >
               <View className="flex-1 items-center">
-                <Text className="text-[#09090B] text-[17px] font-bold">Save Measurements</Text>
+                {isPending ? (
+                  <ActivityIndicator color="#09090B" />
+                ) : (
+                  <Text className="text-[#09090B] text-[17px] font-bold">Save Measurements</Text>
+                )}
               </View>
               <CaretRight size={20} weight="bold" color="#09090B" />
             </Pressable>
           </View>
         </View>
-      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }

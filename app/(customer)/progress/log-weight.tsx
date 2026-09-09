@@ -3,14 +3,37 @@ import { View, Pressable, TextInput, KeyboardAvoidingView, Platform, TouchableWi
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { X, CalendarBlank, CaretDown, CheckCircle } from 'phosphor-react-native';
+import { useProgressData } from '@/hooks/fitness/useProgressData';
+import { useUpdateMeasurements } from '@/hooks/fitness/useUpdateProgress';
+import { useUser } from '@/context/UserContext';
+import { ActivityIndicator } from 'react-native';
 
 export default function LogWeightModal() {
   const router = useRouter();
-  const [weight, setWeight] = useState(72.4);
+  const { userId } = useUser();
+  const { data: progressData } = useProgressData(userId || null);
+  const { mutateAsync: updateMeasurements, isPending } = useUpdateMeasurements();
+  
+  const [weight, setWeight] = useState(progressData?.summary?.currentWeight || 70.0);
   const [notes, setNotes] = useState('');
 
   const handleIncrement = () => setWeight(prev => Number((prev + 0.1).toFixed(1)));
   const handleDecrement = () => setWeight(prev => Number((prev - 0.1).toFixed(1)));
+
+  const handleSave = async () => {
+    if (!userId) return;
+    try {
+      await updateMeasurements({
+        userId: userId,
+        measurements: { weight, notes: notes || undefined },
+        loggedAt: new Date().toISOString()
+      });
+      router.back();
+    } catch (e: any) {
+      console.error("Save Weight Error:", e);
+      import('react-native').then(({ Alert }) => Alert.alert("Error saving weight", e.message || JSON.stringify(e)));
+    }
+  };
 
   return (
     <KeyboardAvoidingView 
@@ -91,11 +114,18 @@ export default function LogWeightModal() {
           {/* Save Button */}
           <View className="pb-8">
             <Pressable 
-              className="bg-[#D4FF00] rounded-full py-4 flex-row items-center justify-center active:opacity-80 shadow-lg"
-              onPress={() => router.back()}
+              className={`rounded-full py-4 flex-row items-center justify-center active:opacity-80 shadow-lg ${isPending ? 'bg-[#D4FF00]/50' : 'bg-[#D4FF00]'}`}
+              onPress={handleSave}
+              disabled={isPending}
             >
-              <Text className="text-[#09090B] font-bold text-[17px] mr-2">Save Weight</Text>
-              <CheckCircle size={20} weight="regular" color="#09090B" />
+              {isPending ? (
+                <ActivityIndicator color="#09090B" />
+              ) : (
+                <>
+                  <Text className="text-[#09090B] font-bold text-[17px] mr-2">Save Weight</Text>
+                  <CheckCircle size={20} weight="regular" color="#09090B" />
+                </>
+              )}
             </Pressable>
           </View>
 

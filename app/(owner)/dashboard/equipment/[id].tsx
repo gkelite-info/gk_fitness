@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, Image, ActivityIndicator } from 'react-nat
 import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Package, Wrench, WarningCircle, Copy, CalendarBlank, ArrowUp, ArrowDown, CheckCircle, Prohibit, X, Minus, Plus, ArrowCircleRight, Gear, ArrowsClockwise } from 'phosphor-react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { fetchGymInventoryById } from '@/helpers/gymInventory/gymInventory';
 import { fetchGymInventoryHistory } from '@/helpers/gymInventory/inventoryHistory';
 import * as Clipboard from 'expo-clipboard';

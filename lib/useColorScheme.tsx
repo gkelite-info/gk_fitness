@@ -39,7 +39,8 @@ function useColorScheme() {
   function setColorScheme(theme: 'light' | 'dark' | 'system') {
     AsyncStorage.setItem(THEME_STORAGE_KEY, theme);
     if (theme === 'system') {
-      setNativewindColorScheme(Appearance.getColorScheme() ?? 'light');
+      const sysTheme = Appearance.getColorScheme();
+      setNativewindColorScheme(sysTheme === 'dark' ? 'dark' : 'light');
     } else {
       setNativewindColorScheme(theme);
     }

@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, Plus, Check, MagnifyingGlass, ArrowsClockwise } from 'phosphor-react-native';
 import { useWorkoutPlan, ExerciseItem } from './_layout';
 import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from '@/components/ui/Video';
 import { supabase } from '@/lib/supabase';
 
 const IMAGE_MAP: { [key: string]: any } = {
@@ -342,3 +342,4 @@ export default function CustomizeWorkout() {
     </View>
   );
 }
+

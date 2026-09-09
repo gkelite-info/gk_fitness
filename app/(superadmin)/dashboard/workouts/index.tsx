@@ -11,7 +11,7 @@ import { triggerLightHaptic, triggerSuccessHaptic } from '@/lib/haptics';
 import { toast } from '@/lib/toast';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import ConfirmModal from '@/components/ConfirmModal';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from '@/components/ui/Video';
 import { supabase } from '@/lib/supabase';
 
 const MUSCLE_GROUPS = [
@@ -385,3 +385,4 @@ export default function WorkoutsScreen() {
     </View>
   );
 }
+

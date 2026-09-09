@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, TouchableOpacity, TouchableWithoutFeedback, Dimensions, Text } from 'react-native';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+// import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+type BottomTabBarProps = any;
 import {
   House,
   User,
@@ -55,14 +56,14 @@ export function CustomTabBar({
         style={{ height: 58, bottom: bottomInset }}
       >
         {state.routes
-          .filter((route) => {
+          .filter((route: any) => {
             const { options } = descriptors[route.key];
             const isHidden =
               (options.tabBarItemStyle && (options.tabBarItemStyle as any).display === 'none') ||
               (options as any).href === null;
             return !isHidden;
           })
-          .map((route) => {
+          .map((route: any) => {
             const isFocused = state.routes[state.index]?.key === route.key;
             const { options } = descriptors[route.key];
 

@@ -100,7 +100,7 @@ export default function CustomerScanScreen() {
 
       {!scanResult ? (
         <CameraView
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           facing="back"
           enableTorch={flashOn}
           onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}

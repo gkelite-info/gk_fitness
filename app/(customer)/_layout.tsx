@@ -217,6 +217,13 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
+          name="nutrition/alternative-meal-detail"
+          options={{
+            href: null,
+            headerShown: true,
+          }}
+        />
+        <Tabs.Screen
           name="nutrition/nutrition-preferences"
           options={{
             href: null,
@@ -283,8 +290,23 @@ export default function CustomerLayout() {
           name="memberships/success"
           options={{
             href: null,
-            headerShown: true
-            ,
+            headerShown: true,
+          }}
+        />
+        <Tabs.Screen
+          name="weekly-progress"
+          options={{
+            href: null,
+            headerShown: false,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
+          name="streak-details"
+          options={{
+            href: null,
+            headerShown: false,
+            tabBarStyle: { display: 'none' },
           }}
         />
       </Tabs>

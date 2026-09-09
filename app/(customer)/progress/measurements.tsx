@@ -5,20 +5,38 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ClockCounterClockwise, PencilSimple, CaretLeft } from 'phosphor-react-native';
 
-const MEASUREMENTS = [
-  { part: 'Chest', prev: 102.5, current: 101.3, unit: 'cm' },
-  { part: 'Waist', prev: 88.2, current: 87.7, unit: 'cm' },
-  { part: 'Hips', prev: 94.0, current: 94.0, unit: 'cm' },
-  { part: 'Biceps', prev: 36.1, current: 36.3, unit: 'cm' },
-  { part: 'Forearms', prev: 28.5, current: 28.5, unit: 'cm' },
-  { part: 'Thighs', prev: 61.2, current: 60.4, unit: 'cm' },
-  { part: 'Calves', prev: 38.2, current: 38.3, unit: 'cm' },
-  { part: 'Body Fat %', prev: 18.6, current: 18.2, unit: '%' },
+import { useProgressData } from '@/hooks/fitness/useProgressData';
+import { useUser } from '@/context/UserContext';
+import { ActivityIndicator } from 'react-native';
+
+const MEASUREMENT_PARTS = [
+  { key: 'chest', label: 'Chest', unit: 'cm' },
+  { key: 'waist', label: 'Waist', unit: 'cm' },
+  { key: 'hips', label: 'Hips', unit: 'cm' },
+  { key: 'biceps', label: 'Biceps', unit: 'cm' },
+  { key: 'forearms', label: 'Forearms', unit: 'cm' },
+  { key: 'thighs', label: 'Thighs', unit: 'cm' },
+  { key: 'calves', label: 'Calves', unit: 'cm' },
+  { key: 'bodyFatPercentage', label: 'Body Fat %', unit: '%' },
 ];
 
 export default function BodyMeasurementsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { userId } = useUser();
+  const { data: progressData, isLoading } = useProgressData(userId || null);
+
+  if (isLoading || !progressData) {
+    return (
+      <View className="flex-1 bg-[#09090B] items-center justify-center">
+        <ActivityIndicator color="#D4FF00" size="large" />
+      </View>
+    );
+  }
+
+  const { measurementHistory } = progressData;
+  const currentMeasurements = measurementHistory[0] || {};
+  const previousMeasurements = measurementHistory[1] || {};
 
   return (
     <View className="flex-1 bg-[#09090B]">
@@ -58,34 +76,35 @@ export default function BodyMeasurementsScreen() {
 
           {/* Measurements List */}
           <View className="bg-[#1C1C1E] rounded-3xl overflow-hidden border border-[#2A2A2D]/50 mb-8">
-            {MEASUREMENTS.map((item, index) => {
-              const diff = item.current - item.prev;
+            {MEASUREMENT_PARTS.map((item, index) => {
+              const currentVal = (currentMeasurements as any)[item.key] || 0;
+              const prevVal = (previousMeasurements as any)[item.key] || 0;
+              const diff = currentVal - prevVal;
               const isReduction = diff < 0;
-              const isIncrease = diff > 0;
               const isSame = diff === 0;
               
               const diffText = isSame ? `0.0 ${item.unit}` : `${diff > 0 ? '+' : ''}${diff.toFixed(1)} ${item.unit}`;
               const diffColor = isReduction ? 'text-[#D4FF00]' : 'text-[#8E8E93]';
               const currentValueColor = isReduction ? 'text-[#D4FF00]' : 'text-white';
               
-              const isLast = index === MEASUREMENTS.length - 1;
+              const isLast = index === MEASUREMENT_PARTS.length - 1;
 
               return (
                 <View 
-                  key={item.part}
+                  key={item.key}
                   className={`flex-row items-center px-5 py-4 ${!isLast ? 'border-b border-[#2A2A2D]/50' : ''}`}
                 >
                   <View className="flex-1 justify-center">
-                    <Text className="text-white text-[17px] mb-1">{item.part}</Text>
+                    <Text className="text-white text-[17px] mb-1">{item.label}</Text>
                     <Text className={`${diffColor} text-[11px] font-bold tracking-wider`}>{diffText}</Text>
                   </View>
                   
                   <View className="w-20 items-center justify-center">
-                    <Text className="text-[#8E8E93] text-[15px]">{item.prev.toFixed(1)}</Text>
+                    <Text className="text-[#8E8E93] text-[15px]">{prevVal.toFixed(1)}</Text>
                   </View>
                   
                   <View className="w-20 items-end justify-center">
-                    <Text className={`${currentValueColor} text-[17px] font-medium`}>{item.current.toFixed(1)}</Text>
+                    <Text className={`${currentValueColor} text-[17px] font-medium`}>{currentVal.toFixed(1)}</Text>
                   </View>
                 </View>
               );

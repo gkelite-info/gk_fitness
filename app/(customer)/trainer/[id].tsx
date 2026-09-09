@@ -143,7 +143,7 @@ export default function TrainerProfileScreen() {
           <Pressable
             onPress={() => {
               router.push({
-                pathname: '/(customer)/trainer-request',
+                pathname: '/(customer)/trainer/trainer-request',
                 params: {
                   id: trainer.gymTrainerId || trainer.globalTrainerId || trainer.id,
                   trainerName: fullName,

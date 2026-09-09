@@ -4,7 +4,7 @@ import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { CaretLeft, Check, Camera, Image as ImageIcon, VideoCamera } from 'phosphor-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from '@/components/ui/Video';
 import { useUser } from '@/context/UserContext';
 import { useCreateStory } from '@/hooks/community/useStories';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -186,3 +186,4 @@ export default function CreateStoryScreen() {
     </KeyboardAvoidingView>
   );
 }
+

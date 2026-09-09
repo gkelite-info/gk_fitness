@@ -4,7 +4,7 @@ import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from '@/components/ui/Video';
 import { X, Eye, DotsThreeVertical, Heart, ChatCircle } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { useActiveStories, useMarkStoryViewed, useStoryViewers, useDeleteStory, useToggleStoryLike } from '@/hooks/community/useStories';
@@ -496,3 +496,4 @@ function ProgressBar({ index, currentIndex, progress }: { index: number, current
     </View>
   );
 }
+

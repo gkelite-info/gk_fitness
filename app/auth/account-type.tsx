@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { View, Pressable, Platform, ScrollView } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { router, Stack } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { User, Buildings, Barbell, Globe, ShieldCheck, CaretRight } from 'phosphor-react-native';
 import { clearSelectedGym } from '@/helpers/tenantHelper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

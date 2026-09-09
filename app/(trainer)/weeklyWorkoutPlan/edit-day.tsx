@@ -9,7 +9,7 @@ import { useTrainerWeeklyPlan } from '@/hooks/trainerWorkoutPlans/useTrainerWeek
 import { useTrainerWorkoutPlanDayById } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlanDayById';
 import { useTrainerWorkoutPlanDayExercises } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlanDayExercises';
 import { useSaveTrainerWorkoutDayExercises, useMakeTrainerRestDay } from '@/hooks/trainerWorkoutPlans/useMutateTrainerWorkoutPlan';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from '@/components/ui/Video';
 import { toast } from '@/lib/toast';
 import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
 import { supabase } from '@/lib/supabase';

@@ -9,6 +9,7 @@ export interface GlobalMeal {
   protein: number;
   carbs: number;
   fat: number;
+  fiber?: number;
   prepTimeMinutes: number;
   isScalable: boolean;
   minScale: number;

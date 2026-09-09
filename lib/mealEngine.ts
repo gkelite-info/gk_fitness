@@ -34,10 +34,13 @@ export async function generateAlgorithmicPlan(userId: string): Promise<Generated
   const targets = await calculateNutritionTargets(userId);
   
   // Custom Calorie Distribution
-  let dist: Record<string, string> = { BREAKFAST: 'Medium', LUNCH: 'Medium', SNACK: 'Medium', DINNER: 'Medium' };
+  let dist: Record<string, string> = { BREAKFAST: 'Light', LUNCH: 'Heavy', SNACK: 'Light', DINNER: 'Medium' };
   try {
-    const parsed = JSON.parse(profile.calorieDistribution || '{}');
-    if (parsed.BREAKFAST) dist = parsed;
+    let parsed = JSON.parse(profile.calorieDistribution || '{}');
+    if (typeof parsed === 'string') parsed = JSON.parse(parsed); // Handle double-stringified JSON
+    if (parsed && typeof parsed === 'object' && parsed.BREAKFAST) {
+       dist = parsed;
+    }
   } catch (e) {
     // legacy string support
     if (profile.calorieDistribution === 'Heavy Breakfast') dist.BREAKFAST = 'Heavy';
@@ -48,38 +51,42 @@ export async function generateAlgorithmicPlan(userId: string): Promise<Generated
   
   let mealRatios: Record<string, number> = {};
   
-  if (profile.mealsPerDay === 3) {
-    const totalWeight = weightMap[dist.BREAKFAST] + weightMap[dist.LUNCH] + weightMap[dist.DINNER];
+  const parsedMealsPerDay = Number(profile.mealsPerDay) || 4;
+
+  if (parsedMealsPerDay === 3) {
+    const totalWeight = (weightMap[dist.BREAKFAST] || 1) + (weightMap[dist.LUNCH] || 1) + (weightMap[dist.DINNER] || 1);
     mealRatios = {
-      'BREAKFAST': weightMap[dist.BREAKFAST] / totalWeight,
-      'LUNCH': weightMap[dist.LUNCH] / totalWeight,
-      'DINNER': weightMap[dist.DINNER] / totalWeight
+      'BREAKFAST': (weightMap[dist.BREAKFAST] || 1) / totalWeight,
+      'LUNCH': (weightMap[dist.LUNCH] || 1) / totalWeight,
+      'DINNER': (weightMap[dist.DINNER] || 1) / totalWeight
     };
-  } else if (profile.mealsPerDay === 4) {
-    const totalWeight = weightMap[dist.BREAKFAST] + weightMap[dist.LUNCH] + weightMap[dist.SNACK] + weightMap[dist.DINNER];
+  } else if (parsedMealsPerDay === 4) {
+    const totalWeight = (weightMap[dist.BREAKFAST] || 1) + (weightMap[dist.LUNCH] || 1) + (weightMap[dist.SNACK] || 1) + (weightMap[dist.DINNER] || 1);
     mealRatios = {
-      'BREAKFAST': weightMap[dist.BREAKFAST] / totalWeight,
-      'LUNCH': weightMap[dist.LUNCH] / totalWeight,
-      'SNACK': weightMap[dist.SNACK] / totalWeight,
-      'DINNER': weightMap[dist.DINNER] / totalWeight
+      'BREAKFAST': (weightMap[dist.BREAKFAST] || 1) / totalWeight,
+      'LUNCH': (weightMap[dist.LUNCH] || 1) / totalWeight,
+      'SNACK': (weightMap[dist.SNACK] || 1) / totalWeight,
+      'DINNER': (weightMap[dist.DINNER] || 1) / totalWeight
     };
-  } else if (profile.mealsPerDay === 5) {
-     const totalWeight = weightMap[dist.BREAKFAST] + weightMap[dist.LUNCH] + (weightMap[dist.SNACK] * 2) + weightMap[dist.DINNER];
+  } else if (parsedMealsPerDay === 5) {
+     const totalWeight = (weightMap[dist.BREAKFAST] || 1) + (weightMap[dist.LUNCH] || 1) + ((weightMap[dist.SNACK] || 1) * 2) + (weightMap[dist.DINNER] || 1);
      mealRatios = {
-       'BREAKFAST': weightMap[dist.BREAKFAST] / totalWeight,
-       'SNACK1': weightMap[dist.SNACK] / totalWeight,
-       'LUNCH': weightMap[dist.LUNCH] / totalWeight,
-       'SNACK2': weightMap[dist.SNACK] / totalWeight,
-       'DINNER': weightMap[dist.DINNER] / totalWeight
+       'BREAKFAST': (weightMap[dist.BREAKFAST] || 1) / totalWeight,
+       'SNACK1': (weightMap[dist.SNACK] || 1) / totalWeight,
+       'LUNCH': (weightMap[dist.LUNCH] || 1) / totalWeight,
+       'SNACK2': (weightMap[dist.SNACK] || 1) / totalWeight,
+       'DINNER': (weightMap[dist.DINNER] || 1) / totalWeight
      };
   } else {
-     // Default 4 meals
-     const totalWeight = weightMap[dist.BREAKFAST] + weightMap[dist.LUNCH] + weightMap[dist.SNACK] + weightMap[dist.DINNER];
+     // Default for 6 or more meals
+     const totalWeight = (weightMap[dist.BREAKFAST] || 1) + ((weightMap[dist.LUNCH] || 1) * 2) + ((weightMap[dist.SNACK] || 1) * 2) + (weightMap[dist.DINNER] || 1);
      mealRatios = {
-       'BREAKFAST': weightMap[dist.BREAKFAST] / totalWeight,
-       'LUNCH': weightMap[dist.LUNCH] / totalWeight,
-       'SNACK': weightMap[dist.SNACK] / totalWeight,
-       'DINNER': weightMap[dist.DINNER] / totalWeight
+       'BREAKFAST': (weightMap[dist.BREAKFAST] || 1) / totalWeight,
+       'SNACK1': (weightMap[dist.SNACK] || 1) / totalWeight,
+       'LUNCH1': (weightMap[dist.LUNCH] || 1) / totalWeight,
+       'LUNCH2': (weightMap[dist.LUNCH] || 1) / totalWeight,
+       'SNACK2': (weightMap[dist.SNACK] || 1) / totalWeight,
+       'DINNER': (weightMap[dist.DINNER] || 1) / totalWeight
      };
   }
 
@@ -119,7 +126,9 @@ export async function generateAlgorithmicPlan(userId: string): Promise<Generated
     const dayMeals = [];
     let order = 1;
     for (const [mealTypeKey, ratio] of Object.entries(mealRatios)) {
-       const targetCalories = targets.targetCalories * ratio;
+       // Add a small +/- 5% variance per day so meals aren't identical day-to-day
+       const dailyVariance = 0.95 + (Math.random() * 0.1);
+       const targetCalories = targets.targetCalories * ratio * dailyVariance;
        
        let t = mealTypeKey;
        if (t.startsWith('SNACK')) t = 'SNACK';
@@ -210,15 +219,23 @@ export function getEligibleMealsForUser(allMeals: GlobalMeal[], profile: any): G
   let eligibleMeals = allMeals.filter(meal => {
     // 1. Diet Check
     if (userDiet !== 'nonvegetarian' && userDiet !== 'balanced') {
-      const mealDiets = (meal.dietTypes || []).map(d => d.toLowerCase().replace(/[^a-z]/g, ''));
-      if (mealDiets.length === 0) return false;
+      let rawDiets: any = meal.dietTypes || [];
+      if (typeof rawDiets === 'string') {
+        try { rawDiets = JSON.parse(rawDiets); } catch (e) { rawDiets = [rawDiets]; }
+      }
+      const mealDiets = Array.isArray(rawDiets) ? rawDiets.map((d: any) => String(d).toLowerCase().replace(/[^a-z]/g, '')) : [];
+      if (mealDiets.length === 0) return true; // If no diet tags, assume it's allowed rather than excluding all un-tagged meals
       const isAllowed = mealDiets.some(d => allowedDiets.includes(d));
       if (!isAllowed) return false;
     }
 
     // 2. Allergy Check
     if (userAllergies.length > 0) {
-      const allergens = (meal.allergens || []).map(a => a.toLowerCase().replace(/[^a-z]/g, ''));
+      let rawAllergens: any = meal.allergens || [];
+      if (typeof rawAllergens === 'string') {
+        try { rawAllergens = JSON.parse(rawAllergens); } catch (e) { rawAllergens = [rawAllergens]; }
+      }
+      const allergens = Array.isArray(rawAllergens) ? rawAllergens.map((a: any) => String(a).toLowerCase().replace(/[^a-z]/g, '')) : [];
       for (const allergy of userAllergies) {
         if (allergens.includes(allergy)) return false;
       }
@@ -229,9 +246,14 @@ export function getEligibleMealsForUser(allMeals: GlobalMeal[], profile: any): G
 
   // 3. Soft Cuisine Filter
   if (userCuisine !== 'nopreference') {
-    const cuisineMeals = eligibleMeals.filter(meal => 
-      (meal.cuisines || []).map(c => c.toLowerCase().replace(/[^a-z]/g, '')).includes(userCuisine)
-    );
+    const cuisineMeals = eligibleMeals.filter(meal => {
+      let rawCuisines: any = meal.cuisines || [];
+      if (typeof rawCuisines === 'string') {
+        try { rawCuisines = JSON.parse(rawCuisines); } catch (e) { rawCuisines = [rawCuisines]; }
+      }
+      const cuisines = Array.isArray(rawCuisines) ? rawCuisines.map((c: any) => String(c).toLowerCase().replace(/[^a-z]/g, '')) : [];
+      return cuisines.includes(userCuisine);
+    });
     if (cuisineMeals.length >= 2) {
       eligibleMeals = cuisineMeals;
     }

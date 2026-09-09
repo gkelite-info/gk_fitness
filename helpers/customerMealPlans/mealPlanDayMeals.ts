@@ -11,6 +11,7 @@ export interface MealPlanDayMealAttributes {
   protein: number;
   carbs: number;
   fat: number;
+  fiber?: number;
   order: number;
   image?: string | null;
   globalMealId?: string | null;

@@ -1,20 +1,32 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
-import { CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, GearIcon as Gear, SunIcon as Sun, CoffeeIcon as Coffee, MoonIcon as Moon, ArrowsLeftRightIcon as ArrowsLeftRight, FireIcon as Fire, LeafIcon as Leaf } from 'phosphor-react-native';
+import { CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, GearIcon as Gear, SunIcon as Sun, CoffeeIcon as Coffee, MoonIcon as Moon, FireIcon as Fire, LeafIcon as Leaf, PencilSimpleIcon as PencilSimple, CheckIcon as Check } from 'phosphor-react-native';
 import { useCustomerMealPlan } from '@/hooks/customerMealPlans/useCustomerMealPlan';
 import { useUser } from '@/context/UserContext';
-import { ActivityIndicator } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
+import { saveMealPlanDayMeal } from '@/helpers/customerMealPlans/mealPlanDayMeals';
 
 export default function MyNutritionPlan() {
   const router = useRouter();
   const { userId } = useUser();
+  const queryClient = useQueryClient();
   const { data: fullPlan, isLoading } = useCustomerMealPlan(userId as any);
 
   const [selectedDayIndex, setSelectedDayIndex] = useState(new Date().getDay());
+  const scrollViewRef = React.useRef<ScrollView>(null);
+  
+  React.useEffect(() => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ x: Math.max(0, selectedDayIndex * 72 - 60), animated: true });
+    }
+  }, [selectedDayIndex]);
+  const [editingMeal, setEditingMeal] = useState<any>(null);
+  const [editCalories, setEditCalories] = useState('');
+  const [isSavingCalories, setIsSavingCalories] = useState(false);
 
-  const getDaysOfWeek = () => {
+  const getDaysOfMonth = () => {
     const today = new Date();
     const currentDay = today.getDay(); // 0 is Sunday
     // Calculate start of week (Sunday)
@@ -25,13 +37,14 @@ export default function MyNutritionPlan() {
     const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     const fullNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 30; i++) {
       const d = new Date(startDate);
       d.setDate(startDate.getDate() + i);
+      const dayOfWeek = d.getDay();
       days.push({
-        day: dayNames[i],
+        day: dayNames[dayOfWeek],
         date: d.getDate(),
-        id: fullNames[i],
+        id: fullNames[dayOfWeek],
         index: i,
         fullDate: d
       });
@@ -39,22 +52,22 @@ export default function MyNutritionPlan() {
     return days;
   };
 
-  const daysOfWeek = getDaysOfWeek();
+  const daysOfMonth = getDaysOfMonth();
 
-  // Helper to format "15 Jul – 21 Jul, 2024"
+  // Helper to format "15 Jul – 13 Aug, 2024"
   const formatWeekRange = () => {
-    const first = daysOfWeek[0].fullDate;
-    const last = daysOfWeek[6].fullDate;
+    const first = daysOfMonth[0].fullDate;
+    const last = daysOfMonth[daysOfMonth.length - 1].fullDate;
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${first.getDate()} ${monthNames[first.getMonth()]} – ${last.getDate()} ${monthNames[last.getMonth()]}, ${last.getFullYear()}`;
   };
 
   // Helper to format "Monday, 15 July"
   const formatSelectedDate = () => {
-    const selected = daysOfWeek[selectedDayIndex].fullDate;
+    const selected = daysOfMonth[selectedDayIndex].fullDate;
     const fullDayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    return `${fullDayNames[selectedDayIndex]}, ${selected.getDate()} ${monthNames[selected.getMonth()]}`;
+    return `${fullDayNames[selected.getDay()]}, ${selected.getDate()} ${monthNames[selected.getMonth()]}`;
   };
 
   if (isLoading) {
@@ -75,8 +88,50 @@ export default function MyNutritionPlan() {
     }
   };
 
-  const selectedDayData = fullPlan?.days?.find(d => d.dayOfWeek.toLowerCase() === daysOfWeek[selectedDayIndex].id);
+  const selectedDayData = fullPlan?.days?.find(d => d.dayOfWeek.toLowerCase() === daysOfMonth[selectedDayIndex].id);
   const meals = selectedDayData?.meals || [];
+
+  const handleSaveCalories = async () => {
+    if (!editingMeal) return;
+    setIsSavingCalories(true);
+    
+    const newCalories = parseInt(editCalories, 10);
+    if (!newCalories || isNaN(newCalories)) {
+      setIsSavingCalories(false);
+      setEditingMeal(null);
+      return;
+    }
+
+    const currentCalories = editingMeal.calories || 1; 
+    const scalar = newCalories / currentCalories;
+
+    const scaledIngredients = (editingMeal.ingredientsJson || []).map((mi: any) => ({
+      ...mi,
+      quantity: Math.round(mi.quantity * scalar * 10) / 10,
+    }));
+
+    try {
+      await saveMealPlanDayMeal({
+        customerMealPlanDayMealId: editingMeal.customerMealPlanDayMealId,
+        customerMealPlanDayId: editingMeal.customerMealPlanDayId,
+        mealType: editingMeal.mealType,
+        mealName: editingMeal.mealName,
+        calories: newCalories,
+        protein: Math.round((editingMeal.protein || 0) * scalar),
+        carbs: Math.round((editingMeal.carbs || 0) * scalar),
+        fat: Math.round((editingMeal.fat || 0) * scalar),
+        ingredientsJson: scaledIngredients,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['customerMealPlan', userId] });
+    } catch (e) {
+      console.error(e);
+      alert('Failed to update calories');
+    } finally {
+      setIsSavingCalories(false);
+      setEditingMeal(null);
+    }
+  };
 
   return (
     <View className="flex-1 bg-[#0A0A0A] pb-28">
@@ -85,36 +140,41 @@ export default function MyNutritionPlan() {
         contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
+        <View className="flex-row items-center mb-6 border-b border-[#222222]">
+          <Pressable className="mr-6 border-b-2 border-[#C4EF00] pb-2">
+            <Text className="text-white text-[18px] font-bold">My nutrition plan</Text>
+          </Pressable>
+          <Pressable className="pb-2">
+            <Text className="text-[#8E8E93] text-[18px] font-bold">Trainer nutrition plan</Text>
+          </Pressable>
+        </View>
+
         <View className="flex-row items-center justify-between mb-6">
-          <Text className="text-white text-[28px] font-bold tracking-tight">
-            My <Text className="text-[#C4EF00]">Nutrition</Text> Plan <Text className="text-[24px]">🍃</Text>
-          </Text>
-          <Pressable onPress={() => router.push('/(customer)/nutrition/food-preferences')}>
-            <Gear size={28} color="#FFFFFF" />
-          </Pressable>
-        </View>
-
-        <View className="flex-row items-center justify-center mb-6 gap-x-4">
-          <Pressable onPress={() => setSelectedDayIndex(prev => prev > 0 ? prev - 1 : 6)} className="w-8 h-8 rounded-full bg-[#1A1A1A] items-center justify-center">
-            <CaretLeft size={16} color="#FFFFFF" />
-          </Pressable>
-          <View className="flex-row items-center">
-            <View className="w-4 h-4 border border-white rounded-sm items-center justify-center mr-2">
-              <View className="w-3 h-[1px] bg-white absolute top-1" />
+          <View className="flex-row items-center gap-x-4">
+            <Pressable onPress={() => setSelectedDayIndex(prev => prev > 0 ? prev - 1 : daysOfMonth.length - 1)} className="w-8 h-8 rounded-full bg-[#1A1A1A] items-center justify-center">
+              <CaretLeft size={16} color="#FFFFFF" />
+            </Pressable>
+            <View className="flex-row items-center">
+              <View className="w-4 h-4 border border-white rounded-sm items-center justify-center mr-2">
+                <View className="w-3 h-[1px] bg-white absolute top-1" />
+              </View>
+              <Text className="text-white font-semibold">{formatWeekRange()}</Text>
             </View>
-            <Text className="text-white font-semibold">{formatWeekRange()}</Text>
+            <Pressable onPress={() => setSelectedDayIndex(prev => prev < daysOfMonth.length - 1 ? prev + 1 : 0)} className="w-8 h-8 rounded-full bg-[#1A1A1A] items-center justify-center">
+              <CaretRight size={16} color="#FFFFFF" />
+            </Pressable>
           </View>
-          <Pressable onPress={() => setSelectedDayIndex(prev => prev < 6 ? prev + 1 : 0)} className="w-8 h-8 rounded-full bg-[#1A1A1A] items-center justify-center">
-            <CaretRight size={16} color="#FFFFFF" />
+          <Pressable onPress={() => router.push('/(customer)/nutrition/food-preferences')}>
+            <Gear size={24} color="#FFFFFF" />
           </Pressable>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-8 -mx-5 px-5">
-          {daysOfWeek.map((item) => {
+        <ScrollView ref={scrollViewRef} horizontal showsHorizontalScrollIndicator={false} className="mb-8 -mx-5 px-5">
+          {daysOfMonth.map((item, i) => {
             const isSelected = selectedDayIndex === item.index;
             return (
               <Pressable
-                key={item.id}
+                key={`${item.id}-${i}`}
                 onPress={() => setSelectedDayIndex(item.index)}
                 className={`w-[60px] h-[75px] rounded-[16px] items-center justify-center mr-3 ${isSelected ? 'bg-[#C4EF00]' : 'bg-transparent border border-[#222222]'}`}
               >
@@ -142,39 +202,44 @@ export default function MyNutritionPlan() {
               <Pressable
                 key={meal.customerMealPlanDayMealId}
                 onPress={() => router.push({ pathname: '/(customer)/nutrition/meal-detail', params: { id: meal.customerMealPlanDayMealId } })}
-                className="bg-[#141414] border border-[#222222] rounded-[24px] p-4 flex-row"
+                className="bg-[#141414] border border-[#222222] rounded-[24px] p-4 flex-col"
               >
-                <View className="flex-1 pr-2">
-                  <View className="flex-row items-center mb-1">
-                    <Icon size={16} color="#C4EF00" weight="regular" style={{ marginRight: 6 }} />
-                    <Text className="text-[#C4EF00] text-[10px] font-bold tracking-widest">{meal.mealType?.toUpperCase()}</Text>
-                  </View>
-                  <Text className="text-white text-base font-bold mb-2 leading-5 pr-2">{meal.mealName}</Text>
-                  <View className="flex-row items-start">
-                    <Leaf size={12} color="#4ADE80" weight="fill" style={{ marginRight: 4, marginTop: 2 }} />
-                    <Text className="text-[#8E8E93] text-[11px] leading-4 flex-1 pr-4">{meal.description || 'No description available'}</Text>
-                  </View>
-                </View>
-
-                <View className="items-end justify-between w-[60px]">
-                  <Pressable
-                    onPress={() => router.push({ pathname: '/(customer)/nutrition/swap-meal', params: { id: meal.customerMealPlanDayMealId, targetCalories: meal.calories } })}
-                    className="bg-[#C4EF00] rounded-md px-2 py-1 flex-row items-center mb-2"
-                  >
-                    <ArrowsLeftRight size={10} color="#000" weight="bold" style={{ marginRight: 4 }} />
-                    <Text className="text-black text-[10px] font-bold">Swap</Text>
-                  </Pressable>
-
-                  <View className="items-center mb-2">
-                    <Text className="text-white text-lg font-bold leading-5">{meal.calories || 0}</Text>
-                    <Text className="text-[#8E8E93] text-[9px]">kcal</Text>
+                <View className="flex-row justify-between items-start mb-3">
+                  <View className="flex-1 pr-2">
+                    <View className="flex-row items-center mb-1">
+                      <Icon size={16} color="#C4EF00" weight="regular" style={{ marginRight: 6 }} />
+                      <Text className="text-[#C4EF00] text-[10px] font-bold tracking-widest">{meal.mealType?.toUpperCase()}</Text>
+                    </View>
+                    <Text className="text-white text-base font-bold mb-2 leading-5 pr-2">{meal.mealName}</Text>
+                    <View className="flex-row items-start">
+                      <Leaf size={12} color="#4ADE80" weight="fill" style={{ marginRight: 4, marginTop: 2 }} />
+                      <Text className="text-[#8E8E93] text-[11px] leading-4 flex-1 pr-4">{meal.description || 'No description available'}</Text>
+                    </View>
                   </View>
 
                   <View className="items-end">
-                    <Text className="text-[#4ADE80] text-[10px] font-bold mb-0.5">P {meal.protein || 0}g</Text>
-                    <Text className="text-[#FBBF24] text-[10px] font-bold mb-0.5">C {meal.carbs || 0}g</Text>
-                    <Text className="text-[#A78BFA] text-[10px] font-bold">F {meal.fat || 0}g</Text>
+                    <View className="flex-row items-center mb-1">
+                      <Text className="text-white text-[24px] font-bold leading-7 mr-1">{meal.calories || 0}</Text>
+                      <Pressable 
+                        onPress={() => {
+                          setEditingMeal(meal);
+                          setEditCalories(meal.calories?.toString() || '');
+                        }}
+                        className="p-1 -mr-1"
+                      >
+                        <PencilSimple size={16} color="#8E8E93" weight="bold" />
+                      </Pressable>
+                    </View>
+                    <Text className="text-[#8E8E93] text-[9px] mr-5">kcal</Text>
                   </View>
+                </View>
+
+                {/* Macros at bottom line */}
+                <View className="flex-row items-center gap-x-3 pt-2 border-t border-[#222222]">
+                  <Text className="text-[#4ADE80] text-[11px] font-bold">P {meal.protein || 0}g</Text>
+                  <Text className="text-[#FBBF24] text-[11px] font-bold">C {meal.carbs || 0}g</Text>
+                  <Text className="text-[#A78BFA] text-[11px] font-bold">F {meal.fat || 0}g</Text>
+                  <Text className="text-white text-[11px] font-bold">Fi {meal.fiber || 0}g</Text>
                 </View>
               </Pressable>
             )
@@ -191,13 +256,58 @@ export default function MyNutritionPlan() {
         </View>
       </ScrollView>
 
-      <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#0A0A0A]/95" style={{ paddingBottom: 110 }}>
-        <Pressable 
-          onPress={() => router.push('/(customer)/nutrition/generating-plan')}
-          className="bg-[#C4EF00] rounded-[20px] py-4 items-center justify-center active:opacity-90">
-          <Text className="text-black font-bold text-lg">Regenerate Day</Text>
-        </Pressable>
-      </View>
+      {/* Edit Calories Modal */}
+      <Modal
+        visible={!!editingMeal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isSavingCalories && setEditingMeal(null)}
+      >
+        <View className="flex-1 bg-black/80 items-center justify-center px-6">
+          <View className="bg-[#141414] border border-[#222222] rounded-[24px] w-full p-6 items-center relative">
+            <Text className="text-white text-lg font-bold mb-2">Edit Calories</Text>
+            <Text className="text-[#8E8E93] text-xs text-center mb-6 leading-5">
+              Enter a new calorie target for {editingMeal?.mealName}. Protein, carbs, fat, and ingredients will be scaled automatically.
+            </Text>
+
+            <View className="flex-row items-center justify-center bg-[#0A0A0A] border border-[#333333] rounded-2xl w-full px-4 mb-8">
+              <TextInput
+                value={editCalories}
+                onChangeText={setEditCalories}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor="#444444"
+                className="text-white text-[32px] font-bold text-center flex-1 h-[80px]"
+                autoFocus
+              />
+              <Text className="text-[#8E8E93] font-bold absolute right-6">kcal</Text>
+            </View>
+
+            <View className="flex-row w-full gap-x-4">
+              <Pressable
+                onPress={() => setEditingMeal(null)}
+                disabled={isSavingCalories}
+                className="flex-1 bg-[#222222] py-4 rounded-[16px] items-center justify-center"
+              >
+                <Text className="text-white font-bold">Cancel</Text>
+              </Pressable>
+              
+              <Pressable
+                onPress={handleSaveCalories}
+                disabled={isSavingCalories}
+                className="flex-1 bg-[#C4EF00] py-4 rounded-[16px] items-center justify-center"
+              >
+                {isSavingCalories ? (
+                  <ActivityIndicator color="#000" size="small" />
+                ) : (
+                  <Text className="text-black font-bold">Save</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }

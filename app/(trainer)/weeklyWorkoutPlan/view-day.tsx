@@ -64,81 +64,12 @@ export default function ViewDay() {
   const [videoTitle, setVideoTitle] = useState('');
 
   const openVideo = (exerciseName: string, videoUrl?: string | null) => {
-    const normalizedTitle = exerciseName?.toLowerCase() || '';
     let localVideoSource: any = null;
 
     if (videoUrl) {
-      localVideoSource = { uri: videoUrl };
-    } else if (normalizedTitle.includes('incline') && normalizedTitle.includes('dumb')) {
-      localVideoSource = require('../../../assets/videos/incline_dumbell_press.mp4');
-    } else if (normalizedTitle.includes('bench press')) {
-      localVideoSource = require('../../../assets/videos/bench_press_video.mp4');
-    } else if (normalizedTitle.includes('pec deck') || normalizedTitle.includes('pec-deck') || normalizedTitle.includes('peck deck')) {
-      localVideoSource = require('../../../assets/videos/pec_deck_exercise_video.mp4');
-    } else if (normalizedTitle.includes('dip')) {
-      localVideoSource = require('../../../assets/videos/dips_exercise_video.mp4');
-    } else if (normalizedTitle.includes('chest press') || normalizedTitle.includes('machine press')) {
-      localVideoSource = require('../../../assets/videos/chest_press_machine_video.mp4');
-    } else if (normalizedTitle.includes('cable') || normalizedTitle.includes('fly')) {
-      localVideoSource = require('../../../assets/videos/cable_fly_video.mp4');
-    } else if (normalizedTitle.includes('pushup') || normalizedTitle.includes('push-up')) {
-      localVideoSource = require('../../../assets/videos/pushup_video.mp4');
-    } else if (normalizedTitle.includes('romanian deadlift') || normalizedTitle.includes('rdl')) {
-      localVideoSource = require('../../../assets/videos/romanian_deadlift_video.mp4');
-    } else if (normalizedTitle.includes('deadlift') && !normalizedTitle.includes('romanian')) {
-      localVideoSource = require('../../../assets/videos/deadlift_back_workout_video.mp4');
-    } else if (normalizedTitle.includes('squat')) {
-      localVideoSource = require('../../../assets/videos/squat_exercise_video.mp4');
-    } else if (normalizedTitle.includes('leg press')) {
-      localVideoSource = require('../../../assets/videos/legpress_exercise_video.mp4');
-    } else if (normalizedTitle.includes('leg extension')) {
-      localVideoSource = require('../../../assets/videos/leg_extension_video.mp4');
-    } else if (normalizedTitle.includes('calf raise')) {
-      localVideoSource = require('../../../assets/videos/calf_raise_video.mp4');
-    } else if (normalizedTitle.includes('lunge')) {
-      localVideoSource = require('../../../assets/videos/lunges_exercise_video.mp4');
-    } else if (normalizedTitle.includes('hamstring curl') || normalizedTitle.includes('leg curl')) {
-      localVideoSource = require('../../../assets/videos/hamstring_curls_video.mp4');
-    } else if (normalizedTitle.includes('lat pulldown') || normalizedTitle.includes('pulldown')) {
-      localVideoSource = require('../../../assets/videos/lat_pulldown_video.mp4');
-    } else if (normalizedTitle.includes('pull up') || normalizedTitle.includes('pull-up') || normalizedTitle.includes('pullups')) {
-      localVideoSource = require('../../../assets/videos/pull_ups_video.mp4');
-    } else if (normalizedTitle === 'seated row' || normalizedTitle.includes('seated row')) {
-      localVideoSource = require('../../../assets/videos/back_seated_row_video.mp4');
-    } else if (normalizedTitle.includes('single arm row') || normalizedTitle.includes('single-arm row')) {
-      localVideoSource = require('../../../assets/videos/single_arm_row_video.mp4');
-    } else if (normalizedTitle.includes('t bar row') || normalizedTitle.includes('t-bar row')) {
-      localVideoSource = require('../../../assets/videos/t_bar_row_exercise_video.mp4');
-    } else if (normalizedTitle.includes('hyper-extension') || normalizedTitle.includes('hyperextension') || normalizedTitle.includes('hyper extension')) {
-      localVideoSource = require('../../../assets/videos/hyper_extension_video.mp4');
-    } else if (normalizedTitle.includes('overhead press')) {
-      localVideoSource = require('../../../assets/videos/overhead_press_video.mp4');
-    } else if (normalizedTitle.includes('lateral raise')) {
-      localVideoSource = require('../../../assets/videos/lateral_raises_video.mp4');
-    } else if (normalizedTitle.includes('front raise')) {
-      localVideoSource = require('../../../assets/videos/front-raised_video.mp4');
-    } else if (normalizedTitle.includes('reverse pec deck') || normalizedTitle.includes('reverse fly')) {
-      localVideoSource = require('../../../assets/videos/reverse_pec_deck_video.mp4');
-    } else if (normalizedTitle.includes('shrug')) {
-      localVideoSource = require('../../../assets/videos/shrugs_video.mp4');
-    } else if (normalizedTitle.includes('arnold press')) {
-      localVideoSource = require('../../../assets/videos/arnold_press_video.mp4');
-    } else if (normalizedTitle.includes('face pull')) {
-      localVideoSource = require('../../../assets/videos/face_pulls_video.mp4');
-    } else if (normalizedTitle.includes('preacher curl')) {
-      localVideoSource = require('../../../assets/videos/preacher_curls_video.mp4');
-    } else if (normalizedTitle.includes('hammer curl')) {
-      localVideoSource = require('../../../assets/videos/hammer_curls_video.mp4');
-    } else if (normalizedTitle.includes('bicep curl') || normalizedTitle.includes('curl')) {
-      localVideoSource = require('../../../assets/videos/bicep_curls_video.mp4');
-    } else if (normalizedTitle.includes('overhead extension')) {
-      localVideoSource = require('../../../assets/videos/overhead_extension_video.mp4');
-    } else if (normalizedTitle.includes('pushdown') || normalizedTitle.includes('push down') || normalizedTitle.includes('push-down') || normalizedTitle.includes('tricep extension')) {
-      localVideoSource = require('../../../assets/videos/tricep_pushdown_video.mp4');
-    } else if (normalizedTitle.includes('skull crusher') || normalizedTitle.includes('skullcrusher')) {
-      localVideoSource = require('../../../assets/videos/skull_crushers_video.mp4');
-    } else if (normalizedTitle.includes('chin up') || normalizedTitle.includes('chin-up') || normalizedTitle.includes('chinups')) {
-      localVideoSource = require('../../../assets/videos/chin_ups_video.gif');
+      const isAbsolute = videoUrl.startsWith('http://') || videoUrl.startsWith('https://');
+      const fullUrl = isAbsolute ? videoUrl : supabase.storage.from('workout-videos').getPublicUrl(videoUrl).data.publicUrl;
+      localVideoSource = { uri: fullUrl };
     }
 
     if (localVideoSource) {

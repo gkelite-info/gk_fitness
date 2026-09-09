@@ -5,6 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { CaretLeft, CaretDown, Barbell, CalendarBlank, UploadSimple } from 'phosphor-react-native';
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
+import { useProgressData } from '@/hooks/fitness/useProgressData';
+import { useUser } from '@/context/UserContext';
+import { ActivityIndicator } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +28,19 @@ const ACTIVITY_GRID = Array.from({ length: 35 }).map((_, i) => ({
 export default function MonthlyAnalysisScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { userId } = useUser();
+  const { data: progressData, isLoading } = useProgressData(userId || null);
+
+  if (isLoading || !progressData) {
+    return (
+      <View className="flex-1 bg-[#09090B] items-center justify-center">
+        <ActivityIndicator color="#D4FF00" size="large" />
+      </View>
+    );
+  }
+
+  const { summary } = progressData;
+  const isWeightLost = summary.weightChange > 0;
 
   // Chart dimensions
   const chartWidth = width - 40 - 48; // padding and card padding
@@ -61,7 +77,7 @@ export default function MonthlyAnalysisScreen() {
             <View className="items-center">
               <Text className="text-white text-[17px] font-bold mb-1">Monthly Performance</Text>
               <Pressable className="flex-row items-center bg-[#2E3113] border border-[#D4FF00]/30 px-3 py-1 rounded-full">
-                <Text className="text-[#D4FF00] text-xs font-bold mr-1">July 2025</Text>
+                <Text className="text-[#D4FF00] text-xs font-bold mr-1">{new Date().toLocaleDateString('default', { month: 'short', year: 'numeric' })}</Text>
                 <CaretDown size={12} color="#D4FF00" weight="bold" />
               </Pressable>
             </View>
@@ -75,12 +91,12 @@ export default function MonthlyAnalysisScreen() {
               <View className="mb-2">
                 <Barbell size={24} color="#D4FF00" weight="regular" />
               </View>
-              <Text className="text-[#8E8E93] text-xs mb-1">Weight loss</Text>
+              <Text className="text-[#8E8E93] text-xs mb-1">Weight lost</Text>
               <View className="flex-row items-baseline mb-1">
-                <Text className="text-[#D4FF00] text-[22px] font-bold">-1.8</Text>
+                <Text className="text-[#D4FF00] text-[22px] font-bold">{isWeightLost ? `-${summary.weightChange.toFixed(1)}` : '0.0'}</Text>
                 <Text className="text-[#D4FF00] text-[10px] font-bold ml-0.5">kg</Text>
               </View>
-              <Text className="text-[#6B6B6B] text-[10px]">vs Jun 2025</Text>
+              <Text className="text-[#6B6B6B] text-[10px]">Since {new Date(progressData.onboarding?.createdAt || new Date()).toLocaleDateString('default', { month: 'short', year: 'numeric' })}</Text>
             </View>
             <View className="flex-1 items-center">
               <View className="mb-2">

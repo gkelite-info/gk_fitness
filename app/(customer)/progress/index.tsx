@@ -1,13 +1,42 @@
-import React from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, ScrollView, Pressable, Modal, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChartLineUp, Ruler, Camera, ChartBar, CaretRight, Fire } from 'phosphor-react-native';
+import { ChartLineUp, Ruler, Camera, ChartBar, CaretRight, Fire, Lightning, PencilSimple } from 'phosphor-react-native';
+import { useProgressData } from '@/hooks/fitness/useProgressData';
+import { useUpdateTargetWeight } from '@/hooks/fitness/useUpdateProgress';
+import { useUser } from '@/context/UserContext';
 
 export default function ProgressScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { userId } = useUser();
+  const { data: progressData, isLoading: loading, isError, error } = useProgressData(userId || null);
+  
+  const { mutateAsync: updateTargetWeight, isPending: isUpdatingGoal } = useUpdateTargetWeight();
+  const [isEditModalVisible, setEditModalVisible] = useState(false);
+  const [editTargetWeight, setEditTargetWeight] = useState('');
+
+  const handleSaveTargetWeight = async () => {
+    if (!progressData?.onboarding?.onboardingId) {
+      Alert.alert('Error', 'User data not found. Please complete your profile to set a target weight.');
+      return;
+    }
+    
+    if (editTargetWeight && !isNaN(Number(editTargetWeight))) {
+      try {
+        await updateTargetWeight({ 
+          userId: userId!, 
+          onboardingId: progressData.onboarding.onboardingId, 
+          targetWeight: editTargetWeight 
+        });
+        setEditModalVisible(false);
+      } catch (err: any) {
+        Alert.alert("Error", "Failed to update target weight: " + err.message);
+      }
+    }
+  };
 
   const MENU_ITEMS = [
     {
@@ -36,6 +65,17 @@ export default function ProgressScreen() {
     },
   ];
 
+  if (loading || !progressData || !progressData.summary) {
+    return (
+      <View className="flex-1 bg-[#09090B] items-center justify-center">
+        <ActivityIndicator color="#D4FF00" size="large" />
+      </View>
+    );
+  }
+
+  const { summary, onboarding } = progressData;
+  const { goalType, weightChange, isGoalReached } = summary;
+
   return (
     <ScrollView 
       className="flex-1 bg-[#09090B]"
@@ -54,23 +94,34 @@ export default function ProgressScreen() {
             <View>
               <Text className="text-[#8E8E93] text-[11px] font-bold tracking-[1.5px] mb-1.5 uppercase">Current Weight</Text>
               <View className="flex-row items-baseline gap-1.5">
-                <Text className="text-white text-[34px] font-bold tracking-tight">72.4</Text>
+                <Text className="text-white text-[34px] font-bold tracking-tight">{summary.currentWeight.toFixed(1)}</Text>
                 <Text className="text-[#8E8E93] text-lg font-medium">kg</Text>
               </View>
             </View>
             <View className="items-end">
               <Text className="text-[#8E8E93] text-[11px] font-bold tracking-[1.5px] mb-1.5 uppercase">Goal Weight</Text>
-              <View className="flex-row items-baseline gap-1.5">
-                <Text className="text-white text-[26px] font-bold tracking-tight">68.0</Text>
+              <Pressable 
+                className="flex-row items-baseline gap-1.5 active:opacity-70"
+                onPress={() => {
+                  setEditTargetWeight(summary.targetWeight.toString());
+                  setEditModalVisible(true);
+                }}
+              >
+                <Text className="text-white text-[26px] font-bold tracking-tight">{summary.targetWeight.toFixed(1)}</Text>
                 <Text className="text-[#8E8E93] text-sm font-medium">kg</Text>
-              </View>
+                <PencilSimple size={16} color="#D4FF00" weight="bold" style={{ marginLeft: 2 }} />
+              </Pressable>
             </View>
           </View>
 
           <View className="flex-row justify-between items-end mb-6">
             <View>
-              <Text className="text-[#D4FF00] text-[13px] font-medium mb-1">↓ 3.6 kg lost</Text>
-              <Text className="text-[#8E8E93] text-[13px]">Since Jan 1, 2024</Text>
+              <Text className={`${weightChange > 0 ? 'text-[#D4FF00]' : 'text-white'} text-[13px] font-medium mb-1`}>
+                {weightChange > 0 
+                  ? `${goalType === 'gain' ? '↑' : '↓'} ${weightChange.toFixed(1)} kg ${goalType === 'gain' ? 'gained' : 'lost'}` 
+                  : isGoalReached ? '🎉 Goal Reached!' : 'Keep going!'}
+              </Text>
+              <Text className="text-[#8E8E93] text-[13px]">Since {new Date(onboarding?.createdAt || new Date()).toLocaleDateString()}</Text>
             </View>
             <View className="items-end">
               <View className="flex-row items-center gap-1.5 mb-1">
@@ -95,10 +146,10 @@ export default function ProgressScreen() {
         <View className="flex-row gap-4 mb-8">
           <View className="flex-1 bg-[#1C1C1E] rounded-3xl p-5 items-center justify-center border border-[#2A2A2D]/50">
             <View className="flex-row items-baseline gap-1 mb-2">
-              <Text className="text-white text-[28px] font-bold tracking-tight">1.2</Text>
+              <Text className="text-white text-[28px] font-bold tracking-tight">{weightChange > 0 ? weightChange.toFixed(1) : '0'}</Text>
               <Text className="text-[#8E8E93] text-[15px] font-medium">kg</Text>
             </View>
-            <Text className="text-[#8E8E93] text-[10px] font-bold tracking-[1.5px] uppercase">Weight Lost</Text>
+            <Text className="text-[#8E8E93] text-[10px] font-bold tracking-[1.5px] uppercase">{goalType === 'gain' ? 'Total Gained' : 'Total Lost'}</Text>
           </View>
           <View className="flex-1 bg-[#1C1C1E] rounded-3xl p-5 items-center justify-center border border-[#2A2A2D]/50">
             <Text className="text-white text-[28px] font-bold tracking-tight mb-2">22</Text>
@@ -129,8 +180,55 @@ export default function ProgressScreen() {
             );
           })}
         </View>
+        </View>
+      {/* Edit Target Weight Modal */}
+      <Modal
+        visible={isEditModalVisible}
+        transparent={true}
+        animationType="fade"
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          className="flex-1 bg-black/80 justify-center items-center px-5"
+        >
+          <View className="w-full bg-[#1C1C1E] rounded-3xl p-6 border border-[#2A2A2D]/50">
+            <Text className="text-white text-xl font-bold mb-2">Update Goal Weight</Text>
+            <Text className="text-[#8E8E93] text-sm mb-6">Enter your new target weight in kg.</Text>
+            
+            <View className="bg-[#09090B] rounded-2xl px-4 py-3 mb-6 border border-[#2A2A2D]/50">
+              <TextInput
+                className="text-white text-2xl font-bold"
+                keyboardType="numeric"
+                value={editTargetWeight}
+                onChangeText={setEditTargetWeight}
+                autoFocus
+                selectionColor="#D4FF00"
+              />
+            </View>
 
-      </View>
+            <View className="flex-row gap-3">
+              <Pressable 
+                className="flex-1 bg-[#2A2A2D] rounded-xl py-3 items-center justify-center active:opacity-70"
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Text className="text-white font-bold">Cancel</Text>
+              </Pressable>
+              <Pressable 
+                className="flex-1 bg-[#D4FF00] rounded-xl py-3 items-center justify-center active:opacity-70"
+                onPress={handleSaveTargetWeight}
+                disabled={isUpdatingGoal}
+              >
+                {isUpdatingGoal ? (
+                  <ActivityIndicator color="#09090B" size="small" />
+                ) : (
+                  <Text className="text-[#09090B] font-bold">Save</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
     </ScrollView>
   );
 }

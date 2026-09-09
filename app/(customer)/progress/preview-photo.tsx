@@ -1,14 +1,87 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Image } from 'react-native';
+import { View, ScrollView, Pressable, Image, ActivityIndicator, Alert } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
-import { X, CalendarBlank, CaretRight, CheckCircle } from 'phosphor-react-native';
+import { X, CalendarBlank, CaretRight, CheckCircle, Camera } from 'phosphor-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { useUploadProgressPhoto } from '@/hooks/fitness/useUpdateProgress';
+import { useUser } from '@/context/UserContext';
 
 const PROGRESS_DAYS = [1, 30, 40, 60, 90];
 
 export default function PreviewProgressPhotoModal() {
   const router = useRouter();
+  const { userId } = useUser();
   const [selectedDay, setSelectedDay] = useState(40);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [base64Image, setBase64Image] = useState<string | null>(null);
+  const { mutateAsync: uploadPhoto, isPending } = useUploadProgressPhoto();
+
+  const handleTakeImage = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera permission is required to take photos.');
+      return;
+    }
+    let result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      setImageUri(result.assets[0].uri);
+      setBase64Image(result.assets[0].base64);
+    }
+  };
+
+  const handlePickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      setImageUri(result.assets[0].uri);
+      setBase64Image(result.assets[0].base64);
+    }
+  };
+
+  const showImageOptions = () => {
+    Alert.alert(
+      'Upload Progress Photo',
+      'Choose an option',
+      [
+        { text: 'Take Photo', onPress: handleTakeImage },
+        { text: 'Choose from Gallery', onPress: handlePickImage },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const handleSave = async () => {
+    if (!userId) return;
+    if (!base64Image) {
+      Alert.alert('No image', 'Please select an image first.');
+      return;
+    }
+
+    try {
+      const fileName = `progress-${Date.now()}.jpg`;
+      await uploadPhoto({
+        userId: userId,
+        base64Image,
+        fileName,
+      });
+      router.back();
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Failed to upload photo.');
+    }
+  };
 
   return (
     <View className="flex-1 bg-[#09090B] pt-8 px-5">
@@ -29,13 +102,23 @@ export default function PreviewProgressPhotoModal() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         
         {/* Image Preview */}
-        <View className="w-full h-64 bg-[#1C1C1E] rounded-3xl overflow-hidden mb-6 border border-[#2A2A2D]/50">
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=1000&auto=format&fit=crop' }} 
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-          />
-        </View>
+        <Pressable 
+          onPress={showImageOptions}
+          className="w-full h-64 bg-[#1C1C1E] rounded-3xl overflow-hidden mb-6 border border-[#2A2A2D]/50 items-center justify-center active:opacity-80"
+        >
+          {imageUri ? (
+            <Image 
+              source={{ uri: imageUri }} 
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+          ) : (
+            <View className="items-center">
+              <Camera size={48} color="#D4FF00" />
+              <Text className="text-[#D4FF00] mt-4 text-sm font-bold">Tap to select photo</Text>
+            </View>
+          )}
+        </Pressable>
 
         {/* Date Selector */}
         <Pressable className="bg-[#1C1C1E] rounded-2xl p-5 flex-row items-center justify-between mb-8 border border-[#2A2A2D]/50 active:opacity-80">
@@ -44,7 +127,7 @@ export default function PreviewProgressPhotoModal() {
             <Text className="text-white text-[15px]">Date</Text>
           </View>
           <View className="flex-row items-center gap-2">
-            <Text className="text-[#8E8E93] text-[15px]">May 14, 2025</Text>
+            <Text className="text-[#8E8E93] text-[15px]">{new Date().toLocaleDateString()}</Text>
             <CaretRight size={16} color="#6B6B6B" weight="bold" />
           </View>
         </Pressable>
@@ -84,10 +167,15 @@ export default function PreviewProgressPhotoModal() {
         {/* Action Buttons */}
         <View className="gap-3">
           <Pressable 
-            className="bg-[#D4FF00] rounded-2xl py-4 items-center justify-center active:opacity-80 shadow-lg"
-            onPress={() => router.back()}
+            className={`rounded-2xl py-4 items-center justify-center active:opacity-80 shadow-lg ${isPending ? 'bg-[#D4FF00]/50' : 'bg-[#D4FF00]'}`}
+            onPress={handleSave}
+            disabled={isPending}
           >
-            <Text className="text-[#09090B] text-[17px] font-bold">Save Progress Photo</Text>
+            {isPending ? (
+              <ActivityIndicator color="#09090B" />
+            ) : (
+              <Text className="text-[#09090B] text-[17px] font-bold">Save Progress Photo</Text>
+            )}
           </Pressable>
           <Pressable 
             className="bg-[#1C1C1E] rounded-2xl py-4 items-center justify-center active:opacity-80 border border-[#2A2A2D]/50"

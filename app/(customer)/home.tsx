@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
 import { View, ScrollView, Image, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { triggerMediumHaptic } from '@/lib/haptics';
 import * as ImagePicker from 'expo-image-picker';

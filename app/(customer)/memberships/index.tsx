@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, ScrollView, Pressable, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Info, CheckCircle, Crown, Star, Diamond, CaretRight, XCircle } from 'phosphor-react-native';
@@ -13,10 +14,11 @@ import { triggerMediumHaptic } from '@/lib/haptics';
 export default function MembershipsScreen() {
   const router = useRouter();
   const { userId } = useUser();
+  const insets = useSafeAreaInsets();
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: plans, isLoading, refetch: refetchPlans } = useGymCustomerMembershipPlans(undefined, userId!);
+  const { data: plans, isLoading, refetch: refetchPlans } = useGymCustomerMembershipPlans(undefined, userId ?? undefined);
   const { data: customerProfileData, refetch: refetchProfile } = useCustomerProfile(userId);
 
   const currentPlan = useMemo(() => {
@@ -56,7 +58,7 @@ export default function MembershipsScreen() {
   const planAmount = currentPlan?.customAmount ? `₹${currentPlan.customAmount}` : '₹0';
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0A0A0A] pb-28">
+    <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A]">
       <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#1C1C1E]">
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center -ml-2 active:opacity-70">
           <ArrowLeft size={24} color="#FFF" />
@@ -73,7 +75,7 @@ export default function MembershipsScreen() {
       <ScrollView
         className="flex-1 px-5 pt-6"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 140 }}
         refreshControl={
           <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -174,6 +176,6 @@ export default function MembershipsScreen() {
           })
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

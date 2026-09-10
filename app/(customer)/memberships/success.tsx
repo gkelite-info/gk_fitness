@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, SafeAreaView, Pressable, ScrollView } from 'react-native';
+import { View, Pressable, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Check, ClipboardText, WarningCircle, Money, DownloadSimple, ArrowLeft, Copy } from 'phosphor-react-native';
 
 export default function PaymentSuccessScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { planName, amount, paymentMethod, transactionId, upiId } = useLocalSearchParams<{
     planName: string;
     amount: string;
@@ -19,8 +21,8 @@ export default function PaymentSuccessScreen() {
   const restOfName = planNameParts.slice(1).join(' ');
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0A0A0A] pb-28">
-      <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, paddingTop: 60, justifyContent: 'center' }} showsVerticalScrollIndicator={false}>
+    <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A]">
+      <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, paddingTop: 60, paddingBottom: (insets.bottom || 0) + 140, justifyContent: 'center' }} showsVerticalScrollIndicator={false}>
         <View className="items-center mb-8">
           <View className="w-24 h-24 rounded-full bg-[#CCFF00] items-center justify-center relative shadow-[0_0_40px_rgba(204,255,0,0.4)]">
             <View className="absolute inset-0 rounded-full bg-[#CCFF00] opacity-30 scale-125" />
@@ -103,6 +105,6 @@ export default function PaymentSuccessScreen() {
           </Pressable>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Pressable, SafeAreaView, Dimensions, ActivityIndicator, FlatList } from 'react-native';
+import { View, Pressable, Dimensions, ActivityIndicator, FlatList } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useUser } from '@/context/UserContext';
@@ -27,6 +28,7 @@ const { width } = Dimensions.get('window');
 
 export default function MembershipDetailsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const benefits = [
     { icon: <Barbell size={20} color="#CCFF00" weight="fill" />, title: 'Unlimited\nGym Access' },
@@ -38,7 +40,7 @@ export default function MembershipDetailsScreen() {
   ];
 
   const { userId } = useUser();
-  const { data: plans, isLoading: isCustomerPlansLoading } = useGymCustomerMembershipPlans(undefined, userId!);
+  const { data: plans, isLoading: isCustomerPlansLoading } = useGymCustomerMembershipPlans(undefined, userId ?? undefined);
   const { data: customerProfileData } = useCustomerProfile(userId);
 
   const currentPlan = useMemo(() => {
@@ -129,14 +131,14 @@ export default function MembershipDetailsScreen() {
 
   if (isCustomerPlansLoading || isGymPlansLoading || (isPaymentsLoading && page === 1)) {
     return (
-      <SafeAreaView className="flex-1 bg-[#0A0A0A] justify-center items-center">
+      <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A] justify-center items-center">
         <ActivityIndicator size="large" color="#CCFF00" />
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0A0A0A] pb-[95px]">
+    <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A]">
       <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#1C1C1E]">
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center -ml-2 active:opacity-70">
           <CaretLeft size={24} color="#FFF" weight="bold" />
@@ -147,7 +149,7 @@ export default function MembershipDetailsScreen() {
 
       <FlatList
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         data={accumulatedLogs}
         keyExtractor={(item) => item.gymPaymentId}
@@ -294,12 +296,12 @@ export default function MembershipDetailsScreen() {
         }
       />
 
-      <View className="p-5 bg-[#0A0A0A] border-t border-[#1C1C1E]">
+      <View style={{ marginBottom: (insets.bottom || 0) + 60 }} className="p-5 bg-[#0A0A0A] border-t border-[#1C1C1E]">
         <Pressable onPress={handleRenew} className="bg-[#CCFF00] rounded-2xl py-4 flex-row items-center justify-center active:opacity-80">
           <Text className="text-black text-base font-semibold mr-2">Renew Membership</Text>
           <CaretRight size={16} color="#000" weight="bold" />
         </Pressable>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

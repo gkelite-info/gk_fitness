@@ -224,6 +224,13 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
+          name="trainer/[id]"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
           name="explore/trainers"
           options={{
             href: null,
@@ -241,35 +248,35 @@ export default function CustomerLayout() {
           name="memberships/index"
           options={{
             href: null,
-            headerShown: true,
+            headerShown: false,
           }}
         />
         <Tabs.Screen
           name="memberships/details"
           options={{
             href: null,
-            headerShown: true,
+            headerShown: false,
           }}
         />
         <Tabs.Screen
           name="memberships/review"
           options={{
             href: null,
-            headerShown: true,
+            headerShown: false,
           }}
         />
         <Tabs.Screen
           name="memberships/payment"
           options={{
             href: null,
-            headerShown: true,
+            headerShown: false,
           }}
         />
         <Tabs.Screen
           name="memberships/success"
           options={{
             href: null,
-            headerShown: true,
+            headerShown: false,
           }}
         />
         <Tabs.Screen

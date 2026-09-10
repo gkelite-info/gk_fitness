@@ -12,6 +12,7 @@ import { useCustomerDashboardData } from '@/hooks/customerWorkouts/useCustomerDa
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useQueryClient } from '@tanstack/react-query';
 import WorkoutShimmer from '@/components/shimmers/workoutShimmer';
+import { supabase } from '@/lib/supabase';
 
 export default function CustomerWorkout() {
   const [activeTab, setActiveTab] = useState<string | null>(null);

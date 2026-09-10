@@ -40,21 +40,26 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
         const result = await Pedometer.getStepCountAsync(startOfDay, now);
         if (isMounted && result) setSteps(result.steps);
       } else if (Platform.OS === 'android') {
-        // Use Health Connect to fetch steps (includes background history)
-        const result = await readRecords('Steps', {
-          timeRangeFilter: {
-            operator: 'between',
-            startTime: startOfDay.toISOString(),
-            endTime: now.toISOString(),
-          },
-        });
-        
-        // Sum up the step count from all records
-        const totalSteps = result.records.reduce((sum: number, record: any) => sum + (record.count || 0), 0);
-        if (isMounted) setSteps(totalSteps);
+        try {
+          // Use Health Connect to fetch steps (includes background history)
+          const result = await readRecords('Steps', {
+            timeRangeFilter: {
+              operator: 'between',
+              startTime: startOfDay.toISOString(),
+              endTime: now.toISOString(),
+            },
+          });
+          
+          const totalSteps = result.records.reduce((sum: number, record: any) => sum + (record.count || 0), 0);
+          if (isMounted) setSteps(totalSteps);
+        } catch (hcErr) {
+          // Fallback to Expo Pedometer if Health Connect is unlinked or running in Expo Go
+          const result = await Pedometer.getStepCountAsync(startOfDay, now);
+          if (isMounted && result) setSteps(result.steps);
+        }
       }
     } catch (e) {
-      console.warn("Error syncing steps:", e);
+      // Quietly handle fallback
     }
   };
 
@@ -85,10 +90,17 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
             await syncSteps(isMounted);
 
           } catch (err: any) {
-            console.warn("Health Connect Error:", err);
+            // Health Connect is unavailable or unlinked in Expo Go; fallback to Expo Pedometer
+            const available = await Pedometer.isAvailableAsync();
             if (isMounted) {
-              setIsAvailable(false);
-              setDebugInfo(`Health Connect Error: ${err.message || JSON.stringify(err)}`);
+              setIsAvailable(available);
+              setDebugInfo(`Expo Pedometer active (Health Connect fallback: ${available})`);
+            }
+            if (available) {
+              await syncSteps(isMounted);
+              subscription = Pedometer.watchStepCount(() => {
+                syncSteps(isMounted);
+              });
             }
           }
         } else if (Platform.OS === 'ios') {

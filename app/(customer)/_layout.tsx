@@ -65,27 +65,6 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
-          name="book-trainer"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="trainer/[id]"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="trainer-request"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
           name="my-trainer"
           options={{
             href: null,

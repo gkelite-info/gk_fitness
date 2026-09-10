@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getLocalDateString } from '@/lib/dateUtils';
 import { useUser } from '@/context/UserContext';
 import { supabaseFitnessService } from '@/lib/services/supabaseFitnessService';
 import { Pedometer } from 'expo-sensors';
 import { Platform, AppState, AppStateStatus } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   initialize,
   requestPermission,
@@ -40,8 +40,21 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
         const result = await Pedometer.getStepCountAsync(startOfDay, now);
         if (isMounted && result) setSteps(result.steps);
       } else if (Platform.OS === 'android') {
+        let hardwareSteps = 0;
+        let hcSteps = 0;
+
+        // 1. Query hardware step counter from midnight (accumulates continuously even when app is killed)
         try {
-          // Use Health Connect to fetch steps (includes background history)
+          const hwResult = await Pedometer.getStepCountAsync(startOfDay, now);
+          if (hwResult && typeof hwResult.steps === 'number') {
+            hardwareSteps = hwResult.steps;
+          }
+        } catch (hwErr) {
+          // Hardware step sensor fallback
+        }
+
+        // 2. Query Health Connect steps if available
+        try {
           const result = await readRecords('Steps', {
             timeRangeFilter: {
               operator: 'between',
@@ -49,13 +62,14 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
               endTime: now.toISOString(),
             },
           });
-          
-          const totalSteps = result.records.reduce((sum: number, record: any) => sum + (record.count || 0), 0);
-          if (isMounted) setSteps(totalSteps);
+          hcSteps = result.records.reduce((sum: number, record: any) => sum + (record.count || 0), 0);
         } catch (hcErr) {
-          // Fallback to Expo Pedometer if Health Connect is unlinked or running in Expo Go
-          const result = await Pedometer.getStepCountAsync(startOfDay, now);
-          if (isMounted && result) setSteps(result.steps);
+          // Health Connect unavailable or unlinked in Expo Go
+        }
+
+        const bestSteps = Math.max(hardwareSteps, hcSteps);
+        if (isMounted && bestSteps > 0) {
+          setSteps(bestSteps);
         }
       }
     } catch (e) {
@@ -66,48 +80,54 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let subscription: Pedometer.Subscription | null = null;
     let isMounted = true;
-    
+
     const subscribe = async () => {
       try {
         if (Platform.OS === 'android') {
+          // Request physical activity recognition permission on Android
+          try {
+            const perm = await Pedometer.requestPermissionsAsync();
+            if (!perm.granted) {
+              setDebugInfo('Activity Recognition permission pending');
+            }
+          } catch (pErr) {
+            // Permission request fallback
+          }
+
           setDebugInfo('Initializing Health Connect...');
-          
+          let hcReady = false;
           try {
             const isInitialized = await initialize();
-            if (!isInitialized) {
-              throw new Error("Failed to initialize Health Connect");
+            if (isInitialized) {
+              await requestPermission([
+                { accessType: 'read', recordType: 'Steps' },
+              ]);
+              hcReady = true;
             }
-
-            setDebugInfo('Requesting Health Connect permissions...');
-            await requestPermission([
-              { accessType: 'read', recordType: 'Steps' },
-            ]);
-            
-            if (isMounted) setIsAvailable(true);
-            setDebugInfo('Health Connect Ready.');
-            
-            // Sync immediately on mount
-            await syncSteps(isMounted);
-
           } catch (err: any) {
-            // Health Connect is unavailable or unlinked in Expo Go; fallback to Expo Pedometer
-            const available = await Pedometer.isAvailableAsync();
-            if (isMounted) {
-              setIsAvailable(available);
-              setDebugInfo(`Expo Pedometer active (Health Connect fallback: ${available})`);
-            }
-            if (available) {
-              await syncSteps(isMounted);
-              subscription = Pedometer.watchStepCount(() => {
-                syncSteps(isMounted);
-              });
-            }
+            // Health connect unavailable or unlinked in Expo Go
+          }
+
+          const available = await Pedometer.isAvailableAsync();
+          if (isMounted) {
+            setIsAvailable(available || hcReady);
+            setDebugInfo(`Android Pedometer: ${available ? 'HW Ready' : 'HW N/A'}, HC: ${hcReady ? 'Ready' : 'N/A'}`);
+          }
+
+          // Initial sync on mount
+          await syncSteps(isMounted);
+
+          // Watch for live step updates while app is open on Android
+          if (available) {
+            subscription = Pedometer.watchStepCount(() => {
+              syncSteps(isMounted);
+            });
           }
         } else if (Platform.OS === 'ios') {
           // Keep using Expo Pedometer for iOS (uses Apple Health natively)
           setDebugInfo(`Checking sensor availability...`);
           const available = await Pedometer.isAvailableAsync();
-          
+
           if (isMounted) {
             setIsAvailable(available);
             setDebugInfo(`Sensor Available: ${available}`);
@@ -131,7 +151,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
     subscribe();
 
-    // Re-sync steps every time the app comes back to the foreground
+    // Re-sync steps every time the app comes back to the foreground (recovers steps taken while app was killed)
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         syncSteps(isMounted);
@@ -139,10 +159,18 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
     };
     const appStateSub = AppState.addEventListener('change', handleAppStateChange);
 
+    // Periodic sync every 5 seconds while app is in foreground
+    const interval = setInterval(() => {
+      if (isMounted) {
+        syncSteps(isMounted);
+      }
+    }, 5000);
+
     return () => {
       isMounted = false;
       if (subscription) subscription.remove();
       appStateSub.remove();
+      clearInterval(interval);
     };
   }, []);
 
@@ -152,8 +180,8 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!userId || steps === 0) return;
 
-    const today = new Date().toISOString().split('T')[0];
-    
+    const today = getLocalDateString(new Date());
+
     const syncTimeout = setTimeout(() => {
       supabaseFitnessService.updateSteps(userId, today, steps, calories)
         .catch(err => console.error('Pedometer auto-sync failed:', err));

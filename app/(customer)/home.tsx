@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getLocalDateString } from '@/lib/dateUtils';
 import { View, ScrollView, Image, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
@@ -113,7 +114,7 @@ export default function CustomerHome() {
     }, [fetchMembershipInfo])
   );
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString(new Date());
   const { steps, calories } = usePedometer();
   const { data: stats, refetch: refetchStats } = useFitnessStats(userId, today);
 

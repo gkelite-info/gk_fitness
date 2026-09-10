@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, SafeAreaView, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Image, Alert } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Image, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useUser } from '@/context/UserContext';
@@ -14,10 +15,11 @@ import { toast } from '@/lib/toast';
 
 export default function MembershipPaymentScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { planId } = useLocalSearchParams<{ planId: string }>();
 
   const { userId } = useUser();
-  const { data: plans, isLoading: isCustomerPlansLoading } = useGymCustomerMembershipPlans(undefined, userId!);
+  const { data: plans, isLoading: isCustomerPlansLoading } = useGymCustomerMembershipPlans(undefined, userId ?? undefined);
   const { data: customerProfileData, isLoading: isProfileLoading } = useCustomerProfile(userId);
 
   const currentPlan = useMemo(() => {
@@ -117,9 +119,9 @@ export default function MembershipPaymentScreen() {
 
   if (isCustomerPlansLoading || isGymPlansLoading || isProfileLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-[#0A0A0A] justify-center items-center">
+      <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A] justify-center items-center">
         <ActivityIndicator size="large" color="#CCFF00" />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -142,7 +144,7 @@ export default function MembershipPaymentScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0A0A0A]">
+    <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A]">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -154,7 +156,7 @@ export default function MembershipPaymentScreen() {
           <Text className="text-white text-lg font-semibold flex-1 text-center mr-8">Payment Method</Text>
         </View>
 
-        <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 140 }}>
           <Text className="text-white text-[15px] mb-4">Select Payment Method</Text>
           <Pressable
             onPress={() => setPaymentMethod('UPI')}
@@ -357,6 +359,6 @@ export default function MembershipPaymentScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }

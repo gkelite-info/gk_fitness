@@ -12,6 +12,7 @@ import { useCustomerDashboardData } from '@/hooks/customerWorkouts/useCustomerDa
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useQueryClient } from '@tanstack/react-query';
 import WorkoutShimmer from '@/components/shimmers/workoutShimmer';
+import { supabase } from '@/lib/supabase';
 
 export default function CustomerWorkout() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
@@ -474,29 +475,29 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
 
   const placeholderRecommendedMap: Record<string, any[]> = {
     Chest: [
-      { exerciseName: 'Flat Barbell Bench Press', category: 'Chest', reps: '8-10 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/bench_press_video.mp4') },
-      { exerciseName: 'Incline Dumbbell Flyes', category: 'Chest', reps: '12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/cable_fly_video.mp4') },
-      { exerciseName: 'Chest Press Machine', category: 'Chest', reps: '10 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/chest_press_machine_video.mp4') },
-      { exerciseName: 'Pushups', category: 'Chest', reps: 'to failure', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/pushup_video.mp4') },
-      { exerciseName: 'Cable Crossovers', category: 'Chest', reps: '15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/cable_fly_video.mp4') },
+      { exerciseName: 'Flat Barbell Bench Press', category: 'Chest', reps: '8-10 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Incline Dumbbell Flyes', category: 'Chest', reps: '12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Chest Press Machine', category: 'Chest', reps: '10 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Pushups', category: 'Chest', reps: 'to failure', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Cable Crossovers', category: 'Chest', reps: '15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
     ],
     Back: [
-      { exerciseName: 'Lat Pulldown', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/lat_pulldown_video.mp4') },
-      { exerciseName: 'Seated Row', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/back_seated_row_video.mp4') },
-      { exerciseName: 'Single Arm Row', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/back_seated_row_video.mp4') },
-      { exerciseName: 'Pull Ups', category: 'Back', reps: 'to failure', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/lat_pulldown_video.mp4') },
-      { exerciseName: 'Deadlift', category: 'Back', reps: '8 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/deadlift_back_workout_video.mp4') },
+      { exerciseName: 'Lat Pulldown', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Seated Row', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Single Arm Row', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Pull Ups', category: 'Back', reps: 'to failure', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Deadlift', category: 'Back', reps: '8 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Hyper-extensions', category: 'Back', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: null },
-      { exerciseName: 'T Bar Row', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/back_seated_row_video.mp4') },
+      { exerciseName: 'T Bar Row', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
     ],
     Shoulders: [
-      { exerciseName: 'Shoulder Press', category: 'Shoulders', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/tri_che_shou_video.mp4') },
-      { exerciseName: 'Lateral Raises', category: 'Shoulders', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/tri_che_shou_video.mp4') },
+      { exerciseName: 'Shoulder Press', category: 'Shoulders', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Lateral Raises', category: 'Shoulders', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
     ],
     Legs: [
-      { exerciseName: 'Squats', category: 'Legs', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/squat_exercise_video.mp4') },
-      { exerciseName: 'Leg Press', category: 'Legs', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/legpress_exercise_video.mp4') },
-      { exerciseName: 'Romanian Deadlift', category: 'Legs', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: require('../../assets/videos/romanian_deadlift_video.mp4') },
+      { exerciseName: 'Squats', category: 'Legs', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Leg Press', category: 'Legs', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Romanian Deadlift', category: 'Legs', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: null },
     ],
   };
   if (filterTabs) {
@@ -517,95 +518,11 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
 
     const mappedRecommended = uniqueRecommended.map(ex => {
       let videoSource = null;
-      const lowerName = ex.exerciseName?.toLowerCase() || '';
-      if (lowerName.includes('incline') && lowerName.includes('dumb')) {
-        videoSource = require('../../assets/videos/incline_dumbell_press.mp4');
-      } else if (lowerName.includes('bench press')) {
-        videoSource = require('../../assets/videos/bench_press_video.mp4');
-      } else if (lowerName.includes('pec deck') || lowerName.includes('pec-deck') || lowerName.includes('peck deck')) {
-        videoSource = require('../../assets/videos/pec_deck_exercise_video.mp4');
-      } else if (lowerName.includes('dip')) {
-        videoSource = require('../../assets/videos/dips_exercise_video.mp4');
-      } else if (lowerName.includes('chest press') || lowerName.includes('machine press')) {
-        videoSource = require('../../assets/videos/chest_press_machine_video.mp4');
-      } else if (lowerName.includes('woodchopper') || lowerName.includes('wood chopper')) {
-        videoSource = require('../../assets/videos/cable_woodchoppers.gif');
-      } else if (lowerName.includes('cable') || lowerName.includes('fly')) {
-        videoSource = require('../../assets/videos/cable_fly_video.mp4');
-      } else if (lowerName.includes('pushup') || lowerName.includes('push-up')) {
-        videoSource = require('../../assets/videos/pushup_video.mp4');
-      } else if (lowerName.includes('romanian deadlift') || lowerName.includes('rdl')) {
-        videoSource = require('../../assets/videos/romanian_deadlift_video.mp4');
-      } else if (lowerName.includes('deadlift') && !lowerName.includes('romanian')) {
-        videoSource = require('../../assets/videos/deadlift_back_workout_video.mp4');
-      } else if (lowerName.includes('squat')) {
-        videoSource = require('../../assets/videos/squat_exercise_video.mp4');
-      } else if (lowerName.includes('leg press')) {
-        videoSource = require('../../assets/videos/legpress_exercise_video.mp4');
-      } else if (lowerName.includes('leg extension')) {
-        videoSource = require('../../assets/videos/leg_extension_video.mp4');
-      } else if (lowerName.includes('calf raise')) {
-        videoSource = require('../../assets/videos/calf_raise_video.mp4');
-      } else if (lowerName.includes('lunge')) {
-        videoSource = require('../../assets/videos/lunges_exercise_video.mp4');
-      } else if (lowerName.includes('hamstring curl') || lowerName.includes('leg curl')) {
-        videoSource = require('../../assets/videos/hamstring_curls_video.mp4');
-      } else if (lowerName.includes('lat pulldown') || lowerName.includes('pulldown')) {
-        videoSource = require('../../assets/videos/lat_pulldown_video.mp4');
-      } else if (lowerName.includes('pull up') || lowerName.includes('pull-up') || lowerName.includes('pullups')) {
-        videoSource = require('../../assets/videos/pull_ups_video.mp4');
-      } else if (lowerName === 'seated row' || lowerName.includes('seated row')) {
-        videoSource = require('../../assets/videos/back_seated_row_video.mp4');
-      } else if (lowerName.includes('single arm row') || lowerName.includes('single-arm row')) {
-        videoSource = require('../../assets/videos/single_arm_row_video.mp4');
-      } else if (lowerName.includes('t bar row') || lowerName.includes('t-bar row') || lowerName.includes('t bar') || lowerName.includes('t-bar')) {
-        videoSource = require('../../assets/videos/t_bar_row_exercise_video.mp4');
-      } else if (lowerName.includes('hyper-extension') || lowerName.includes('hyperextension') || lowerName.includes('hyper extension')) {
-        videoSource = require('../../assets/videos/hyper_extension_video.mp4');
-      } else if (lowerName.includes('overhead press') || lowerName.includes('shoulder press')) {
-        videoSource = require('../../assets/videos/overhead_press_video.mp4');
-      } else if (lowerName.includes('lateral raise')) {
-        videoSource = require('../../assets/videos/lateral_raises_video.mp4');
-      } else if (lowerName.includes('front raise') || lowerName.includes('front raises') || lowerName.includes('front')) {
-        videoSource = require('../../assets/videos/front-raised_video.mp4');
-      } else if (lowerName.includes('reverse pec deck') || lowerName.includes('reverse fly')) {
-        videoSource = require('../../assets/videos/reverse_pec_deck_video.mp4');
-      } else if (lowerName.includes('shrug')) {
-        videoSource = require('../../assets/videos/shrugs_video.mp4');
-      } else if (lowerName.includes('arnold press') || lowerName.includes('arnoid press') || lowerName.includes('arnoid')) {
-        videoSource = require('../../assets/videos/arnold_press_video.mp4');
-      } else if (lowerName.includes('face pull') || lowerName.includes('face pulls') || lowerName.includes('face')) {
-        videoSource = require('../../assets/videos/face_pulls_video.mp4');
-      } else if (lowerName.includes('preacher curl') || lowerName.includes('preacher')) {
-        videoSource = require('../../assets/videos/preacher_curls_video.mp4');
-      } else if (lowerName.includes('hammer curl')) {
-        videoSource = require('../../assets/videos/hammer_curls_video.mp4');
-      } else if (lowerName.includes('bicep curl') || lowerName.includes('biceps curl') || lowerName.includes('bicep') || lowerName.includes('curl')) {
-        videoSource = require('../../assets/videos/bicep_curls_video.mp4');
-      } else if (lowerName.includes('overhead extension') || lowerName.includes('overhead tricep') || lowerName.includes('overhead triceps')) {
-        videoSource = require('../../assets/videos/overhead_extension_video.mp4');
-      } else if (lowerName.includes('pushdown') || lowerName.includes('push down') || lowerName.includes('push-down') || lowerName.includes('tricep extension')) {
-        videoSource = require('../../assets/videos/tricep_pushdown_video.mp4');
-      } else if (lowerName.includes('skull crusher') || lowerName.includes('skullcrusher') || lowerName.includes('skull')) {
-        videoSource = require('../../assets/videos/skull_crushers_video.mp4');
-      } else if (lowerName.includes('chin up') || lowerName.includes('chin-up') || lowerName.includes('chinups')) {
-        videoSource = require('../../assets/videos/chin_ups_video.gif');
-      } else if (lowerName.includes('bicycle crunch')) {
-        videoSource = require('../../assets/videos/bicycle_crunches.mp4');
-      } else if (lowerName.includes('hanging knee raise') || lowerName.includes('knee raise')) {
-        videoSource = require('../../assets/videos/hanging_knee_raise_video.mp4');
-      } else if (lowerName.includes('russian twist')) {
-        videoSource = require('../../assets/videos/russian_twist_video.mp4');
-      } else if (lowerName.includes('leg raise')) {
-        videoSource = require('../../assets/videos/leg_raise_video.mp4');
-      } else if (lowerName.includes('crunch')) {
-        videoSource = require('../../assets/videos/crunches_video.mp4');
-      } else if (lowerName.includes('plank')) {
-        videoSource = require('../../assets/videos/plank_video.mp4');
-      } else if (lowerName.includes('raise')) {
-        videoSource = require('../../assets/videos/tri_che_shou_video.mp4');
+      if (ex.videoUrl) {
+        const isAbsolute = ex.videoUrl.startsWith('http://') || ex.videoUrl.startsWith('https://');
+        videoSource = isAbsolute ? ex.videoUrl : supabase.storage.from('workout-videos').getPublicUrl(ex.videoUrl).data.publicUrl;
       }
-      return { ...ex, video: videoSource || ex.video };
+      return { ...ex, video: videoSource || ex.video || null };
     });
     let recs = mappedRecommended;
     if (filterTabs && filterTabs.length > 0) {

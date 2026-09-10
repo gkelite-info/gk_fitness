@@ -6,6 +6,16 @@ import { ArrowLeft, Check } from 'phosphor-react-native';
 import { useWorkoutPlan } from './_layout';
 import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 
+const DEFAULT_MUSCLE_GROUPS = [
+  { id: 'chest', workoutId: 'chest', title: 'Chest', subtitle: 'Target your chest muscles' },
+  { id: 'back', workoutId: 'back', title: 'Back', subtitle: 'Target your back muscles' },
+  { id: 'shoulders', workoutId: 'shoulders', title: 'Shoulders', subtitle: 'Target your shoulder muscles' },
+  { id: 'legs', workoutId: 'legs', title: 'Legs', subtitle: 'Target your leg muscles' },
+  { id: 'biceps', workoutId: 'biceps', title: 'Biceps', subtitle: 'Target your bicep muscles' },
+  { id: 'triceps', workoutId: 'triceps', title: 'Triceps', subtitle: 'Target your tricep muscles' },
+  { id: 'abs', workoutId: 'abs', title: 'Abs', subtitle: 'Target your core & abs' },
+];
+
 export default function ChooseMuscleGroup() {
   const { day } = useLocalSearchParams<{ day: string }>();
   const { planDays, setPlanDays } = useWorkoutPlan();
@@ -38,15 +48,31 @@ export default function ChooseMuscleGroup() {
     }
   };
 
-  const dynamicMuscleGroups = workouts?.map(w => {
-    const typeStr = w.workoutType;
-    return {
-      id: typeStr,
-      workoutId: w.workoutId,
-      title: typeStr.charAt(0).toUpperCase() + typeStr.slice(1),
-      subtitle: `Target your ${typeStr} muscles`
-    };
-  }) || [];
+  const dynamicMuscleGroups = React.useMemo(() => {
+    if (!workouts || !Array.isArray(workouts) || workouts.length === 0) {
+      return DEFAULT_MUSCLE_GROUPS;
+    }
+
+    const seen = new Set<string>();
+    const list: Array<{ id: string; workoutId: string; title: string; subtitle: string }> = [];
+
+    for (const w of workouts) {
+      if (!w || !w.workoutType) continue;
+      const typeStr = String(w.workoutType).trim();
+      if (!typeStr || seen.has(typeStr.toLowerCase())) continue;
+
+      seen.add(typeStr.toLowerCase());
+      const capitalized = typeStr.charAt(0).toUpperCase() + typeStr.slice(1);
+      list.push({
+        id: typeStr.toLowerCase(),
+        workoutId: w.workoutId || typeStr.toLowerCase(),
+        title: capitalized,
+        subtitle: `Target your ${typeStr} muscles`,
+      });
+    }
+
+    return list.length > 0 ? list : DEFAULT_MUSCLE_GROUPS;
+  }, [workouts]);
 
   return (
     <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getLocalDateString } from '@/lib/dateUtils';
 import * as Crypto from 'expo-crypto';
 import { DailyFitnessStats, FitnessRepository, WaterLogEntry } from './fitness.types';
 
@@ -99,7 +100,7 @@ export const supabaseFitnessService: FitnessRepository = {
   },
 
   setWaterGoal: async (userId: string, goalML: number): Promise<void> => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(new Date());
     const summary = await getOrCreateDailySummary(userId, today);
     const { error } = await supabase
       .from('daily_health_summaries')

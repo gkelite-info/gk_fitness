@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, Pressable, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useUser } from '@/context/UserContext';
@@ -25,10 +26,11 @@ import {
 
 export default function MembershipReviewScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { planId } = useLocalSearchParams<{ planId: string }>();
 
   const { userId } = useUser();
-  const { data: plans, isLoading: isCustomerPlansLoading } = useGymCustomerMembershipPlans(undefined, userId!);
+  const { data: plans, isLoading: isCustomerPlansLoading } = useGymCustomerMembershipPlans(undefined, userId ?? undefined);
   const { data: customerProfileData } = useCustomerProfile(userId);
 
   const currentPlan = useMemo(() => {
@@ -47,9 +49,9 @@ export default function MembershipReviewScreen() {
 
   if (isCustomerPlansLoading || isGymPlansLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-[#0A0A0A] justify-center items-center">
+      <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A] justify-center items-center">
         <ActivityIndicator size="large" color="#CCFF00" />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -84,7 +86,7 @@ export default function MembershipReviewScreen() {
   })) || defaultBenefits;
 
   return (
-    <SafeAreaView className="flex-1 bg-[#0A0A0A]">
+    <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A]">
       <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#1C1C1E]">
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center -ml-2 active:opacity-70">
           <CaretLeft size={24} color="#FFF" weight="bold" />
@@ -93,7 +95,7 @@ export default function MembershipReviewScreen() {
         <View className="w-10 h-10" />
       </View>
 
-      <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 140 }}>
 
         <Text className="text-[#C6C9AB] text-base mb-4">Review your Membership renewal</Text>
 
@@ -179,6 +181,6 @@ export default function MembershipReviewScreen() {
           </Pressable>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

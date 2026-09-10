@@ -95,56 +95,12 @@ export default function ExerciseDetail() {
 
   const localVideoSource = React.useMemo(() => {
     if (!currentExercise) return null;
-    const normalized = (currentExercise.exerciseName || currentExercise.name || 'Flat Barbell Bench Press').toLowerCase();
 
     if (currentExercise.videoUrl) {
       const isAbsolute = currentExercise.videoUrl.startsWith('http://') || currentExercise.videoUrl.startsWith('https://');
       const fullUrl = isAbsolute ? currentExercise.videoUrl : supabase.storage.from('workout-videos').getPublicUrl(currentExercise.videoUrl).data.publicUrl;
       return fullUrl;
     }
-
-    if (normalized.includes('incline') && normalized.includes('dumb')) return require('../../assets/videos/incline_dumbell_press.mp4');
-    if (normalized.includes('bench press')) return require('../../assets/videos/bench_press_video.mp4');
-    if (normalized.includes('pec deck') || normalized.includes('pec-deck') || normalized.includes('peck deck')) return require('../../assets/videos/pec_deck_exercise_video.mp4');
-    if (normalized.includes('dip')) return require('../../assets/videos/dips_exercise_video.mp4');
-    if (normalized.includes('chest press') || normalized.includes('machine press')) return require('../../assets/videos/chest_press_machine_video.mp4');
-    if (normalized.includes('woodchopper') || normalized.includes('wood chopper')) return require('../../assets/videos/cable_woodchoppers.gif');
-    if (normalized.includes('cable') || normalized.includes('fly')) return require('../../assets/videos/cable_fly_video.mp4');
-    if (normalized.includes('pushup') || normalized.includes('push-up')) return require('../../assets/videos/pushup_video.mp4');
-    if (normalized.includes('romanian deadlift') || normalized.includes('rdl')) return require('../../assets/videos/romanian_deadlift_video.mp4');
-    if (normalized.includes('deadlift') && !normalized.includes('romanian')) return require('../../assets/videos/deadlift_back_workout_video.mp4');
-    if (normalized.includes('squat')) return require('../../assets/videos/squat_exercise_video.mp4');
-    if (normalized.includes('leg press')) return require('../../assets/videos/legpress_exercise_video.mp4');
-    if (normalized.includes('leg extension')) return require('../../assets/videos/leg_extension_video.mp4');
-    if (normalized.includes('calf raise')) return require('../../assets/videos/calf_raise_video.mp4');
-    if (normalized.includes('lunge')) return require('../../assets/videos/lunges_exercise_video.mp4');
-    if (normalized.includes('hamstring curl') || normalized.includes('leg curl')) return require('../../assets/videos/hamstring_curls_video.mp4');
-    if (normalized.includes('lat pulldown') || normalized.includes('pulldown')) return require('../../assets/videos/lat_pulldown_video.mp4');
-    if (normalized.includes('pull up') || normalized.includes('pull-up') || normalized.includes('pullups')) return require('../../assets/videos/pull_ups_video.mp4');
-    if (normalized === 'seated row' || normalized.includes('seated row')) return require('../../assets/videos/back_seated_row_video.mp4');
-    if (normalized.includes('single arm row') || normalized.includes('single-arm row')) return require('../../assets/videos/single_arm_row_video.mp4');
-    if (normalized.includes('t bar row') || normalized.includes('t-bar row')) return require('../../assets/videos/t_bar_row_exercise_video.mp4');
-    if (normalized.includes('hyper-extension') || normalized.includes('hyperextension') || normalized.includes('hyper extension')) return require('../../assets/videos/hyper_extension_video.mp4');
-    if (normalized.includes('overhead press')) return require('../../assets/videos/overhead_press_video.mp4');
-    if (normalized.includes('lateral raise')) return require('../../assets/videos/lateral_raises_video.mp4');
-    if (normalized.includes('front raise')) return require('../../assets/videos/front-raised_video.mp4');
-    if (normalized.includes('reverse pec deck') || normalized.includes('reverse fly')) return require('../../assets/videos/reverse_pec_deck_video.mp4');
-    if (normalized.includes('shrug')) return require('../../assets/videos/shrugs_video.mp4');
-    if (normalized.includes('arnold press')) return require('../../assets/videos/arnold_press_video.mp4');
-    if (normalized.includes('face pull')) return require('../../assets/videos/face_pulls_video.mp4');
-    if (normalized.includes('preacher curl')) return require('../../assets/videos/preacher_curls_video.mp4');
-    if (normalized.includes('hammer curl')) return require('../../assets/videos/hammer_curls_video.mp4');
-    if (normalized.includes('bicep curl') || normalized.includes('curl')) return require('../../assets/videos/bicep_curls_video.mp4');
-    if (normalized.includes('overhead extension')) return require('../../assets/videos/overhead_extension_video.mp4');
-    if (normalized.includes('pushdown') || normalized.includes('push down') || normalized.includes('push-down') || normalized.includes('tricep extension')) return require('../../assets/videos/tricep_pushdown_video.mp4');
-    if (normalized.includes('skull crusher') || normalized.includes('skullcrusher')) return require('../../assets/videos/skull_crushers_video.mp4');
-    if (normalized.includes('chin up') || normalized.includes('chin-up') || normalized.includes('chinups')) return require('../../assets/videos/chin_ups_video.gif');
-    if (normalized.includes('bicycle crunch')) return require('../../assets/videos/bicycle_crunches.mp4');
-    if (normalized.includes('hanging knee raise') || normalized.includes('knee raise')) return require('../../assets/videos/hanging_knee_raise_video.mp4');
-    if (normalized.includes('russian twist')) return require('../../assets/videos/russian_twist_video.mp4');
-    if (normalized.includes('leg raise')) return require('../../assets/videos/leg_raise_video.mp4');
-    if (normalized.includes('crunch')) return require('../../assets/videos/crunches_video.mp4');
-    if (normalized.includes('plank')) return require('../../assets/videos/plank_video.mp4');
 
     return null;
   }, [currentExercise]);

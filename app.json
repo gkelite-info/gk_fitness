@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "gk-fitness",
+    "name": "GK-Gymlife",
     "slug": "gk-fitness",
-    "owner": "gk-elite-info",
-    "version": "1.0.0",
+    "owner": "ashishgkelite",
+    "version": "1.0.1",
     "scheme": "gk-fitness",
     "platforms": [
       "ios",
@@ -29,19 +29,27 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow GK Fitness to access your camera to scan QR codes for attendance.",
+          "cameraPermission": "Allow GK Fitness to access your camera to scan QR codes for gym attendance.",
           "recordAudioAndroid": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow GK Fitness to access your photos to upload gym logos and profiles."
+          "photosPermission": "Allow GK Fitness to access your photos to upload gym logos, progress photos, and profile pictures."
         }
       ],
       "expo-status-bar",
       "expo-web-browser",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
@@ -56,11 +64,13 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vamshi0111.gkfitness",
-      "buildNumber": "15",
+      "buildNumber": "16",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIViewControllerBasedStatusBarAppearance": false,
-        "NSMotionUsageDescription": "GK Fitness needs access to your device motion data to accurately track your daily step count and calculate calories burned during your active workout sessions."
+        "NSMotionUsageDescription": "GK Fitness needs access to your device motion data to accurately track your daily step count and calculate calories burned during your active workout sessions.",
+        "NSCameraUsageDescription": "GK Fitness needs access to your camera to scan QR codes for gym attendance and check-ins.",
+        "NSPhotoLibraryUsageDescription": "Allow GK Fitness to access your photos to upload gym logos, progress photos, and profile pictures."
       }
     },
     "android": {
@@ -85,14 +95,14 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5d58a773-7b20-402a-b488-fd27bccbc462"
+        "projectId": "99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/5d58a773-7b20-402a-b488-fd27bccbc462"
+      "url": "https://u.expo.dev/99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
     }
   }
 }

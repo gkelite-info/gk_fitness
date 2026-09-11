@@ -34,7 +34,8 @@ export async function fetchGymCustomerMembershipPlans(gymId?: string, customerId
     .from('gym_customer_membership_plans')
     .select('*, plan:gym_membership_plans(planName, durationMonths, price), gym_customers(fullName, email, phone, gymId, is_Active, users(profilePhoto, status, createdAt))')
     .eq('is_deleted', false)
-    .order('createdAt', { ascending: false });
+    .order('createdAt', { ascending: false })
+    .limit(50);
 
   if (gymId) {
     query = query.eq('gymId', gymId);

@@ -19,6 +19,7 @@ export function useSaveWorkoutDayExercises() {
           category: ex.category,
           reps: ex.reps,
           order: ex.order,
+          sets: ex.sets ?? 2,
           image: ex.image,
           videoUrl: ex.videoUrl,
         });

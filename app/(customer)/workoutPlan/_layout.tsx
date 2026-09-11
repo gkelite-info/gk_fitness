@@ -6,6 +6,7 @@ export interface ExerciseItem {
   category: string;
   reps: string;
   order: number;
+  sets?: number;
   image?: string | null;
   videoUrl?: string | null;
   workoutVideoId?: string | null;

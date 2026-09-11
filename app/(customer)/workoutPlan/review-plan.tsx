@@ -85,6 +85,7 @@ export default function ReviewPlan() {
               workoutVideoId: ex.workoutVideoId || null,
               exerciseName: ex.exerciseName,
               category: ex.category,
+              sets: ex.sets!,
               reps: ex.reps,
               order: idx,
               image: ex.image || null,
@@ -166,7 +167,9 @@ export default function ReviewPlan() {
                       <Text className="text-[#8E8E8E] font-semibold text-xs mr-2">{day.substring(0, 3).toUpperCase()}</Text>
                       {hasWorkout && <View className="w-1.5 h-1.5 rounded-full bg-[#C4EF00]" />}
                     </View>
-                    <Text className="text-white font-semibold text-base mt-0.5">{workoutTitle}</Text>
+                    <Text className="text-white font-semibold text-base mt-0.5">
+                      {workoutTitle.charAt(0).toUpperCase() + workoutTitle.slice(1)}
+                    </Text>
                     <Text className="text-[#8E8E8E] text-xs mt-0.5">{workoutSubtitle}</Text>
                   </View>
                 </View>

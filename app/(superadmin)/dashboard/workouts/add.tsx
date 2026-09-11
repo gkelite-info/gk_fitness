@@ -18,6 +18,10 @@ import { supabase } from '@/lib/supabase'; const MUSCLE_GROUPS = [
   { id: 'triceps', label: 'Triceps' },
   { id: 'biceps', label: 'Biceps' },
   { id: 'legs', label: 'Legs' },
+  { id: 'calves', label: 'Calves' },
+  { id: 'cardio', label: 'Cardio' },
+  { id: 'hips', label: 'Hips' },
+  { id: 'trapezius', label: 'Trapezius' },
 ];
 
 export default function AddWorkoutScreen() {
@@ -28,6 +32,8 @@ export default function AddWorkoutScreen() {
   const isEditMode = !!params.id;
 
   const [selectedGroup, setSelectedGroup] = useState<string | null>((params.workoutType as string) || null);
+  const [selectedRole, setSelectedRole] = useState<'male' | 'female' | null>((params.role as any) || null);
+  const [isStretching, setIsStretching] = useState<boolean>(params.isStretching === 'true');
   const [exerciseName, setExerciseName] = useState((params.exerciseName as string) || '');
   const [videoUri, setVideoUri] = useState<string | null>((params.videoUrl as string) || null);
   const [videoName, setVideoName] = useState<string | null>((params.videoUrl as string) || null);
@@ -71,6 +77,12 @@ export default function AddWorkoutScreen() {
       return;
     }
 
+    if (!selectedRole) {
+      triggerErrorHaptic();
+      toast.error('Please select Male or Female.');
+      return;
+    }
+
     if (!exerciseName.trim()) {
       triggerErrorHaptic();
       toast.error('Please enter an exercise name.');
@@ -87,7 +99,7 @@ export default function AddWorkoutScreen() {
     try {
       setUploadProgress('Resolving workout group...');
       const workoutTypeKey = selectedGroup as any;
-      const workout = await getOrCreateWorkoutByType(workoutTypeKey);
+      const workout = await getOrCreateWorkoutByType(workoutTypeKey, selectedRole, isStretching);
 
       if (!workout || !workout.workoutId) {
         throw new Error('Failed to resolve workout ID.');
@@ -181,7 +193,38 @@ export default function AddWorkoutScreen() {
         </View>
 
         <Text className="text-sm font-semibold text-[#888888] uppercase tracking-wider mb-3">
-          2. Enter Exercise Name <Text className="text-red-500">*</Text>
+          2. Select Role <Text className="text-red-500">*</Text>
+        </Text>
+        <View className="flex-row gap-3 mb-6">
+          <Pressable 
+            onPress={() => setSelectedRole('male')}
+            className={`flex-1 py-3 rounded-xl border flex-row items-center justify-center ${selectedRole === 'male' ? 'bg-[#1D2507] border-[#BEF227]' : 'bg-[#111622] border-[#1F293D]'}`}
+          >
+            <Text className={`font-semibold ${selectedRole === 'male' ? 'text-[#BEF227]' : 'text-white'}`}>Male</Text>
+          </Pressable>
+          <Pressable 
+            onPress={() => setSelectedRole('female')}
+            className={`flex-1 py-3 rounded-xl border flex-row items-center justify-center ${selectedRole === 'female' ? 'bg-[#1D2507] border-[#BEF227]' : 'bg-[#111622] border-[#1F293D]'}`}
+          >
+            <Text className={`font-semibold ${selectedRole === 'female' ? 'text-[#BEF227]' : 'text-white'}`}>Female</Text>
+          </Pressable>
+        </View>
+
+        <Text className="text-sm font-semibold text-[#888888] uppercase tracking-wider mb-3">
+          3. Is Stretching?
+        </Text>
+        <Pressable 
+          onPress={() => setIsStretching(!isStretching)}
+          className={`mb-6 py-3 px-4 rounded-xl border flex-row items-center justify-between ${isStretching ? 'bg-[#1D2507] border-[#BEF227]' : 'bg-[#111622] border-[#1F293D]'}`}
+        >
+          <Text className={`font-semibold ${isStretching ? 'text-[#BEF227]' : 'text-white'}`}>Stretching Exercise</Text>
+          <View className={`w-6 h-6 rounded-full border items-center justify-center ${isStretching ? 'border-[#BEF227] bg-[#BEF227]' : 'border-[#888888]'}`}>
+            {isStretching && <CheckCircle size={16} color="#000" weight="fill" />}
+          </View>
+        </Pressable>
+
+        <Text className="text-sm font-semibold text-[#888888] uppercase tracking-wider mb-3">
+          4. Enter Exercise Name <Text className="text-red-500">*</Text>
         </Text>
         <TextInput
           placeholder="e.g. Incline Dumbbell Press"
@@ -237,7 +280,8 @@ export default function AddWorkoutScreen() {
         ) : (
           <Pressable
             onPress={handleSave}
-            className="bg-[#BEF227] py-4 rounded-2xl items-center justify-center active:opacity-90">
+            disabled={!selectedRole || isSubmitting}
+            className={`py-4 rounded-2xl items-center justify-center active:opacity-90 ${(!selectedRole || isSubmitting) ? 'bg-[#BEF227]/50' : 'bg-[#BEF227]'}`}>
             <Text className="text-sm font-semibold text-black">{isEditMode ? 'Update Workout' : 'Save Workout Video/GIF'}</Text>
           </Pressable>
         )}

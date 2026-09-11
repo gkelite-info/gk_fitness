@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Image, Pressable, TextInput, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Image, Pressable, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { ArrowRightIcon, CaretRightIcon, ClockIcon, HandWavingIcon, Check, Bell, LightningIcon, CalendarIcon, StarIcon, CheckCircleIcon, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass, Robot, CalendarPlus, Sparkle, XCircle, CaretLeft, X, ArrowsClockwise } from 'phosphor-react-native';
+import { ArrowRightIcon, CaretRightIcon, ClockIcon, HandWavingIcon, Check, Bell, LightningIcon, CalendarIcon, CheckCircleIcon, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass, CalendarPlus, Sparkle, XCircle, CaretLeft, X, ArrowsClockwise } from 'phosphor-react-native';
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from '@/components/ui/Video';
 import { useNavigation, router } from 'expo-router';
 import { useUser } from '@/context/UserContext';
-import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 import { useCustomerMuscleGroupWorkouts } from '@/hooks/customerWorkouts/useCustomerMuscleGroupWorkouts';
 import { useCustomerDashboardData } from '@/hooks/customerWorkouts/useCustomerDashboardData';
+import { useTrainerDashboardData } from '@/hooks/trainerWorkoutPlans/useTrainerDashboardData';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useQueryClient } from '@tanstack/react-query';
 import WorkoutShimmer from '@/components/shimmers/workoutShimmer';
@@ -16,22 +16,30 @@ import { supabase } from '@/lib/supabase';
 
 export default function CustomerWorkout() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [planTab, setPlanTab] = useState<'customer' | 'trainer'>('customer');
   const navigation = useNavigation();
   const { name, userId } = useUser();
   const queryClient = useQueryClient();
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
 
-  const { data: dashboardData, isLoading: isLoadingPlan, isRefetching } = useCustomerDashboardData(userId);
+  const { data: customerDashboardData, isLoading: isLoadingCustomerPlan, isRefetching: isRefetchingCustomer } = useCustomerDashboardData(userId);
+  const { data: trainerDashboardData, isLoading: isLoadingTrainerPlan, isRefetching: isRefetchingTrainer } = useTrainerDashboardData(userId);
 
-  const hasPlan = dashboardData?.hasPlan ?? null;
-  const weeklyPlanDays = dashboardData?.weeklyPlanDays ?? [];
-  const todayWorkout = dashboardData?.todayWorkout ?? null;
-  const yesterdayWorkout = dashboardData?.yesterdayWorkout ?? null;
+  const hasTrainerPlan = trainerDashboardData?.hasPlan ?? false;
+  const currentDashboardData = planTab === 'trainer' ? trainerDashboardData : customerDashboardData;
+  const isLoadingPlan = planTab === 'trainer' ? isLoadingTrainerPlan : isLoadingCustomerPlan;
+  const isRefetching = planTab === 'trainer' ? isRefetchingTrainer : isRefetchingCustomer;
+
+  const hasPlan = currentDashboardData?.hasPlan ?? null;
+  const weeklyPlanDays = currentDashboardData?.weeklyPlanDays ?? [];
+  const todayWorkout = currentDashboardData?.todayWorkout ?? null;
+  const yesterdayWorkout = currentDashboardData?.yesterdayWorkout ?? null;
 
   const handleRefresh = async () => {
     setIsManualRefreshing(true);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] }),
+      queryClient.invalidateQueries({ queryKey: ['trainerDashboardData'] }),
       queryClient.invalidateQueries({ queryKey: ['customerMuscleGroupWorkouts'] })
     ]);
     setIsManualRefreshing(false);
@@ -90,26 +98,28 @@ export default function CustomerWorkout() {
           <CaretRightIcon size={17} color='white' />
         </View>
 
-        {/* <View className="w-full mt-5">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+        <View className="w-full mt-2 flex-row items-center bg-[#111111] p-1 rounded-2xl border border-[#27272A]">
+          <Pressable
+            onPress={() => setPlanTab('customer')}
+            className={`flex-1 py-2.5 rounded-xl items-center justify-center flex-row gap-2 ${planTab === 'customer' ? 'bg-[#C4EF00]' : 'bg-transparent'}`}
           >
-            {cardsText.map((item, index) => {
-              const isActive = activeTab === item.text;
-              return (
-                <Pressable
-                  onPress={() => setActiveTab(isActive ? null : item.text)}
-                  className={`px-4 py-2 justify-center ${isActive ? 'border-b-2 border-[#C4EF00]' : 'border border-[#27272A] rounded-xl bg-[#111111]'}`}
-                  key={index}
-                >
-                  <Text className={`text-sm ${isActive ? 'text-[#C4EF00] font-semibold' : 'text-[#A1A1AA]'}`}>{item.text}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View> */}
+            <Text className={`text-xs font-semibold ${planTab === 'customer' ? 'text-black' : 'text-[#8E8E8E]'}`}>
+              Customer Plan
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setPlanTab('trainer')}
+            className={`flex-1 py-2.5 rounded-xl items-center justify-center flex-row gap-2 ${planTab === 'trainer' ? 'bg-[#C4EF00]' : 'bg-transparent'}`}
+          >
+            <Text className={`text-xs font-semibold ${planTab === 'trainer' ? 'text-black' : 'text-[#8E8E8E]'}`}>
+              Trainer Plan
+            </Text>
+            {hasTrainerPlan && (
+              <View className={`w-2 h-2 rounded-full ${planTab === 'trainer' ? 'bg-black' : 'bg-[#C4EF00]'}`} />
+            )}
+          </Pressable>
+        </View>
 
         {/* {activeTab === 'Muscle Group' ? (
           <MuscleGroupView />
@@ -137,7 +147,9 @@ export default function CustomerWorkout() {
               <WorkoutShimmer />
             ) : !hasPlan ? (
               <View className="mt-5 w-full">
-                <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider mb-3 uppercase'>Weekly Workout Plan</Text>
+                <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider mb-3 uppercase'>
+                  {planTab === 'trainer' ? 'Trainer Workout Plan' : 'Weekly Workout Plan'}
+                </Text>
                 <View className="w-full border border-[#27272A] bg-[#111111] rounded-3xl p-5 items-center pb-6">
                   <View className="bg-[#242A00] p-3 rounded-2xl mb-4 relative">
                     <CalendarIcon size={32} color="#C4EF00" weight="regular" />
@@ -146,37 +158,50 @@ export default function CustomerWorkout() {
                     </View>
                   </View>
 
-                  <Text className="text-white text-2xl font-semibold mb-2">No Workout Plan Yet</Text>
+                  <Text className="text-white text-2xl font-semibold mb-2">
+                    {planTab === 'trainer' ? 'No Trainer Plan Yet' : 'No Workout Plan Yet'}
+                  </Text>
                   <Text className="text-[#8E8E8E] text-center text-sm px-4 mb-6">
-                    Create a personalized weekly plan based on your fitness goal.
+                    {planTab === 'trainer'
+                      ? 'Your trainer has not assigned a workout plan for you yet.'
+                      : 'Create a personalized weekly plan based on your fitness goal.'}
                   </Text>
 
-                  <Pressable
-                    onPress={() => router.push('/(customer)/workoutPlan' as any)}
-                    className="w-full bg-[#111111] border border-[#27272A] rounded-2xl p-4 flex-row items-center active:opacity-80 mb-5"
-                  >
-                    <View className="bg-[#1A1A1A] p-3 rounded-xl mr-3 border border-[#27272A]">
-                      <CalendarPlus size={24} color="white" weight="regular" />
-                    </View>
-                    <View className="flex-1 justify-center">
-                      <Text className="text-white font-semibold text-lg mb-0.5">Build My Own Plan</Text>
-                      <Text className="text-[#8E8E8E] text-xs pr-2">Choose workouts and schedule them manually.</Text>
-                    </View>
-                    <CaretRightIcon size={20} color="#8E8E8E" />
-                  </Pressable>
+                  {planTab === 'customer' && (
+                    <>
+                      <Pressable
+                        onPress={() => router.push('/(customer)/workoutPlan' as any)}
+                        className="w-full bg-[#111111] border border-[#27272A] rounded-2xl p-4 flex-row items-center active:opacity-80 mb-5"
+                      >
+                        <View className="bg-[#1A1A1A] p-3 rounded-xl mr-3 border border-[#27272A]">
+                          <CalendarPlus size={24} color="white" weight="regular" />
+                        </View>
+                        <View className="flex-1 justify-center">
+                          <Text className="text-white font-semibold text-lg mb-0.5">Build My Own Plan</Text>
+                          <Text className="text-[#8E8E8E] text-xs pr-2">Choose workouts and schedule them manually.</Text>
+                        </View>
+                        <CaretRightIcon size={20} color="#8E8E8E" />
+                      </Pressable>
 
-                  <View className="flex-row items-center justify-center gap-1.5">
-                    <Sparkle size={14} color="#C4EF00" weight="fill" />
-                    <Text className="text-[#8E8E8E] text-xs font-medium">Uses your onboarding preferences</Text>
-                  </View>
+                      <View className="flex-row items-center justify-center gap-1.5">
+                        <Sparkle size={14} color="#C4EF00" weight="fill" />
+                        <Text className="text-[#8E8E8E] text-xs font-medium">Uses your onboarding preferences</Text>
+                      </View>
+                    </>
+                  )}
                 </View>
               </View>
             ) : (
               <>
                 <View className='mt-8 w-full flex-row items-center justify-between'>
-                  <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider uppercase'>Weekly Workout Plan</Text>
+                  <Text className='text-[#C4EF00] font-semibold text-xs tracking-wider uppercase'>
+                    {planTab === 'trainer' ? 'Trainer Workout Plan' : 'Weekly Workout Plan'}
+                  </Text>
                   <Pressable
-                    onPress={() => router.push('/(customer)/weeklyWorkoutPlan' as any)}
+                    onPress={() => router.push({
+                      pathname: '/(customer)/weeklyWorkoutPlan',
+                      params: planTab === 'trainer' ? { planType: 'trainer' } : {}
+                    } as any)}
                     className='flex-row items-center gap-1 active:opacity-70'
                   >
                     <Text className='text-[#8E8E8E] text-sm'>View Full Plan</Text>

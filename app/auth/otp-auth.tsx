@@ -168,7 +168,7 @@ export default function OtpAuthScreen() {
         if (authError) {
           let errorMessage = authError.message || 'Unable to sign in.';
           if (errorMessage === 'Invalid login credentials') {
-            errorMessage = 'Email not confirmed';
+            errorMessage = 'Invalid login credentials';
           } else if (errorMessage.includes('sql:') || errorMessage.includes('converting NULL')) {
             errorMessage = 'Your account is currently recovering. Please try again or contact support.';
           }

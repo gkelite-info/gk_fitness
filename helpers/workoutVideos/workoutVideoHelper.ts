@@ -22,7 +22,7 @@ export interface SaveWorkoutVideoParams {
   exerciseName?: string;
 }
 
-export async function fetchWorkoutVideos(page: number = 1, limit: number = 10, workoutType: string = 'all') {
+export async function fetchWorkoutVideos(page: number = 1, limit: number = 10, workoutType: string = 'all', role: string = 'all', isStretching: string = 'all') {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
@@ -32,11 +32,24 @@ export async function fetchWorkoutVideos(page: number = 1, limit: number = 10, w
     .eq('is_deleted', false)
     .order('createdAt', { ascending: false });
 
-  if (workoutType !== 'all') {
-    const { data: matchedWorkouts } = await supabase
-      .from('workouts')
-      .select('workoutId')
-      .eq('workoutType', workoutType);
+  if (workoutType !== 'all' || role !== 'all' || isStretching !== 'all') {
+    let workoutsQuery = supabase.from('workouts').select('workoutId').eq('is_deleted', false);
+    
+    if (workoutType !== 'all') {
+      workoutsQuery = workoutsQuery.eq('workoutType', workoutType);
+    }
+    if (role !== 'all') {
+      workoutsQuery = workoutsQuery.eq('role', role);
+    }
+    if (isStretching !== 'all') {
+      if (isStretching === 'stretching') {
+        workoutsQuery = workoutsQuery.eq('isStretching', true);
+      } else {
+        workoutsQuery = workoutsQuery.or('isStretching.eq.false,isStretching.is.null');
+      }
+    }
+
+    const { data: matchedWorkouts } = await workoutsQuery;
 
     const workoutIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
 
@@ -50,6 +63,9 @@ export async function fetchWorkoutVideos(page: number = 1, limit: number = 10, w
   const { data, error, count } = await query.range(from, to);
 
   if (error) {
+    if (error.code === 'PGRST103') {
+      return { data: [], total: count ?? 0 };
+    }
     console.error('[workoutVideoHelper] fetchWorkoutVideos Error:', error);
     throw error;
   }

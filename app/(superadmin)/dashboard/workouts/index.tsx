@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, Alert, FlatList, Modal, Image, TextInput } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator, FlatList, Modal, Image, TextInput } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +23,10 @@ const MUSCLE_GROUPS = [
   { id: 'triceps', label: 'Triceps' },
   { id: 'biceps', label: 'Biceps' },
   { id: 'legs', label: 'Legs' },
+  { id: 'calves', label: 'Calves' },
+  { id: 'cardio', label: 'Cardio' },
+  { id: 'hips', label: 'Hips' },
+  { id: 'trapezius', label: 'Trapezius' },
 ];
 
 export default function WorkoutsScreen() {
@@ -39,9 +43,11 @@ export default function WorkoutsScreen() {
   const [videoToDelete, setVideoToDelete] = useState<{ id: string, name: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'male' | 'female'>('all');
+  const [stretchingFilter, setStretchingFilter] = useState<'all' | 'stretching' | 'non-stretching'>('all');
 
-  const { data: videosResponse, isLoading: isLoadingVideos, refetch: refetchVideos, isFetching } = useWorkoutVideos(page, limit, typeFilter);
-  const { data: workouts, isLoading: isLoadingWorkouts } = useWorkouts();
+  const { data: videosResponse, isLoading: isLoadingVideos, refetch: refetchVideos, isFetching } = useWorkoutVideos(page, limit, typeFilter, roleFilter, stretchingFilter);
+  const { data: workouts, isLoading: isLoadingWorkouts, refetch: refetchWorkouts } = useWorkouts();
   const deleteMutation = useDeleteWorkoutVideo();
 
   const total = videosResponse?.total || 0;
@@ -51,13 +57,14 @@ export default function WorkoutsScreen() {
   useEffect(() => {
     setPage(1);
     setAccumulatedVideos([]);
-  }, [typeFilter]);
+  }, [typeFilter, roleFilter, stretchingFilter]);
 
   useFocusEffect(
     useCallback(() => {
       setPage(1);
       refetchVideos();
-    }, [refetchVideos])
+      refetchWorkouts();
+    }, [refetchVideos, refetchWorkouts])
   );
 
   useEffect(() => {
@@ -86,13 +93,14 @@ export default function WorkoutsScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    await refetchWorkouts();
     if (page === 1) {
       await refetchVideos();
     } else {
       setPage(1);
     }
     setRefreshing(false);
-  }, [page, refetchVideos]);
+  }, [page, refetchVideos, refetchWorkouts]);
 
   const handleBack = () => {
     triggerLightHaptic();
@@ -112,6 +120,8 @@ export default function WorkoutsScreen() {
         id: video.workoutVideoId,
         exerciseName: video.exerciseName || '',
         workoutType: video.workoutType || '',
+        role: video.role || 'male',
+        isStretching: video.isStretching ? 'true' : 'false',
         videoUrl: video.videoUrl || '',
       },
     });
@@ -152,23 +162,30 @@ export default function WorkoutsScreen() {
 
   const mappedVideos = React.useMemo(() => {
     if (!accumulatedVideos || !workouts) return [];
-    
+
     let filtered = accumulatedVideos;
     if (debouncedSearchQuery) {
       const lowerQuery = debouncedSearchQuery.toLowerCase();
-      filtered = filtered.filter((video: any) => 
+      filtered = filtered.filter((video: any) =>
         (video.exerciseName || '').toLowerCase().includes(lowerQuery)
       );
     }
-    
+
     return filtered.map((video: any) => {
       const workout = workouts.find((w: any) => w.workoutId === video.workoutId);
       return {
         ...video,
         workoutType: workout ? workout.workoutType : 'unknown',
+        role: workout ? workout.role : 'male',
+        isStretching: workout ? workout.isStretching : false,
       };
+    }).filter((video: any) => {
+      if (roleFilter !== 'all' && video.role !== roleFilter) return false;
+      if (stretchingFilter === 'stretching' && !video.isStretching) return false;
+      if (stretchingFilter === 'non-stretching' && video.isStretching) return false;
+      return true;
     });
-  }, [accumulatedVideos, workouts, debouncedSearchQuery]);
+  }, [accumulatedVideos, workouts, debouncedSearchQuery, roleFilter, stretchingFilter]);
 
   const renderFooter = () => {
     if (isFetching && !refreshing) {
@@ -235,6 +252,56 @@ export default function WorkoutsScreen() {
             </Pressable>
           ))}
         </ScrollView>
+      </View>
+
+      <View className="px-4 pb-4">
+        <View className="flex-col gap-3 mb-4">
+          <View className="flex-row bg-[#111622] border border-[#1F293D] rounded-xl overflow-hidden h-[42px]">
+            <Pressable 
+              onPress={() => setRoleFilter('all')}
+              className={`flex-1 items-center justify-center ${roleFilter === 'all' ? 'bg-[#BEF227]' : ''}`}
+            >
+              <Text className={`text-[11px] font-bold ${roleFilter === 'all' ? 'text-black' : 'text-[#888888]'}`}>ALL</Text>
+            </Pressable>
+            <View className="w-[1px] bg-[#1F293D]" />
+            <Pressable 
+              onPress={() => setRoleFilter('male')}
+              className={`flex-1 items-center justify-center ${roleFilter === 'male' ? 'bg-[#BEF227]' : ''}`}
+            >
+              <Text className={`text-[11px] font-bold ${roleFilter === 'male' ? 'text-black' : 'text-[#888888]'}`}>MALE</Text>
+            </Pressable>
+            <View className="w-[1px] bg-[#1F293D]" />
+            <Pressable 
+              onPress={() => setRoleFilter('female')}
+              className={`flex-1 items-center justify-center ${roleFilter === 'female' ? 'bg-[#BEF227]' : ''}`}
+            >
+              <Text className={`text-[11px] font-bold ${roleFilter === 'female' ? 'text-black' : 'text-[#888888]'}`}>FEMALE</Text>
+            </Pressable>
+          </View>
+
+          <View className="flex-row bg-[#111622] border border-[#1F293D] rounded-xl overflow-hidden h-[42px]">
+            <Pressable 
+              onPress={() => setStretchingFilter('all')}
+              className={`flex-1 items-center justify-center ${stretchingFilter === 'all' ? 'bg-[#BEF227]' : ''}`}
+            >
+              <Text className={`text-[11px] font-bold ${stretchingFilter === 'all' ? 'text-black' : 'text-[#888888]'}`}>ALL</Text>
+            </Pressable>
+            <View className="w-[1px] bg-[#1F293D]" />
+            <Pressable 
+              onPress={() => setStretchingFilter('stretching')}
+              className={`flex-1 items-center justify-center ${stretchingFilter === 'stretching' ? 'bg-[#BEF227]' : ''}`}
+            >
+              <Text className={`text-[11px] font-bold ${stretchingFilter === 'stretching' ? 'text-black' : 'text-[#888888]'}`}>STRETCHING</Text>
+            </Pressable>
+            <View className="w-[1px] bg-[#1F293D]" />
+            <Pressable 
+              onPress={() => setStretchingFilter('non-stretching')}
+              className={`flex-1 items-center justify-center ${stretchingFilter === 'non-stretching' ? 'bg-[#BEF227]' : ''}`}
+            >
+              <Text className={`text-[11px] font-bold ${stretchingFilter === 'non-stretching' ? 'text-black' : 'text-[#888888]'}`}>EXERCISE</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
 
       <View className="px-4 pb-4">

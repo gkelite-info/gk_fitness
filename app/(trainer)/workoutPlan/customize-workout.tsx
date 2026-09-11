@@ -16,6 +16,73 @@ const IMAGE_MAP: { [key: string]: any } = {
   default: require('../../../assets/barbell.png'),
 };
 
+const ExerciseMediaItem = ({
+  videoUrl,
+  muscleGroup,
+  opacity = false,
+}: {
+  videoUrl?: string;
+  muscleGroup?: string;
+  opacity?: boolean;
+}) => {
+  const [hasError, setHasError] = useState(false);
+
+  const normalizedGroup = (muscleGroup || '').toLowerCase();
+  const exerciseImage =
+    normalizedGroup.includes('chest') ? IMAGE_MAP.Chest :
+    normalizedGroup.includes('back') ? IMAGE_MAP.Back :
+    normalizedGroup.includes('shoulder') ? IMAGE_MAP.Shoulders :
+    normalizedGroup.includes('leg') ? IMAGE_MAP.Legs :
+    IMAGE_MAP.default;
+
+  if (!videoUrl || hasError) {
+    return (
+      <Image
+        source={exerciseImage}
+        className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] ${opacity ? 'opacity-70' : ''}`}
+        resizeMode="cover"
+      />
+    );
+  }
+
+  const publicUrl = videoUrl.startsWith('http')
+    ? videoUrl
+    : supabase.storage.from('workout-videos').getPublicUrl(videoUrl).data.publicUrl;
+
+  const isGifOrImage = /\.(gif|webp|png|jpg|jpeg)(\?.*)?$/i.test(videoUrl);
+
+  if (isGifOrImage) {
+    return (
+      <View className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] overflow-hidden bg-black ${opacity ? 'opacity-70' : ''}`}>
+        <Image
+          source={{ uri: publicUrl }}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+          onError={() => setHasError(true)}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] overflow-hidden bg-black ${opacity ? 'opacity-70' : ''}`}>
+      <Video
+        source={{ uri: publicUrl }}
+        style={{ width: '100%', height: '100%' }}
+        resizeMode={ResizeMode.COVER}
+        useNativeControls={false}
+        shouldPlay={true}
+        isLooping={true}
+        isMuted={true}
+        usePoster={true}
+        posterSource={exerciseImage}
+        posterStyle={{ resizeMode: 'cover' }}
+        onError={() => setHasError(true)}
+      />
+    </View>
+  );
+};
+
 export default function CustomizeWorkoutScreen() {
   const { day, muscleGroup } = useLocalSearchParams<{ day: string; muscleGroup: string }>();
   const { planDays, setPlanDays } = useTrainerWorkoutPlan();
@@ -134,33 +201,8 @@ export default function CustomizeWorkoutScreen() {
     }
   };
 
-  const exerciseImage = IMAGE_MAP[muscleGroup || ''] || IMAGE_MAP.default;
-
   const renderMedia = (videoUrl: string | undefined, opacity: boolean = false) => {
-    if (videoUrl) {
-      const publicUrl = videoUrl.startsWith('http')
-        ? videoUrl
-        : supabase.storage.from('workout-videos').getPublicUrl(videoUrl).data.publicUrl;
-
-      return (
-        <View className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] overflow-hidden bg-black ${opacity ? 'opacity-70' : ''}`}>
-          <Video
-            source={{ uri: publicUrl }}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode={ResizeMode.COVER}
-            useNativeControls={false}
-            shouldPlay={false}
-          />
-        </View>
-      );
-    }
-    return (
-      <Image
-        source={exerciseImage}
-        className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] ${opacity ? 'opacity-70' : ''}`}
-        resizeMode="cover"
-      />
-    );
+    return <ExerciseMediaItem videoUrl={videoUrl} muscleGroup={muscleGroup} opacity={opacity} />;
   };
 
   return (

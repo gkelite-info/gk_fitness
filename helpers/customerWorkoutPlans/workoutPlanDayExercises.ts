@@ -9,6 +9,7 @@ export interface WorkoutPlanDayExerciseAttributes {
   category: string;
   reps: string;
   order: number;
+  sets: number;
   image?: string | null;
   videoUrl?: string | null;
   createdAt?: string | Date;
@@ -24,6 +25,7 @@ export interface SaveWorkoutPlanDayExerciseParams {
   category: string;
   reps: string;
   order: number;
+  sets: number;
   image?: string | null;
   videoUrl?: string | null;
 }
@@ -101,6 +103,7 @@ export async function saveWorkoutPlanDayExercise(exerciseData: SaveWorkoutPlanDa
         category: exerciseData.category,
         reps: exerciseData.reps,
         order: exerciseData.order,
+        sets: exerciseData.sets,
         image: exerciseData.image,
         videoUrl: exerciseData.videoUrl,
         updatedAt: now,
@@ -127,6 +130,7 @@ export async function saveWorkoutPlanDayExercise(exerciseData: SaveWorkoutPlanDa
           category: exerciseData.category,
           reps: exerciseData.reps,
           order: exerciseData.order,
+          sets: exerciseData.sets,
           image: exerciseData.image || null,
           videoUrl: exerciseData.videoUrl || null,
           createdAt: now,

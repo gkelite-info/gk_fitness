@@ -4,6 +4,8 @@ import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Check } from 'phosphor-react-native';
 import { useWorkoutPlan } from './_layout';
+import { useUser } from '@/context/UserContext';
+import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 
 const DEFAULT_MUSCLE_GROUPS = [
@@ -19,7 +21,13 @@ const DEFAULT_MUSCLE_GROUPS = [
 export default function ChooseMuscleGroup() {
   const { day } = useLocalSearchParams<{ day: string }>();
   const { planDays, setPlanDays } = useWorkoutPlan();
-  const { data: workouts, isLoading } = useWorkouts();
+
+  const userContext = useUser();
+  const userId = userContext.userId;
+  const { data: customerProfileData } = useCustomerProfile(userId);
+  const userGender = customerProfileData?.customerData?.gender?.toLowerCase() || 'all';
+
+  const { data: workouts, isLoading } = useWorkouts(userGender);
 
   const currentPlan = planDays[day || ''];
   const selectedType = currentPlan?.workoutType;
@@ -48,31 +56,20 @@ export default function ChooseMuscleGroup() {
     }
   };
 
-  const dynamicMuscleGroups = React.useMemo(() => {
-    if (!workouts || !Array.isArray(workouts) || workouts.length === 0) {
-      return DEFAULT_MUSCLE_GROUPS;
-    }
-
-    const seen = new Set<string>();
-    const list: Array<{ id: string; workoutId: string; title: string; subtitle: string }> = [];
-
-    for (const w of workouts) {
-      if (!w || !w.workoutType) continue;
-      const typeStr = String(w.workoutType).trim();
-      if (!typeStr || seen.has(typeStr.toLowerCase())) continue;
-
-      seen.add(typeStr.toLowerCase());
-      const capitalized = typeStr.charAt(0).toUpperCase() + typeStr.slice(1);
-      list.push({
-        id: typeStr.toLowerCase(),
-        workoutId: w.workoutId || typeStr.toLowerCase(),
-        title: capitalized,
-        subtitle: `Target your ${typeStr} muscles`,
+  const uniqueTypes = new Set<string>();
+  const dynamicMuscleGroups = workouts?.reduce((acc, w) => {
+    const typeStr = w.workoutType;
+    if (!uniqueTypes.has(typeStr)) {
+      uniqueTypes.add(typeStr);
+      acc.push({
+        id: typeStr,
+        workoutId: w.workoutId,
+        title: typeStr.charAt(0).toUpperCase() + typeStr.slice(1),
+        subtitle: `Target your ${typeStr} muscles`
       });
     }
-
-    return list.length > 0 ? list : DEFAULT_MUSCLE_GROUPS;
-  }, [workouts]);
+    return acc;
+  }, [] as Array<{ id: string, workoutId: string, title: string, subtitle: string }>) || [];
 
   return (
     <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
@@ -97,11 +94,11 @@ export default function ChooseMuscleGroup() {
           <ActivityIndicator size="large" color="#C4EF00" className="mt-10" />
         ) : (
           <View className="flex-row flex-wrap justify-between w-full">
-            {dynamicMuscleGroups.map((item) => {
+            {dynamicMuscleGroups.map((item: any) => {
               const isSelected = selectedType === item.id;
               return (
                 <Pressable
-                  key={item.id}
+                  key={item.workoutId}
                   onPress={() => handleSelectMuscle(item.id, item.workoutId)}
                   className={`w-[48%] p-4 rounded-2xl border mb-4 justify-between h-32 ${isSelected
                     ? 'border-[#C4EF00] bg-[#1a1a1a]'

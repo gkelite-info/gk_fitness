@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchWorkouts } from '@/helpers/workouts/workoutHelper';
 
-export function useWorkouts() {
+export function useWorkouts(role: string = 'all') {
   return useQuery({
-    queryKey: ['workouts'],
+    queryKey: ['workouts', role],
     queryFn: async () => {
-      const data = await fetchWorkouts();
+      const data = await fetchWorkouts(role);
       return data;
     },
   });

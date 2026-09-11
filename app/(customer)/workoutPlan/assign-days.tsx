@@ -115,7 +115,8 @@ export default function AssignDays() {
             const dayPlan = planDays[day];
             const shortDay = day.substring(0, 3).toUpperCase();
             const hasWorkout = dayPlan && dayPlan.workoutType;
-            const workoutLabel = hasWorkout ? `${dayPlan.workoutType} Workout` : "Choose Workout Type";
+            const typeStr = dayPlan?.workoutType || '';
+            const workoutLabel = hasWorkout ? `${typeStr.charAt(0).toUpperCase() + typeStr.slice(1)} Workout` : "Choose Workout Type";
 
             return (
               <Pressable
@@ -126,7 +127,7 @@ export default function AssignDays() {
               >
                 <View className="flex-row items-center flex-1">
                   <View className="bg-[#C4EF00]/10 border border-[#C4EF00]/20 p-2.5 rounded-xl items-center justify-center mr-4 w-12">
-                    <Calendar size={18} color="#C4EF00" weight="bold" />
+                    <Calendar size={18} color="#C4EF00" weight="fill" />
                     <Text className="text-[#C4EF00] text-[9px] font-black mt-0.5">{shortDay}</Text>
                   </View>
 

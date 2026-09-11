@@ -52,15 +52,15 @@ export default function CustomerHome() {
   const [planName, setPlanName] = useState<string>('MEMBER');
   const [daysLeft, setDaysLeft] = useState<number | string>('--');
   const [progressPercentage, setProgressPercentage] = useState<number>(0);
+  const [isLoadingMembership, setIsLoadingMembership] = useState(true);
 
   const openCamera = () => {
     router.push('/(customer)/home/scan');
   };
 
-
-
   const fetchMembershipInfo = React.useCallback(async () => {
     if (!userId) return;
+    setIsLoadingMembership(true);
     try {
       const plans = await fetchGymCustomerMembershipPlans(undefined, userId);
       const activePlan = plans.find((p: any) => p.is_Active && p.endDate);
@@ -70,7 +70,7 @@ export default function CustomerHome() {
         const diffTime = end.getTime() - now.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const currentDaysLeft = diffDays > 0 ? diffDays : 0;
-        
+
         if (diffDays <= 0) {
           await toggleGymCustomerMembershipPlanActiveStatus(activePlan.GymCustomerMembershipPlanId, true);
           setDaysLeft(0);
@@ -105,6 +105,8 @@ export default function CustomerHome() {
       }
     } catch (err) {
       console.error('Error fetching membership info', err);
+    } finally {
+      setIsLoadingMembership(false);
     }
   }, [userId]);
 
@@ -166,11 +168,11 @@ export default function CustomerHome() {
   const dynamicWeeklyBars = weeklyStats?.thisWeek?.map((d) => {
     const dateObj = new Date(d.date);
     const dayStr = daysOfWeek[dateObj.getDay()];
-    
+
     const waterP = Math.min((d.waterIntake || 0) / (d.waterGoal || 1), 1);
     const stepP = Math.min((d.steps || 0) / (d.stepGoal || 1), 1);
     const workP = Math.min((d.activeMinutes || 0) > 0 ? 1 : 0, 1);
-    
+
     const dailyHeight = Math.round(((waterP + stepP + workP) / 3) * 100);
 
     return {
@@ -179,14 +181,14 @@ export default function CustomerHome() {
       active: dailyHeight >= 50
     };
   }) || [
-    { day: 'M', height: 5, active: false },
-    { day: 'T', height: 5, active: false },
-    { day: 'W', height: 5, active: false },
-    { day: 'T', height: 5, active: false },
-    { day: 'F', height: 5, active: false },
-    { day: 'S', height: 5, active: false },
-    { day: 'S', height: 5, active: false },
-  ];
+      { day: 'M', height: 5, active: false },
+      { day: 'T', height: 5, active: false },
+      { day: 'W', height: 5, active: false },
+      { day: 'T', height: 5, active: false },
+      { day: 'F', height: 5, active: false },
+      { day: 'S', height: 5, active: false },
+      { day: 'S', height: 5, active: false },
+    ];
 
   return (
     <ScrollView
@@ -216,7 +218,9 @@ export default function CustomerHome() {
               {planName}
             </Text>
           </View>
-          {typeof daysLeft === 'number' && daysLeft > 0 ? (
+          {isLoadingMembership ? (
+            <ActivityIndicator size="small" color="#D7FF00" className="self-start mt-2" />
+          ) : typeof daysLeft === 'number' && daysLeft > 0 ? (
             <>
               <View className="flex-row items-baseline gap-2 mb-3">
                 <Text className="text-white text-4xl font-semibold">{daysLeft}</Text>
@@ -306,7 +310,7 @@ export default function CustomerHome() {
               </Text>
               <Pressable
                 onPress={() => router.push('/(customer)/workoutPlan')}
-                className="bg-[#D7FF00] rounded-full py-3 px-5 flex-row items-center justify-center active:opacity-90 mt-1"
+                className="bg-[#D7FF00] rounded-full py-3 px-3 flex-row items-center justify-center active:opacity-90 mt-1"
               >
                 <Text className="text-black font-semibold text-sm mr-2">Add workout plan</Text>
                 <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
@@ -366,7 +370,7 @@ export default function CustomerHome() {
           </View>
         </Pressable>
 
-        <Pressable 
+        <Pressable
           onPress={() => router.push('/(customer)/streak-details')}
           className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4 active:opacity-80"
         >

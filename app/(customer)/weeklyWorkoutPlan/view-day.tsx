@@ -10,18 +10,31 @@ import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/wor
 import { useWorkoutPlanDayById } from '@/hooks/customerWorkouts/useWorkoutPlanDayById';
 import { useWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/useWorkoutPlanDayExercises';
 import { usePaginatedWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/usePaginatedWorkoutPlanDayExercises';
+import { useTrainerWorkoutPlanDayById } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlanDayById';
+import { usePaginatedTrainerWorkoutPlanDayExercises } from '@/hooks/trainerWorkoutPlans/usePaginatedTrainerWorkoutPlanDayExercises';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function ViewDay() {
-  const { dayId } = useLocalSearchParams<{ dayId: string }>();
+  const { dayId, isTrainer } = useLocalSearchParams<{ dayId: string; isTrainer?: string }>();
+  const isTrainerPlan = isTrainer === 'true';
 
-  const { data: dayData, isLoading: isLoadingDay } = useWorkoutPlanDayById(dayId);
+  const { data: customerDayData, isLoading: isLoadingCustomerDay } = useWorkoutPlanDayById(!isTrainerPlan ? dayId : undefined);
+  const { data: trainerDayData, isLoading: isLoadingTrainerDay } = useTrainerWorkoutPlanDayById(isTrainerPlan ? dayId : undefined);
+
+  const dayData = isTrainerPlan ? trainerDayData : customerDayData;
+  const isLoadingDay = isTrainerPlan ? isLoadingTrainerDay : isLoadingCustomerDay;
+
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [accumulatedExercises, setAccumulatedExercises] = useState<any[]>([]);
 
-  const { data: eData, isLoading: isLoadingExercises, isFetching: isFetchingExercises } = usePaginatedWorkoutPlanDayExercises(dayId, page, limit);
+  const { data: customerEData, isLoading: isLoadingCustomerEx, isFetching: isFetchingCustomerEx } = usePaginatedWorkoutPlanDayExercises(!isTrainerPlan ? dayId : undefined, page, limit);
+  const { data: trainerEData, isLoading: isLoadingTrainerEx, isFetching: isFetchingTrainerEx } = usePaginatedTrainerWorkoutPlanDayExercises(isTrainerPlan ? dayId : undefined, page, limit);
+
+  const eData = isTrainerPlan ? trainerEData : customerEData;
+  const isLoadingExercises = isTrainerPlan ? isLoadingTrainerEx : isLoadingCustomerEx;
+  const isFetchingExercises = isTrainerPlan ? isFetchingTrainerEx : isFetchingCustomerEx;
 
   const queryClient = useQueryClient();
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
@@ -31,7 +44,9 @@ export default function ViewDay() {
     setPage(1);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['workoutPlanDay', dayId] }),
-      queryClient.invalidateQueries({ queryKey: ['workoutPlanDayExercises', dayId] })
+      queryClient.invalidateQueries({ queryKey: ['workoutPlanDayExercises', dayId] }),
+      queryClient.invalidateQueries({ queryKey: ['trainerWorkoutPlanDay', dayId] }),
+      queryClient.invalidateQueries({ queryKey: ['trainerWorkoutPlanDayExercisesPaginated', dayId] })
     ]);
     setIsManualRefreshing(false);
   };

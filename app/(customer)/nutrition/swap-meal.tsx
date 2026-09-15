@@ -14,7 +14,7 @@ export default function SwapMeal() {
   const router = useRouter();
   const { id, targetCalories } = useLocalSearchParams();
   const { userId } = useUser();
-  
+
   const [currentMeal, setCurrentMeal] = useState<any>(null);
   const [alternatives, setAlternatives] = useState<any[]>([]);
   const [selectedMeal, setSelectedMeal] = useState<string | null>(null);
@@ -34,14 +34,14 @@ export default function SwapMeal() {
         .select('*')
         .eq('customerMealPlanDayMealId', id)
         .single();
-      
+
       if (mealData) {
         setCurrentMeal(mealData);
 
         // 2. Fetch global alternatives for the same type
         let t = mealData.mealType;
         if (t.startsWith('SNACK')) t = 'SNACK';
-        
+
         const allMeals = await fetchGlobalMeals();
         let eligibleMeals = allMeals;
 
@@ -63,7 +63,7 @@ export default function SwapMeal() {
           } else {
             scalar = 1;
           }
-          
+
           return {
             ...alt,
             scaledCalories: alt.calories ? Math.round(alt.calories * scalar) : Math.round(targetCals),
@@ -91,42 +91,42 @@ export default function SwapMeal() {
   const handleConfirmSwap = async () => {
     if (!currentMeal || !selectedMealData) return;
     setSwapping(true);
-    
+
     try {
-       // Fetch ingredients for the selected alternative
-       const rawIngredients = await fetchMealIngredients(selectedMealData.globalMealId);
-       const scaledIngredients = rawIngredients.map(mi => ({
-         name: mi.ingredient?.name || 'Unknown',
-         unit: mi.ingredient?.unit || 'unit',
-         quantity: Math.round(mi.baseQuantity * selectedMealData.scalar * 10) / 10,
-       }));
+      // Fetch ingredients for the selected alternative
+      const rawIngredients = await fetchMealIngredients(selectedMealData.globalMealId);
+      const scaledIngredients = rawIngredients.map(mi => ({
+        name: mi.ingredient?.name || 'Unknown',
+        unit: mi.ingredient?.unit || 'unit',
+        quantity: Math.round(mi.baseQuantity * selectedMealData.scalar * 10) / 10,
+      }));
 
-       // Update existing meal record
-       await saveMealPlanDayMeal({
-         customerMealPlanDayMealId: currentMeal.customerMealPlanDayMealId,
-         customerMealPlanDayId: currentMeal.customerMealPlanDayId,
-         mealType: currentMeal.mealType, // Keep the same slot
-         mealName: selectedMealData.mealName,
-         description: selectedMealData.description,
-         calories: selectedMealData.scaledCalories,
-         protein: selectedMealData.scaledProtein,
-         carbs: selectedMealData.scaledCarbs,
-         fat: selectedMealData.scaledFat,
-         order: currentMeal.order,
-         image: selectedMealData.imageUrl,
-         globalMealId: selectedMealData.globalMealId,
-         ingredientsJson: scaledIngredients,
-         recipeInstructions: selectedMealData.recipeInstructions,
-         imageUrl: selectedMealData.imageUrl,
-         prepTimeMinutes: selectedMealData.prepTimeMinutes,
-       });
+      // Update existing meal record
+      await saveMealPlanDayMeal({
+        customerMealPlanDayMealId: currentMeal.customerMealPlanDayMealId,
+        customerMealPlanDayId: currentMeal.customerMealPlanDayId,
+        mealType: currentMeal.mealType, // Keep the same slot
+        mealName: selectedMealData.mealName,
+        description: selectedMealData.description,
+        calories: selectedMealData.scaledCalories,
+        protein: selectedMealData.scaledProtein,
+        carbs: selectedMealData.scaledCarbs,
+        fat: selectedMealData.scaledFat,
+        order: currentMeal.order,
+        image: selectedMealData.imageUrl,
+        globalMealId: selectedMealData.globalMealId,
+        ingredientsJson: scaledIngredients,
+        recipeInstructions: selectedMealData.recipeInstructions,
+        imageUrl: selectedMealData.imageUrl,
+        prepTimeMinutes: selectedMealData.prepTimeMinutes,
+      });
 
-       setIsSuccessModalVisible(true);
+      setIsSuccessModalVisible(true);
     } catch (e) {
-       console.error(e);
-       alert("Error swapping meal.");
+      console.error(e);
+      alert("Error swapping meal.");
     } finally {
-       setSwapping(false);
+      setSwapping(false);
     }
   };
 
@@ -144,7 +144,7 @@ export default function SwapMeal() {
         <Pressable onPress={() => router.navigate('/(customer)/nutrition/my-nutrition-plan')} className="p-2 -ml-2">
           <CaretLeft size={24} color="#FFFFFF" />
         </Pressable>
-        <Text className="text-white text-lg font-bold flex-1 text-center pr-8">Swap Meal</Text>
+        <Text className="text-white text-lg font-semibold flex-1 text-center pr-8">Swap Meal</Text>
       </View>
 
       <Text className="text-[#8E8E93] text-sm text-center mb-6">
@@ -156,35 +156,35 @@ export default function SwapMeal() {
         contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text className="text-white text-base font-bold mb-4">Current Meal</Text>
+        <Text className="text-white text-base font-semibold mb-4">Current Meal</Text>
 
         <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-8 flex-row">
           <View className="flex-1 pr-4">
             <View className="flex-row items-center mb-1">
               <Sun size={14} color="#C4EF00" weight="fill" style={{ marginRight: 6 }} />
-              <Text className="text-[#C4EF00] text-[10px] font-bold tracking-widest">{currentMeal?.mealType?.toUpperCase()}</Text>
+              <Text className="text-[#C4EF00] text-[10px] font-semibold tracking-widest">{currentMeal?.mealType?.toUpperCase()}</Text>
             </View>
-            <Text className="text-white text-base font-bold mb-2">{currentMeal?.mealName}</Text>
+            <Text className="text-white text-base font-semibold mb-2">{currentMeal?.mealName}</Text>
             <Text className="text-[#8E8E93] text-[11px] leading-4 mb-4">
               {currentMeal?.description}
             </Text>
 
             <View className="flex-row items-center gap-x-4">
-              <Text className="text-white text-[11px] font-bold"><Text className="text-[#4ADE80]">P</Text> {currentMeal?.protein}g</Text>
+              <Text className="text-white text-[11px] font-semibold"><Text className="text-[#4ADE80]">P</Text> {currentMeal?.protein}g</Text>
               <View className="w-[1px] h-3 bg-[#333333]" />
-              <Text className="text-white text-[11px] font-bold"><Text className="text-[#FBBF24]">C</Text> {currentMeal?.carbs}g</Text>
+              <Text className="text-white text-[11px] font-semibold"><Text className="text-[#FBBF24]">C</Text> {currentMeal?.carbs}g</Text>
               <View className="w-[1px] h-3 bg-[#333333]" />
-              <Text className="text-white text-[11px] font-bold"><Text className="text-[#A78BFA]">F</Text> {currentMeal?.fat}g</Text>
+              <Text className="text-white text-[11px] font-semibold"><Text className="text-[#A78BFA]">F</Text> {currentMeal?.fat}g</Text>
             </View>
           </View>
 
           <View className="bg-[#0A0A0A] border border-[#222222] rounded-[16px] w-[50px] h-[50px] items-center justify-center">
-            <Text className="text-white text-sm font-bold mb-0.5">{currentMeal?.calories}</Text>
+            <Text className="text-white text-sm font-semibold mb-0.5">{currentMeal?.calories}</Text>
             <Text className="text-[#8E8E93] text-[8px] uppercase tracking-wider">Kcal</Text>
           </View>
         </View>
 
-        <Text className="text-white text-base font-bold mb-4">Choose an alternative</Text>
+        <Text className="text-white text-base font-semibold mb-4">Choose an alternative</Text>
 
         <View className="gap-y-4">
           {alternatives.map((alt, index) => {
@@ -194,8 +194,8 @@ export default function SwapMeal() {
               <Pressable
                 key={alt.globalMealId}
                 onPress={() => {
-                   setSelectedMeal(alt.globalMealId);
-                   setSelectedMealData(alt);
+                  setSelectedMeal(alt.globalMealId);
+                  setSelectedMealData(alt);
                 }}
                 className={`bg-[#141414] border rounded-[24px] p-5 flex-row ${isSelected ? 'border-[#C4EF00]' : 'border-[#222222]'}`}
               >
@@ -203,31 +203,31 @@ export default function SwapMeal() {
                   {isBestMatch && (
                     <View className="bg-[#1A2E00] self-start px-2 py-1 rounded mb-2 flex-row items-center">
                       <Star size={10} color="#C4EF00" weight="fill" style={{ marginRight: 4 }} />
-                      <Text className="text-[#C4EF00] text-[9px] font-bold">BEST MATCH</Text>
+                      <Text className="text-[#C4EF00] text-[9px] font-semibold">BEST MATCH</Text>
                     </View>
                   )}
-                  <Text className="text-white text-base font-bold mb-2 mt-1">{alt.mealName}</Text>
+                  <Text className="text-white text-base font-semibold mb-2 mt-1">{alt.mealName}</Text>
                   <Text className="text-[#8E8E93] text-[11px] leading-4 mb-4">
                     {alt.description}
                   </Text>
 
                   <View className="flex-row items-center">
                     <View className="mr-4">
-                      <Text className="text-white text-[12px] font-bold mb-0.5">{alt.scaledCalories}</Text>
+                      <Text className="text-white text-[12px] font-semibold mb-0.5">{alt.scaledCalories}</Text>
                       <Text className="text-[#8E8E93] text-[8px] uppercase tracking-wider">Kcal</Text>
                     </View>
                     <View className="w-[1px] h-6 bg-[#333333] mr-4" />
                     <View className="flex-row items-center gap-x-3">
-                      <Text className="text-white text-[10px] font-bold"><Text className="text-[#4ADE80]">P</Text> {alt.scaledProtein}g</Text>
-                      <Text className="text-white text-[10px] font-bold"><Text className="text-[#FBBF24]">C</Text> {alt.scaledCarbs}g</Text>
-                      <Text className="text-white text-[10px] font-bold"><Text className="text-[#A78BFA]">F</Text> {alt.scaledFat}g</Text>
+                      <Text className="text-white text-[10px] font-semibold"><Text className="text-[#4ADE80]">P</Text> {alt.scaledProtein}g</Text>
+                      <Text className="text-white text-[10px] font-semibold"><Text className="text-[#FBBF24]">C</Text> {alt.scaledCarbs}g</Text>
+                      <Text className="text-white text-[10px] font-semibold"><Text className="text-[#A78BFA]">F</Text> {alt.scaledFat}g</Text>
                     </View>
                   </View>
                 </View>
 
                 <View className="justify-center pl-2">
                   <View className={`border rounded-full px-3 py-1.5 ${isSelected ? 'bg-[#C4EF00] border-[#C4EF00]' : 'border-[#444444] bg-transparent'}`}>
-                    <Text className={`text-[11px] font-bold ${isSelected ? 'text-black' : 'text-[#8E8E93]'}`}>Replace</Text>
+                    <Text className={`text-[11px] font-semibold ${isSelected ? 'text-black' : 'text-[#8E8E93]'}`}>Replace</Text>
                   </View>
                 </View>
               </Pressable>
@@ -248,7 +248,7 @@ export default function SwapMeal() {
           {swapping ? (
             <ActivityIndicator color="#000000" />
           ) : (
-            <Text className="text-black font-bold text-lg">Confirm Replacement</Text>
+            <Text className="text-black font-semibold text-lg">Confirm Replacement</Text>
           )}
         </Pressable>
       </View>
@@ -267,7 +267,7 @@ export default function SwapMeal() {
               <Check size={48} color="#C4EF00" weight="bold" />
             </View>
 
-            <Text className="text-white text-[28px] font-bold mb-3 text-center">
+            <Text className="text-white text-[28px] font-semibold mb-3 text-center">
               <Text className="text-[#C4EF00]">{currentMeal?.mealType}</Text> Replaced
             </Text>
 
@@ -282,7 +282,7 @@ export default function SwapMeal() {
               }}
               className="w-full bg-[#C4EF00] rounded-[20px] py-4 items-center justify-center active:opacity-90"
             >
-              <Text className="text-black font-bold text-lg">Done</Text>
+              <Text className="text-black font-semibold text-lg">Done</Text>
             </Pressable>
           </View>
         </View>

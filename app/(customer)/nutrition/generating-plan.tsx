@@ -180,7 +180,7 @@ export default function GeneratingPlan() {
                             <Text className="text-white text-base font-semibold text-center px-4 mb-2 leading-5">
                                 Building your nutrition plan...
                             </Text>
-                            <Text className="text-[#C4EF00] text-[32px] font-bold">
+                            <Text className="text-[#C4EF00] text-[32px] font-semibold">
                                 {displayProgress}%
                             </Text>
                         </View>
@@ -191,7 +191,7 @@ export default function GeneratingPlan() {
                     </Text>
 
                     {errorMsg && (
-                        <Text className="text-red-500 text-sm text-center mt-4 px-6 font-bold">
+                        <Text className="text-red-500 text-sm text-center mt-4 px-6 font-semibold">
                             {errorMsg}
                         </Text>
                     )}
@@ -236,12 +236,12 @@ export default function GeneratingPlan() {
                                         <CheckCircle size={16} color="#C4EF00" weight="bold" />
                                     )}
                                     {status === 'IN_PROGRESS' && (
-                                        <Text className="text-[#C4EF00] text-[10px] font-bold tracking-wider">
+                                        <Text className="text-[#C4EF00] text-[10px] font-semibold tracking-wider">
                                             IN PROGRESS
                                         </Text>
                                     )}
                                     {status === 'PENDING' && (
-                                        <Text className="text-[#555555] text-[10px] font-bold tracking-wider">
+                                        <Text className="text-[#555555] text-[10px] font-semibold tracking-wider">
                                             PENDING
                                         </Text>
                                     )}
@@ -256,7 +256,7 @@ export default function GeneratingPlan() {
                         <Text className="text-[32px]">dY"</Text>
                     </View>
                     <View className="flex-1">
-                        <Text className="text-[#C4EF00] text-[10px] font-bold tracking-wider mb-1">
+                        <Text className="text-[#C4EF00] text-[10px] font-semibold tracking-wider mb-1">
                             DID YOU KNOW?
                         </Text>
                         <Text className="text-white text-sm font-semibold leading-5 mb-1">

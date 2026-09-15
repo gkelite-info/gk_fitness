@@ -31,13 +31,13 @@ export default function AlternativeMealDetail() {
         .select('*')
         .eq('customerMealPlanDayMealId', slotId)
         .single();
-      
+
       if (slotData) setOriginalSlot(slotData);
 
       // Fetch alternative meal details
       const allMeals = await fetchGlobalMeals();
       const mealData = allMeals.find(m => m.globalMealId === globalMealId);
-      
+
       if (mealData) {
         const targetCals = Number(targetCalories);
         const baseCals = mealData.calories || targetCals;
@@ -76,7 +76,7 @@ export default function AlternativeMealDetail() {
           };
         });
         setIngredients(scaledIngredients);
-        setAltMeal((prev: any) => ({...prev, calculatedWeight: Math.round(totalWeight)}));
+        setAltMeal((prev: any) => ({ ...prev, calculatedWeight: Math.round(totalWeight) }));
       }
       setLoading(false);
     }
@@ -86,33 +86,33 @@ export default function AlternativeMealDetail() {
   const handleConfirmSwap = async () => {
     if (!originalSlot || !altMeal) return;
     setSwapping(true);
-    
-    try {
-       await saveMealPlanDayMeal({
-         customerMealPlanDayMealId: originalSlot.customerMealPlanDayMealId,
-         customerMealPlanDayId: originalSlot.customerMealPlanDayId,
-         mealType: originalSlot.mealType,
-         mealName: altMeal.mealName,
-         description: altMeal.description,
-         calories: altMeal.scaledCalories,
-         protein: altMeal.scaledProtein,
-         carbs: altMeal.scaledCarbs,
-         fat: altMeal.scaledFat,
-         order: originalSlot.order,
-         image: altMeal.imageUrl,
-         globalMealId: altMeal.globalMealId,
-         ingredientsJson: ingredients,
-         recipeInstructions: altMeal.recipeInstructions,
-         imageUrl: altMeal.imageUrl,
-         prepTimeMinutes: altMeal.prepTimeMinutes,
-       });
 
-       setIsSuccessModalVisible(true);
+    try {
+      await saveMealPlanDayMeal({
+        customerMealPlanDayMealId: originalSlot.customerMealPlanDayMealId,
+        customerMealPlanDayId: originalSlot.customerMealPlanDayId,
+        mealType: originalSlot.mealType,
+        mealName: altMeal.mealName,
+        description: altMeal.description,
+        calories: altMeal.scaledCalories,
+        protein: altMeal.scaledProtein,
+        carbs: altMeal.scaledCarbs,
+        fat: altMeal.scaledFat,
+        order: originalSlot.order,
+        image: altMeal.imageUrl,
+        globalMealId: altMeal.globalMealId,
+        ingredientsJson: ingredients,
+        recipeInstructions: altMeal.recipeInstructions,
+        imageUrl: altMeal.imageUrl,
+        prepTimeMinutes: altMeal.prepTimeMinutes,
+      });
+
+      setIsSuccessModalVisible(true);
     } catch (e) {
-       console.error(e);
-       alert("Error swapping meal.");
+      console.error(e);
+      alert("Error swapping meal.");
     } finally {
-       setSwapping(false);
+      setSwapping(false);
     }
   };
 
@@ -144,16 +144,16 @@ export default function AlternativeMealDetail() {
           <View className="px-5">
             <View className="flex-row items-center bg-black/70 self-start px-2 py-1 rounded-md">
               <Star size={12} color="#FBBF24" weight="fill" style={{ marginRight: 4 }} />
-              <Text className="text-white text-[10px] font-bold">4.8 (320)</Text>
+              <Text className="text-white text-[10px] font-semibold">4.8 (320)</Text>
             </View>
           </View>
         </ImageBackground>
 
         <View className="px-5 pt-5">
-          <Text className="text-white text-2xl font-bold mb-3">{altMeal.mealName}</Text>
+          <Text className="text-white text-2xl font-semibold mb-3">{altMeal.mealName}</Text>
 
           <View className="bg-[#1A2E00] self-start px-2 py-1 rounded mb-4">
-            <Text className="text-[#C4EF00] text-[10px] font-bold uppercase">{originalSlot?.mealType || altMeal.mealType}</Text>
+            <Text className="text-[#C4EF00] text-[10px] font-semibold uppercase">{originalSlot?.mealType || altMeal.mealType}</Text>
           </View>
 
           <Text className="text-[#8E8E93] text-sm leading-5 mb-6">
@@ -162,33 +162,33 @@ export default function AlternativeMealDetail() {
 
           <View className="bg-[#141414] border border-[#222222] rounded-[16px] p-4 flex-row justify-between mb-8">
             <View className="items-center">
-              <Text className="text-white text-lg font-bold mb-1">{altMeal.scaledCalories}</Text>
+              <Text className="text-white text-lg font-semibold mb-1">{altMeal.scaledCalories}</Text>
               <Text className="text-[#8E8E93] text-[10px]">kcal</Text>
             </View>
             <View className="items-center">
-              <Text className="text-white text-lg font-bold mb-1">{altMeal.scaledProtein}g</Text>
+              <Text className="text-white text-lg font-semibold mb-1">{altMeal.scaledProtein}g</Text>
               <Text className="text-[#8E8E93] text-[10px]">Protein</Text>
             </View>
             <View className="items-center">
-              <Text className="text-white text-lg font-bold mb-1">{altMeal.scaledCarbs}g</Text>
+              <Text className="text-white text-lg font-semibold mb-1">{altMeal.scaledCarbs}g</Text>
               <Text className="text-[#8E8E93] text-[10px]">Carbs</Text>
             </View>
             <View className="items-center">
-              <Text className="text-white text-lg font-bold mb-1">{altMeal.scaledFat}g</Text>
+              <Text className="text-white text-lg font-semibold mb-1">{altMeal.scaledFat}g</Text>
               <Text className="text-[#8E8E93] text-[10px]">Fat</Text>
             </View>
             <View className="items-center">
-              <Text className="text-white text-lg font-bold mb-1">{altMeal.scaledFiber || 0}g</Text>
+              <Text className="text-white text-lg font-semibold mb-1">{altMeal.scaledFiber || 0}g</Text>
               <Text className="text-[#8E8E93] text-[10px]">Fiber</Text>
             </View>
             <View className="items-center">
-              <Text className="text-white text-lg font-bold mb-1">{altMeal.weight || altMeal.calculatedWeight || 0}g</Text>
+              <Text className="text-white text-lg font-semibold mb-1">{altMeal.weight || altMeal.calculatedWeight || 0}g</Text>
               <Text className="text-[#8E8E93] text-[10px]">Weight</Text>
             </View>
           </View>
 
           <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-white text-lg font-bold">Ingredients</Text>
+            <Text className="text-white text-lg font-semibold">Ingredients</Text>
             <Pressable className="flex-row items-center bg-[#1A1A1A] border border-[#222222] px-3 py-1.5 rounded-lg">
               <Text className="text-[#C4EF00] text-xs font-semibold mr-2">1 Serving</Text>
               <CaretDown size={12} color="#8E8E93" />
@@ -200,7 +200,7 @@ export default function AlternativeMealDetail() {
               {ingredients.map((ing: any, idx: number) => (
                 <View key={idx} className="flex-row items-start">
                   <View className="w-1.5 h-1.5 rounded-full bg-[#C4EF00] mt-1.5 mr-3" />
-                  <Text className="text-white text-[11px] font-bold w-12 mr-2">{ing.quantity} {ing.unit}</Text>
+                  <Text className="text-white text-[11px] font-semibold w-12 mr-2">{ing.quantity} {ing.unit}</Text>
                   <Text className="text-[#8E8E93] text-[11px] flex-1">{ing.name}</Text>
                 </View>
               ))}
@@ -214,10 +214,10 @@ export default function AlternativeMealDetail() {
       </ScrollView>
 
       <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#0A0A0A]/95" style={{ paddingBottom: 120 }}>
-        <Pressable 
+        <Pressable
           onPress={handleConfirmSwap}
           className="bg-[#C4EF00] rounded-[20px] py-4 items-center justify-center active:opacity-90">
-          <Text className="text-black font-bold text-lg">Swap Meal</Text>
+          <Text className="text-black font-semibold text-lg">Swap Meal</Text>
         </Pressable>
       </View>
 
@@ -234,7 +234,7 @@ export default function AlternativeMealDetail() {
             <View className="w-24 h-24 rounded-full border-4 border-[#C4EF00] items-center justify-center mb-6">
               <Check size={48} color="#C4EF00" weight="bold" />
             </View>
-            <Text className="text-white text-[28px] font-bold mb-3 text-center">
+            <Text className="text-white text-[28px] font-semibold mb-3 text-center">
               <Text className="text-[#C4EF00]">{originalSlot?.mealType}</Text> Swapped
             </Text>
             <Text className="text-[#8E8E93] text-[15px] text-center mb-10 leading-6">
@@ -247,7 +247,7 @@ export default function AlternativeMealDetail() {
               }}
               className="w-full bg-[#C4EF00] rounded-[20px] py-4 items-center justify-center active:opacity-90"
             >
-              <Text className="text-black font-bold text-lg">Done</Text>
+              <Text className="text-black font-semibold text-lg">Done</Text>
             </Pressable>
           </View>
         </View>

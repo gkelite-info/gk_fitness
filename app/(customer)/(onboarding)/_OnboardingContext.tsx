@@ -88,3 +88,5 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useOnboarding = () => useContext(OnboardingContext);
+
+export default function Ignored() { return null; }

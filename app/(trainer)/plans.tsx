@@ -4,14 +4,31 @@ import { Plus, Barbell, BowlFood, MagnifyingGlass, CaretRight, Fire, Heartbeat, 
 import { useRouter } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { useTrainerWorkoutPlansByCreator } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlans';
+import { useTrainerAssignedDietPlans } from '@/hooks/trainerMealPlans/useTrainerAssignedDietPlans';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function PlansScreen() {
   const router = useRouter();
   const { userId } = useUser();
   const [activeTab, setActiveTab] = useState('workout');
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data: fetchedPlans, isLoading } = useTrainerWorkoutPlansByCreator(userId);
+  const { data: workoutPlans, isLoading: isWorkoutLoading, refetch: refetchWorkouts } = useTrainerWorkoutPlansByCreator(userId);
+  const { data: dietPlans, isLoading: isDietLoading, refetch: refetchDiets } = useTrainerAssignedDietPlans(userId);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    if (activeTab === 'workout') {
+      await refetchWorkouts();
+    } else {
+      await refetchDiets();
+    }
+    setRefreshing(false);
+  };
+
+  const fetchedPlans = activeTab === 'workout' ? workoutPlans : dietPlans;
+  const isLoading = activeTab === 'workout' ? isWorkoutLoading : isDietLoading;
 
   const filteredPlans = useMemo(() => {
     if (!fetchedPlans) return [];
@@ -26,14 +43,26 @@ export default function PlansScreen() {
 
   return (
     <View className="flex-1 bg-[#09090B]">
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100, paddingTop: 15 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100, paddingTop: 15 }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View className="flex-row items-start justify-between mb-8">
           <View className="flex-1 mr-4">
             <Text className="text-white text-[28px] font-semibold">Workout Plans</Text>
             <Text className="text-[#9CA3AF] text-sm mt-1">Manage workout plans for your PT customers.</Text>
           </View>
           <Pressable
-            onPress={() => router.push('/(trainer)/create-workout-plan' as any)}
+            onPress={() => {
+              if (activeTab === 'diet') {
+                router.push('/(trainer)/create-diet-plan' as any);
+              } else {
+                router.push('/(trainer)/create-workout-plan' as any);
+              }
+            }}
             className="w-10 h-10 rounded-full border border-[#CCFF00] items-center justify-center active:opacity-70 mt-1"
           >
             <Plus size={20} color="#CCFF00" weight="bold" />
@@ -70,7 +99,9 @@ export default function PlansScreen() {
         </View>
 
         <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-white text-lg font-semibold">Assigned Workout Plans</Text>
+          <Text className="text-white text-lg font-semibold">
+            {activeTab === 'workout' ? 'Assigned Workout Plans' : 'Assigned Diet Plans'}
+          </Text>
           <Text className="text-[#CCFF00] text-sm font-semibold">{filteredPlans.length} Plans</Text>
         </View>
 
@@ -80,11 +111,13 @@ export default function PlansScreen() {
           </View>
         ) : filteredPlans.length === 0 ? (
           <View className="py-10 items-center justify-center">
-            <Text className="text-[#9CA3AF] text-sm">No workout plans found.</Text>
+            <Text className="text-[#9CA3AF] font-sans text-sm">
+              No {activeTab === 'workout' ? 'workout' : 'diet'} plans found.
+            </Text>
           </View>
         ) : (
           filteredPlans.map((plan: any) => (
-            <PlanCard key={plan.planId} plan={plan} />
+            <PlanCard key={plan.planId || plan.trainerMealPlanId || plan.customerMealPlanId} plan={plan} type={activeTab as 'workout' | 'diet'} />
           ))
         )}
       </ScrollView>
@@ -92,7 +125,7 @@ export default function PlansScreen() {
   );
 }
 
-function PlanCard({ plan }: { plan: any }) {
+function PlanCard({ plan, type }: { plan: any; type: 'workout' | 'diet' }) {
   const router = useRouter();
 
   const customerName = plan.customer?.fullName || 'Unknown Customer';
@@ -106,10 +139,17 @@ function PlanCard({ plan }: { plan: any }) {
   const handlePress = () => {
     const customerId = plan.userId || plan.customer?.customerId;
     if (customerId) {
-      router.push({
-        pathname: '/(trainer)/weeklyWorkoutPlan',
-        params: { customerId }
-      } as any);
+      if (type === 'workout') {
+        router.push({
+          pathname: '/(trainer)/weeklyWorkoutPlan',
+          params: { customerId }
+        } as any);
+      } else {
+        router.push({
+          pathname: '/(trainer)/nutrition/my-nutrition-plan',
+          params: { targetUserId: customerId, customerName }
+        } as any);
+      }
     }
   };
 
@@ -141,13 +181,23 @@ function PlanCard({ plan }: { plan: any }) {
           </View>
 
           <View className="flex-row items-center mb-3">
-            <Barbell size={16} color="#CCFF00" weight="fill" />
-            <Text className="text-[#CCFF00] text-[13px] font-semibold ml-2">Custom Workout Plan</Text>
+            {type === 'workout' ? (
+              <Barbell size={16} color="#CCFF00" weight="fill" />
+            ) : (
+              <BowlFood size={16} color="#CCFF00" weight="fill" />
+            )}
+            <Text className="text-[#CCFF00] text-[13px] font-semibold ml-2">
+              {type === 'workout' ? 'Custom Workout Plan' : 'Custom Diet Plan'}
+            </Text>
           </View>
 
           <View className="flex-row items-end justify-between">
             <View>
-              <Text className="text-[#9CA3AF] text-[11px] font-medium">{workoutDaysCount} Days / Week</Text>
+              <Text className="text-[#9CA3AF] text-[11px] font-medium">
+                {type === 'workout'
+                  ? `${workoutDaysCount} Days / Week`
+                  : (plan.dietType || 'Balanced')}
+              </Text>
             </View>
             <View className="items-end">
               <Text className="text-[#6B7280] text-[10px] mb-0.5 font-medium">Updated</Text>

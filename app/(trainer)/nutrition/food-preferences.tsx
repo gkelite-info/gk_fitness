@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Modal } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import {
   CaretLeft,
   Leaf,
@@ -17,12 +17,13 @@ import {
   FishSimple,
   ChartPieSlice
 } from 'phosphor-react-native';
-import { useUser } from '@/context/UserContext';
 import { fetchCustomerOnboarding, updateCustomerOnboarding } from '@/helpers/onboardingHelper';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function FoodPreferences() {
   const router = useRouter();
-  const { userId } = useUser();
+  const queryClient = useQueryClient();
+  const { targetUserId, customerName } = useLocalSearchParams<{ targetUserId: string, customerName?: string }>();
 
   const handleBack = () => {
     router.back();
@@ -45,35 +46,37 @@ export default function FoodPreferences() {
   const [onboardingId, setOnboardingId] = useState<string | null>(null);
   const [onboardingFullData, setOnboardingFullData] = useState<any>(null);
 
-  // Modal states
   const [showCuisineModal, setShowCuisineModal] = useState(false);
   const [showSpreadModal, setShowSpreadModal] = useState(false);
 
-  useEffect(() => {
-    if (userId) {
-      fetchCustomerOnboarding(userId).then(data => {
-        if (data) {
-          setOnboardingFullData(data);
-          setOnboardingId(data.onboardingId || null);
-          if (data.dietType) setSelectedDiet(data.dietType);
-          if (data.mealsPerDay) setSelectedMeals(`${data.mealsPerDay} Meals`);
-          if (data.foodAllergies) setAllergies(data.foodAllergies);
-          if (data.preferredCuisine) setSelectedCuisine(data.preferredCuisine);
-          if (data.calorieDistribution) {
-            try {
-              const parsed = JSON.parse(data.calorieDistribution);
-              if (typeof parsed === 'object' && parsed.BREAKFAST) {
-                setCalorieSpread(parsed);
+  // Re-fetch data every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (targetUserId) {
+        fetchCustomerOnboarding(targetUserId).then(data => {
+          if (data) {
+            setOnboardingFullData(data);
+            setOnboardingId(data.onboardingId || null);
+            if (data.dietType) setSelectedDiet(data.dietType);
+            if (data.mealsPerDay) setSelectedMeals(`${data.mealsPerDay} Meals`);
+            // Don't pre-load allergies — trainer starts with a clean slate
+            if (data.preferredCuisine) setSelectedCuisine(data.preferredCuisine);
+            if (data.calorieDistribution) {
+              try {
+                const parsed = JSON.parse(data.calorieDistribution);
+                if (typeof parsed === 'object' && parsed.BREAKFAST) {
+                  setCalorieSpread(parsed);
+                }
+              } catch (e) {
+                // Ignore parse error and keep default
               }
-            } catch (e) {
-              // Ignore parse error and keep default
             }
           }
-        }
-        setLoading(false);
-      });
-    }
-  }, [userId]);
+          setLoading(false);
+        });
+      }
+    }, [targetUserId])
+  );
 
   const diets = [
     { name: 'Vegetarian', icon: Leaf },
@@ -108,12 +111,12 @@ export default function FoodPreferences() {
   };
 
   const handleContinue = async () => {
-    if (!userId) return;
+    if (!targetUserId) return;
     setSaving(true);
     try {
       const payload = {
         ...(onboardingFullData || {}),
-        createdBy: userId,
+        createdBy: targetUserId,
         dietType: selectedDiet,
         mealsPerDay: parseInt(selectedMeals.split(' ')[0]),
         foodAllergies: allergies,
@@ -124,13 +127,19 @@ export default function FoodPreferences() {
       if (onboardingId) {
         payload.onboardingId = onboardingId;
         await updateCustomerOnboarding(payload);
+        // Invalidate the cache so the nutrition preferences page sees the fresh data instantly
+        queryClient.invalidateQueries({ queryKey: ['customerOnboarding', targetUserId] });
       } else {
         throw new Error("No existing onboarding record found to update.");
       }
 
-      router.push('/(customer)/nutrition/generating-plan');
+      router.push({
+        pathname: '/(trainer)/nutrition/nutrition-preferences',
+        params: { targetUserId, customerName }
+      } as any);
     } catch (e: any) {
       Alert.alert('Error', e.message);
+    } finally {
       setSaving(false);
     }
   };
@@ -143,7 +152,6 @@ export default function FoodPreferences() {
     );
   }
 
-  // Custom Bottom Sheet style Modal
   const renderDropdownModal = (
     visible: boolean,
     setVisible: (v: boolean) => void,
@@ -157,7 +165,7 @@ export default function FoodPreferences() {
         <Pressable className="flex-1" onPress={() => setVisible(false)} />
         <View className="bg-[#141414] rounded-t-[32px] border-t border-[#2A2A2A] p-6 pb-12">
           <View className="flex-row items-center justify-between mb-6">
-            <Text className="text-white text-xl font-bold">{title}</Text>
+            <Text className="text-white text-xl font-semibold">{title}</Text>
             <Pressable onPress={() => setVisible(false)} className="w-8 h-8 rounded-full bg-[#2A2A2A] items-center justify-center">
               <X size={16} color="#8E8E93" />
             </Pressable>
@@ -203,7 +211,6 @@ export default function FoodPreferences() {
           Help us personalize your meal plan based on your choices.
         </Text>
 
-        {/* Diet Preference */}
         <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-4">
           <View className="flex-row items-center gap-4 mb-5">
             <View className="w-10 h-10 rounded-xl bg-[#2A2A2A] items-center justify-center">
@@ -240,7 +247,6 @@ export default function FoodPreferences() {
           </View>
         </View>
 
-        {/* Meals Per Day */}
         <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-4">
           <View className="flex-row items-center gap-4 mb-5">
             <View className="w-10 h-10 rounded-xl bg-[#2A2A2A] items-center justify-center">
@@ -275,7 +281,6 @@ export default function FoodPreferences() {
           </View>
         </View>
 
-        {/* Calorie Spread (New) */}
         <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-4">
           <View className="flex-row items-center gap-4 mb-5">
             <View className="w-10 h-10 rounded-xl bg-[#2A2A2A] items-center justify-center">
@@ -313,7 +318,6 @@ export default function FoodPreferences() {
           ))}
         </View>
 
-        {/* Preferred Cuisine */}
         <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-4 flex-row items-center justify-between">
           <View className="flex-row items-center gap-4 flex-1 pr-2">
             <View className="w-10 h-10 rounded-xl bg-[#2A2A2A] items-center justify-center">
@@ -330,7 +334,6 @@ export default function FoodPreferences() {
           </Pressable>
         </View>
 
-        {/* Food Allergies */}
         <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-4">
           <View className="flex-row items-center gap-4 mb-5">
             <View className="w-10 h-10 rounded-xl bg-[#2A2A2A] items-center justify-center">
@@ -388,7 +391,7 @@ export default function FoodPreferences() {
           </View>
         </View>
 
-        <View className="absolute bottom-[90px] left-0 right-0 p-5 bg-[#0A0A0A]/95 pb-5">
+        <View className="p-5 bg-[#0A0A0A]/95 pb-5">
           <Pressable
             onPress={handleContinue}
             disabled={saving}
@@ -409,3 +412,5 @@ export default function FoodPreferences() {
     </View>
   );
 }
+
+

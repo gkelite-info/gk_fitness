@@ -41,7 +41,7 @@ export default function NutritionPreferences() {
         <Pressable onPress={() => router.back()} className="p-2 -ml-2">
           <CaretLeft size={24} color="#FFFFFF" />
         </Pressable>
-        <Text className="text-white text-lg font-bold flex-1 text-center pr-8">Nutrition Preferences</Text>
+        <Text className="text-white text-lg font-semibold flex-1 text-center pr-8">Nutrition Preferences</Text>
       </View>
 
       <Text className="text-[#8E8E93] text-sm text-center mb-6">
@@ -59,7 +59,7 @@ export default function NutritionPreferences() {
               <User size={24} color="#FFFFFF" />
             </View>
             <View>
-              <Text className="text-[#C4EF00] text-base font-bold mb-1">Your Current Profile</Text>
+              <Text className="text-[#C4EF00] text-base font-semibold mb-1">Your Current Profile</Text>
               <Text className="text-[#8E8E93] text-xs leading-4 pr-6">
                 These preferences are used to create your personalized nutrition plan.
               </Text>
@@ -69,35 +69,35 @@ export default function NutritionPreferences() {
           <View className="flex-row justify-between pt-2 border-t border-[#222222]">
             <View className="flex-1 items-center px-1 border-r border-[#222222]">
               <Target size={16} color="#C4EF00" weight="bold" style={{ marginBottom: 4 }} />
-              <Text className="text-[#8E8E93] text-[9px] font-bold tracking-wider mb-1">GOAL</Text>
-              <Text className="text-white text-[11px] font-bold mb-1 text-center">{goalTitle}</Text>
+              <Text className="text-[#8E8E93] text-[9px] font-semibold tracking-wider mb-1">GOAL</Text>
+              <Text className="text-white text-[11px] font-semibold mb-1 text-center">{goalTitle}</Text>
               <Text className="text-[#555555] text-[8px] text-center leading-[10px]">Your primary objective</Text>
             </View>
 
             <View className="flex-1 items-center px-1 border-r border-[#222222]">
               <Leaf size={16} color="#C4EF00" weight="fill" style={{ marginBottom: 4 }} />
-              <Text className="text-[#8E8E93] text-[9px] font-bold tracking-wider mb-1">DIET</Text>
-              <Text className="text-white text-[11px] font-bold mb-1 text-center">{dietType}</Text>
+              <Text className="text-[#8E8E93] text-[9px] font-semibold tracking-wider mb-1">DIET</Text>
+              <Text className="text-white text-[11px] font-semibold mb-1 text-center">{dietType}</Text>
               <Text className="text-[#555555] text-[8px] text-center leading-[10px]">Your dietary preference</Text>
             </View>
 
             <View className="flex-1 items-center px-1 border-r border-[#222222]">
               <ForkKnife size={16} color="#C4EF00" weight="bold" style={{ marginBottom: 4 }} />
-              <Text className="text-[#8E8E93] text-[9px] font-bold tracking-wider mb-1">MEALS</Text>
-              <Text className="text-white text-[11px] font-bold mb-1 text-center">{mealsPerDay} Meals / Day</Text>
+              <Text className="text-[#8E8E93] text-[9px] font-semibold tracking-wider mb-1">MEALS</Text>
+              <Text className="text-white text-[11px] font-semibold mb-1 text-center">{mealsPerDay} Meals / Day</Text>
               <Text className="text-[#555555] text-[8px] text-center leading-[10px]">Daily frequency</Text>
             </View>
 
             <View className="flex-1 items-center px-1">
               <Flame size={16} color="#C4EF00" weight="fill" style={{ marginBottom: 4 }} />
-              <Text className="text-[#8E8E93] text-[9px] font-bold tracking-wider mb-1">CALORIES</Text>
-              <Text className="text-white text-[11px] font-bold mb-1 text-center">{calories} kcal</Text>
+              <Text className="text-[#8E8E93] text-[9px] font-semibold tracking-wider mb-1">CALORIES</Text>
+              <Text className="text-white text-[11px] font-semibold mb-1 text-center">{calories} kcal</Text>
               <Text className="text-[#555555] text-[8px] text-center leading-[10px]">Daily calorie target</Text>
             </View>
           </View>
         </View>
 
-        <Text className="text-white text-base font-bold mb-1">Edit Your Preferences</Text>
+        <Text className="text-white text-base font-semibold mb-1">Edit Your Preferences</Text>
         <Text className="text-[#8E8E93] text-xs mb-4">Update any preference and regenerate your nutrition plan.</Text>
 
         <View className="gap-y-3 mb-6">
@@ -106,11 +106,11 @@ export default function NutritionPreferences() {
               <Target size={20} color="#3B82F6" />
             </View>
             <View className="flex-1">
-              <Text className="text-white text-sm font-bold mb-1">Fitness Goal</Text>
+              <Text className="text-white text-sm font-semibold mb-1">Fitness Goal</Text>
               <Text className="text-[#8E8E93] text-[10px]">Your primary fitness objective</Text>
             </View>
             <View className="flex-row items-center">
-              <Text className="text-[#C4EF00] text-xs font-bold mr-2">{goalTitle}</Text>
+              <Text className="text-[#C4EF00] text-xs font-semibold mr-2">{goalTitle}</Text>
               <CaretRight size={14} color="#555555" />
             </View>
           </Pressable>
@@ -120,11 +120,11 @@ export default function NutritionPreferences() {
               <Leaf size={20} color="#4ADE80" weight="fill" />
             </View>
             <View className="flex-1">
-              <Text className="text-white text-sm font-bold mb-1">Diet Type</Text>
+              <Text className="text-white text-sm font-semibold mb-1">Diet Type</Text>
               <Text className="text-[#8E8E93] text-[10px]">Your dietary preference</Text>
             </View>
             <View className="flex-row items-center">
-              <Text className="text-[#C4EF00] text-xs font-bold mr-2">{dietType}</Text>
+              <Text className="text-[#C4EF00] text-xs font-semibold mr-2">{dietType}</Text>
               <CaretRight size={14} color="#555555" />
             </View>
           </Pressable>
@@ -134,11 +134,11 @@ export default function NutritionPreferences() {
               <ForkKnife size={20} color="#60A5FA" />
             </View>
             <View className="flex-1">
-              <Text className="text-white text-sm font-bold mb-1">Meals Per Day</Text>
+              <Text className="text-white text-sm font-semibold mb-1">Meals Per Day</Text>
               <Text className="text-[#8E8E93] text-[10px]">How many meals you prefer daily</Text>
             </View>
             <View className="flex-row items-center">
-              <Text className="text-[#C4EF00] text-xs font-bold mr-2">{mealsPerDay} Meals</Text>
+              <Text className="text-[#C4EF00] text-xs font-semibold mr-2">{mealsPerDay} Meals</Text>
               <CaretRight size={14} color="#555555" />
             </View>
           </Pressable>
@@ -148,11 +148,11 @@ export default function NutritionPreferences() {
               <Globe size={20} color="#FACC15" />
             </View>
             <View className="flex-1">
-              <Text className="text-white text-sm font-bold mb-1">Cuisine Preference</Text>
+              <Text className="text-white text-sm font-semibold mb-1">Cuisine Preference</Text>
               <Text className="text-[#8E8E93] text-[10px]">Your preferred cuisine style</Text>
             </View>
             <View className="flex-row items-center">
-              <Text className="text-[#C4EF00] text-xs font-bold mr-2">South Indian</Text>
+              <Text className="text-[#C4EF00] text-xs font-semibold mr-2">South Indian</Text>
               <CaretRight size={14} color="#555555" />
             </View>
           </Pressable>
@@ -162,16 +162,16 @@ export default function NutritionPreferences() {
               <Bell size={20} color="#F472B6" weight="fill" />
             </View>
             <View className="flex-1">
-              <Text className="text-white text-sm font-bold mb-1">Allergies</Text>
+              <Text className="text-white text-sm font-semibold mb-1">Allergies</Text>
               <Text className="text-[#8E8E93] text-[10px]">Any food allergies we should know</Text>
             </View>
             <View className="flex-row items-center flex-wrap max-w-[150px] justify-end">
               {allergies.length > 0 ? allergies.map((allergy, index) => (
                 <View key={index} className="border border-[#C4EF00]/50 rounded-full px-2 py-0.5 mr-1 mb-1">
-                  <Text className="text-[#C4EF00] text-[8px] font-bold">{allergy.toUpperCase()}</Text>
+                  <Text className="text-[#C4EF00] text-[8px] font-semibold">{allergy.toUpperCase()}</Text>
                 </View>
               )) : (
-                <Text className="text-[#8E8E93] text-[10px] font-bold mr-2">None</Text>
+                <Text className="text-[#8E8E93] text-[10px] font-semibold mr-2">None</Text>
               )}
               <CaretRight size={14} color="#555555" />
             </View>
@@ -182,11 +182,11 @@ export default function NutritionPreferences() {
               <Prohibit size={20} color="#EF4444" />
             </View>
             <View className="flex-1">
-              <Text className="text-white text-sm font-bold mb-1">Foods to Avoid</Text>
+              <Text className="text-white text-sm font-semibold mb-1">Foods to Avoid</Text>
               <Text className="text-[#8E8E93] text-[10px]">Ingredients or foods you avoid</Text>
             </View>
             <View className="flex-row items-center">
-              <Text className="text-[#C4EF00] text-xs font-bold mr-2">Broccoli, Mushrooms</Text>
+              <Text className="text-[#C4EF00] text-xs font-semibold mr-2">Broccoli, Mushrooms</Text>
               <CaretRight size={14} color="#555555" />
             </View>
           </Pressable>
@@ -196,11 +196,11 @@ export default function NutritionPreferences() {
               <Glass size={20} color="#60A5FA" weight="fill" />
             </View>
             <View className="flex-1">
-              <Text className="text-white text-sm font-bold mb-1">Water Intake Goal</Text>
+              <Text className="text-white text-sm font-semibold mb-1">Water Intake Goal</Text>
               <Text className="text-[#8E8E93] text-[10px]">Daily water intake target</Text>
             </View>
             <View className="flex-row items-center">
-              <Text className="text-[#C4EF00] text-xs font-bold mr-2">{waterGoal / 1000} Liters / Day</Text>
+              <Text className="text-[#C4EF00] text-xs font-semibold mr-2">{waterGoal / 1000} Liters / Day</Text>
               <CaretRight size={14} color="#555555" />
             </View>
           </Pressable>
@@ -211,7 +211,7 @@ export default function NutritionPreferences() {
             <MagicWand size={24} color="#C4EF00" weight="fill" />
           </View>
           <View className="flex-1">
-            <Text className="text-[#C4EF00] text-sm font-bold mb-2">
+            <Text className="text-[#C4EF00] text-sm font-semibold mb-2">
               Why update your preferences?
             </Text>
             <Text className="text-[#8E8E93] text-xs leading-5">
@@ -226,7 +226,7 @@ export default function NutritionPreferences() {
           onPress={() => router.push('/(customer)/nutrition/generating-plan')}
           className="bg-[#C4EF00] rounded-[20px] py-4 items-center justify-center active:opacity-90 mb-4"
         >
-          <Text className="text-black font-bold text-lg">Regenerate Meal Plan</Text>
+          <Text className="text-black font-semibold text-lg">Regenerate Meal Plan</Text>
         </Pressable>
         <View className="flex-row items-center justify-center">
           <Lock size={12} color="#555555" weight="fill" style={{ marginRight: 6 }} />

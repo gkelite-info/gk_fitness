@@ -4,6 +4,7 @@ import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, GearIcon as Gear, SunIcon as Sun, CoffeeIcon as Coffee, MoonIcon as Moon, FireIcon as Fire, LeafIcon as Leaf, PencilSimpleIcon as PencilSimple, CheckIcon as Check } from 'phosphor-react-native';
 import { useCustomerMealPlan } from '@/hooks/customerMealPlans/useCustomerMealPlan';
+import { useTrainerMealPlan } from '@/hooks/trainerMealPlans/useTrainerMealPlan';
 import { useUser } from '@/context/UserContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { saveMealPlanDayMeal } from '@/helpers/customerMealPlans/mealPlanDayMeals';
@@ -12,11 +13,13 @@ export default function MyNutritionPlan() {
   const router = useRouter();
   const { userId } = useUser();
   const queryClient = useQueryClient();
-  const { data: fullPlan, isLoading } = useCustomerMealPlan(userId as any);
+  const { data: customerPlan, isLoading: isCustomerPlanLoading } = useCustomerMealPlan(userId as any);
+  const { data: trainerPlan, isLoading: isTrainerPlanLoading } = useTrainerMealPlan(userId as any);
 
+  const [activeTab, setActiveTab] = useState<'my_plan' | 'trainer_plan'>('my_plan');
   const [selectedDayIndex, setSelectedDayIndex] = useState(new Date().getDay());
   const scrollViewRef = React.useRef<ScrollView>(null);
-  
+
   React.useEffect(() => {
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({ x: Math.max(0, selectedDayIndex * 72 - 60), animated: true });
@@ -32,11 +35,11 @@ export default function MyNutritionPlan() {
     // Calculate start of week (Sunday)
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - currentDay);
-    
+
     const days = [];
     const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     const fullNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    
+
     for (let i = 0; i < 30; i++) {
       const d = new Date(startDate);
       d.setDate(startDate.getDate() + i);
@@ -70,6 +73,8 @@ export default function MyNutritionPlan() {
     return `${fullDayNames[selected.getDay()]}, ${selected.getDate()} ${monthNames[selected.getMonth()]}`;
   };
 
+  const isLoading = activeTab === 'my_plan' ? isCustomerPlanLoading : isTrainerPlanLoading;
+
   if (isLoading) {
     return (
       <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
@@ -88,13 +93,14 @@ export default function MyNutritionPlan() {
     }
   };
 
-  const selectedDayData = fullPlan?.days?.find(d => d.dayOfWeek.toLowerCase() === daysOfMonth[selectedDayIndex].id);
+  const activePlan = activeTab === 'my_plan' ? customerPlan : trainerPlan;
+  const selectedDayData = activePlan?.days?.find(d => d.dayOfWeek.toLowerCase() === daysOfMonth[selectedDayIndex].id);
   const meals = selectedDayData?.meals || [];
 
   const handleSaveCalories = async () => {
     if (!editingMeal) return;
     setIsSavingCalories(true);
-    
+
     const newCalories = parseInt(editCalories, 10);
     if (!newCalories || isNaN(newCalories)) {
       setIsSavingCalories(false);
@@ -102,7 +108,7 @@ export default function MyNutritionPlan() {
       return;
     }
 
-    const currentCalories = editingMeal.calories || 1; 
+    const currentCalories = editingMeal.calories || 1;
     const scalar = newCalories / currentCalories;
 
     const scaledIngredients = (editingMeal.ingredientsJson || []).map((mi: any) => ({
@@ -141,11 +147,17 @@ export default function MyNutritionPlan() {
         showsVerticalScrollIndicator={false}
       >
         <View className="flex-row items-center mb-6 border-b border-[#222222]">
-          <Pressable className="mr-6 border-b-2 border-[#C4EF00] pb-2">
-            <Text className="text-white text-[18px] font-bold">My nutrition plan</Text>
+          <Pressable 
+            onPress={() => setActiveTab('my_plan')}
+            className={`mr-6 pb-2 ${activeTab === 'my_plan' ? 'border-b-2 border-[#C4EF00]' : ''}`}
+          >
+            <Text className={`text-[18px] font-semibold ${activeTab === 'my_plan' ? 'text-white' : 'text-[#8E8E93]'}`}>My nutrition plan</Text>
           </Pressable>
-          <Pressable className="pb-2">
-            <Text className="text-[#8E8E93] text-[18px] font-bold">Trainer nutrition plan</Text>
+          <Pressable 
+            onPress={() => setActiveTab('trainer_plan')}
+            className={`pb-2 ${activeTab === 'trainer_plan' ? 'border-b-2 border-[#C4EF00]' : ''}`}
+          >
+            <Text className={`text-[18px] font-semibold ${activeTab === 'trainer_plan' ? 'text-white' : 'text-[#8E8E93]'}`}>Trainer nutrition plan</Text>
           </Pressable>
         </View>
 
@@ -178,8 +190,8 @@ export default function MyNutritionPlan() {
                 onPress={() => setSelectedDayIndex(item.index)}
                 className={`w-[60px] h-[75px] rounded-[16px] items-center justify-center mr-3 ${isSelected ? 'bg-[#C4EF00]' : 'bg-transparent border border-[#222222]'}`}
               >
-                <Text className={`font-bold text-[11px] mb-1 ${isSelected ? 'text-black' : 'text-[#8E8E93]'}`}>{item.day}</Text>
-                <Text className={`font-bold text-[20px] ${isSelected ? 'text-black' : 'text-white'}`}>{item.date}</Text>
+                <Text className={`font-semibold text-[11px] mb-1 ${isSelected ? 'text-black' : 'text-[#8E8E93]'}`}>{item.day}</Text>
+                <Text className={`font-semibold text-[20px] ${isSelected ? 'text-black' : 'text-white'}`}>{item.date}</Text>
               </Pressable>
             )
           })}
@@ -187,7 +199,7 @@ export default function MyNutritionPlan() {
 
         <View className="flex-row items-center mb-6">
           <View className="w-1 h-6 bg-[#C4EF00] rounded-full mr-3" />
-          <Text className="text-white text-lg font-bold">{formatSelectedDate()}</Text>
+          <Text className="text-white text-lg font-semibold">{formatSelectedDate()}</Text>
         </View>
 
         <View className="gap-y-4 mb-6">
@@ -198,19 +210,21 @@ export default function MyNutritionPlan() {
             </View>
           ) : meals.map((meal) => {
             const Icon = getIconForMealType(meal.mealType);
+            const mealId = activeTab === 'my_plan' ? (meal as any).customerMealPlanDayMealId : (meal as any).trainerMealPlanDayMealId;
+            const isTrainerPlan = activeTab === 'trainer_plan';
             return (
               <Pressable
-                key={meal.customerMealPlanDayMealId}
-                onPress={() => router.push({ pathname: '/(customer)/nutrition/meal-detail', params: { id: meal.customerMealPlanDayMealId } })}
+                key={mealId}
+                onPress={() => router.push({ pathname: '/(customer)/nutrition/meal-detail', params: { id: mealId, isTrainerPlan: isTrainerPlan ? 'true' : 'false' } })}
                 className="bg-[#141414] border border-[#222222] rounded-[24px] p-4 flex-col"
               >
                 <View className="flex-row justify-between items-start mb-3">
                   <View className="flex-1 pr-2">
                     <View className="flex-row items-center mb-1">
                       <Icon size={16} color="#C4EF00" weight="regular" style={{ marginRight: 6 }} />
-                      <Text className="text-[#C4EF00] text-[10px] font-bold tracking-widest">{meal.mealType?.toUpperCase()}</Text>
+                      <Text className="text-[#C4EF00] text-[10px] font-semibold tracking-widest">{meal.mealType?.toUpperCase()}</Text>
                     </View>
-                    <Text className="text-white text-base font-bold mb-2 leading-5 pr-2">{meal.mealName}</Text>
+                    <Text className="text-white text-base font-semibold mb-2 leading-5 pr-2">{meal.mealName}</Text>
                     <View className="flex-row items-start">
                       <Leaf size={12} color="#4ADE80" weight="fill" style={{ marginRight: 4, marginTop: 2 }} />
                       <Text className="text-[#8E8E93] text-[11px] leading-4 flex-1 pr-4">{meal.description || 'No description available'}</Text>
@@ -219,16 +233,18 @@ export default function MyNutritionPlan() {
 
                   <View className="items-end">
                     <View className="flex-row items-center mb-1">
-                      <Text className="text-white text-[24px] font-bold leading-7 mr-1">{meal.calories || 0}</Text>
-                      <Pressable 
-                        onPress={() => {
-                          setEditingMeal(meal);
-                          setEditCalories(meal.calories?.toString() || '');
-                        }}
-                        className="p-1 -mr-1"
-                      >
-                        <PencilSimple size={16} color="#8E8E93" weight="bold" />
-                      </Pressable>
+                      <Text className="text-white text-[24px] font-semibold leading-7 mr-1">{meal.calories || 0}</Text>
+                      {activeTab === 'my_plan' && (
+                        <Pressable
+                          onPress={() => {
+                            setEditingMeal(meal);
+                            setEditCalories(meal.calories?.toString() || '');
+                          }}
+                          className="p-1 -mr-1"
+                        >
+                          <PencilSimple size={16} color="#8E8E93" weight="bold" />
+                        </Pressable>
+                      )}
                     </View>
                     <Text className="text-[#8E8E93] text-[9px] mr-5">kcal</Text>
                   </View>
@@ -236,10 +252,10 @@ export default function MyNutritionPlan() {
 
                 {/* Macros at bottom line */}
                 <View className="flex-row items-center gap-x-3 pt-2 border-t border-[#222222]">
-                  <Text className="text-[#4ADE80] text-[11px] font-bold">P {meal.protein || 0}g</Text>
-                  <Text className="text-[#FBBF24] text-[11px] font-bold">C {meal.carbs || 0}g</Text>
-                  <Text className="text-[#A78BFA] text-[11px] font-bold">F {meal.fat || 0}g</Text>
-                  <Text className="text-white text-[11px] font-bold">Fi {meal.fiber || 0}g</Text>
+                  <Text className="text-[#4ADE80] text-[11px] font-semibold">P {meal.protein || 0}g</Text>
+                  <Text className="text-[#FBBF24] text-[11px] font-semibold">C {meal.carbs || 0}g</Text>
+                  <Text className="text-[#A78BFA] text-[11px] font-semibold">F {meal.fat || 0}g</Text>
+                  <Text className="text-white text-[11px] font-semibold">Fi {meal.fiber || 0}g</Text>
                 </View>
               </Pressable>
             )
@@ -265,7 +281,7 @@ export default function MyNutritionPlan() {
       >
         <View className="flex-1 bg-black/80 items-center justify-center px-6">
           <View className="bg-[#141414] border border-[#222222] rounded-[24px] w-full p-6 items-center relative">
-            <Text className="text-white text-lg font-bold mb-2">Edit Calories</Text>
+            <Text className="text-white text-lg font-semibold mb-2">Edit Calories</Text>
             <Text className="text-[#8E8E93] text-xs text-center mb-6 leading-5">
               Enter a new calorie target for {editingMeal?.mealName}. Protein, carbs, fat, and ingredients will be scaled automatically.
             </Text>
@@ -277,10 +293,10 @@ export default function MyNutritionPlan() {
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor="#444444"
-                className="text-white text-[32px] font-bold text-center flex-1 h-[80px]"
+                className="text-white text-[32px] font-semibold text-center flex-1 h-[80px]"
                 autoFocus
               />
-              <Text className="text-[#8E8E93] font-bold absolute right-6">kcal</Text>
+              <Text className="text-[#8E8E93] font-semibold absolute right-6">kcal</Text>
             </View>
 
             <View className="flex-row w-full gap-x-4">
@@ -289,9 +305,9 @@ export default function MyNutritionPlan() {
                 disabled={isSavingCalories}
                 className="flex-1 bg-[#222222] py-4 rounded-[16px] items-center justify-center"
               >
-                <Text className="text-white font-bold">Cancel</Text>
+                <Text className="text-white font-semibold">Cancel</Text>
               </Pressable>
-              
+
               <Pressable
                 onPress={handleSaveCalories}
                 disabled={isSavingCalories}
@@ -300,7 +316,7 @@ export default function MyNutritionPlan() {
                 {isSavingCalories ? (
                   <ActivityIndicator color="#000" size="small" />
                 ) : (
-                  <Text className="text-black font-bold">Save</Text>
+                  <Text className="text-black font-semibold">Save</Text>
                 )}
               </Pressable>
             </View>

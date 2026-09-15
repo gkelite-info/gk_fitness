@@ -157,7 +157,7 @@ export default function FoodPreferences() {
         <Pressable className="flex-1" onPress={() => setVisible(false)} />
         <View className="bg-[#141414] rounded-t-[32px] border-t border-[#2A2A2A] p-6 pb-12">
           <View className="flex-row items-center justify-between mb-6">
-            <Text className="text-white text-xl font-bold">{title}</Text>
+            <Text className="text-white text-xl font-semibold">{title}</Text>
             <Pressable onPress={() => setVisible(false)} className="w-8 h-8 rounded-full bg-[#2A2A2A] items-center justify-center">
               <X size={16} color="#8E8E93" />
             </Pressable>

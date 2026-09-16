@@ -64,23 +64,32 @@ export default function MembershipsScreen() {
           <ArrowLeft size={24} color="#FFF" />
         </Pressable>
         <View className="items-center flex-1">
-          <Text className="text-white text-lg font-semibold">Upgrade Membership</Text>
-          <Text className="text-[#9CA3AF] text-[11px] mt-0.5">Choose a plan that fits your fitness goals</Text>
+          <Text className="text-white text-lg font-semibold">Gym Membership</Text>
+          <Text className="text-[#9CA3AF] text-[11px] mt-0.5">Physical Gym Access & Companion Plan</Text>
         </View>
-        {/* <Pressable className="w-10 h-10 items-center justify-center -mr-2 active:opacity-70">
-          <Info size={24} color="#9CA3AF" />
-        </Pressable> */}
+        <View className="w-10 h-10" />
       </View>
 
       <ScrollView
         className="flex-1 px-5 pt-6"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 140 }}
+        contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 100 }}
         refreshControl={
           <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <Text className="text-[#9CA3AF] text-[10px] font-semibold tracking-widest mb-3">YOUR CURRENT PLAN</Text>
+        {/* Physical Gym Notice Banner */}
+        <View className="bg-[#1C1C1E] border border-[#CCFF00]/30 rounded-2xl p-4 mb-6 flex-row items-start">
+          <Info size={22} color="#CCFF00" weight="fill" style={{ marginTop: 2, marginRight: 12 }} />
+          <View className="flex-1">
+            <Text className="text-white text-sm font-semibold mb-1">Physical Gym Membership</Text>
+            <Text className="text-[#9CA3AF] text-xs leading-4">
+              Membership plans cover entry and access to physical gym facilities, fitness equipment, and in-person trainer guidance. Memberships are assigned, upgraded, or renewed in-person at your gym reception counter.
+            </Text>
+          </View>
+        </View>
+
+        <Text className="text-[#9CA3AF] text-[10px] font-semibold tracking-widest mb-3 uppercase">YOUR CURRENT PLAN</Text>
 
         {isLoading ? (
           <View className="bg-[#1C1C1E] rounded-3xl p-8 mb-8 items-center justify-center border border-[#27272A]">
@@ -95,7 +104,7 @@ export default function MembershipsScreen() {
               <Text className="text-white text-xl font-semibold mb-1">{planName}</Text>
               <View className="flex-row items-baseline mb-2">
                 <Text className="text-white text-lg font-semibold">{planAmount}</Text>
-                <Text className="text-[#9CA3AF] text-xs ml-1">Month</Text>
+                <Text className="text-[#9CA3AF] text-xs ml-1">/ Month (Paid Offline at Gym)</Text>
               </View>
               <View className="flex-row items-center">
                 {statusLabel === 'Expired' || statusLabel === 'Inactive' ? (
@@ -109,7 +118,7 @@ export default function MembershipsScreen() {
           </View>
         )}
 
-        <Text className="text-[#9CA3AF] text-[10px] font-semibold tracking-widest mb-3">AVAILABLE PLANS</Text>
+        <Text className="text-[#9CA3AF] text-[10px] font-semibold tracking-widest mb-3 uppercase">AVAILABLE GYM PLANS</Text>
 
         {isGymPlansLoading ? (
           <View className="py-8 items-center justify-center">
@@ -124,18 +133,10 @@ export default function MembershipsScreen() {
               : "bg-[#1C1C1E] rounded-3xl p-5 mb-6 border border-[#27272A]";
             const iconBg = isFirst ? "bg-[#9CA3AF]" : "bg-[#9D4CE9]";
             const checkColor = isFirst ? "#CCFF00" : "#9D4CE9";
-            const buttonStyle = isFirst
-              ? "bg-[#CCFF00] rounded-2xl py-4 flex-row items-center justify-center active:opacity-80 border-2 border-[#CCFF00]"
-              : "bg-transparent border-2 border-[#CCFF00] rounded-2xl py-4 flex-row items-center justify-center active:opacity-80";
-            const buttonTextStyle = isFirst ? "text-black text-[15px] font-semibold mr-2" : "text-[#CCFF00] text-[15px] font-semibold mr-2";
-            const caretColor = isFirst ? "#000" : "#CCFF00";
-
-            const isCurrentPlan = plan.id === currentPlan?.planId;
-            const actionText = isCurrentPlan ? `Renew ${plan.name}` : `Change to ${plan.name}`;
 
             return (
               <Pressable key={plan.id} className={containerStyle} onPress={() => setSelectedPlanId(plan.id)}>
-                <View className="flex-row items-center mb-6">
+                <View className="flex-row items-center mb-5">
                   <View className={`w-16 h-16 rounded-2xl ${iconBg} items-center justify-center mr-4`}>
                     <Crown size={32} color="#FFF" weight="regular" />
                   </View>
@@ -155,22 +156,24 @@ export default function MembershipsScreen() {
                   </View>
                 </View>
 
-                <View className="mb-6">
+                <View className="mb-4">
+                  <View className="flex-row items-center mb-3">
+                    <CheckCircle size={18} color={checkColor} weight="regular" />
+                    <Text className="text-white text-sm ml-3">Full Access to Gym Facility & Equipment</Text>
+                  </View>
                   {plan.features.map((feature, fIndex) => (
-                    <View key={fIndex} className={`flex-row items-center ${fIndex !== plan.features.length - 1 ? 'mb-3' : 'mb-1'}`}>
+                    <View key={fIndex} className="flex-row items-center mb-3">
                       <CheckCircle size={18} color={checkColor} weight="regular" />
                       <Text className="text-white text-sm ml-3">{feature}</Text>
                     </View>
                   ))}
                 </View>
 
-                <Pressable
-                  onPress={() => router.push({ pathname: '/(customer)/memberships/review', params: { planId: plan.id } })}
-                  className={buttonStyle}
-                >
-                  <Text className={buttonTextStyle}>{actionText}</Text>
-                  <CaretRight size={16} color={caretColor} weight="bold" />
-                </Pressable>
+                <View className="bg-[#27272A]/60 rounded-xl p-3 border border-[#3F3F46]">
+                  <Text className="text-[#9CA3AF] text-xs text-center">
+                    Renew or upgrade this plan directly at your gym desk.
+                  </Text>
+                </View>
               </Pressable>
             );
           })

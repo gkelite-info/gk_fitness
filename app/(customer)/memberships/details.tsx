@@ -189,17 +189,10 @@ export default function MembershipDetailsScreen() {
                 </View>
               </View>
 
-              <View className="flex-row gap-3">
-                <Pressable onPress={handleRenew} className="flex-1 bg-[#CCFF00] rounded-xl py-3.5 flex-row items-center justify-center active:opacity-80">
-                  <Text className="text-black text-sm font-semibold mr-1">Renew Membership</Text>
-                  <CaretRight size={14} color="#000" weight="bold" />
-                </Pressable>
-                <Pressable
-                  className="flex-1 bg-transparent border border-[#CCFF00]/50 rounded-xl py-3.5 items-center justify-center active:opacity-80"
-                  onPress={handleOnclick}
-                >
-                  <Text className="text-[#CCFF00] text-sm font-semibold">Change Plan</Text>
-                </Pressable>
+              <View className="bg-[#1C1C1E] border border-[#27272A] rounded-xl p-3.5 mt-2">
+                <Text className="text-[#9CA3AF] text-xs text-center leading-4">
+                  To renew or change your physical gym plan, please contact your gym desk.
+                </Text>
               </View>
             </View>
 
@@ -258,7 +251,6 @@ export default function MembershipDetailsScreen() {
         }
         renderItem={({ item }) => {
           const formattedDate = new Date(item.paymentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-          const isSuccess = true;
 
           return (
             <View className="bg-[#121212] border border-[#2A2A2A] rounded-2xl p-4 flex-row items-center justify-between mb-3">
@@ -274,7 +266,6 @@ export default function MembershipDetailsScreen() {
                   <CheckCircle size={14} color="#22C55E" weight="fill" />
                   <Text className="text-[#22C55E] text-[10px] font-semibold ml-1 uppercase">SUCCESSFUL</Text>
                 </View>
-                <CaretRight size={16} color="#9CA3AF" style={{ marginLeft: 3 }} />
               </View>
             </View>
           );
@@ -295,13 +286,6 @@ export default function MembershipDetailsScreen() {
           ) : null
         }
       />
-
-      <View style={{ marginBottom: (insets.bottom || 0) + 60 }} className="p-5 bg-[#0A0A0A] border-t border-[#1C1C1E]">
-        <Pressable onPress={handleRenew} className="bg-[#CCFF00] rounded-2xl py-4 flex-row items-center justify-center active:opacity-80">
-          <Text className="text-black text-base font-semibold mr-2">Renew Membership</Text>
-          <CaretRight size={16} color="#000" weight="bold" />
-        </Pressable>
-      </View>
     </View>
   );
 }

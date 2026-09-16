@@ -171,14 +171,11 @@ export default function MembershipReviewScreen() {
 
         </View>
 
-        <View className="p-5 bg-[#0A0A0A]/95">
-          <Pressable
-            onPress={() => router.push({ pathname: '/(customer)/memberships/payment', params: { planId: planId } })}
-            className="bg-[#CCFF00] rounded-2xl py-4 flex-row items-center justify-center active:opacity-80"
-          >
-            <Text className="text-black text-[15px] font-semibold mr-2 tracking-wide uppercase">Continue to Payment</Text>
-            <CaretRight size={16} color="#000" weight="bold" />
-          </Pressable>
+        <View className="bg-[#1C1C1E] border border-[#27272A] rounded-2xl p-5 mb-8">
+          <Text className="text-[#CCFF00] text-sm font-semibold mb-1">Physical Gym Membership Notice</Text>
+          <Text className="text-[#9CA3AF] text-xs leading-4">
+            Membership plans cover access to physical gym facilities, fitness equipment, and in-person coaching. To renew or upgrade your plan, please visit your gym reception desk.
+          </Text>
         </View>
       </ScrollView>
     </View>

@@ -88,6 +88,7 @@ export default function CustomerLayout() {
           options={{
             href: null,
             headerShown: false,
+            tabBarStyle: { display: 'none' },
           }}
         />
         <Tabs.Screen
@@ -95,6 +96,7 @@ export default function CustomerLayout() {
           options={{
             href: null,
             headerShown: false,
+            tabBarStyle: { display: 'none' },
           }}
         />
         <Tabs.Screen
@@ -102,6 +104,7 @@ export default function CustomerLayout() {
           options={{
             href: null,
             headerShown: true,
+            tabBarStyle: { display: 'none' },
           }}
         />
         <Tabs.Screen
@@ -109,6 +112,7 @@ export default function CustomerLayout() {
           options={{
             href: null,
             headerShown: false,
+            tabBarStyle: { display: 'none' },
           }}
         />
         <Tabs.Screen
@@ -289,6 +293,22 @@ export default function CustomerLayout() {
         />
         <Tabs.Screen
           name="streak-details"
+          options={{
+            href: null,
+            headerShown: false,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
+          name="delete-account"
+          options={{
+            href: null,
+            headerShown: false,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
+          name="manage-account"
           options={{
             href: null,
             headerShown: false,

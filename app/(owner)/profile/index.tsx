@@ -11,8 +11,6 @@ import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
 import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import { useGymMembershipPlans } from '@/hooks/useGymMembershipPlans';
 import {
-  User,
-  Star,
   Bell,
   ShieldCheck,
   Question,
@@ -30,7 +28,8 @@ import {
   CreditCard,
   PencilSimple,
   Crown,
-  UserCircle
+  UserCircle,
+  Bank
 } from 'phosphor-react-native';
 
 const MenuItem = ({ icon, title, subtitle, onPress, isDanger = false }: any) => (
@@ -77,22 +76,22 @@ export default function OwnerProfileScreen() {
     if (!items) return 0;
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    
+
     let added = 0;
     let removed = 0;
-    
+
     items.forEach(item => {
       if (item.createdAt && new Date(item.createdAt) >= startOfMonth) {
         added++;
       }
       if (
-        (item.is_deleted === true || item.is_Active === false) && 
+        (item.is_deleted === true || item.is_Active === false) &&
         item.updatedAt && new Date(item.updatedAt) >= startOfMonth
       ) {
         removed++;
       }
     });
-    
+
     return added - removed;
   };
 
@@ -202,8 +201,8 @@ export default function OwnerProfileScreen() {
                 <ArrowDown size={10} color="#EF4444" weight="bold" />
               )}
               <Text className={`text-[9px] font-semibold ml-0.5 ${totalNetMembersThisMonth >= 0 ? 'text-[#C4EF00]' : 'text-[#EF4444]'}`}>
-                {totalNetMembersThisMonth === 0 
-                  ? '0 this month' 
+                {totalNetMembersThisMonth === 0
+                  ? '0 this month'
                   : `${Math.abs(totalNetMembersThisMonth)} ${totalNetMembersThisMonth > 0 ? 'higher' : 'lower'}`}
               </Text>
             </View>
@@ -221,8 +220,8 @@ export default function OwnerProfileScreen() {
                 <ArrowDown size={10} color="#EF4444" weight="bold" />
               )}
               <Text className={`text-[9px] font-semibold ml-0.5 ${netTrainersThisMonth >= 0 ? 'text-[#C4EF00]' : 'text-[#EF4444]'}`}>
-                {netTrainersThisMonth === 0 
-                  ? '0 this month' 
+                {netTrainersThisMonth === 0
+                  ? '0 this month'
                   : `${Math.abs(netTrainersThisMonth)} ${netTrainersThisMonth > 0 ? 'higher' : 'lower'}`}
               </Text>
             </View>
@@ -246,6 +245,12 @@ export default function OwnerProfileScreen() {
             title="Edit Gym Profile"
             subtitle="Update your gym information, logo, contact details and business hours"
             onPress={() => { }}
+          />
+          <MenuItem
+            icon={<Bank size={18} color="#C4EF00" weight="fill" />}
+            title="Payment Settings"
+            subtitle="Manage where your membership payments are received"
+            onPress={() => router.push('/(owner)/payment-details' as any)}
           />
           <MenuItem
             icon={<Crown size={18} color="#C4EF00" weight="fill" />}

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -97,86 +97,97 @@ export default function MembershipReviewScreen() {
 
       <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: (insets.bottom || 0) + 140 }}>
 
-        <Text className="text-[#C6C9AB] text-base mb-4">Review your Membership renewal</Text>
-
-        <View className="bg-[#1F1F1F] border border-[#CCFF00]/50 rounded-2xl p-5 mb-8 flex-row justify-between items-center relative overflow-hidden">
-          <View className="absolute top-0 right-0 w-32 h-32 bg-[#CCFF00]/5 rounded-full blur-3xl -mr-10 -mt-10" />
-          <View className="flex-row items-center">
-            <View className="w-16 h-16 rounded-2xl bg-[#FFD700]/10 border border-[#FFD700]/30 items-center justify-center mr-4">
-              <Crown size={32} color="#FFD700" weight="fill" />
+        {Platform.OS === 'ios' ? (
+          <View className="flex-1 items-center justify-center mt-20">
+            <View className="w-20 h-20 rounded-full bg-[#1C1C1E] border border-[#27272A] items-center justify-center mb-6">
+              <LockKey size={32} color="#CCFF00" weight="regular" />
             </View>
-            <View>
-              <Text className="text-[#CCFF00] text-base font-semibold mb-0.5">{planName}</Text>
-              <Text className="text-[#C6C9AB] text-xs mb-2">Premium Plan</Text>
-              {/* <View className="border border-[#D4AF37]/50 rounded-full px-2 py-1 self-start">
-                <Text className="text-[#D4AF37] text-[9px] font-semibold tracking-widest uppercase">ACTIVE PLAN</Text>
-              </View> */}
-            </View>
+            <Text className="text-white text-xl font-bold mb-3 text-center">Manage Your Plan</Text>
+            <Text className="text-[#9CA3AF] text-sm text-center px-4 leading-6">
+              To view plan details, upgrade, or manage your membership, please visit your gym reception desk.
+            </Text>
           </View>
+        ) : (
+          <>
+            <Text className="text-[#C6C9AB] text-base mb-4">Review your Membership renewal</Text>
 
-          <View className="items-end">
-            <Text className="text-[#CCFF00] text-2xl font-semibold">{priceFormatted}</Text>
-            <Text className="text-[#C6C9AB] text-xs mt-1">/ Month</Text>
-          </View>
-        </View>
-
-        <Text className="text-[#C6C9AB] text-sm mb-4">Plan Includes</Text>
-        <View className="flex-row flex-wrap justify-between mb-8">
-          {dynamicBenefits.map((benefit, index) => (
-            <View key={index} className="w-[48%] bg-[#1F1F1F] border border-[#2A2A2A] rounded-xl p-4 flex-row items-center mb-3">
-              <View className="w-8 h-8 rounded-full bg-[#CCFF00]/10 items-center justify-center mr-3">
-                {benefit.icon}
+            <View className="bg-[#1F1F1F] border border-[#CCFF00]/50 rounded-2xl p-5 mb-8 flex-row justify-between items-center relative overflow-hidden">
+              <View className="absolute top-0 right-0 w-32 h-32 bg-[#CCFF00]/5 rounded-full blur-3xl -mr-10 -mt-10" />
+              <View className="flex-row items-center">
+                <View className="w-16 h-16 rounded-2xl bg-[#FFD700]/10 border border-[#FFD700]/30 items-center justify-center mr-4">
+                  <Crown size={32} color="#FFD700" weight="fill" />
+                </View>
+                <View>
+                  <Text className="text-[#CCFF00] text-base font-semibold mb-0.5">{planName}</Text>
+                  <Text className="text-[#C6C9AB] text-xs mb-2">Premium Plan</Text>
+                </View>
               </View>
-              <Text className="text-[#C6C9AB] text-xs font-medium leading-tight flex-1">{benefit.title}</Text>
+
+              <View className="items-end">
+                <Text className="text-[#CCFF00] text-2xl font-semibold">{priceFormatted}</Text>
+                <Text className="text-[#C6C9AB] text-xs mt-1">/ Month</Text>
+              </View>
             </View>
-          ))}
-        </View>
 
-        <Text className="text-[#C6C9AB] text-sm mb-4">Renewal Summary</Text>
-        <View className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-2xl p-5 mb-8">
-
-          <View className="flex-row items-center justify-between mb-5">
-            <View className="flex-row items-center">
-              <Star size={18} color="#C6C9AB" weight="fill" style={{ marginRight: 12 }} />
-              <Text className="text-[#C6C9AB] text-sm">Current Plan</Text>
+            <Text className="text-[#C6C9AB] text-sm mb-4">Plan Includes</Text>
+            <View className="flex-row flex-wrap justify-between mb-8">
+              {dynamicBenefits.map((benefit, index) => (
+                <View key={index} className="w-[48%] bg-[#1F1F1F] border border-[#2A2A2A] rounded-xl p-4 flex-row items-center mb-3">
+                  <View className="w-8 h-8 rounded-full bg-[#CCFF00]/10 items-center justify-center mr-3">
+                    {benefit.icon}
+                  </View>
+                  <Text className="text-[#C6C9AB] text-xs font-medium leading-tight flex-1">{benefit.title}</Text>
+                </View>
+              ))}
             </View>
-            <Text className="text-white text-sm font-medium">{planName}</Text>
-          </View>
 
-          <View className="flex-row items-center justify-between mb-5">
-            <View className="flex-row items-center">
-              <Calendar size={18} color="#C6C9AB" weight="regular" style={{ marginRight: 12 }} />
-              <Text className="text-[#C6C9AB] text-sm">Plan Duration</Text>
+            <Text className="text-[#C6C9AB] text-sm mb-4">Renewal Summary</Text>
+            <View className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-2xl p-5 mb-8">
+
+              <View className="flex-row items-center justify-between mb-5">
+                <View className="flex-row items-center">
+                  <Star size={18} color="#C6C9AB" weight="fill" style={{ marginRight: 12 }} />
+                  <Text className="text-[#C6C9AB] text-sm">Current Plan</Text>
+                </View>
+                <Text className="text-white text-sm font-medium">{planName}</Text>
+              </View>
+
+              <View className="flex-row items-center justify-between mb-5">
+                <View className="flex-row items-center">
+                  <Calendar size={18} color="#C6C9AB" weight="regular" style={{ marginRight: 12 }} />
+                  <Text className="text-[#C6C9AB] text-sm">Plan Duration</Text>
+                </View>
+                <Text className="text-white text-sm font-medium">{duration}</Text>
+              </View>
+
+              <View className="flex-row items-center justify-between mb-5">
+                <View className="flex-row items-center">
+                  <Wallet size={18} color="#C6C9AB" weight="regular" style={{ marginRight: 12 }} />
+                  <Text className="text-[#C6C9AB] text-sm">Billing Cycle</Text>
+                </View>
+                <Text className="text-white text-sm font-medium">{billingCycle}</Text>
+              </View>
+
+              <View className="h-[1px] bg-[#2A2A2A] mb-5 w-full" />
+
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center">
+                  <Money size={18} color="#CCFF00" weight="fill" style={{ marginRight: 12 }} />
+                  <Text className="text-white text-sm">Amount Payable</Text>
+                </View>
+                <Text className="text-[#CCFF00] text-xl font-semibold">{priceFormatted}</Text>
+              </View>
+
             </View>
-            <Text className="text-white text-sm font-medium">{duration}</Text>
-          </View>
 
-          <View className="flex-row items-center justify-between mb-5">
-            <View className="flex-row items-center">
-              <Wallet size={18} color="#C6C9AB" weight="regular" style={{ marginRight: 12 }} />
-              <Text className="text-[#C6C9AB] text-sm">Billing Cycle</Text>
+            <View className="bg-[#1C1C1E] border border-[#27272A] rounded-2xl p-5 mb-8">
+              <Text className="text-[#CCFF00] text-sm font-semibold mb-1">Physical Gym Membership Notice</Text>
+              <Text className="text-[#9CA3AF] text-xs leading-4">
+                Membership plans cover access to physical gym facilities, fitness equipment, and in-person coaching. To renew or upgrade your plan, please visit your gym reception desk.
+              </Text>
             </View>
-            <Text className="text-white text-sm font-medium">{billingCycle}</Text>
-          </View>
-
-          <View className="h-[1px] bg-[#2A2A2A] mb-5 w-full" />
-
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <Money size={18} color="#CCFF00" weight="fill" style={{ marginRight: 12 }} />
-              <Text className="text-white text-sm">Amount Payable</Text>
-            </View>
-            <Text className="text-[#CCFF00] text-xl font-semibold">{priceFormatted}</Text>
-          </View>
-
-        </View>
-
-        <View className="bg-[#1C1C1E] border border-[#27272A] rounded-2xl p-5 mb-8">
-          <Text className="text-[#CCFF00] text-sm font-semibold mb-1">Physical Gym Membership Notice</Text>
-          <Text className="text-[#9CA3AF] text-xs leading-4">
-            Membership plans cover access to physical gym facilities, fitness equipment, and in-person coaching. To renew or upgrade your plan, please visit your gym reception desk.
-          </Text>
-        </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );

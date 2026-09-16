@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useWorkoutPlanDayById } from '@/hooks/customerWorkouts/useWorkoutPlanDayById';
 import { useWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/useWorkoutPlanDayExercises';
 import { useWorkoutPlanDays } from '@/hooks/customerWorkouts/useWorkoutPlanDays';
+import { useCurrentPlanWeek } from '@/hooks/customerWorkouts/useCurrentPlanWeek';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function WorkoutSession() {
@@ -19,6 +20,7 @@ export default function WorkoutSession() {
 
   const { data: dayData, isLoading: isLoadingDay, refetch: refetchDay } = useWorkoutPlanDayById(activeDayId);
   const { data: eData, isLoading: isLoadingExercises, refetch: refetchExercises } = useWorkoutPlanDayExercises(activeDayId);
+  const { currentWeekNumber } = useCurrentPlanWeek();
 
   useEffect(() => {
     if (dayData?.planId && !planId) {
@@ -61,7 +63,7 @@ export default function WorkoutSession() {
         { dayOfWeek: 'Sunday', workoutType: 'Rest', planDayId: '' },
       ];
     } else {
-      sortedDays = [...allDays].sort((a, b) => {
+      sortedDays = [...allDays].filter(d => (d.weekNumber || 1) === currentWeekNumber).sort((a, b) => {
         const aVal = dayOrderMap[(a.dayOfWeek || '').toLowerCase()] || 8;
         const bVal = dayOrderMap[(b.dayOfWeek || '').toLowerCase()] || 8;
         return aVal - bVal;

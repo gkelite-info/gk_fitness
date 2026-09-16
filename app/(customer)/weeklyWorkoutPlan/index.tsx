@@ -6,6 +6,7 @@ import { CaretRight, Eye, PencilSimple, ArrowsLeftRight, Plus } from 'phosphor-r
 import { useUser } from '@/context/UserContext';
 import { useCustomerWeeklyPlan } from '@/hooks/customerWorkouts/useCustomerWeeklyPlan';
 import { useTrainerWeeklyPlan } from '@/hooks/trainerWorkoutPlans/useTrainerWeeklyPlan';
+import { useCurrentPlanWeek } from '@/hooks/customerWorkouts/useCurrentPlanWeek';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function WeeklyWorkoutPlan() {
@@ -15,6 +16,17 @@ export default function WeeklyWorkoutPlan() {
 
   const { data: customerPlanDays, isLoading: isLoadingCustomer, refetch: refetchCustomer } = useCustomerWeeklyPlan(!isTrainerPlan ? userId : undefined);
   const { data: trainerPlanDays, isLoading: isLoadingTrainer, refetch: refetchTrainer } = useTrainerWeeklyPlan(isTrainerPlan ? userId : undefined);
+  const { currentWeekNumber } = useCurrentPlanWeek(!isTrainerPlan ? userId : undefined);
+
+  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [hasSetInitialWeek, setHasSetInitialWeek] = useState(false);
+
+  useEffect(() => {
+    if (currentWeekNumber && !hasSetInitialWeek && !isTrainerPlan) {
+      setSelectedWeek(currentWeekNumber);
+      setHasSetInitialWeek(true);
+    }
+  }, [currentWeekNumber, hasSetInitialWeek, isTrainerPlan]);
 
   const loadedPlanDays = isTrainerPlan ? trainerPlanDays : customerPlanDays;
   const isLoading = isTrainerPlan ? isLoadingTrainer : isLoadingCustomer;
@@ -58,10 +70,11 @@ export default function WeeklyWorkoutPlan() {
     }
 
     const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const activeWeekDays = isTrainerPlan ? loadedPlanDays : (loadedPlanDays ? loadedPlanDays[selectedWeek] : {});
 
     return dayOrder.map((dayStr, index) => {
-      const dayData = loadedPlanDays[dayStr];
-      const isToday = index === currentDayIndex;
+      const dayData = activeWeekDays ? activeWeekDays[dayStr] : null;
+      const isToday = index === currentDayIndex && (!isTrainerPlan && selectedWeek === currentWeekNumber || isTrainerPlan);
       const isRest = !dayData || dayData.workoutType === 'Rest';
 
       const exercisesCount = dayData?.exercises?.length || 0;
@@ -83,7 +96,7 @@ export default function WeeklyWorkoutPlan() {
   const handleEdit = (dayId: string) => {
     router.push({
       pathname: '/(customer)/weeklyWorkoutPlan/edit-day',
-      params: { day: dayId }
+      params: { day: dayId, weekNumber: selectedWeek }
     });
   };
 
@@ -91,12 +104,29 @@ export default function WeeklyWorkoutPlan() {
     <View className="flex-1 bg-[#0A0A0A] px-2 pt-12 pb-6">
       <View className="mb-8">
         <Text className="text-white text-3xl font-semibold mb-2">
-          {isTrainerPlan ? 'Trainer Weekly Workout Plan' : 'Weekly Workout Plan'}
+          {isTrainerPlan ? 'Trainer Weekly Workout Plan' : 'Monthly Workout Plan'}
         </Text>
         <Text className="text-[#8E8E8E] text-base">
-          {isTrainerPlan ? 'Review your trainer assigned weekly schedule.' : 'Review and customize your weekly schedule.'}
+          {isTrainerPlan ? 'Review your trainer assigned weekly schedule.' : 'Review and customize your monthly schedule.'}
         </Text>
       </View>
+
+      {!isTrainerPlan && (
+        <View className="flex-row gap-2 mb-6 border-b border-[#242424] pb-4">
+          {[1, 2, 3, 4].map(w => (
+            <Pressable
+              key={w}
+              onPress={() => setSelectedWeek(w)}
+              className={`flex-1 items-center justify-center py-2 rounded-xl ${selectedWeek === w ? 'bg-[#C4EF00]' : 'bg-[#161616] border border-[#242424]'}`}
+            >
+              <Text className={`font-semibold text-xs ${selectedWeek === w ? 'text-black' : 'text-[#8E8E8E]'}`}>Week {w}</Text>
+              {w === currentWeekNumber && (
+                <View className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#FF453A]" />
+              )}
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -172,7 +202,7 @@ export default function WeeklyWorkoutPlan() {
                     <Pressable
                       onPress={() => router.push({
                         pathname: '/(customer)/weeklyWorkoutPlan/view-day',
-                        params: { dayId: day.id, isTrainer: isTrainerPlan ? 'true' : 'false' }
+                        params: { dayId: day.id, isTrainer: isTrainerPlan ? 'true' : 'false', weekNumber: selectedWeek }
                       })}
                       className="items-center justify-center bg-[#161616] border border-[#2A2A2A] w-[46px] h-[46px] rounded-xl"
                     >
@@ -189,7 +219,7 @@ export default function WeeklyWorkoutPlan() {
                           <Text className="text-white text-[9px] font-semibold mt-1">EDIT</Text>
                         </Pressable>
                         <Pressable
-                          onPress={() => router.push({ pathname: '/(customer)/weeklyWorkoutPlan/swap-day', params: { dayId: day.id } })}
+                          onPress={() => router.push({ pathname: '/(customer)/weeklyWorkoutPlan/swap-day', params: { dayId: day.id, weekNumber: selectedWeek } })}
                           className="items-center justify-center bg-[#161616] border border-[#2A2A2A] w-[46px] h-[46px] rounded-xl mr-2"
                         >
                           <ArrowsLeftRight size={18} color="#D7FF00" />
@@ -200,7 +230,7 @@ export default function WeeklyWorkoutPlan() {
                     <Pressable
                       onPress={() => router.push({
                         pathname: '/(customer)/weeklyWorkoutPlan/view-day',
-                        params: { dayId: day.id, isTrainer: isTrainerPlan ? 'true' : 'false' }
+                        params: { dayId: day.id, isTrainer: isTrainerPlan ? 'true' : 'false', weekNumber: selectedWeek }
                       })}
                       className="p-2 -mr-2"
                     >

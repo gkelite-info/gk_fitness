@@ -23,12 +23,12 @@ export default function SuccessPlan() {
     }
   };
 
-  const handleViewWeeklyPlan = () => {
+  const handleViewMonthlyPlan = () => {
     try {
       resetPlan();
       router.replace('/(customer)/weeklyWorkoutPlan' as any);
     } catch (error) {
-      console.error('[SuccessPlan] handleViewWeeklyPlan Error:', error);
+      console.error('[SuccessPlan] handleViewMonthlyPlan Error:', error);
     }
   };
 
@@ -37,7 +37,7 @@ export default function SuccessPlan() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
         <View className="flex-row items-center mb-6">
           <Pressable
-            onPress={handleViewWeeklyPlan}
+            onPress={handleViewMonthlyPlan}
             className="w-10 h-10 rounded-full border border-[#242424] items-center justify-center bg-[#161616] active:opacity-70"
           >
             <CaretLeft size={20} color="#fff" />
@@ -51,7 +51,7 @@ export default function SuccessPlan() {
           Plan is Ready! 🥳
         </Text>
         <Text className="text-[#8E8E8E] text-base leading-5 mb-8">
-          Your personalized weekly plan has been created successfully.
+          Your personalized monthly plan has been created successfully.
         </Text>
 
         <View className="bg-[#161616] border border-[#242424] p-5 rounded-3xl mb-5">
@@ -98,10 +98,10 @@ export default function SuccessPlan() {
           </Pressable>
 
           <Pressable
-            onPress={handleViewWeeklyPlan}
+            onPress={handleViewMonthlyPlan}
             className="w-full py-4 bg-[#111111] border border-[#242424] rounded-2xl flex-row items-center justify-center active:bg-[#1A1A1A] relative"
           >
-            <Text className="text-white text-base font-semibold">View Weekly Plan</Text>
+            <Text className="text-white text-base font-semibold">View Monthly Plan</Text>
             <View className="absolute right-5">
               <CaretRight size={20} color="#555" weight="bold" />
             </View>

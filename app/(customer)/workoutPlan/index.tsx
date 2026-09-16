@@ -66,7 +66,7 @@ export default function BuildWeeklyPlan() {
 
       setIsLoading(false);
 
-      if (loadedPlanDays) {
+      if (loadedPlanDays && loadedPlanDays[1]) {
         setPlanDays(loadedPlanDays);
       }
 
@@ -92,7 +92,7 @@ export default function BuildWeeklyPlan() {
   const handleContinue = () => {
     try {
       if (selectedDays.length > 0) {
-        router.push('/(customer)/workoutPlan/assign-days');
+        router.push('/(customer)/workoutPlan/choose-plan-mode');
       }
     } catch (error) {
       console.error('[BuildWeeklyPlan] handleContinue Error:', error);
@@ -116,9 +116,9 @@ export default function BuildWeeklyPlan() {
         </View>
 
         <Text className="text-white text-3xl font-semibold text-center mb-2">Build Your</Text>
-        <Text className="text-[#C4EF00] text-4xl font-semibold text-center mb-3">Weekly Plan</Text>
+        <Text className="text-[#C4EF00] text-4xl font-semibold text-center mb-3">Monthly Plan</Text>
         <Text className="text-[#8E8E8E] text-sm text-center px-4 mb-5 leading-5">
-          Choose the days you'd like to crush your workouts.
+          Choose the days you'd like to crush your workouts this month.
         </Text>
 
         <View className="w-full flex-row justify-between items-center mb-4 px-1">

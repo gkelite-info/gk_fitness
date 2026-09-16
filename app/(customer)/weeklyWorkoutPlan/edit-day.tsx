@@ -17,7 +17,7 @@ import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function EditWorkoutDay() {
-  const { day } = useLocalSearchParams<{ day: string }>();
+  const { day, weekNumber } = useLocalSearchParams<{ day: string; weekNumber?: string }>();
   const [searchQuery, setSearchQuery] = useState('');
 
   const { userId } = useUser();
@@ -35,7 +35,8 @@ export default function EditWorkoutDay() {
   const { data: dayById, isLoading: isLoadingDayById } = useWorkoutPlanDayById(isUUID ? day : null);
   const { data: weeklyPlan, isLoading: isLoadingWeeklyPlan } = useCustomerWeeklyPlan(!isUUID ? userId : null);
 
-  const dayData = isUUID ? dayById : (weeklyPlan ? weeklyPlan[day] : null);
+  const parsedWeek = weekNumber ? parseInt(weekNumber, 10) : 1;
+  const dayData = isUUID ? dayById : (weeklyPlan ? weeklyPlan[parsedWeek]?.[day] : null);
   const dayStr = isUUID && dayById ? dayById.dayOfWeek : day;
   const currentPlanDayId = isUUID ? day : (dayData?.planDayId || null);
 

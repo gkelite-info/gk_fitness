@@ -69,10 +69,6 @@ const ExerciseMediaItem = ({ videoUrl, muscleGroup, opacity = false }: { videoUr
         shouldPlay={true}
         isLooping={true}
         isMuted={true}
-        usePoster={true}
-        posterSource={exerciseImage}
-        posterStyle={{ resizeMode: 'cover' }}
-        onError={() => setHasError(true)}
       />
     </View>
   );
@@ -80,7 +76,7 @@ const ExerciseMediaItem = ({ videoUrl, muscleGroup, opacity = false }: { videoUr
 
 export default function CustomizeWorkout() {
   const { day, muscleGroup } = useLocalSearchParams<{ day: string; muscleGroup: string }>();
-  const { planDays, setPlanDays } = useWorkoutPlan();
+  const { planDays, setPlanDays, currentEditingWeek } = useWorkoutPlan();
   const [loading, setLoading] = useState(false);
 
   const userContext = useUser();
@@ -112,7 +108,7 @@ export default function CustomizeWorkout() {
     }
   }, [fetchResult, page]);
 
-  const currentPlan = planDays[day || ''];
+  const currentPlan = planDays[currentEditingWeek]?.[day || ''];
 
   const allPresets = useMemo(() => {
     return accumulatedVideos.map((video: any, index: number) => ({
@@ -215,16 +211,22 @@ export default function CustomizeWorkout() {
 
       setLoading(true);
 
-      setPlanDays(prev => ({
-        ...prev,
-        [day]: {
-          ...prev[day],
-          dayOfWeek: day,
-          workoutType: muscleGroup as any,
-          exercises: selectedExercises,
-          durationMinutes: selectedExercises.length * 8 + 5
-        }
-      }));
+      setPlanDays(prev => {
+        const weekData = prev[currentEditingWeek] || {};
+        return {
+          ...prev,
+          [currentEditingWeek]: {
+            ...weekData,
+            [day]: {
+              ...(weekData[day] || {}),
+              dayOfWeek: day,
+              workoutType: muscleGroup as any,
+              exercises: selectedExercises,
+              durationMinutes: selectedExercises.length * 8 + 5
+            }
+          }
+        };
+      });
 
       router.push('/(customer)/workoutPlan/assign-days');
     } catch (error) {

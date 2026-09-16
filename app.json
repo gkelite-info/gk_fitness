@@ -46,7 +46,11 @@
         "expo-build-properties",
         {
           "android": {
-            "minSdkVersion": 26
+            "minSdkVersion": 26,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "enableMinifyInReleaseBuilds": true,
+            "enableProguardInReleaseBuilds": true
           }
         }
       ]
@@ -74,7 +78,7 @@
       }
     },
     "android": {
-      "versionCode": 15,
+      "versionCode": 23,
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-adaptive-icon.png",
         "backgroundColor": "#ffffff"

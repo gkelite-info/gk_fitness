@@ -22,7 +22,7 @@ const ALL_DAYS = [
 ];
 
 export default function ReviewPlan() {
-  const { selectedDays, planDays, resetPlan } = useWorkoutPlan();
+  const { selectedDays, planDays, resetPlan, planMode, currentEditingWeek, setCurrentEditingWeek } = useWorkoutPlan();
   const { userId } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -60,37 +60,45 @@ export default function ReviewPlan() {
 
       const planId = newPlan.planId;
 
-      for (const day of ALL_DAYS) {
-        const isWorkoutDay = selectedDays.includes(day);
-        const dayPlan = planDays[day];
+      const weeksToSave = [1, 2, 3, 4];
 
-        const workoutType = isWorkoutDay && dayPlan?.workoutType ? dayPlan.workoutType : 'Rest';
-        const durationMinutes = isWorkoutDay ? (dayPlan?.durationMinutes || 45) : null;
+      for (const week of weeksToSave) {
+        // If repeat mode, always pull from week 1 (or currentEditingWeek). If custom, pull from specific week.
+        const weekData = planMode === 'repeat' ? (planDays[currentEditingWeek] || {}) : (planDays[week] || {});
+        
+        for (const day of ALL_DAYS) {
+          const isWorkoutDay = selectedDays.includes(day);
+          const dayPlan = weekData[day];
 
-        const insertedDay = await saveWorkoutPlanDay({
-          planId,
-          dayOfWeek: day,
-          workoutType,
-          workoutId: isWorkoutDay ? dayPlan?.workoutId : null,
-          durationMinutes,
-        });
+          const workoutType = isWorkoutDay && dayPlan?.workoutType ? dayPlan.workoutType : 'Rest';
+          const durationMinutes = isWorkoutDay ? (dayPlan?.durationMinutes || 45) : null;
 
-        if (!insertedDay) throw new Error(`Failed to create workout day record for ${day}`);
+          const insertedDay = await saveWorkoutPlanDay({
+            planId,
+            dayOfWeek: day,
+            workoutType,
+            workoutId: isWorkoutDay ? dayPlan?.workoutId : null,
+            durationMinutes,
+            weekNumber: week,
+          });
 
-        if (isWorkoutDay && dayPlan?.exercises && dayPlan.exercises.length > 0) {
-          for (let idx = 0; idx < dayPlan.exercises.length; idx++) {
-            const ex = dayPlan.exercises[idx];
-            await saveWorkoutPlanDayExercise({
-              planDayId: insertedDay.planDayId,
-              workoutVideoId: ex.workoutVideoId || null,
-              exerciseName: ex.exerciseName,
-              category: ex.category,
-              sets: ex.sets!,
-              reps: ex.reps,
-              order: idx,
-              image: ex.image || null,
-              videoUrl: ex.videoUrl || null,
-            });
+          if (!insertedDay) throw new Error(`Failed to create workout day record for ${day} week ${week}`);
+
+          if (isWorkoutDay && dayPlan?.exercises && dayPlan.exercises.length > 0) {
+            for (let idx = 0; idx < dayPlan.exercises.length; idx++) {
+              const ex = dayPlan.exercises[idx];
+              await saveWorkoutPlanDayExercise({
+                planDayId: insertedDay.planDayId,
+                workoutVideoId: ex.workoutVideoId || null,
+                exerciseName: ex.exerciseName,
+                category: ex.category,
+                sets: ex.sets!,
+                reps: ex.reps,
+                order: idx,
+                image: ex.image || null,
+                videoUrl: ex.videoUrl || null,
+              });
+            }
           }
         }
       }
@@ -126,15 +134,34 @@ export default function ReviewPlan() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
         <Text className="text-white text-2xl font-semibold mb-2">Review Your</Text>
-        <Text className="text-white text-2xl font-semibold mb-2">Weekly Plan</Text>
+        <Text className="text-white text-2xl font-semibold mb-2">Monthly Plan</Text>
         <Text className="text-[#8E8E8E] text-sm mb-6 leading-5">
           Review your workouts and make any changes before saving your plan.
         </Text>
 
+        {planMode === 'custom' ? (
+          <View className="flex-row gap-2 mb-6 border-b border-[#242424] pb-4">
+            {[1, 2, 3, 4].map(w => (
+              <Pressable
+                key={w}
+                onPress={() => setCurrentEditingWeek(w)}
+                className={`flex-1 items-center justify-center py-2 rounded-xl ${currentEditingWeek === w ? 'bg-[#C4EF00]' : 'bg-[#161616] border border-[#242424]'}`}
+              >
+                <Text className={`font-semibold text-xs ${currentEditingWeek === w ? 'text-black' : 'text-[#8E8E8E]'}`}>Week {w}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          <View className="bg-[#161616] border border-[#242424] rounded-xl p-3 mb-6 items-center flex-row justify-center">
+            <Text className="text-[#C4EF00] font-semibold text-xs ml-2">Week Template (Repeats Monthly)</Text>
+          </View>
+        )}
+
         <View className="gap-3 mb-6">
           {ALL_DAYS.map((day) => {
             const isWorkoutDay = selectedDays.includes(day);
-            const dayPlan = planDays[day];
+            const weekData = planDays[currentEditingWeek] || {};
+            const dayPlan = weekData[day];
             const hasWorkout = isWorkoutDay && dayPlan && dayPlan.workoutType;
 
             let workoutTitle = "Rest Day";
@@ -192,7 +219,7 @@ export default function ReviewPlan() {
         <View className="bg-[#111111] border border-[#27272A] p-4 rounded-2xl mb-4">
           <View className="flex-row items-center mb-4">
             <Calendar size={20} color="#C4EF00" weight="fill" />
-            <Text className="text-white font-semibold text-base ml-2">Weekly Plan Summary</Text>
+            <Text className="text-white font-semibold text-base ml-2">Monthly Plan Summary</Text>
           </View>
 
           <View className="flex-row justify-around border-b border-[#27272A]/50 pb-4 mb-4">

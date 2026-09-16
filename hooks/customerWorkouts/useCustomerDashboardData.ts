@@ -16,7 +16,19 @@ export function useCustomerDashboardData(userId: string | null | undefined) {
         return { hasPlan: false, weeklyPlanDays: [], todayWorkout: null, yesterdayWorkout: null };
       }
 
-      const days = await fetchWorkoutPlanDays(activePlan.planId);
+      const planCreatedAt = new Date(activePlan.createdAt);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - planCreatedAt.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const currentWeekNumber = Math.min(Math.ceil(diffDays / 7), 4) || 1;
+
+      let allDays = await fetchWorkoutPlanDays(activePlan.planId);
+      let days = allDays.filter((d: any) => (d.weekNumber || 1) === currentWeekNumber);
+
+      // If no days for this week, fallback to week 1 (for repeat plans)
+      if (days.length === 0) {
+        days = allDays.filter((d: any) => (d.weekNumber || 1) === 1);
+      }
       const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
       const currentDayIndex = new Date().getDay();
       const todayIndex = currentDayIndex === 0 ? 6 : currentDayIndex - 1;

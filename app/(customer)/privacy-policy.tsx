@@ -87,16 +87,14 @@ export default function PrivacyPolicy() {
         <BulletPoint>Download available account information where supported.</BulletPoint>
         <BulletPoint>Access platform features according to assigned user roles and permissions.</BulletPoint>
 
-        <Text className="text-base font-semibold mt-6 text-[#D4FF00]">6. Payments & Memberships</Text>
+        <Text className="text-base font-semibold mt-6 text-[#D4FF00]">6. Gym Memberships & Access</Text>
         <Text className="text-sm text-white mt-3 leading-5 mb-2 font-sans">
-          GK-GYMLIFE provides secure payment options for membership purchases and renewals.
+          GK-GYMLIFE serves as a companion management tool for physical gym locations and their members.
         </Text>
-        <BulletPoint>Payments made through supported online payment methods are securely processed and automatically recorded.</BulletPoint>
-        <BulletPoint>QR-based payments may require manual entry by the registered gym owner for record management.</BulletPoint>
-        <BulletPoint>Membership activation, renewal, and payment history are maintained within the platform.</BulletPoint>
-        <BulletPoint>Payment information is handled securely through trusted payment partners.</BulletPoint>
-        <BulletPoint>If you are registered under a local gym, GK-GYMLIFE is not responsible for your payments or refunds. Please coordinate directly with your gym owner.</BulletPoint>
-        <BulletPoint>If you are a global customer purchasing platform-direct services, GK-GYMLIFE handles your payments and associated responsibilities.</BulletPoint>
+        <BulletPoint>Physical gym memberships grant entry to physical gym facilities, fitness equipment, and in-person personal training.</BulletPoint>
+        <BulletPoint>Membership purchases, renewals, and plan upgrades are managed and settled in-person directly at your physical gym reception desk.</BulletPoint>
+        <BulletPoint>No digital content or digital subscriptions are sold within the mobile application.</BulletPoint>
+        <BulletPoint>Membership status and attendance records are maintained within the platform for gym record-keeping.</BulletPoint>
 
         <Text className="text-base font-semibold mt-6 text-[#D4FF00]">7. Cookies & Analytics</Text>
         <Text className="text-sm text-white mt-3 leading-5 mb-2 font-sans">

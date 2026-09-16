@@ -5,7 +5,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GearSix, PencilSimple, Scales, Fire, CalendarBlank,
-  User, Target, BookOpen, Star, Bell, ShieldCheck, Question, SignOut, CaretRight, ClipboardText, WarningCircle
+  User, Target, BookOpen, Star, Bell, ShieldCheck, Question, SignOut, CaretRight, ClipboardText, WarningCircle,
+  UserGear
 } from 'phosphor-react-native';
 
 import { mockProfileData } from '@/constants/mockProfileData';
@@ -201,6 +202,12 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
             title="Help & Support"
             subtitle="Get help and support"
             onPress={() => router.push('/(customer)/help-support')}
+          />
+          <MenuItem
+            icon={<UserGear size={20} color="#D4FF00" />}
+            title="Manage Account"
+            subtitle="Account deletion and data management"
+            onPress={() => router.push('/(customer)/manage-account')}
           />
           <MenuItem
             icon={<SignOut size={20} color="#FF3B30" />}

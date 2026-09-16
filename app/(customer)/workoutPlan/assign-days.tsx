@@ -7,7 +7,7 @@ import { useWorkoutPlan } from './_layout';
 import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 
 export default function AssignDays() {
-  const { selectedDays, planDays, setPlanDays } = useWorkoutPlan();
+  const { selectedDays, planDays, setPlanDays, planMode, currentEditingWeek, setCurrentEditingWeek } = useWorkoutPlan();
   const { data: dbWorkouts } = useWorkouts();
 
   useEffect(() => {
@@ -31,33 +31,33 @@ export default function AssignDays() {
     try {
       const count = selectedDays.length;
       const newPlanDays = { ...planDays };
-      type WorkoutTypeOption = "Chest" | "Back" | "Legs" | "Arms" | "Shoulders" | "Core" | "Cardio" | "Yoga" | "Rest";
+      if (!newPlanDays[currentEditingWeek]) newPlanDays[currentEditingWeek] = {};
 
       selectedDays.forEach((day, index) => {
-        let workoutType: WorkoutTypeOption = "Rest";
+        let workoutType: "Chest" | "Back" | "Legs" | "Arms" | "Shoulders" | "Core" | "Cardio" | "Yoga" | "Rest" = "Rest";
 
         if (count === 3) {
-          const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs"];
+          const split: any[] = ["Chest", "Back", "Legs"];
           workoutType = split[index % 3];
         } else if (count === 4) {
-          const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs", "Shoulders"];
+          const split: any[] = ["Chest", "Back", "Legs", "Shoulders"];
           workoutType = split[index % 4];
         } else if (count === 5) {
-          const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs", "Arms", "Shoulders"];
+          const split: any[] = ["Chest", "Back", "Legs", "Arms", "Shoulders"];
           workoutType = split[index % 5];
         } else {
-          const split: WorkoutTypeOption[] = ["Chest", "Back", "Legs", "Arms", "Shoulders", "Core", "Cardio"];
+          const split: any[] = ["Chest", "Back", "Legs", "Arms", "Shoulders", "Core", "Cardio"];
           workoutType = split[index % split.length];
         }
 
         const dbWorkout = dbWorkouts?.find(w => w.workoutType.toLowerCase() === workoutType.toLowerCase());
 
-        newPlanDays[day] = {
-          ...newPlanDays[day],
+        newPlanDays[currentEditingWeek][day] = {
+          ...(newPlanDays[currentEditingWeek][day] || {}),
           dayOfWeek: day,
           workoutType,
           workoutId: dbWorkout?.workoutId || null,
-          exercises: newPlanDays[day]?.exercises || []
+          exercises: newPlanDays[currentEditingWeek][day]?.exercises || []
         };
       });
 
@@ -79,7 +79,7 @@ export default function AssignDays() {
     <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
       <View className="flex-row items-center mb-6">
         <Pressable
-          onPress={() => router.push('/(customer)/workoutPlan' as any)}
+          onPress={() => router.push('/(customer)/workoutPlan/choose-plan-mode' as any)}
           className="w-10 h-10 rounded-full border border-[#242424] items-center justify-center bg-[#161616] mr-4 active:opacity-70"
         >
           <ArrowLeft size={20} color="#fff" />
@@ -93,6 +93,24 @@ export default function AssignDays() {
         <Text className="text-[#8E8E8E] text-sm mb-6 leading-5">
           Choose the type of workout you want to do on each workout day.
         </Text>
+
+        {planMode === 'custom' ? (
+          <View className="flex-row gap-2 mb-6 border-b border-[#242424] pb-4">
+            {[1, 2, 3, 4].map(w => (
+              <Pressable
+                key={w}
+                onPress={() => setCurrentEditingWeek(w)}
+                className={`flex-1 items-center justify-center py-2 rounded-xl ${currentEditingWeek === w ? 'bg-[#C4EF00]' : 'bg-[#161616] border border-[#242424]'}`}
+              >
+                <Text className={`font-semibold text-xs ${currentEditingWeek === w ? 'text-black' : 'text-[#8E8E8E]'}`}>Week {w}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          <View className="bg-[#161616] border border-[#242424] rounded-xl p-3 mb-6 items-center flex-row justify-center">
+            <Text className="text-[#C4EF00] font-semibold text-xs ml-2">Week Template (Repeats Monthly)</Text>
+          </View>
+        )}
 
         <Text className="text-[#8E8E8E] text-xs font-semibold mb-3 tracking-wider">YOUR SELECTED WORKOUT DAYS</Text>
         <View className="flex-row flex-wrap gap-2 mb-6">
@@ -112,7 +130,8 @@ export default function AssignDays() {
 
         <View className="gap-3 mb-6">
           {selectedDays.map((day) => {
-            const dayPlan = planDays[day];
+            const weekData = planDays[currentEditingWeek] || {};
+            const dayPlan = weekData[day];
             const shortDay = day.substring(0, 3).toUpperCase();
             const hasWorkout = dayPlan && dayPlan.workoutType;
             const typeStr = dayPlan?.workoutType || '';

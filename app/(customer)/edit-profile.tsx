@@ -16,7 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import {
   CaretLeft, Info, Camera, CaretRight, PencilSimple,
   User, Envelope, Phone, Heart, CalendarBlank,
-  Ruler, Scales, Target, ChartBar
+  Ruler, Scales, Target, ChartBar, WarningCircle
 } from 'phosphor-react-native';
 
 import { mockProfileData } from '@/constants/mockProfileData';

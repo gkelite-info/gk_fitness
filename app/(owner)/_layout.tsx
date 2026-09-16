@@ -66,6 +66,27 @@ export default function OwnerLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="payment-details/index"
+        options={{
+          href: null,
+          headerShown: false
+        }}
+      />
+      <Tabs.Screen
+        name="payment-details/add-payment-method"
+        options={{
+          href: null,
+          headerShown: false
+        }}
+      />
+      <Tabs.Screen
+        name="payment-details/payment-verification"
+        options={{
+          href: null,
+          headerShown: false
+        }}
+      />
     </Tabs>
   );
 }

@@ -15,12 +15,13 @@ export function useCustomerWeeklyPlan(userId: string | null | undefined) {
       if (!activePlan) return null;
 
       const days = await fetchWorkoutPlanDays(activePlan.planId);
-      const loadedPlanDays: any = {};
+      const loadedPlanDays: any = { 1: {}, 2: {}, 3: {}, 4: {} };
       
       for (const d of days) {
         if (d.workoutType && d.workoutType !== 'Rest') {
           const exs = await fetchWorkoutPlanDayExercises(d.planDayId);
-          loadedPlanDays[d.dayOfWeek] = {
+          const weekNum = d.weekNumber || 1;
+          loadedPlanDays[weekNum][d.dayOfWeek] = {
             dayOfWeek: d.dayOfWeek,
             workoutType: d.workoutType,
             workoutId: d.workoutId || null,

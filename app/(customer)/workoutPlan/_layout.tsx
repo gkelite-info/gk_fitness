@@ -23,8 +23,12 @@ export interface WorkoutDay {
 interface WorkoutPlanContextType {
   selectedDays: string[];
   setSelectedDays: React.Dispatch<React.SetStateAction<string[]>>;
-  planDays: { [key: string]: WorkoutDay };
-  setPlanDays: React.Dispatch<React.SetStateAction<{ [key: string]: WorkoutDay }>>;
+  planMode: 'repeat' | 'custom';
+  setPlanMode: React.Dispatch<React.SetStateAction<'repeat' | 'custom'>>;
+  currentEditingWeek: number;
+  setCurrentEditingWeek: React.Dispatch<React.SetStateAction<number>>;
+  planDays: { [week: number]: { [key: string]: WorkoutDay } };
+  setPlanDays: React.Dispatch<React.SetStateAction<{ [week: number]: { [key: string]: WorkoutDay } }>>;
   resetPlan: () => void;
 }
 
@@ -40,17 +44,27 @@ export const useWorkoutPlan = () => {
 
 export default function WorkoutPlanLayout() {
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [planDays, setPlanDays] = useState<{ [key: string]: WorkoutDay }>({});
+  const [planMode, setPlanMode] = useState<'repeat' | 'custom'>('repeat');
+  const [currentEditingWeek, setCurrentEditingWeek] = useState<number>(1);
+  const [planDays, setPlanDays] = useState<{ [week: number]: { [key: string]: WorkoutDay } }>({ 1: {}, 2: {}, 3: {}, 4: {} });
 
   const resetPlan = useCallback(() => {
     setSelectedDays([]);
-    setPlanDays({});
+    setPlanMode('repeat');
+    setCurrentEditingWeek(1);
+    setPlanDays({ 1: {}, 2: {}, 3: {}, 4: {} });
   }, []);
 
   return (
-    <WorkoutPlanContext.Provider value={{ selectedDays, setSelectedDays, planDays, setPlanDays, resetPlan }}>
+    <WorkoutPlanContext.Provider value={{ 
+      selectedDays, setSelectedDays, 
+      planMode, setPlanMode,
+      currentEditingWeek, setCurrentEditingWeek,
+      planDays, setPlanDays, resetPlan 
+    }}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="choose-plan-mode" />
         <Stack.Screen name="assign-days" />
         <Stack.Screen name="choose-muscle" />
         <Stack.Screen name="customize-workout" />

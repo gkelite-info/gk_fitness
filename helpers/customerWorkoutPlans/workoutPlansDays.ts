@@ -7,6 +7,7 @@ export interface WorkoutPlanDayAttributes {
   workoutId?: string | null;
   dayOfWeek: string;
   workoutType: string;
+  weekNumber: number;
   durationMinutes?: number | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -19,6 +20,7 @@ export interface SaveWorkoutPlanDayParams {
   workoutId?: string | null;
   dayOfWeek: string;
   workoutType: string;
+  weekNumber?: number;
   durationMinutes?: number | null;
 }
 
@@ -37,6 +39,23 @@ export async function fetchWorkoutPlanDays(planId?: string) {
 
   if (error) {
     console.error('[workoutPlanDaysHelper] fetchWorkoutPlanDays Error:', error);
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+export async function fetchWorkoutPlanDaysByWeek(planId: string, weekNumber: number) {
+  const { data, error } = await supabase
+    .from('workout_plan_days')
+    .select('*')
+    .eq('planId', planId)
+    .eq('weekNumber', weekNumber)
+    .is('deletedAt', null)
+    .order('createdAt', { ascending: true });
+
+  if (error) {
+    console.error('[workoutPlanDaysHelper] fetchWorkoutPlanDaysByWeek Error:', error);
     throw error;
   }
 
@@ -70,6 +89,7 @@ export async function saveWorkoutPlanDay(dayData: SaveWorkoutPlanDayParams) {
         workoutId: dayData.workoutId,
         dayOfWeek: dayData.dayOfWeek,
         workoutType: dayData.workoutType,
+        weekNumber: dayData.weekNumber || 1,
         durationMinutes: dayData.durationMinutes,
         updatedAt: now,
       })
@@ -93,6 +113,7 @@ export async function saveWorkoutPlanDay(dayData: SaveWorkoutPlanDayParams) {
           workoutId: dayData.workoutId || null,
           dayOfWeek: dayData.dayOfWeek,
           workoutType: dayData.workoutType,
+          weekNumber: dayData.weekNumber || 1,
           durationMinutes: dayData.durationMinutes || null,
           createdAt: now,
           updatedAt: now,

@@ -20,7 +20,7 @@ const DEFAULT_MUSCLE_GROUPS = [
 
 export default function ChooseMuscleGroup() {
   const { day } = useLocalSearchParams<{ day: string }>();
-  const { planDays, setPlanDays } = useWorkoutPlan();
+  const { planDays, setPlanDays, currentEditingWeek } = useWorkoutPlan();
 
   const userContext = useUser();
   const userId = userContext.userId;
@@ -29,23 +29,29 @@ export default function ChooseMuscleGroup() {
 
   const { data: workouts, isLoading } = useWorkouts(userGender);
 
-  const currentPlan = planDays[day || ''];
+  const currentPlan = planDays[currentEditingWeek]?.[day || ''];
   const selectedType = currentPlan?.workoutType;
 
   const handleSelectMuscle = (type: string, workoutId: string) => {
     try {
       if (!day) return;
 
-      setPlanDays(prev => ({
-        ...prev,
-        [day]: {
-          ...prev[day],
-          dayOfWeek: day,
-          workoutType: type,
-          workoutId: workoutId,
-          exercises: prev[day]?.exercises || []
-        }
-      }));
+      setPlanDays(prev => {
+        const weekData = prev[currentEditingWeek] || {};
+        return {
+          ...prev,
+          [currentEditingWeek]: {
+            ...weekData,
+            [day]: {
+              ...(weekData[day] || {}),
+              dayOfWeek: day,
+              workoutType: type,
+              workoutId: workoutId,
+              exercises: weekData[day]?.exercises || []
+            }
+          }
+        };
+      });
 
       router.push({
         pathname: '/(customer)/workoutPlan/customize-workout',

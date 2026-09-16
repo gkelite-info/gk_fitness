@@ -56,10 +56,13 @@ export default function WorkoutCountdown() {
 
   useEffect(() => {
     if (countdown === 0) {
-      router.replace({
-        pathname: '/(customer)/workout-session',
-        params: { dayId }
-      });
+      const timer = setTimeout(() => {
+        router.push({
+          pathname: '/(customer)/workout-session',
+          params: { dayId }
+        });
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [countdown, dayId]);
 

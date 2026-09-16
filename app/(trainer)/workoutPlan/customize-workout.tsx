@@ -74,10 +74,6 @@ const ExerciseMediaItem = ({
         shouldPlay={true}
         isLooping={true}
         isMuted={true}
-        usePoster={true}
-        posterSource={exerciseImage}
-        posterStyle={{ resizeMode: 'cover' }}
-        onError={() => setHasError(true)}
       />
     </View>
   );

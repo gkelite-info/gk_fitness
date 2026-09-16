@@ -12,7 +12,7 @@ import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function SwapDay() {
-  const { dayId } = useLocalSearchParams<{ dayId: string }>();
+  const { dayId, weekNumber } = useLocalSearchParams<{ dayId: string; weekNumber?: string }>();
   const { userId } = useUser();
   const [selectedDayId, setSelectedDayId] = useState('');
   
@@ -50,9 +50,11 @@ export default function SwapDay() {
     }
 
     const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const parsedWeek = weekNumber ? parseInt(weekNumber, 10) : 1;
+    const activeWeekDays = loadedPlanDays[parsedWeek] || {};
 
     return dayOrder.map((dayStr, index) => {
-      const dayData = loadedPlanDays[dayStr];
+      const dayData = activeWeekDays[dayStr];
       const isRest = !dayData || dayData.workoutType === 'Rest';
 
       const exercisesCount = dayData?.exercises?.length || 0;

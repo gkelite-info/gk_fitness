@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
+// @ts-ignore
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { CaretRight, Eye, PencilSimple, ArrowsLeftRight, Plus } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
@@ -14,9 +15,9 @@ export default function WeeklyWorkoutPlan() {
   const { planType } = useLocalSearchParams<{ planType?: string }>();
   const isTrainerPlan = planType === 'trainer';
 
-  const { data: customerPlanDays, isLoading: isLoadingCustomer, refetch: refetchCustomer } = useCustomerWeeklyPlan(!isTrainerPlan ? userId : undefined);
-  const { data: trainerPlanDays, isLoading: isLoadingTrainer, refetch: refetchTrainer } = useTrainerWeeklyPlan(isTrainerPlan ? userId : undefined);
-  const { currentWeekNumber } = useCurrentPlanWeek(!isTrainerPlan ? userId : undefined);
+  const { data: customerPlanDays, isLoading: isLoadingCustomer, refetch: refetchCustomer } = useCustomerWeeklyPlan(!isTrainerPlan ? (userId || undefined) : undefined);
+  const { data: trainerPlanDays, isLoading: isLoadingTrainer, refetch: refetchTrainer } = useTrainerWeeklyPlan(isTrainerPlan ? (userId || undefined) : undefined);
+  const { currentWeekNumber } = useCurrentPlanWeek(!isTrainerPlan ? (userId || undefined) : undefined);
 
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [hasSetInitialWeek, setHasSetInitialWeek] = useState(false);

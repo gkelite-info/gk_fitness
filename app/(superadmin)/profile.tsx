@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Pressable, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
+import { toast } from '@/lib/toast';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import {
@@ -34,12 +35,12 @@ export default function SuperAdminProfileScreen() {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
-        Alert.alert('Sign Out Error', error.message);
+        toast.error(error.message);
       } else {
         router.replace('/auth/otp-auth');
       }
     } catch (err: any) {
-      Alert.alert('Sign Out Error', err.message || 'An error occurred.');
+      toast.error(err.message || 'An error occurred.');
     } finally {
       setSigningOut(false);
     }

@@ -18,7 +18,6 @@ export async function rollbackRegistrationData(target: RollbackTarget) {
   } = target;
 
   const targetId = userId || authUserId;
-  console.log(`[RegistrationRollback] Starting cleanup rollback for targetId: ${targetId || 'N/A'}, email: ${email || 'N/A'}, phone: ${phone || 'N/A'}...`);
 
   const cleanupStatus: Record<string, boolean> = {};
 
@@ -28,13 +27,10 @@ export async function rollbackRegistrationData(target: RollbackTarget) {
         .from('gym_trainer_schedules')
         .delete()
         .eq('gymTrainerId', targetId);
-      if (error) {
-        console.warn('[RegistrationRollback] Failed to delete gym_trainer_schedules:', error.message);
-      } else {
+      if (!error) {
         cleanupStatus['gym_trainer_schedules'] = true;
       }
     } catch (e: any) {
-      console.warn('[RegistrationRollback] Exception deleting gym_trainer_schedules:', e?.message || e);
     }
   }
 
@@ -44,13 +40,10 @@ export async function rollbackRegistrationData(target: RollbackTarget) {
         .from('gym_trainers')
         .delete()
         .or(`gymTrainerId.eq.${targetId},userId.eq.${targetId}`);
-      if (error) {
-        console.warn('[RegistrationRollback] Failed to delete gym_trainers:', error.message);
-      } else {
+      if (!error) {
         cleanupStatus['gym_trainers'] = true;
       }
     } catch (e: any) {
-      console.warn('[RegistrationRollback] Exception deleting gym_trainers:', e?.message || e);
     }
   }
 
@@ -61,9 +54,7 @@ export async function rollbackRegistrationData(target: RollbackTarget) {
           .from('users')
           .delete()
           .eq('userId', targetId);
-        if (error) {
-          console.warn('[RegistrationRollback] Failed to delete users row by userId:', error.message);
-        } else {
+        if (!error) {
           cleanupStatus['users'] = true;
         }
       } else if (email) {
@@ -71,14 +62,11 @@ export async function rollbackRegistrationData(target: RollbackTarget) {
           .from('users')
           .delete()
           .eq('email', email);
-        if (error) {
-          console.warn('[RegistrationRollback] Failed to delete users row by email:', error.message);
-        } else {
+        if (!error) {
           cleanupStatus['users'] = true;
         }
       }
     } catch (e: any) {
-      console.warn('[RegistrationRollback] Exception deleting users row:', e?.message || e);
     }
   }
 
@@ -98,11 +86,9 @@ export async function rollbackRegistrationData(target: RollbackTarget) {
         }
       }
     } catch (e: any) {
-      console.warn('[RegistrationRollback] Exception cleaning up auth user:', e?.message || e);
     }
   }
 
-  console.log('[RegistrationRollback] Cleanup finished. Summary:', cleanupStatus);
   return cleanupStatus;
 }
 

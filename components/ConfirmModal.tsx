@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { View, Pressable, Modal } from 'react-native';
+import { View, Pressable, Modal, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 
 interface ConfirmModalProps {
@@ -13,6 +13,7 @@ interface ConfirmModalProps {
   confirmButtonColor?: string;
   confirmTextColor?: string;
   icon?: ReactNode;
+  isLoading?: boolean;
 }
 
 export default function ConfirmModal({
@@ -26,6 +27,7 @@ export default function ConfirmModal({
   confirmButtonColor = 'bg-red-500',
   confirmTextColor = 'text-white',
   icon,
+  isLoading = false,
 }: ConfirmModalProps) {
   return (
     <Modal
@@ -49,15 +51,21 @@ export default function ConfirmModal({
           <View className="flex-row gap-3 w-full">
             <Pressable
               onPress={onClose}
-              className="flex-1 bg-[#1C1C1E] rounded-xl py-3 items-center active:opacity-90"
+              disabled={isLoading}
+              className={`flex-1 bg-[#1C1C1E] rounded-xl py-3 items-center active:opacity-90 ${isLoading ? 'opacity-50' : ''}`}
             >
               <Text className="text-white font-semibold text-sm">{cancelText}</Text>
             </Pressable>
             <Pressable
               onPress={onConfirm}
-              className={`flex-1 ${confirmButtonColor} rounded-xl py-3 items-center active:opacity-90`}
+              disabled={isLoading}
+              className={`flex-1 ${confirmButtonColor} rounded-xl py-3 items-center justify-center active:opacity-90 ${isLoading ? 'opacity-50' : ''}`}
             >
-              <Text className={`${confirmTextColor} font-semibold text-sm`}>{confirmText}</Text>
+              {isLoading ? (
+                <ActivityIndicator color={confirmTextColor.includes('black') ? '#000' : '#FFF'} size="small" />
+              ) : (
+                <Text className={`${confirmTextColor} font-semibold text-sm`}>{confirmText}</Text>
+              )}
             </Pressable>
           </View>
         </View>

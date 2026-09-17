@@ -6,7 +6,7 @@ import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { GymAttributes } from '@/helpers/gym/gymHelper';
 import { supabase } from '@/lib/supabase';
 import { setSelectedGym } from '@/helpers/tenantHelper';
-import { MagnifyingGlass, CaretRight, Building, Barbell } from 'phosphor-react-native';
+import { MagnifyingGlass, CaretRight, CaretLeft, Building, Barbell } from 'phosphor-react-native';
 
 function FloatingEmptyIcon() {
   const translateY = useSharedValue(0);
@@ -125,8 +125,15 @@ export default function FindOrganizationScreen() {
     >
       <Stack.Screen options={{ headerShown: false }} />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View className="flex-1 px-6 pt-20">
-          <View className="mb-8">
+        <View className="flex-1 px-6 pt-14">
+          <Pressable 
+            onPress={() => router.back()} 
+            className="w-10 h-10 -ml-1 items-center justify-center rounded-full bg-[#121212] border border-[#1E1E1E] mb-4 active:opacity-70"
+          >
+            <CaretLeft size={22} color="#FFFFFF" weight="bold" />
+          </Pressable>
+
+          <View className="mb-6">
             <Text className="text-[#D4FF00] text-sm font-semibold uppercase tracking-widest mb-2">Welcome</Text>
             <Text className="text-white text-3xl font-semibold mb-2">Find Your Gym</Text>
             <Text className="text-[#8E8E93] text-sm leading-5">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Pressable, TextInput, ActivityIndicator, FlatList } from 'react-native';
+import { View, Pressable, TextInput, ActivityIndicator, FlatList, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -244,18 +244,24 @@ export default function ExploreTrainersScreen() {
                 </View>
               </View>
 
-              <Text className="text-[#9CA3AF] text-[8px] font-semibold tracking-widest mb-2 uppercase">PT Packages</Text>
+              {Platform.OS !== 'ios' && (
+                <Text className="text-[#9CA3AF] text-[8px] font-semibold tracking-widest mb-2 uppercase">PT Packages</Text>
+              )}
 
               <View className="flex-row items-center justify-between">
                 <View className="flex-row gap-2">
-                  <View className="bg-[#09090B] border border-[#27272A] rounded-xl px-2 py-2 items-center justify-center">
-                    <Text className="text-[#9CA3AF] text-[8px] font-medium mb-0.5">1 Day</Text>
-                    <Text className="text-[#CCFF00] font-semibold text-[10px]">₹0</Text>
-                  </View>
-                  <View className="bg-[#09090B] border border-[#27272A] rounded-xl px-2 py-2 items-center justify-center">
-                    <Text className="text-[#9CA3AF] text-[8px] font-medium mb-0.5">1 Month</Text>
-                    <Text className="text-[#CCFF00] font-semibold text-[10px]">₹0</Text>
-                  </View>
+                  {Platform.OS !== 'ios' && (
+                    <>
+                      <View className="bg-[#09090B] border border-[#27272A] rounded-xl px-2 py-2 items-center justify-center">
+                        <Text className="text-[#9CA3AF] text-[8px] font-medium mb-0.5">1 Day</Text>
+                        <Text className="text-[#CCFF00] font-semibold text-[10px]">₹0</Text>
+                      </View>
+                      <View className="bg-[#09090B] border border-[#27272A] rounded-xl px-2 py-2 items-center justify-center">
+                        <Text className="text-[#9CA3AF] text-[8px] font-medium mb-0.5">1 Month</Text>
+                        <Text className="text-[#CCFF00] font-semibold text-[10px]">₹0</Text>
+                      </View>
+                    </>
+                  )}
                 </View>
 
                 <Pressable

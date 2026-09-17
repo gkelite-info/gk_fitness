@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Image, Modal } from 'react-native';
+import { View, ScrollView, Pressable, Image, Modal, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -251,34 +251,36 @@ export default function TrainerProfileScreen() {
           </View>
         </View>
 
-        <View className="mb-8">
-          <View className="px-4 mb-4">
-            <Text className="text-white text-xl font-semibold tracking-tight">PT Packages</Text>
-            <Text className="text-[#A1A1AA] text-[13px] mt-1">Choose a duration that fits your goal.</Text>
-          </View>
+        {Platform.OS !== 'ios' && (
+          <View className="mb-8">
+            <View className="px-4 mb-4">
+              <Text className="text-white text-xl font-semibold tracking-tight">PT Packages</Text>
+              <Text className="text-[#A1A1AA] text-[13px] mt-1">Choose a duration that fits your goal.</Text>
+            </View>
 
-          <View className="flex-row gap-4 px-4">
-            <Pressable className="flex-1 bg-[#1A1A1A] border border-[#CCFF00] rounded-3xl p-5 items-center">
-              <View className="w-12 h-12 rounded-full bg-[#CCFF00]/10 items-center justify-center mb-4">
-                <Calendar size={24} color="#CCFF00" weight="regular" />
-              </View>
-              <Text className="text-white font-semibold text-sm mb-1 uppercase tracking-wider">1 DAY</Text>
-              <Text className="text-[#CCFF00] font-semibold text-2xl mb-4">₹ 799</Text>
-              <View className="w-full h-[1px] bg-[#27272A] mb-3" />
-              <Text className="text-[#8E8E93] text-xs font-medium">Single PT session</Text>
-            </Pressable>
+            <View className="flex-row gap-4 px-4">
+              <Pressable className="flex-1 bg-[#1A1A1A] border border-[#CCFF00] rounded-3xl p-5 items-center">
+                <View className="w-12 h-12 rounded-full bg-[#CCFF00]/10 items-center justify-center mb-4">
+                  <Calendar size={24} color="#CCFF00" weight="regular" />
+                </View>
+                <Text className="text-white font-semibold text-sm mb-1 uppercase tracking-wider">1 DAY</Text>
+                <Text className="text-[#CCFF00] font-semibold text-2xl mb-4">₹ 799</Text>
+                <View className="w-full h-[1px] bg-[#27272A] mb-3" />
+                <Text className="text-[#8E8E93] text-xs font-medium">Single PT session</Text>
+              </Pressable>
 
-            <Pressable className="flex-1 bg-[#1A1A1A] border border-[#27272A] rounded-3xl p-5 items-center">
-              <View className="w-12 h-12 rounded-full bg-[#A855F7]/10 items-center justify-center mb-4">
-                <Calendar size={24} color="#A855F7" weight="regular" />
-              </View>
-              <Text className="text-white font-semibold text-sm mb-1 uppercase tracking-wider">1 MONTH</Text>
-              <Text className="text-[#A855F7] font-semibold text-2xl mb-4">₹ 4,999</Text>
-              <View className="w-full h-[1px] bg-[#27272A] mb-3" />
-              <Text className="text-[#8E8E93] text-xs font-medium">Monthly PT package</Text>
-            </Pressable>
+              <Pressable className="flex-1 bg-[#1A1A1A] border border-[#27272A] rounded-3xl p-5 items-center">
+                <View className="w-12 h-12 rounded-full bg-[#A855F7]/10 items-center justify-center mb-4">
+                  <Calendar size={24} color="#A855F7" weight="regular" />
+                </View>
+                <Text className="text-white font-semibold text-sm mb-1 uppercase tracking-wider">1 MONTH</Text>
+                <Text className="text-[#A855F7] font-semibold text-2xl mb-4">₹ 4,999</Text>
+                <View className="w-full h-[1px] bg-[#27272A] mb-3" />
+                <Text className="text-[#8E8E93] text-xs font-medium">Monthly PT package</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+        )}
 
         <View className="p-4 bg-[#0F0F0F]/90 border-t border-[#1A1A1A]">
           <Pressable

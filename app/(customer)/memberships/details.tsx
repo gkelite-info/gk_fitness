@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Pressable, Dimensions, ActivityIndicator, FlatList } from 'react-native';
+import { View, Pressable, Dimensions, ActivityIndicator, FlatList, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
@@ -233,23 +233,28 @@ export default function MembershipDetailsScreen() {
                 <Text className="text-[#CCFF00] text-sm font-semibold mt-1">{validUntil}</Text>
               </View>
 
-              <View className="flex-1 bg-[#121212] border border-[#2A2A2A] rounded-2xl p-4">
-                <View className="flex-row items-center mb-4">
-                  <View className="w-5 h-5 rounded-md bg-[#CCFF00]/10 items-center justify-center mr-2">
-                    <Wallet size={12} color="#CCFF00" weight="fill" />
+              {Platform.OS !== 'ios' && (
+                <View className="flex-1 bg-[#121212] border border-[#2A2A2A] rounded-2xl p-4">
+                  <View className="flex-row items-center mb-4">
+                    <View className="w-5 h-5 rounded-md bg-[#CCFF00]/10 items-center justify-center mr-2">
+                      <Wallet size={12} color="#CCFF00" weight="fill" />
+                    </View>
+                    <Text className="text-[#9CA3AF] text-[8px] font-semibold tracking-widest uppercase">Last Payment</Text>
                   </View>
-                  <Text className="text-[#9CA3AF] text-[8px] font-semibold tracking-widest uppercase">Last Payment</Text>
+                  <Text className="text-[#CCFF00] text-sm font-semibold mt-1">{lastPayment}</Text>
                 </View>
-                <Text className="text-[#CCFF00] text-sm font-semibold mt-1">{lastPayment}</Text>
-              </View>
+              )}
             </View>
 
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-white text-lg font-semibold">Recent Payments</Text>
-            </View>
+            {Platform.OS !== 'ios' && (
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-white text-lg font-semibold">Recent Payments</Text>
+              </View>
+            )}
           </>
         }
         renderItem={({ item }) => {
+          if (Platform.OS === 'ios') return null;
           const formattedDate = new Date(item.paymentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
           return (
@@ -271,19 +276,21 @@ export default function MembershipDetailsScreen() {
           );
         }}
         ListFooterComponent={
-          isPaymentsFetching && page > 1 ? (
-            <View className="py-4 items-center">
-              <ActivityIndicator size="small" color="#CCFF00" />
-            </View>
-          ) : !hasMore && accumulatedLogs.length > 0 ? (
-            <View className="py-6 items-center">
-              <Text className="text-[#666666] text-xs font-sans">You've reached the end of the payments</Text>
-            </View>
-          ) : accumulatedLogs.length === 0 && !isPaymentsFetching ? (
-            <View className="py-6 items-center">
-              <Text className="text-[#666666] text-xs font-sans">No recent payments found.</Text>
-            </View>
-          ) : null
+          Platform.OS === 'ios' ? null : (
+            isPaymentsFetching && page > 1 ? (
+              <View className="py-4 items-center">
+                <ActivityIndicator size="small" color="#CCFF00" />
+              </View>
+            ) : !hasMore && accumulatedLogs.length > 0 ? (
+              <View className="py-6 items-center">
+                <Text className="text-[#666666] text-xs font-sans">You've reached the end of the payments</Text>
+              </View>
+            ) : accumulatedLogs.length === 0 && !isPaymentsFetching ? (
+              <View className="py-6 items-center">
+                <Text className="text-[#666666] text-xs font-sans">No recent payments found.</Text>
+              </View>
+            ) : null
+          )
         }
       />
     </View>

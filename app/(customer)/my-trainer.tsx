@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Image, Modal, Alert } from 'react-native';
+import { View, ScrollView, Pressable, Image, Modal, Alert, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -134,7 +134,7 @@ export default function MyTrainerScreen() {
             <View className="flex-1 pl-1">
               <Text className="text-[#8E8E93] text-[9px] font-medium mb-1">Next Renewal</Text>
               <Text className="text-white font-extrabold text-[13px]">02 Aug 2026</Text>
-              <Text className="text-[#8E8E93] text-[9px] mt-0.5">₹7,999</Text>
+              {Platform.OS !== 'ios' && <Text className="text-[#8E8E93] text-[9px] mt-0.5">₹7,999</Text>}
             </View>
           </View>
         </View>
@@ -309,8 +309,12 @@ export default function MyTrainerScreen() {
             <Text className="text-[#A1A1AA] text-sm leading-6 mb-6">
               Your ongoing subscription covers <Text className="text-white font-semibold">12 1-on-1 personal coaching sessions</Text> every month with your verified trainer.{'\n\n'}
               • Unused sessions carry over for 7 days.{'\n'}
-              • Reschedule up to 3 hours prior without losing a session credit.{'\n'}
-              • Next recurring billing is on <Text className="text-[#D4FF00] font-semibold">02 Aug 2026</Text> (₹7,999).
+              • Reschedule up to 3 hours prior without losing a session credit.
+              {Platform.OS !== 'ios' && (
+                <>
+                  {'\n'}• Next recurring billing is on <Text className="text-[#D4FF00] font-semibold">02 Aug 2026</Text> (₹7,999).
+                </>
+              )}
             </Text>
             <Pressable onPress={() => setShowPlanModal(false)} className="bg-[#D4FF00] py-3.5 rounded-2xl items-center">
               <Text className="text-black font-extrabold text-base">Got It</Text>

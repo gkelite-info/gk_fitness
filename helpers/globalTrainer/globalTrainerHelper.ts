@@ -52,7 +52,7 @@ export interface SaveGlobalTrainerParams {
 export async function fetchGlobalTrainers(searchQuery?: string) {
   let query = supabase
     .from('global_trainers')
-    .select('*, users(profilePhoto)')
+    .select('*')
     .eq('is_deleted', false)
     .order('createdAt', { ascending: false });
 

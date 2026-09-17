@@ -165,3 +165,46 @@ export async function toggleOwnerPaymentDetailsActiveStatus(paymentDetailsId: st
 
   return data ? data[0] : null;
 }
+
+export async function verifyOwnerPaymentDetails(paymentDetailsId: string) {
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('owner_payment_details')
+    .update({
+      isVerified: true,
+      updatedAt: now,
+    })
+    .eq('paymentDetailsId', paymentDetailsId)
+    .select();
+
+  if (error) {
+    console.error('[ownerPaymentDetailsHelper] verifyOwnerPaymentDetails Error:', error);
+    throw error;
+  }
+
+  return data ? data[0] : null;
+}
+
+export async function fetchPaymentRequests(isVerified: boolean = false) {
+  const { data, error } = await supabase
+    .from('owner_payment_details')
+    .select(`
+      *,
+      gym:gymId (
+        gymName,
+        city,
+        state
+      )
+    `)
+    .eq('isVerified', isVerified)
+    .eq('is_deleted', false)
+    .order('createdAt', { ascending: false });
+
+  if (error) {
+    console.error('[ownerPaymentDetailsHelper] fetchPaymentRequests Error:', error);
+    throw error;
+  }
+
+  return data;
+}

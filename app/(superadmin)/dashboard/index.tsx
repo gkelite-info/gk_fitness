@@ -18,6 +18,7 @@ import {
   CaretRight,
   Globe,
   Barbell,
+  CurrencyInr,
 } from 'phosphor-react-native';
 import { useGyms } from '@/hooks/gyms/useGyms';
 import { useUsers } from '@/hooks/users/useUsers';
@@ -39,6 +40,7 @@ const QUICK_ACTIONS_DATA = [
 
 const LEADS_DATA = [
   { id: 'gym-owners', icon: Buildings, label: 'Gym Owners' },
+  { id: 'payment-requests', icon: CurrencyInr, label: 'Payment Requests' },
   { id: 'global-trainers', icon: Globe, label: 'Global Trainers' },
 ];
 
@@ -101,6 +103,8 @@ export default function DashboardScreen() {
       router.push('/(superadmin)/dashboard/gym' as any);
     } else if (id === 'gym-owners') {
       router.push('/(superadmin)/leads/gym-owners');
+    } else if (id === 'payment-requests') {
+      router.push('/(superadmin)/leads/payment-requests' as any);
     } else if (id === 'global-trainers') {
       router.push('/(superadmin)/leads/global-trainers');
     } else if (id === 'create-global-trainer') {

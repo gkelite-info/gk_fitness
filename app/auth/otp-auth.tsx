@@ -26,6 +26,7 @@ import {
   MapPin,
   Building,
   CaretLeft,
+  Info,
 } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
 import { navigateBasedOnRole, createUser } from '@/helpers/otpHelper';
@@ -704,12 +705,12 @@ export default function OtpAuthScreen() {
 
           {purpose === 'login' && (
             <View className="mt-2 mb-4 items-center">
-              {typeId !== 'gym_trainer' && typeId !== 'customer' && Platform.OS !== 'ios' && (
+              {(typeId === 'individual' || typeId === 'owner' || typeId === 'global_trainer') && (
                 <Pressable onPress={() => {
                   if (typeId === 'global_trainer') {
                     router.push('/auth/global-trainer-signup');
                   } else {
-                    router.push({ pathname: '/auth/signup', params: { type: typeId } });
+                    router.push({ pathname: '/auth/signup', params: { type: typeId || 'individual' } });
                   }
                 }} className="mb-4">
                   <Text className="text-[#8E8E93] text-sm">
@@ -724,6 +725,22 @@ export default function OtpAuthScreen() {
                     {typeId === 'owner' ? 'Applied for Gym Owner?' : 'Applied for Trainer?'} <Text className="text-[#84CC16] font-semibold">Check Status</Text>
                   </Text>
                 </Pressable>
+              )}
+
+              {(typeId === 'customer' || typeId === 'gym_trainer') && (
+                <View className="bg-[#121214] border border-[#222226] rounded-2xl p-4 mt-2 mb-2 flex-row items-center w-full">
+                  <View className="w-9 h-9 rounded-xl bg-[#1A1A1E] items-center justify-center mr-3 border border-[#2A2A30]">
+                    <Info size={18} color="#D4FF00" weight="regular" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-[#E4E4E7] text-[12px] font-semibold mb-0.5">
+                      {typeId === 'customer' ? 'Gym Member Portal' : 'Gym Trainer Portal'}
+                    </Text>
+                    <Text className="text-[#8E8E93] text-[11px] leading-[15px]">
+                      Accounts are issued by your gym desk. Contact your gym manager for credentials.
+                    </Text>
+                  </View>
+                </View>
               )}
             </View>
           )}

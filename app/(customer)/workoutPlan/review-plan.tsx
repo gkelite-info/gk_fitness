@@ -10,6 +10,7 @@ import { toast } from '@/lib/toast';
 import { saveCustomerWorkoutPlan, deactivateCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
 import { saveWorkoutPlanDay } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { saveWorkoutPlanDayExercise } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
+import { useQueryClient } from '@tanstack/react-query';
 
 const ALL_DAYS = [
   'Monday',
@@ -21,94 +22,101 @@ const ALL_DAYS = [
   'Sunday'
 ];
 
-export default function ReviewPlan() {
-  const { selectedDays, planDays, resetPlan, planMode, currentEditingWeek, setCurrentEditingWeek } = useWorkoutPlan();
-  const { userId } = useUser();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  export default function ReviewPlan() {
+    const { selectedDays, planDays, resetPlan, planMode, currentEditingWeek, setCurrentEditingWeek } = useWorkoutPlan();
+    const { userId } = useUser();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const queryClient = useQueryClient();
 
-  const handleEditDay = (day: string) => {
-    try {
-      if (selectedDays.includes(day)) {
-        router.push({
-          pathname: '/(customer)/workoutPlan/choose-muscle' as any,
-          params: { day }
-        });
-      } else {
-        router.push('/(customer)/workoutPlan' as any);
-      }
-    } catch (error) {
-      console.error('[ReviewPlan] handleEditDay Error:', error);
-    }
-  };
-
-  const handleSavePlan = async () => {
-    if (!userId) {
-      toast.error('You must be logged in to save a workout plan.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await deactivateCustomerWorkoutPlans(userId);
-
-      const newPlan = await saveCustomerWorkoutPlan({
-        userId,
-        isActive: true,
-      });
-
-      if (!newPlan) throw new Error("Failed to create workout plan");
-
-      const planId = newPlan.planId;
-
-      const weeksToSave = [1, 2, 3, 4];
-
-      for (const week of weeksToSave) {
-        // If repeat mode, always pull from week 1 (or currentEditingWeek). If custom, pull from specific week.
-        const weekData = planMode === 'repeat' ? (planDays[currentEditingWeek] || {}) : (planDays[week] || {});
-        
-        for (const day of ALL_DAYS) {
-          const isWorkoutDay = selectedDays.includes(day);
-          const dayPlan = weekData[day];
-
-          const workoutType = isWorkoutDay && dayPlan?.workoutType ? dayPlan.workoutType : 'Rest';
-          const durationMinutes = isWorkoutDay ? (dayPlan?.durationMinutes || 45) : null;
-
-          const insertedDay = await saveWorkoutPlanDay({
-            planId,
-            dayOfWeek: day,
-            workoutType,
-            workoutId: isWorkoutDay ? dayPlan?.workoutId : null,
-            durationMinutes,
-            weekNumber: week,
+    const handleEditDay = (day: string) => {
+      try {
+        if (selectedDays.includes(day)) {
+          router.push({
+            pathname: '/(customer)/workoutPlan/choose-muscle' as any,
+            params: { day }
           });
+        } else {
+          router.push('/(customer)/workoutPlan' as any);
+        }
+      } catch (error) {
+        console.error('[ReviewPlan] handleEditDay Error:', error);
+      }
+    };
 
-          if (!insertedDay) throw new Error(`Failed to create workout day record for ${day} week ${week}`);
+    const handleSavePlan = async () => {
+      if (!userId) {
+        toast.error('You must be logged in to save a workout plan.');
+        return;
+      }
 
-          if (isWorkoutDay && dayPlan?.exercises && dayPlan.exercises.length > 0) {
-            for (let idx = 0; idx < dayPlan.exercises.length; idx++) {
-              const ex = dayPlan.exercises[idx];
-              await saveWorkoutPlanDayExercise({
-                planDayId: insertedDay.planDayId,
-                workoutVideoId: ex.workoutVideoId || null,
-                exerciseName: ex.exerciseName,
-                category: ex.category,
-                sets: ex.sets!,
-                reps: ex.reps,
-                order: idx,
-                image: ex.image || null,
-                videoUrl: ex.videoUrl || null,
-              });
+      setIsSubmitting(true);
+      try {
+        await deactivateCustomerWorkoutPlans(userId);
+
+        const newPlan = await saveCustomerWorkoutPlan({
+          userId,
+          isActive: true,
+        });
+
+        if (!newPlan) throw new Error("Failed to create workout plan");
+
+        const planId = newPlan.planId;
+
+        const weeksToSave = [1, 2, 3, 4];
+
+        for (const week of weeksToSave) {
+          // If repeat mode, always pull from week 1 (or currentEditingWeek). If custom, pull from specific week.
+          const weekData = planMode === 'repeat' ? (planDays[currentEditingWeek] || {}) : (planDays[week] || {});
+          
+          for (const day of ALL_DAYS) {
+            const isWorkoutDay = selectedDays.includes(day);
+            const dayPlan = weekData[day];
+
+            const workoutType = isWorkoutDay && dayPlan?.workoutType ? dayPlan.workoutType : 'Rest';
+            const durationMinutes = isWorkoutDay ? (dayPlan?.durationMinutes || 45) : null;
+
+            const insertedDay = await saveWorkoutPlanDay({
+              planId,
+              dayOfWeek: day,
+              workoutType,
+              workoutId: isWorkoutDay ? dayPlan?.workoutId : null,
+              durationMinutes,
+              weekNumber: week,
+            });
+
+            if (!insertedDay) throw new Error(`Failed to create workout day record for ${day} week ${week}`);
+
+            if (isWorkoutDay && dayPlan?.exercises && dayPlan.exercises.length > 0) {
+              for (let idx = 0; idx < dayPlan.exercises.length; idx++) {
+                const ex = dayPlan.exercises[idx];
+                await saveWorkoutPlanDayExercise({
+                  planDayId: insertedDay.planDayId,
+                  workoutVideoId: ex.workoutVideoId || null,
+                  exerciseName: ex.exerciseName,
+                  category: ex.category,
+                  sets: ex.sets!,
+                  reps: ex.reps,
+                  order: idx,
+                  image: ex.image || null,
+                  videoUrl: ex.videoUrl || null,
+                });
+              }
             }
           }
         }
-      }
 
-      toast.success('Workout Plan Saved Successfully!');
+        toast.success('Workout Plan Saved Successfully!');
 
-      router.replace({
-        pathname: '/(customer)/workoutPlan/success' as any,
-        params: { workoutsCount: selectedDays.length }
-      });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] }),
+          queryClient.invalidateQueries({ queryKey: ['customerWeeklyPlan'] }),
+          queryClient.invalidateQueries({ queryKey: ['workoutPlanDay'] }),
+        ]);
+
+        router.replace({
+          pathname: '/(customer)/workoutPlan/success' as any,
+          params: { workoutsCount: selectedDays.length }
+        });
     } catch (error) {
       console.error('[ReviewPlan] Save Error:', error);
       toast.error('Failed to save workout plan. Please try again.');

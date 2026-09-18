@@ -54,11 +54,11 @@ export default function BuildWeeklyPlan() {
   const existingDaysList = React.useMemo(() => existingDays ? existingDays.split(',') : [], [existingDays]);
 
   const { data: loadedPlanDays, isLoading: isQueryLoading } = useCustomerWeeklyPlan(
-    (existingDaysList.length > 0 && selectedDays.length === 0) ? userId : null
+    ((existingDaysList.length > 0 || targetDay) && selectedDays.length === 0) ? userId : null
   );
 
   useEffect(() => {
-    if (existingDaysList.length > 0 && selectedDays.length === 0 && userId) {
+    if ((existingDaysList.length > 0 || targetDay) && selectedDays.length === 0 && userId) {
       if (isQueryLoading) {
         setIsLoading(true);
         return;
@@ -73,7 +73,19 @@ export default function BuildWeeklyPlan() {
       const map: any = { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday', SUN: 'Sunday' };
       const targetFull = targetDay ? map[targetDay] : null;
       const toSelect = [...existingDaysList];
+      
+      if (targetFull && !toSelect.includes(targetFull)) {
+        toSelect.push(targetFull);
+      }
+      
       setSelectedDays(toSelect);
+
+      if (targetFull) {
+        router.replace({
+          pathname: '/(customer)/workoutPlan/choose-muscle',
+          params: { day: targetFull }
+        } as any);
+      }
     }
   }, [existingDaysList, targetDay, selectedDays.length, userId, loadedPlanDays, isQueryLoading]);
 

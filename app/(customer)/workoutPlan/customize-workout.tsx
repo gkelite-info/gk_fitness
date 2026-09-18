@@ -161,7 +161,7 @@ export default function CustomizeWorkout() {
       } else {
         setSelectedExercises([
           ...selectedExercises,
-          { exerciseName: name, category, reps: '', sets: undefined as any, videoUrl, workoutVideoId, order: selectedExercises.length }
+          { exerciseName: name, category, reps: '10', sets: 3, videoUrl, workoutVideoId, order: selectedExercises.length }
         ]);
       }
     } catch (error) {
@@ -174,7 +174,7 @@ export default function CustomizeWorkout() {
       if (!isChecked(name)) {
         setSelectedExercises([
           ...selectedExercises,
-          { exerciseName: name, category, reps: '', sets: undefined as any, videoUrl, workoutVideoId, order: selectedExercises.length }
+          { exerciseName: name, category, reps: '10', sets: 3, videoUrl, workoutVideoId, order: selectedExercises.length }
         ]);
       }
     } catch (error) {

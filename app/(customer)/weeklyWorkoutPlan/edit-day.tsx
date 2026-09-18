@@ -122,7 +122,8 @@ export default function EditWorkoutDay() {
     setExercises(prev => [...prev, {
       exerciseName: ex.exerciseName || 'Exercise',
       category: 'General',
-      reps: '10 - 12 reps',
+      sets: 3,
+      reps: '10',
       order: prev.length + 1,
       image: null,
       videoUrl: ex.videoUrl,
@@ -150,41 +151,37 @@ export default function EditWorkoutDay() {
     setExerciseToDelete(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!currentPlanDayId) return;
 
     const newExs = exercises.filter(ex => ex.isNew);
 
-    saveExercisesMutation.mutate({
-      deletedExerciseIds,
-      newExercises: newExs,
-      currentPlanDayId
-    }, {
-      onSuccess: () => {
-        setDeletedExerciseIds([]);
-        toast.success('Day updated successfully!');
-        router.back();
-      },
-      onError: (err) => {
-        toast.error('Failed to save exercises');
-      }
-    });
+    try {
+      await saveExercisesMutation.mutateAsync({
+        deletedExerciseIds,
+        newExercises: newExs,
+        currentPlanDayId
+      });
+      setDeletedExerciseIds([]);
+      toast.success('Day updated successfully!');
+      router.back();
+    } catch (err) {
+      toast.error('Failed to save exercises');
+    }
   };
 
-  const confirmMakeRestDay = () => {
+  const confirmMakeRestDay = async () => {
     if (!currentPlanDayId || !dayData) return;
 
-    makeRestMutation.mutate({ planDayId: currentPlanDayId, planId: dayData.planId, dayOfWeek: dayData.dayOfWeek }, {
-      onSuccess: () => {
-        setRestModalVisible(false);
-        toast.success('Marked as Rest Day!');
-        router.back();
-      },
-      onError: () => {
-        setRestModalVisible(false);
-        toast.error('Failed to mark as Rest Day');
-      }
-    });
+    try {
+      await makeRestMutation.mutateAsync({ planDayId: currentPlanDayId, planId: dayData.planId, dayOfWeek: dayData.dayOfWeek });
+      setRestModalVisible(false);
+      toast.success('Marked as Rest Day!');
+      router.back();
+    } catch (err) {
+      setRestModalVisible(false);
+      toast.error('Failed to mark as Rest Day');
+    }
   };
 
   const hasMore = page < totalPages;

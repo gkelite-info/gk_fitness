@@ -242,13 +242,38 @@ export default function ExerciseDetail() {
     'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=600&auto=format&fit=crop';
 
   const localVideoSource = React.useMemo(() => {
-    if (!currentExercise?.videoUrl) return null;
-    const isAbsolute =
-      currentExercise.videoUrl.startsWith('http://') ||
-      currentExercise.videoUrl.startsWith('https://');
-    return isAbsolute
-      ? currentExercise.videoUrl
-      : supabase.storage.from('workout-videos').getPublicUrl(currentExercise.videoUrl).data.publicUrl;
+    if (!currentExercise) return null;
+    let rawUrl = currentExercise.videoUrl;
+    if (!rawUrl && currentExercise.workout_videos) {
+      const wv = Array.isArray(currentExercise.workout_videos) ? currentExercise.workout_videos[0] : currentExercise.workout_videos;
+      if (wv?.videoUrl) rawUrl = wv.videoUrl;
+    }
+    if (!rawUrl) {
+      const imgCandidate = currentExercise.image || currentExercise.imageUrl;
+      const imgStr = typeof imgCandidate === 'string' ? imgCandidate : (typeof imgCandidate === 'object' && imgCandidate?.uri ? imgCandidate.uri : null);
+      if (imgStr && typeof imgStr === 'string') {
+        const lower = imgStr.toLowerCase();
+        if (lower.includes('workout-videos') || lower.match(/\.(mp4|mov|webm|gif)(\?.*)?$/i)) {
+          rawUrl = imgStr;
+        }
+      }
+    }
+
+    if (!rawUrl) return null;
+    let url = typeof rawUrl === 'object' && rawUrl?.uri ? rawUrl.uri : (typeof rawUrl === 'string' ? rawUrl : null);
+    if (!url) return null;
+    url = url.trim();
+    if (!url) return null;
+
+    if (
+      url.startsWith('http://') ||
+      url.startsWith('https://') ||
+      url.startsWith('file://') ||
+      url.startsWith('data:')
+    ) {
+      return url;
+    }
+    return supabase.storage.from('workout-videos').getPublicUrl(url).data.publicUrl;
   }, [currentExercise]);
 
   const player = useVideoPlayer(localVideoSource, (p) => {
@@ -270,7 +295,9 @@ export default function ExerciseDetail() {
     setIsPlaying(true);
   };
 
-  const isGif = currentExercise?.videoUrl?.toLowerCase().endsWith('.gif') || false;
+  const isGif = localVideoSource
+    ? localVideoSource.toLowerCase().includes('.gif') || localVideoSource.toLowerCase().includes('format=gif')
+    : false;
 
   if (isLoading) {
     return (

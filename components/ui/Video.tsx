@@ -22,7 +22,8 @@ export type VideoProps = {
 export const Video = forwardRef((props: VideoProps, ref) => {
   const { source, style, resizeMode, shouldPlay, isLooping, useNativeControls, onPlaybackStatusUpdate, isMuted } = props;
   
-  const player = useVideoPlayer(source, p => {
+  const parsedSource = typeof source === 'object' && source?.uri ? source.uri : source;
+  const player = useVideoPlayer(parsedSource, p => {
     p.loop = !!isLooping;
     p.muted = !!isMuted;
     if (shouldPlay) {

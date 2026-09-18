@@ -104,7 +104,6 @@ export default function CustomerLayout() {
           options={{
             href: null,
             headerShown: true,
-            tabBarStyle: { display: 'none' },
           }}
         />
         <Tabs.Screen

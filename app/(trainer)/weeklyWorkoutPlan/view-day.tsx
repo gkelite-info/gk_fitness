@@ -203,7 +203,7 @@ export default function ViewDay() {
                   )
                 ) : (
                   <Image
-                    source={typeof item.image === 'string' && item.image ? { uri: item.image } : (item.image || { uri: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop' })}
+                    source={typeof item.image === 'string' && item.image && !item.image.includes('1571019614242') ? { uri: item.image } : (item.image && typeof item.image === 'object' && item.image.uri ? item.image : { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' })}
                     style={{ width: 50, height: 50, borderRadius: 10, marginRight: 12 }}
                   />
                 )}

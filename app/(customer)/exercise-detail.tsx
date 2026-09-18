@@ -309,9 +309,9 @@ export default function ExerciseDetail() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0A0A0A' }}>
+    <View style={{ flex: 1, backgroundColor: '#0A0A0A', paddingTop: insets.top }}>
       {/* ── Top Header ── */}
-      <View className="flex-row items-center justify-between px-4 mb-4 mt-6 bg-transparent">
+      <View className="flex-row items-center justify-between px-4 mb-4 mt-2 bg-transparent">
         <Pressable
           onPress={() =>
             router.push({ pathname: '/(customer)/workout-session', params: { dayId: params.dayId } })

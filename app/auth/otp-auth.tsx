@@ -69,22 +69,37 @@ export default function OtpAuthScreen() {
   const [statusIdentifier, setStatusIdentifier] = useState('');
   const [statusLoading, setStatusLoading] = useState(false);
 
+  const isMounted = React.useRef(true);
+  const hasNavigated = React.useRef(false);
+
+  React.useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   React.useEffect(() => {
     const fetchGym = async () => {
       const gym = await getSelectedGym();
-      setSelectedGymState(gym);
+      if (isMounted.current) {
+        setSelectedGymState(gym);
+      }
     };
     fetchGym();
   }, []);
 
   React.useEffect(() => {
     const checkAndNavigate = async () => {
-      if (!userLoading) {
+      if (!userLoading && !hasNavigated.current) {
         if (isGymSuspended) {
           await supabase.auth.signOut();
-          toast.error('gym suspended due to subscription');
-          setLoading(false);
+          if (isMounted.current) {
+            toast.error('gym suspended due to subscription');
+            setLoading(false);
+          }
         } else if (role) {
+          hasNavigated.current = true;
           navigateBasedOnRole(role);
         }
       }
@@ -153,16 +168,20 @@ export default function OtpAuthScreen() {
         if (!firstAttempt.error) {
           authData = firstAttempt.data;
         } else {
-          const passwordHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
-          const secondAttempt = await supabase.auth.signInWithPassword({
-            email: targetEmail,
-            password: passwordHash,
-          });
+          try {
+            const passwordHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
+            const secondAttempt = await supabase.auth.signInWithPassword({
+              email: targetEmail,
+              password: passwordHash,
+            });
 
-          if (!secondAttempt.error) {
-            authData = secondAttempt.data;
-          } else {
-            authError = secondAttempt.error;
+            if (!secondAttempt.error) {
+              authData = secondAttempt.data;
+            } else {
+              authError = secondAttempt.error;
+            }
+          } catch (cryptoErr) {
+            authError = firstAttempt.error;
           }
         }
 
@@ -173,14 +192,15 @@ export default function OtpAuthScreen() {
           } else if (errorMessage.includes('sql:') || errorMessage.includes('converting NULL')) {
             errorMessage = 'Your account is currently recovering. Please try again or contact support.';
           }
-          toast.error(errorMessage);
-          console.error(errorMessage);
-          setLoading(false);
+          if (isMounted.current) {
+            toast.error(errorMessage);
+            setLoading(false);
+          }
           return;
         }
 
         if (authData?.user?.id) {
-          const { data: profile, error: profileSelectError } = await supabase
+          const { data: profile } = await supabase
             .from('users')
             .select('role')
             .eq('userId', authData.user.id)
@@ -201,10 +221,9 @@ export default function OtpAuthScreen() {
                 role: metadata.role || 'customer',
               });
             } catch (insertError) {
-              // console.error('[SignIn] Error creating user profile via createUser:', insertError);
+              // Ignore profile insert errors
             }
             fetchedRole = metadata.role || 'customer';
-          } else {
           }
 
           try {
@@ -213,8 +232,10 @@ export default function OtpAuthScreen() {
               const gymDetails = await fetchGymById(fullProfile.gymId);
               if (gymDetails && gymDetails.isActive === false) {
                 await supabase.auth.signOut();
-                toast.error('Your gym is inactive. Please contact support.');
-                setLoading(false);
+                if (isMounted.current) {
+                  toast.error('Your gym is inactive. Please contact support.');
+                  setLoading(false);
+                }
                 return;
               }
             }
@@ -222,29 +243,36 @@ export default function OtpAuthScreen() {
             console.error('[SignIn] Error checking gym status:', error);
           }
 
-          refreshUserContext();
-          toast.success('Signed in successfully!');
-          navigateBasedOnRole(fetchedRole);
+          await refreshUserContext();
+          if (isMounted.current) {
+            toast.success('Signed in successfully!');
+          }
+          if (!hasNavigated.current) {
+            hasNavigated.current = true;
+            navigateBasedOnRole(fetchedRole);
+          }
           return;
         }
 
-        toast.success('Signed in successfully!');
+        if (isMounted.current) {
+          toast.success('Signed in successfully!');
+        }
       } else if (purpose === 'signup') {
         if (!name.trim()) {
-          toast.error('Name is required.');
+          if (isMounted.current) toast.error('Name is required.');
           return;
         }
         if (!phone.trim()) {
-          toast.error('Phone number is required.');
+          if (isMounted.current) toast.error('Phone number is required.');
           return;
         }
         const cleanedPhone = phone.replace(/[^0-9]/g, '');
         if (cleanedPhone.length !== 10) {
-          toast.error('Phone number must be exactly 10 digits.');
+          if (isMounted.current) toast.error('Phone number must be exactly 10 digits.');
           return;
         }
         if (!password) {
-          toast.error('Password is required.');
+          if (isMounted.current) toast.error('Password is required.');
           return;
         }
 
@@ -254,7 +282,7 @@ export default function OtpAuthScreen() {
         const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
         if (!hasMinLength || !hasNumber || !hasUpper || !hasSpecial) {
-          toast.error('Password must be at least 8 characters, and contain one number, one uppercase letter, and one special character.');
+          if (isMounted.current) toast.error('Password must be at least 8 characters, and contain one number, one uppercase letter, and one special character.');
           return;
         }
 
@@ -274,10 +302,9 @@ export default function OtpAuthScreen() {
         });
 
         if (authError) {
-          toast.error('Sign up failed. Please try again.');
+          if (isMounted.current) toast.error('Sign up failed. Please try again.');
           return;
         }
-
 
         if (authData?.user?.id) {
           try {
@@ -290,19 +317,24 @@ export default function OtpAuthScreen() {
               role: 'customer',
             });
           } catch (insertError) {
-            // console.error('[SignUp] Immediate insertion via createUser failed (likely RLS if unconfirmed):', insertError);
+            // Ignore signup profile error
           }
         }
 
-        setSuccessTitle('Verification Email Sent!');
-        setSuccessBody('Please check your email inbox and spam folder to confirm your email address and activate your account.');
-        setVerifiedSuccess(true);
+        if (isMounted.current) {
+          setSuccessTitle('Verification Email Sent!');
+          setSuccessBody('Please check your email inbox and spam folder to confirm your email address and activate your account.');
+          setVerifiedSuccess(true);
+        }
       }
     } catch (err: any) {
-      // console.error('[AuthError]', err);
-      toast.error(err.message || 'Operation failed.');
+      if (isMounted.current) {
+        toast.error(err.message || 'Operation failed.');
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 

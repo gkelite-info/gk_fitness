@@ -90,25 +90,29 @@ export async function fetchUserAndRoleProfile(
     };
 
     if (userRecord && userRecord.userId) {
-      // Auto-create community profile if missing
-      const { data: commProfile } = await supabase
-        .from('gym_community_profiles')
-        .select('gymCommunityProfileId')
-        .eq('userId', userRecord.userId)
-        .maybeSingle();
+      try {
+        // Auto-create community profile if missing
+        const { data: commProfile } = await supabase
+          .from('gym_community_profiles')
+          .select('gymCommunityProfileId')
+          .eq('userId', userRecord.userId)
+          .maybeSingle();
 
-      if (!commProfile) {
-        const baseUsername = (userRecord.name || 'user').toLowerCase().replace(/[^a-z0-9._]/g, '');
-        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-        const username = `${baseUsername.slice(0, 20)}_${randomSuffix}`;
+        if (!commProfile) {
+          const baseUsername = (userRecord.name || 'user').toLowerCase().replace(/[^a-z0-9._]/g, '');
+          const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+          const username = `${baseUsername.slice(0, 20)}_${randomSuffix}`;
 
-        await supabase.from('gym_community_profiles').insert({
-          gymCommunityProfileId: Crypto.randomUUID(),
-          userId: userRecord.userId,
-          username,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
+          await supabase.from('gym_community_profiles').insert({
+            gymCommunityProfileId: Crypto.randomUUID(),
+            userId: userRecord.userId,
+            username,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        }
+      } catch (commErr) {
+        console.error('[userProfileHelper] Non-fatal error creating community profile:', commErr);
       }
     }
 

@@ -25,10 +25,12 @@ export function useSaveWorkoutDayExercises() {
         });
       }
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['workoutPlanDayExercises', variables.currentPlanDayId] });
-      queryClient.invalidateQueries({ queryKey: ['customerWeeklyPlan'] });
-      queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] });
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['workoutPlanDayExercises', variables.currentPlanDayId] }),
+        queryClient.invalidateQueries({ queryKey: ['customerWeeklyPlan'] }),
+        queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] })
+      ]);
     },
   });
 }
@@ -46,10 +48,12 @@ export function useMakeRestDay() {
         durationMinutes: 0
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customerWeeklyPlan'] });
-      queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] });
-      queryClient.invalidateQueries({ queryKey: ['workoutPlanDay'] });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['customerWeeklyPlan'] }),
+        queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] }),
+        queryClient.invalidateQueries({ queryKey: ['workoutPlanDay'] })
+      ]);
     }
   });
 }

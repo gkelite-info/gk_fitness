@@ -20,40 +20,39 @@ export default function WorkoutCountdown() {
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
-      let interval: ReturnType<typeof setInterval>;
+      setCountdown(3);
 
-      async function startCountdown() {
-        setCountdown(3);
-
-        if (!isMounted) return;
-
-        player.seekTo(0);
-        player.play();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-        interval = setInterval(() => {
-          setCountdown((prev) => {
-            if (prev <= 1) {
-              clearInterval(interval);
-              return 0;
-            }
-
-            player.seekTo(0);
-            player.play();
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            return prev - 1;
-          });
-        }, 1000);
-      }
-
-      startCountdown();
+      const interval = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
 
       return () => {
         isMounted = false;
-        if (interval) clearInterval(interval);
+        clearInterval(interval);
       };
-    }, [player])
+    }, [])
   );
+
+  useEffect(() => {
+    async function playTick() {
+      if (countdown > 0 && countdown <= 3 && player) {
+        try {
+          await player.seekTo(0);
+          player.play();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        } catch (e) {
+          // Ignore audio playback errors
+        }
+      }
+    }
+    playTick();
+  }, [countdown, player]);
 
   useEffect(() => {
     if (countdown === 0) {

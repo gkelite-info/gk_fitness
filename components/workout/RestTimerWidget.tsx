@@ -15,7 +15,7 @@ interface RestTimerWidgetProps {
 }
 
 export function RestTimerWidget({ startRef }: RestTimerWidgetProps) {
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState(false);
   const [durationSeconds, setDurationSeconds] = useState(90); // default 1:30
   const [remaining, setRemaining] = useState<number | null>(null);
   const [showSheet, setShowSheet] = useState(false);
@@ -172,6 +172,7 @@ export function RestTimerWidget({ startRef }: RestTimerWidgetProps) {
                     fontSize: 64,
                     fontWeight: '800',
                     letterSpacing: -2,
+                    lineHeight: 70,
                   }}
                 >
                   {isActive ? formatTime(remaining!) : formatTime(durationSeconds)}
@@ -203,7 +204,7 @@ export function RestTimerWidget({ startRef }: RestTimerWidgetProps) {
                 </TouchableOpacity>
 
                 <View style={{ alignItems: 'center', minWidth: 80 }}>
-                  <Text style={{ color: '#DFFF00', fontSize: 28, fontWeight: '800' }}>{formatTime(durationSeconds)}</Text>
+                  <Text style={{ color: '#DFFF00', fontSize: 28, fontWeight: '800', lineHeight: 32 }}>{formatTime(durationSeconds)}</Text>
                   <Text style={{ color: '#555', fontSize: 11, marginTop: 2 }}>15s steps</Text>
                 </View>
 

@@ -8,18 +8,44 @@ import { supabase } from '@/lib/supabase';
 import { useWorkoutPlanDayById } from '@/hooks/customerWorkouts/useWorkoutPlanDayById';
 import { useWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/useWorkoutPlanDayExercises';
 import { useWorkoutPlanDays } from '@/hooks/customerWorkouts/useWorkoutPlanDays';
+import { useTrainerWorkoutPlanDayById } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlanDayById';
+import { useTrainerWorkoutPlanDayExercises } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlanDayExercises';
+import { useTrainerWorkoutPlanDays } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlanDays';
 import { useCurrentPlanWeek } from '@/hooks/customerWorkouts/useCurrentPlanWeek';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { useUser } from '@/context/UserContext';
+import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 
 export default function WorkoutSession() {
-  const { dayId: initialDayId } = useLocalSearchParams<{ dayId: string }>();
+  const { dayId: initialDayId, isTrainer } = useLocalSearchParams<{ dayId: string; isTrainer?: string }>();
   const [activeDayId, setActiveDayId] = useState(initialDayId);
   const [planId, setPlanId] = useState<string | undefined>();
   const [isTipVisible, setIsTipVisible] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: dayData, isLoading: isLoadingDay, refetch: refetchDay } = useWorkoutPlanDayById(activeDayId);
-  const { data: eData, isLoading: isLoadingExercises, refetch: refetchExercises } = useWorkoutPlanDayExercises(activeDayId);
+  useEffect(() => {
+    if (initialDayId) {
+      setActiveDayId(initialDayId);
+    }
+  }, [initialDayId]);
+
+  const userContext = useUser();
+  const userId = userContext.userId;
+  const { data: customerProfileData } = useCustomerProfile(userId);
+  const userGender = customerProfileData?.customerData?.gender?.toLowerCase() || 'all';
+
+  const { data: customerDayData, isLoading: isLoadingCustomerDay, refetch: refetchCustomerDay } = useWorkoutPlanDayById(activeDayId);
+  const { data: customerEData, isLoading: isLoadingCustomerEx, refetch: refetchCustomerEx } = useWorkoutPlanDayExercises(activeDayId, userGender);
+
+  const { data: trainerDayData, isLoading: isLoadingTrainerDay, refetch: refetchTrainerDay } = useTrainerWorkoutPlanDayById(activeDayId);
+  const { data: trainerEData, isLoading: isLoadingTrainerEx, refetch: refetchTrainerEx } = useTrainerWorkoutPlanDayExercises(activeDayId);
+
+  const isTrainerPlan = isTrainer === 'true' || (!customerDayData && !!trainerDayData);
+  const dayData = isTrainerPlan ? trainerDayData : customerDayData;
+  const eData = isTrainerPlan ? trainerEData : customerEData;
+  const isLoadingDay = isTrainerPlan ? isLoadingTrainerDay : isLoadingCustomerDay;
+  const isLoadingExercises = isTrainerPlan ? isLoadingTrainerEx : isLoadingCustomerEx;
+
   const { currentWeekNumber } = useCurrentPlanWeek();
 
   useEffect(() => {
@@ -28,7 +54,15 @@ export default function WorkoutSession() {
     }
   }, [dayData?.planId, planId]);
 
-  const { data: allDays, isLoading: isLoadingAllDays, refetch: refetchAllDays } = useWorkoutPlanDays(planId || dayData?.planId);
+  const { data: customerAllDays, isLoading: isLoadingCustomerAllDays, refetch: refetchCustomerAllDays } = useWorkoutPlanDays(!isTrainerPlan ? (planId || dayData?.planId) : undefined);
+  const { data: trainerAllDays, isLoading: isLoadingTrainerAllDays, refetch: refetchTrainerAllDays } = useTrainerWorkoutPlanDays(isTrainerPlan ? (planId || dayData?.planId) : undefined);
+
+  const allDays = isTrainerPlan ? trainerAllDays : customerAllDays;
+  const isLoadingAllDays = isTrainerPlan ? isLoadingTrainerAllDays : isLoadingCustomerAllDays;
+
+  const refetchDay = isTrainerPlan ? refetchTrainerDay : refetchCustomerDay;
+  const refetchExercises = isTrainerPlan ? refetchTrainerEx : refetchCustomerEx;
+  const refetchAllDays = isTrainerPlan ? refetchTrainerAllDays : refetchCustomerAllDays;
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -41,7 +75,20 @@ export default function WorkoutSession() {
   }, [refetchDay, refetchExercises, refetchAllDays]);
 
   const exercises = React.useMemo(() => {
-    return eData ? [...eData].sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : [];
+    if (!eData) return [];
+    const checkStretching = (item: any) => {
+      if (item.isStretching) return true;
+      const cat = (item.category || '').toLowerCase();
+      const name = (item.exerciseName || item.name || '').toLowerCase();
+      return cat.includes('stretch') || name.includes('stretch') || name.includes('warmup') || name.includes('warm up') || name.includes('mobility');
+    };
+
+    return [...eData].sort((a: any, b: any) => {
+      const aStretch = checkStretching(a) ? 1 : 0;
+      const bStretch = checkStretching(b) ? 1 : 0;
+      if (aStretch !== bStretch) return bStretch - aStretch;
+      return (a.order || 0) - (b.order || 0);
+    });
   }, [eData]);
 
   const daysList = React.useMemo(() => {
@@ -63,7 +110,19 @@ export default function WorkoutSession() {
         { dayOfWeek: 'Sunday', workoutType: 'Rest', planDayId: '' },
       ];
     } else {
-      sortedDays = [...allDays].filter(d => (d.weekNumber || 1) === currentWeekNumber).sort((a, b) => {
+      const targetWeek = dayData?.weekNumber || currentWeekNumber || 1;
+      let matchingDays = isTrainerPlan
+        ? [...allDays]
+        : [...allDays].filter((d: any) => (d.weekNumber || 1) === targetWeek);
+
+      if (!isTrainerPlan && matchingDays.length === 0) {
+        matchingDays = [...allDays].filter((d: any) => (d.weekNumber || 1) === 1);
+      }
+      if (matchingDays.length === 0) {
+        matchingDays = [...allDays];
+      }
+
+      sortedDays = matchingDays.sort((a, b) => {
         const aVal = dayOrderMap[(a.dayOfWeek || '').toLowerCase()] || 8;
         const bVal = dayOrderMap[(b.dayOfWeek || '').toLowerCase()] || 8;
         return aVal - bVal;
@@ -77,31 +136,68 @@ export default function WorkoutSession() {
       planDayId: d.planDayId,
       isToday: (d.dayOfWeek || '').toLowerCase() === todayStr
     }));
-  }, [allDays, activeDayId]);
+  }, [allDays, activeDayId, dayData?.weekNumber, currentWeekNumber, isTrainerPlan]);
 
   const isLoading = isLoadingDay || isLoadingExercises || isLoadingAllDays;
   const isRestDay = dayData?.workoutType?.toLowerCase() === 'rest' && exercises.length === 0;
-  const isActiveDayToday = daysList.find(d => d.active)?.isToday;
+  const activeDayInList = daysList.find(d => d.active);
+  const isActiveDayToday = activeDayInList ? activeDayInList.isToday : (dayData?.dayOfWeek?.toLowerCase() === new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase());
 
 
   const placeholderExercises = [
-    { name: 'Flat Barbell Bench Press', sets: '4 sets', reps: '8-10 reps', image: { uri: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop' } },
+    { name: 'Flat Barbell Bench Press', sets: '4 sets', reps: '8-10 reps', image: { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' } },
     { name: 'Incline Dumbbell Flyes', sets: '3 sets', reps: '12 reps', image: { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' } },
     { name: 'Chest Press Machine', sets: '3 sets', reps: '10 reps', image: { uri: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop' } },
-    { name: 'Pushups', sets: '3 sets', reps: 'to failure', image: { uri: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop' } },
+    { name: 'Pushups', sets: '3 sets', reps: 'to failure', image: { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' } },
     { name: 'Cable Crossovers', sets: '3 sets', reps: '15 reps', image: { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' } },
   ];
 
-  const getFullVideoUrl = (url?: string | null) => {
+  const getVideoUrlFromItem = (item: any) => {
+    if (!item) return null;
+    if (item.videoUrl) return item.videoUrl;
+    if (item.workout_videos) {
+      let wv = null;
+      if (Array.isArray(item.workout_videos)) {
+        wv = item.workout_videos.find((v: any) => v.gender?.toLowerCase() === userGender);
+        if (!wv) {
+          wv = item.workout_videos.find((v: any) => !v.gender || v.gender?.toLowerCase() === 'all' || v.gender === '');
+        }
+        if (!wv && item.workout_videos.length > 0) {
+          wv = item.workout_videos[0];
+        }
+      } else {
+        wv = item.workout_videos;
+      }
+      if (wv?.videoUrl) return wv.videoUrl;
+    }
+    const imgCandidate = item.image || item.imageUrl;
+    const imgStr = typeof imgCandidate === 'string' ? imgCandidate : (typeof imgCandidate === 'object' && imgCandidate?.uri ? imgCandidate.uri : null);
+    if (imgStr && typeof imgStr === 'string') {
+      const lower = imgStr.toLowerCase();
+      if (lower.includes('workout-videos') || lower.match(/\.(mp4|mov|webm|gif)(\?.*)?$/i)) {
+        return imgStr;
+      }
+    }
+    return null;
+  };
+
+  const getFullVideoUrl = (rawUrl?: any) => {
+    if (!rawUrl) return null;
+    let url = typeof rawUrl === 'object' && rawUrl?.uri ? rawUrl.uri : (typeof rawUrl === 'string' ? rawUrl : null);
     if (!url) return null;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    url = url.trim();
+    if (!url) return null;
+
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('file://') || url.startsWith('data:')) {
+      return url;
+    }
     return supabase.storage.from('workout-videos').getPublicUrl(url).data.publicUrl;
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] pt-12 pb-28 px-4">
+    <View className="flex-1 bg-[#0A0A0A] pt-12 px-4">
       <View className="flex-row items-center mb-6">
-        <Pressable onPress={() => router.back()} className="mr-4">
+        <Pressable onPress={() => router.push('/(customer)/home')} className="mr-4">
           <ArrowLeft size={24} color="#fff" />
         </Pressable>
         <View>
@@ -115,7 +211,7 @@ export default function WorkoutSession() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
@@ -126,7 +222,7 @@ export default function WorkoutSession() {
                 onPress={() => {
                   if (d.planDayId) setActiveDayId(d.planDayId);
                 }}
-                className={`items-center justify-center rounded-2xl w-16 h-20 border ${isLoadingAllDays ? 'bg-[#18181B] border-[#262626] animate-pulse' : d.active ? 'bg-[#DFFF00] border-[#DFFF00]' : d.isToday ? 'bg-[#2A2F0A] border-[#DFFF00]' : 'bg-[#18181B] border-[#262626]'}`}
+                className={`items-center justify-center rounded-2xl w-16 h-20 border ${isLoadingAllDays ? 'bg-[#18181B] border-[#262626]' : d.active ? 'bg-[#DFFF00] border-[#DFFF00]' : d.isToday ? 'bg-[#2A2F0A] border-[#DFFF00]' : 'bg-[#18181B] border-[#262626]'}`}
               >
                 {isLoadingAllDays ? (
                   <>
@@ -147,7 +243,7 @@ export default function WorkoutSession() {
         </ScrollView>
 
         {isLoading ? (
-          <View className="w-32 h-4 bg-[#262626] rounded animate-pulse mb-3 mt-1" />
+          <View className="w-32 h-4 bg-[#262626] rounded mb-3 mt-1" />
         ) : (
           <Text className="text-[#DFFF00] text-xs font-semibold tracking-widest uppercase mb-3 mt-1">
             TODAY • {dayData?.dayOfWeek?.toUpperCase() || 'MONDAY'}
@@ -162,9 +258,9 @@ export default function WorkoutSession() {
             <View>
               {isLoading ? (
                 <>
-                  <View className="w-24 h-6 bg-[#262626] rounded animate-pulse mb-2" />
-                  <View className="w-32 h-3 bg-[#262626] rounded animate-pulse mb-2" />
-                  <View className="w-32 h-3 bg-[#262626] rounded animate-pulse" />
+                  <View className="w-24 h-6 bg-[#262626] rounded mb-2" />
+                  <View className="w-32 h-3 bg-[#262626] rounded mb-2" />
+                  <View className="w-32 h-3 bg-[#262626] rounded" />
                 </>
               ) : (
                 <>
@@ -174,9 +270,11 @@ export default function WorkoutSession() {
                       return text.charAt(0).toUpperCase() + text.slice(1);
                     })()}
                   </Text>
-                  <Text className="text-[#8E8E8E] text-xs mb-1">Focus: Pectorals and Triceps</Text>
+                  <Text className="text-[#8E8E8E] text-xs mb-1">
+                    Focus: {dayData?.workoutType ? `${dayData.workoutType.charAt(0).toUpperCase() + dayData.workoutType.slice(1)} Target` : 'General Fitness'}
+                  </Text>
                   <Text className="text-[#8E8E8E] text-xs flex-row items-center">
-                    ⏱ {dayData?.durationMinutes || 50} min  •  📋 {exercises.length || 5} Exercises
+                    ⏱ {dayData?.durationMinutes || 45} min  •  📋 {exercises.length} Exercises
                   </Text>
                 </>
               )}
@@ -185,11 +283,16 @@ export default function WorkoutSession() {
           <Star size={20} color="#DFFF00" weight="fill" />
         </View>
 
+        {/* Rest Day view */}
         {isRestDay ? (
-          <View className="items-center justify-center py-12 mb-6">
-            <Text className="text-[60px] mb-4">🧘</Text>
-            <Text className="text-white text-xl font-semibold mb-2">Rest Day</Text>
-            <Text className="text-[#8E8E8E] text-sm text-center px-4">Take it easy, allow your muscles to recover and prepare for the next workout.</Text>
+          <View className="bg-[#18181B] rounded-3xl p-6 border border-[#262626] items-center text-center my-4">
+            <View className="w-16 h-16 rounded-full bg-[#242A00] items-center justify-center mb-4">
+              <Barbell size={32} color="#DFFF00" />
+            </View>
+            <Text className="text-white text-xl font-bold mb-2">Rest & Recovery Day</Text>
+            <Text className="text-[#8E8E8E] text-center text-sm mb-4">
+              No exercises planned for today. Take time to rest, hydrate, and stretch.
+            </Text>
           </View>
         ) : (
           <>
@@ -198,7 +301,7 @@ export default function WorkoutSession() {
             <View className="gap-y-3 mb-6">
               {isLoading ? (
                 Array(5).fill(0).map((_, index) => (
-                  <View key={index} className="flex-row items-center bg-[#18181B] rounded-2xl p-3 border border-[#262626] animate-pulse">
+                  <View key={index} className="flex-row items-center bg-[#18181B] rounded-2xl p-3 border border-[#262626]">
                     <View className="w-[50px] h-[50px] rounded-[10px] mr-3 bg-[#262626]" />
                     <View className="w-5 h-5 rounded-full border border-[#262626] bg-[#262626] mr-3" />
                     <View className="flex-1 mr-2">
@@ -210,7 +313,9 @@ export default function WorkoutSession() {
                 ))
               ) : (
                 (exercises.length > 0 ? exercises : placeholderExercises).map((item, index) => {
-                  const fullVideoUrl = getFullVideoUrl(item.videoUrl);
+                  const rawVideoUrl = getVideoUrlFromItem(item);
+                  const fullVideoUrl = getFullVideoUrl(rawVideoUrl);
+                  const isGif = fullVideoUrl ? (fullVideoUrl.toLowerCase().includes('.gif') || fullVideoUrl.toLowerCase().includes('format=gif')) : false;
 
                   return (
                     <Pressable
@@ -225,7 +330,7 @@ export default function WorkoutSession() {
                       className="flex-row items-center bg-[#18181B] rounded-2xl p-3 border border-[#262626]"
                     >
                       {fullVideoUrl ? (
-                        fullVideoUrl.toLowerCase().endsWith('.gif') ? (
+                        isGif ? (
                           <Image
                             source={{ uri: fullVideoUrl }}
                             style={{ width: 50, height: 50, borderRadius: 10, marginRight: 12 }}
@@ -245,7 +350,7 @@ export default function WorkoutSession() {
                         )
                       ) : (
                         <Image
-                          source={item.image || { uri: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop' }}
+                          source={typeof item.image === 'string' && item.image && !item.image.includes('1571019614242') ? { uri: item.image } : (item.image && typeof item.image === 'object' && item.image.uri ? item.image : { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' })}
                           style={{ width: 50, height: 50, borderRadius: 10, marginRight: 12 }}
                         />
                       )}
@@ -254,12 +359,13 @@ export default function WorkoutSession() {
                       </View>
 
                       <View className="flex-1 mr-2">
-                        <Text className="text-white text-sm font-semibold mb-1">
+                        <Text className="text-white text-base font-semibold mb-0.5">
                           {(() => {
                             const name = item.exerciseName || item.name || '';
                             return name.charAt(0).toUpperCase() + name.slice(1);
                           })()}
                         </Text>
+                        <Text className="text-[#8E8E8E] text-xs">{item.category}</Text>
                       </View>
 
                       <CaretRight size={16} color="#555" />

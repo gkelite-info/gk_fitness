@@ -280,7 +280,7 @@ export default function CustomerWorkout() {
                       })()}
                     </Text>
 
-                    {todayWorkout?.type !== 'Rest' && (
+                    {todayWorkout?.type?.toLowerCase() !== 'rest' && (
                       <>
                         <View className='flex-row items-center gap-1'>
                           <ClockIcon size={15} color='#8E8E8E' />
@@ -299,7 +299,8 @@ export default function CustomerWorkout() {
                                   dayId: todayWorkout.dayId,
                                   workoutType: todayWorkout.type,
                                   duration: todayWorkout.duration,
-                                  exercisesCount: todayWorkout.exercisesCount || 0
+                                  exercisesCount: todayWorkout.exercisesCount || 0,
+                                  isTrainer: planTab === 'trainer' ? 'true' : 'false'
                                 }
                               });
                             }
@@ -311,12 +312,12 @@ export default function CustomerWorkout() {
                         </Pressable>
                       </>
                     )}
-                    {todayWorkout?.type === 'Rest' && (
+                    {todayWorkout?.type?.toLowerCase() === 'rest' && (
                       <Text className='text-[#8E8E8E] text-sm mt-1'>Take it easy and recover for tomorrow.</Text>
                     )}
                   </View>
                   <View className='w-[50%] items-end justify-end'>
-                    {todayWorkout?.type !== 'Rest' && (
+                    {todayWorkout?.type?.toLowerCase() !== 'rest' && (
                       <Image
                         source={require('../../assets/fit-1.png')}
                         style={{ width: 160, height: 160, marginRight: -10, marginBottom: -10 }}
@@ -500,27 +501,27 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
 
   const placeholderRecommendedMap: Record<string, any[]> = {
     Chest: [
-      { exerciseName: 'Flat Barbell Bench Press', category: 'Chest', reps: '8-10 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Flat Barbell Bench Press', category: 'Chest', reps: '8-10 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Incline Dumbbell Flyes', category: 'Chest', reps: '12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Chest Press Machine', category: 'Chest', reps: '10 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: null },
-      { exerciseName: 'Pushups', category: 'Chest', reps: 'to failure', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Pushups', category: 'Chest', reps: 'to failure', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Cable Crossovers', category: 'Chest', reps: '15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
     ],
     Back: [
-      { exerciseName: 'Lat Pulldown', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Lat Pulldown', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Seated Row', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Single Arm Row', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
-      { exerciseName: 'Pull Ups', category: 'Back', reps: 'to failure', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Pull Ups', category: 'Back', reps: 'to failure', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Deadlift', category: 'Back', reps: '8 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Hyper-extensions', category: 'Back', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'T Bar Row', category: 'Back', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
     ],
     Shoulders: [
-      { exerciseName: 'Shoulder Press', category: 'Shoulders', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Shoulder Press', category: 'Shoulders', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Lateral Raises', category: 'Shoulders', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
     ],
     Legs: [
-      { exerciseName: 'Squats', category: 'Legs', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Squats', category: 'Legs', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Leg Press', category: 'Legs', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Romanian Deadlift', category: 'Legs', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: null },
     ],

@@ -38,7 +38,7 @@ export function CustomTabBar({
   const { options } = descriptors[focusedRoute.key];
   const isTabBarHidden = (options.tabBarStyle as any)?.display === 'none';
 
-  const isWorkoutScreen = focusedRoute.name === 'exercise-detail' || focusedRoute.name === 'workout-session' || focusedRoute.name === 'workout-countdown';
+  const isWorkoutScreen = focusedRoute.name === 'exercise-detail' || focusedRoute.name === 'workout-countdown';
 
   if (isFocusedOnboarding || isFocusedCommunity || isTabBarHidden || isWorkoutScreen) {
     return null;

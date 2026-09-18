@@ -14,10 +14,17 @@ import { useTrainerWorkoutPlanDayById } from '@/hooks/trainerWorkoutPlans/useTra
 import { usePaginatedTrainerWorkoutPlanDayExercises } from '@/hooks/trainerWorkoutPlans/usePaginatedTrainerWorkoutPlanDayExercises';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useQueryClient } from '@tanstack/react-query';
+import { useUser } from '@/context/UserContext';
+import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 
 export default function ViewDay() {
   const { dayId, isTrainer } = useLocalSearchParams<{ dayId: string; isTrainer?: string }>();
   const isTrainerPlan = isTrainer === 'true';
+
+  const userContext = useUser();
+  const userId = userContext.userId;
+  const { data: customerProfileData } = useCustomerProfile(userId);
+  const userGender = customerProfileData?.customerData?.gender?.toLowerCase() || 'all';
 
   const { data: customerDayData, isLoading: isLoadingCustomerDay } = useWorkoutPlanDayById(!isTrainerPlan ? dayId : undefined);
   const { data: trainerDayData, isLoading: isLoadingTrainerDay } = useTrainerWorkoutPlanDayById(isTrainerPlan ? dayId : undefined);
@@ -29,7 +36,7 @@ export default function ViewDay() {
   const [limit] = useState(10);
   const [accumulatedExercises, setAccumulatedExercises] = useState<any[]>([]);
 
-  const { data: customerEData, isLoading: isLoadingCustomerEx, isFetching: isFetchingCustomerEx } = usePaginatedWorkoutPlanDayExercises(!isTrainerPlan ? dayId : undefined, page, limit);
+  const { data: customerEData, isLoading: isLoadingCustomerEx, isFetching: isFetchingCustomerEx } = usePaginatedWorkoutPlanDayExercises(!isTrainerPlan ? dayId : undefined, page, limit, userGender);
   const { data: trainerEData, isLoading: isLoadingTrainerEx, isFetching: isFetchingTrainerEx } = usePaginatedTrainerWorkoutPlanDayExercises(isTrainerPlan ? dayId : undefined, page, limit);
 
   const eData = isTrainerPlan ? trainerEData : customerEData;
@@ -69,7 +76,20 @@ export default function ViewDay() {
   }, [eData, page]);
 
   const exercises = React.useMemo(() => {
-    return accumulatedExercises ? [...accumulatedExercises].sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : [];
+    if (!accumulatedExercises) return [];
+    const checkStretching = (item: any) => {
+      if (item.isStretching) return true;
+      const cat = (item.category || '').toLowerCase();
+      const name = (item.exerciseName || item.name || '').toLowerCase();
+      return cat.includes('stretch') || name.includes('stretch') || name.includes('warmup') || name.includes('warm up') || name.includes('mobility');
+    };
+
+    return [...accumulatedExercises].sort((a: any, b: any) => {
+      const aStretch = checkStretching(a) ? 1 : 0;
+      const bStretch = checkStretching(b) ? 1 : 0;
+      if (aStretch !== bStretch) return bStretch - aStretch;
+      return (a.order || 0) - (b.order || 0);
+    });
   }, [accumulatedExercises]);
 
   const isLoading = isLoadingDay || isLoadingExercises;
@@ -186,19 +206,58 @@ export default function ViewDay() {
           ListFooterComponent={renderFooter}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           renderItem={({ item, index }) => {
-            const fullVideoUrl = ((url?: string | null) => {
+            const getRawVideoUrl = (it: any) => {
+              if (!it) return null;
+              if (it.videoUrl) return it.videoUrl;
+              if (it.workout_videos) {
+                let wv = null;
+                if (Array.isArray(it.workout_videos)) {
+                  wv = it.workout_videos.find((v: any) => v.gender?.toLowerCase() === userGender);
+                  if (!wv) {
+                    wv = it.workout_videos.find((v: any) => !v.gender || v.gender?.toLowerCase() === 'all' || v.gender === '');
+                  }
+                  if (!wv && it.workout_videos.length > 0) {
+                    wv = it.workout_videos[0];
+                  }
+                } else {
+                  wv = it.workout_videos;
+                }
+                if (wv?.videoUrl) return wv.videoUrl;
+              }
+              const imgCandidate = it.image || it.imageUrl;
+              const imgStr = typeof imgCandidate === 'string' ? imgCandidate : (typeof imgCandidate === 'object' && imgCandidate?.uri ? imgCandidate.uri : null);
+              if (imgStr && typeof imgStr === 'string') {
+                const lower = imgStr.toLowerCase();
+                if (lower.includes('workout-videos') || lower.match(/\.(mp4|mov|webm|gif)(\?.*)?$/i)) {
+                  return imgStr;
+                }
+              }
+              return null;
+            };
+
+            const rawVideoUrl = getRawVideoUrl(item);
+            const fullVideoUrl = ((rawUrl?: any) => {
+              if (!rawUrl) return null;
+              let url = typeof rawUrl === 'object' && rawUrl?.uri ? rawUrl.uri : (typeof rawUrl === 'string' ? rawUrl : null);
               if (!url) return null;
-              if (url.startsWith('http://') || url.startsWith('https://')) return url;
+              url = url.trim();
+              if (!url) return null;
+
+              if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('file://') || url.startsWith('data:')) {
+                return url;
+              }
               return supabase.storage.from('workout-videos').getPublicUrl(url).data.publicUrl;
-            })(item.videoUrl);
+            })(rawVideoUrl);
+
+            const isGif = fullVideoUrl ? (fullVideoUrl.toLowerCase().includes('.gif') || fullVideoUrl.toLowerCase().includes('format=gif')) : false;
 
             return (
               <Pressable
-                onPress={() => openVideo(item.exerciseName || item.name)}
+                onPress={() => openVideo(item.exerciseName || item.name, rawVideoUrl)}
                 className="flex-row items-center bg-[#18181B] rounded-2xl p-3 border border-[#262626] active:opacity-70"
               >
                 {fullVideoUrl ? (
-                  fullVideoUrl.toLowerCase().endsWith('.gif') ? (
+                  isGif ? (
                     <Image
                       source={{ uri: fullVideoUrl }}
                       style={{ width: 50, height: 50, borderRadius: 10, marginRight: 12 }}
@@ -218,7 +277,7 @@ export default function ViewDay() {
                   )
                 ) : (
                   <Image
-                    source={typeof item.image === 'string' && item.image ? { uri: item.image } : (item.image || { uri: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop' })}
+                    source={typeof item.image === 'string' && item.image && !item.image.includes('1571019614242') ? { uri: item.image } : (item.image && typeof item.image === 'object' && item.image.uri ? item.image : { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' })}
                     style={{ width: 50, height: 50, borderRadius: 10, marginRight: 12 }}
                   />
                 )}

@@ -327,7 +327,7 @@ export default function EditWorkoutDay() {
                             )
                           ) : (
                             <Image
-                              source={typeof ex.image === 'string' && ex.image ? { uri: ex.image } : (ex.image || { uri: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop' })}
+                              source={typeof ex.image === 'string' && ex.image && !ex.image.includes('1571019614242') ? { uri: ex.image } : (ex.image && typeof ex.image === 'object' && ex.image.uri ? ex.image : { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' })}
                               style={{ width: 50, height: 50, borderRadius: 10, marginRight: 12 }}
                             />
                           )}
@@ -433,7 +433,7 @@ export default function EditWorkoutDay() {
                   )
                 ) : (
                   <Image
-                    source={{ uri: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=200&auto=format&fit=crop' }}
+                    source={{ uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' }}
                     className="w-full h-32"
                     resizeMode="cover"
                   />

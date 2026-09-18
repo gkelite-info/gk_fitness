@@ -10,6 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCustomerDashboardData } from '@/hooks/customerWorkouts/useCustomerDashboardData';
+import { useTrainerDashboardData } from '@/hooks/trainerWorkoutPlans/useTrainerDashboardData';
 import { useCustomerOnboardingStatus, sessionSkippedUsers } from '@/hooks/auth/useCustomerOnboardingStatus';
 import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
@@ -39,7 +40,13 @@ export default function CustomerHome() {
   const firstName = name?.split(' ')[0] || 'Customer';
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const { data: dashboardData, isLoading: isLoadingDashboard, refetch: refetchDashboard } = useCustomerDashboardData(userId);
+  const { data: customerDashboardData, isLoading: isLoadingCustomerDash, refetch: refetchCustomerDash } = useCustomerDashboardData(userId);
+  const { data: trainerDashboardData, isLoading: isLoadingTrainerDash, refetch: refetchTrainerDash } = useTrainerDashboardData(userId);
+
+  const isTrainerPlan = !customerDashboardData?.hasPlan && (trainerDashboardData?.hasPlan ?? false);
+  const dashboardData = isTrainerPlan ? trainerDashboardData : customerDashboardData;
+  const isLoadingDashboard = isLoadingCustomerDash || isLoadingTrainerDash;
+
   const { data: streakData } = useWorkoutStreak();
   const { data: weeklyStats, refetch: refetchWeeklyStats } = useWeeklyStats(userId);
   const { data: onboardingStatus, isLoading: isCheckingOnboarding, refetch: refetchOnboarding } = useCustomerOnboardingStatus(userId);
@@ -125,7 +132,8 @@ export default function CustomerHome() {
     setRefreshing(true);
     try {
       await Promise.all([
-        refetchDashboard(),
+        refetchCustomerDash(),
+        refetchTrainerDash(),
         refetchOnboarding(),
         refetchStats(),
         fetchMembershipInfo(),
@@ -136,7 +144,7 @@ export default function CustomerHome() {
     } finally {
       setRefreshing(false);
     }
-  }, [refetchDashboard, refetchOnboarding, refetchStats, fetchMembershipInfo]);
+  }, [refetchCustomerDash, refetchTrainerDash, refetchOnboarding, refetchStats, fetchMembershipInfo, refetchWeeklyStats]);
 
   const waterGoal = stats?.waterGoalML || 2500;
   const waterTotal = stats?.totalWaterML || 0;
@@ -283,25 +291,31 @@ export default function CustomerHome() {
                 </View>
               </View>
 
-              <Pressable
-                onPress={() => {
-                  router.push({
-                    pathname: '/(customer)/workout-countdown',
-                    params: {
-                      dayId: todayWorkoutDayId,
-                      workoutType: todayWorkoutType,
-                      duration: todayDuration,
-                      exercisesCount: todayExercisesCount
-                    }
-                  });
-                }}
-                className="bg-[#D7FF00] rounded-full py-3 px-5 flex-row items-center justify-center self-start active:opacity-90"
-              >
-                <Text className="text-black font-semibold text-sm mr-2">Start Workout</Text>
-                <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
-                  <ArrowRight size={14} color="#000000" weight="bold" />
-                </View>
-              </Pressable>
+              {todayWorkoutType.toLowerCase() !== 'rest' && (
+                <Pressable
+                  onPress={() => {
+                    router.push({
+                      pathname: '/(customer)/workout-countdown',
+                      params: {
+                        dayId: todayWorkoutDayId,
+                        workoutType: todayWorkoutType,
+                        duration: todayDuration,
+                        exercisesCount: todayExercisesCount,
+                        isTrainer: isTrainerPlan ? 'true' : 'false'
+                      }
+                    });
+                  }}
+                  className="bg-[#D7FF00] rounded-full py-3 px-5 flex-row items-center justify-center self-start active:opacity-90"
+                >
+                  <Text className="text-black font-semibold text-sm mr-2">Start Workout</Text>
+                  <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
+                    <ArrowRight size={14} color="#000000" weight="bold" />
+                  </View>
+                </Pressable>
+              )}
+              {todayWorkoutType.toLowerCase() === 'rest' && (
+                <Text className="text-[#8E8E93] text-sm mt-1">Take it easy and recover for tomorrow.</Text>
+              )}
             </>
           ) : (
             <>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Modal, ActivityIndicator } from 'react-native';
-import { X, Megaphone } from 'phosphor-react-native';
+import { X, Megaphone, Gift } from 'phosphor-react-native';
 import { GymAnnouncementAttributes } from '@/helpers/gymAnnouncements/gymAnnouncementsHelper';
 
 interface AnnouncementsModalProps {
@@ -51,7 +51,11 @@ export function AnnouncementsModal({ visible, onClose, announcements, isLoading 
                 return (
                   <View key={item.gymAnnouncementId} className="bg-[#1C1C1E] rounded-2xl p-4 flex-row mb-4">
                     <View className="w-12 h-12 rounded-full bg-[#2B3012] items-center justify-center mt-1">
-                      <Megaphone size={20} color="#CCF200" />
+                      {item.announcementType === 'BIRTHDAY' ? (
+                        <Gift size={20} color="#CCF200" />
+                      ) : (
+                        <Megaphone size={20} color="#CCF200" />
+                      )}
                     </View>
                     <View className="flex-1 ml-4 justify-center">
                       <Text className="text-[#E5E5E7] text-[15px] leading-5 font-medium mb-2">{item.message}</Text>

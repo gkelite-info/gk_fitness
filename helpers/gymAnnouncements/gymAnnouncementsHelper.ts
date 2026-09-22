@@ -12,6 +12,7 @@ export interface GymAnnouncementAttributes {
   createdAt?: string | Date;
   updatedAt?: string | Date;
   deletedAt?: string | Date | null;
+  announcementType?: 'BIRTHDAY' | 'REGULAR';
 }
 
 export interface SaveGymAnnouncementParams {

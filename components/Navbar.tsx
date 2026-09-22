@@ -6,6 +6,7 @@ import { Icon } from '@/components/nativewindui/Icon';
 import { Text } from '@/components/nativewindui/Text';
 import { useState } from 'react';
 import { useRealtimeAnnouncements } from '@/hooks/gymAnnouncements/useRealtimeAnnouncements';
+import { useBirthdayAnnouncements } from '@/hooks/gymAnnouncements/useBirthdayAnnouncements';
 import { AnnouncementsModal } from '@/components/AnnouncementsModal';
 import { BellRingingIcon, UsersThree, CaretLeft } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
@@ -20,7 +21,13 @@ export function Navbar() {
   const topPadding = insets.top;
 
   const { announcements, loading, hasNew, clearHasNew } = useRealtimeAnnouncements(gymId);
+  const { birthdayAnnouncements, isLoadingBirthday } = useBirthdayAnnouncements(gymId);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [hasViewedBirthdays, setHasViewedBirthdays] = useState(false);
+
+  const combinedAnnouncements = [...birthdayAnnouncements, ...announcements];
+  const combinedHasNew = hasNew || (birthdayAnnouncements.length > 0 && !hasViewedBirthdays);
+  const combinedLoading = loading || isLoadingBirthday;
 
   const isProfilePage = pathname === '/community/profile' ? false : pathname.includes('/profile');
   if (isProfilePage) {
@@ -92,10 +99,11 @@ export function Navbar() {
             onPress={() => {
               setIsModalVisible(true);
               clearHasNew();
+              setHasViewedBirthdays(true);
             }}
           >
             <BellRingingIcon size={24} color='#ffffff' />
-            {hasNew && (
+            {combinedHasNew && (
               <View className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border border-[#0D0D0D]" />
             )}
           </Pressable>
@@ -104,8 +112,8 @@ export function Navbar() {
       <AnnouncementsModal
         visible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
-        announcements={announcements}
-        isLoading={loading}
+        announcements={combinedAnnouncements}
+        isLoading={combinedLoading}
       />
     </View>
   );

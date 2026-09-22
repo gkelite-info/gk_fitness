@@ -23,6 +23,8 @@ export interface GymTrainerAttributes {
   bio?: string | null;
   languagesSpeaks: string[];
   createdBy: string;
+  personalTrainingFee?: number | null;
+  groupTrainingFee?: number | null;
   is_Active?: boolean;
   is_deleted?: boolean;
   createdAt?: string;
@@ -65,6 +67,8 @@ export interface SaveGymTrainerParams {
   bio?: string | null;
   languagesSpeaks?: string[] | string;
   createdBy: string;
+  personalTrainingFee?: number | null;
+  groupTrainingFee?: number | null;
   shiftPreference?: 'morning' | 'evening' | 'both' | string;
   workingDays?: string[];
   is_Active?: boolean;
@@ -343,6 +347,8 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
       bio: params.bio ? params.bio.trim() : null,
       languagesSpeaks: languagesArr,
       createdBy: params.createdBy,
+      personalTrainingFee: params.personalTrainingFee ?? null,
+      groupTrainingFee: params.groupTrainingFee ?? null,
       is_Active: params.is_Active ?? true,
       is_deleted: false,
       updatedAt: now,

@@ -2,7 +2,7 @@
   "expo": {
     "name": "GK-Gymlife",
     "slug": "gk-fitness",
-    "owner": "ashishgkelite",
+    "owner": "gk-elite-info",
     "version": "1.0.1",
     "scheme": "gk-fitness",
     "platforms": [
@@ -88,6 +88,10 @@
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
+        "android.permission.health.READ_STEPS",
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
         "android.permission.health.READ_STEPS"
       ]
     },
@@ -99,14 +103,14 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
+        "projectId": "5d58a773-7b20-402a-b488-fd27bccbc462"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
+      "url": "https://u.expo.dev/5d58a773-7b20-402a-b488-fd27bccbc462"
     }
   }
 }

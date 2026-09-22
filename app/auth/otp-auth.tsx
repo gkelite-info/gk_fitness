@@ -22,8 +22,6 @@ import {
   Heart,
   CheckCircle,
   User,
-  Phone,
-  MapPin,
   Building,
   CaretLeft,
   Info,
@@ -35,7 +33,7 @@ import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 import { getSelectedGym, SelectedGym, clearSelectedGym } from '@/helpers/tenantHelper';
 import * as Crypto from 'expo-crypto';
-import { fetchGymLeadByCredentials, fetchGymLeadByIdentifier } from '@/helpers/gymLeads/gymLeadsHelper';
+import { fetchGymLeadByIdentifier } from '@/helpers/gymLeads/gymLeadsHelper';
 import { fetchUserAndRoleProfile } from '@/helpers/user/userProfileHelper';
 import { fetchGymById } from '@/helpers/gym/gymHelper';
 import { fetchGlobalTrainerLeadByIdentifier } from '@/helpers/globalTrainerLeads/globalTrainerLeadsHelper';
@@ -49,8 +47,11 @@ export default function OtpAuthScreen() {
   const [loginMethod /* , setLoginMethod */] = useState<'email' | 'phone'>('email');
 
   const [email, setEmail] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [name, setName] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [phone, setPhone] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
 
@@ -71,6 +72,7 @@ export default function OtpAuthScreen() {
 
   const isMounted = React.useRef(true);
   const hasNavigated = React.useRef(false);
+  const isManualLoginRef = React.useRef(false);
 
   React.useEffect(() => {
     isMounted.current = true;
@@ -78,7 +80,6 @@ export default function OtpAuthScreen() {
       isMounted.current = false;
     };
   }, []);
-
   React.useEffect(() => {
     const fetchGym = async () => {
       const gym = await getSelectedGym();
@@ -91,7 +92,7 @@ export default function OtpAuthScreen() {
 
   React.useEffect(() => {
     const checkAndNavigate = async () => {
-      if (!userLoading && !hasNavigated.current) {
+      if (!userLoading && !hasNavigated.current && !isManualLoginRef.current) {
         if (isGymSuspended) {
           await supabase.auth.signOut();
           if (isMounted.current) {
@@ -109,6 +110,7 @@ export default function OtpAuthScreen() {
   }, [role, userLoading, isGymSuspended]);
 
   const handleAuth = async () => {
+    isManualLoginRef.current = true;
     /*
     if (loginMethod === 'phone') {
       if (!phone.trim()) {
@@ -157,6 +159,74 @@ export default function OtpAuthScreen() {
 
     try {
       if (purpose === 'login') {
+        // Clear any existing active session to prevent session leak between users
+        await supabase.auth.signOut();
+
+        // 1. PRE-CHECK: Validate role by email BEFORE creating a Supabase session
+        if (typeId) {
+          try {
+            let preIsOwner = false;
+            let preIsCustomer = false;
+            let preIsTrainer = false;
+            let preIsGlobalTrainer = false;
+            let preUserFound = false;
+
+            const { data: uRec } = await supabase
+              .from('users')
+              .select('userId, role')
+              .eq('email', targetEmail)
+              .maybeSingle();
+
+            if (uRec) {
+              preUserFound = true;
+              if (uRec.role === 'owner') preIsOwner = true;
+              if (uRec.role === 'customer') preIsCustomer = true;
+              if (uRec.role === 'trainer') preIsTrainer = true;
+              if (uRec.role === 'global_trainer') preIsGlobalTrainer = true;
+            }
+
+            const [oRes, cRes, tRes, gtRes] = await Promise.all([
+              supabase.from('gym_owners').select('gymOwnerId, is_deleted').eq('ownerEmail', targetEmail).maybeSingle(),
+              supabase.from('gym_customers').select('customerId, is_deleted').eq('email', targetEmail).maybeSingle(),
+              supabase.from('gym_trainers').select('gymTrainerId, is_deleted').eq('email', targetEmail).maybeSingle(),
+              supabase.from('global_trainers').select('globalTrainerId, is_deleted').eq('email', targetEmail).maybeSingle(),
+            ]);
+
+            if (oRes.data && oRes.data.is_deleted !== true) preIsOwner = true;
+            if (cRes.data && cRes.data.is_deleted !== true) preIsCustomer = true;
+            if (tRes.data && tRes.data.is_deleted !== true) preIsTrainer = true;
+            if (gtRes.data && gtRes.data.is_deleted !== true) preIsGlobalTrainer = true;
+
+            if (preUserFound || preIsOwner || preIsCustomer || preIsTrainer || preIsGlobalTrainer) {
+              let preRoleValid = false;
+              if (typeId === 'individual') {
+                if (!preIsOwner && !preIsCustomer && !preIsTrainer && !preIsGlobalTrainer) {
+                  preRoleValid = true;
+                }
+              } else if (typeId === 'owner') {
+                if (preIsOwner) preRoleValid = true;
+              } else if (typeId === 'customer') {
+                if (preIsCustomer) preRoleValid = true;
+              } else if (typeId === 'gym_trainer') {
+                if (preIsTrainer) preRoleValid = true;
+              } else if (typeId === 'global_trainer') {
+                if (preIsGlobalTrainer) preRoleValid = true;
+              } else {
+                preRoleValid = true;
+              }
+
+              if (!preRoleValid) {
+                toast.error('Invalid credentials or check role');
+                setLoading(false);
+                isManualLoginRef.current = false;
+                return;
+              }
+            }
+          } catch {
+            // Ignore pre-check failures and continue to post-check
+          }
+        }
+
         let authData: any = null;
         let authError: any = null;
 
@@ -180,30 +250,27 @@ export default function OtpAuthScreen() {
             } else {
               authError = secondAttempt.error;
             }
-          } catch (cryptoErr) {
+          } catch {
             authError = firstAttempt.error;
           }
         }
 
         if (authError) {
-          let errorMessage = authError.message || 'Unable to sign in.';
-          if (errorMessage === 'Invalid login credentials') {
-            errorMessage = 'Invalid login credentials';
-          } else if (errorMessage.includes('sql:') || errorMessage.includes('converting NULL')) {
-            errorMessage = 'Your account is currently recovering. Please try again or contact support.';
-          }
+          console.error(authError.message || 'Unable to sign in.');
           if (isMounted.current) {
-            toast.error(errorMessage);
+            toast.error('Invalid credentials or check role');
             setLoading(false);
           }
+          isManualLoginRef.current = false;
           return;
         }
 
         if (authData?.user?.id) {
+          const userId = authData.user.id;
           const { data: profile } = await supabase
             .from('users')
             .select('role')
-            .eq('userId', authData.user.id)
+            .eq('userId', userId)
             .maybeSingle();
 
           let fetchedRole = profile?.role;
@@ -213,21 +280,21 @@ export default function OtpAuthScreen() {
             const userPhone = metadata.phone || (phone ? '+91' + phone.replace(/[^0-9]/g, '') : '');
             try {
               await createUser({
-                userId: authData.user.id,
+                userId: userId,
                 name: metadata.name || name.trim() || 'User',
                 email: authData.user.email || targetEmail,
                 phone: userPhone,
                 address: metadata.address || address.trim() || '',
                 role: metadata.role || 'customer',
               });
-            } catch (insertError) {
+            } catch {
               // Ignore profile insert errors
             }
             fetchedRole = metadata.role || 'customer';
           }
 
           try {
-            const fullProfile = await fetchUserAndRoleProfile(authData.user.id, targetEmail);
+            const fullProfile = await fetchUserAndRoleProfile(userId, targetEmail);
             if (fullProfile?.gymId) {
               const gymDetails = await fetchGymById(fullProfile.gymId);
               if (gymDetails && gymDetails.isActive === false) {
@@ -236,6 +303,7 @@ export default function OtpAuthScreen() {
                   toast.error('Your gym is inactive. Please contact support.');
                   setLoading(false);
                 }
+                isManualLoginRef.current = false;
                 return;
               }
             }
@@ -316,7 +384,7 @@ export default function OtpAuthScreen() {
               address: address.trim(),
               role: 'customer',
             });
-          } catch (insertError) {
+          } catch {
             // Ignore signup profile error
           }
         }
@@ -335,6 +403,7 @@ export default function OtpAuthScreen() {
       if (isMounted.current) {
         setLoading(false);
       }
+      isManualLoginRef.current = false;
     }
   };
 
@@ -460,7 +529,7 @@ export default function OtpAuthScreen() {
           toast.error(`No application found for this ${identifierType}.`);
         }
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to check status.');
     } finally {
       setStatusLoading(false);
@@ -746,7 +815,7 @@ export default function OtpAuthScreen() {
                   }
                 }} className="mb-4">
                   <Text className="text-[#8E8E93] text-sm">
-                    Don't have an account? <Text className="text-[#C3F400] font-semibold">Sign Up</Text>
+                    Don&apos;t have an account? <Text className="text-[#C3F400] font-semibold">Sign Up</Text>
                   </Text>
                 </Pressable>
               )}

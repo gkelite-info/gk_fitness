@@ -15,6 +15,7 @@ export interface SaveGymCustomerParams {
   relationship: string;
   emergencyContactNumber: string;
   createdBy: string;
+  userId?: string | null;
   is_Active?: boolean;
 }
 
@@ -92,6 +93,9 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
   let targetUserId = params.customerId;
   let isNewUser = false;
 
+  const { data: sessionData } = await supabase.auth.getSession();
+  const originalSession = sessionData?.session;
+
   try {
     if (!targetUserId) {
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -107,7 +111,20 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
       });
 
       if (authError && !authError.message?.toLowerCase().includes('already registered')) {
+        if (originalSession) {
+          await supabase.auth.setSession({
+            access_token: originalSession.access_token,
+            refresh_token: originalSession.refresh_token,
+          });
+        }
         throw authError;
+      }
+
+      if (originalSession) {
+        await supabase.auth.setSession({
+          access_token: originalSession.access_token,
+          refresh_token: originalSession.refresh_token,
+        });
       }
 
       targetUserId = authData?.user?.id;
@@ -170,6 +187,7 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
       relationship: params.relationship.trim(),
       emergencyContactNumber: params.emergencyContactNumber.trim(),
       createdBy: params.createdBy,
+      userId: params.userId || targetUserId,
       is_Active: params.is_Active ?? true,
       is_deleted: false,
       updatedAt: now,

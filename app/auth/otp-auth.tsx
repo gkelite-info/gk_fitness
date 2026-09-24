@@ -100,6 +100,41 @@ export default function OtpAuthScreen() {
             setLoading(false);
           }
         } else if (role) {
+          // Validate gym membership before auto-navigating for gym-bound roles
+          const normalizedRole = role.trim().toLowerCase();
+          if (normalizedRole === 'customer' || normalizedRole === 'trainer' || normalizedRole === 'owner') {
+            const autoSelectedGym = await getSelectedGym();
+            if (autoSelectedGym?.gymId) {
+              const { data: { session } } = await supabase.auth.getSession();
+              const autoUserId = session?.user?.id;
+              if (autoUserId) {
+                let isAuthorizedForGym = false;
+
+                try {
+                  const [oRes, cRes, tRes] = await Promise.all([
+                    supabase.from('gym_owners').select('gymId').eq('userId', autoUserId).eq('is_deleted', false).maybeSingle(),
+                    supabase.from('gym_customers').select('gymId').eq('userId', autoUserId).eq('is_deleted', false).maybeSingle(),
+                    supabase.from('gym_trainers').select('gymId').eq('userId', autoUserId).eq('is_deleted', false).maybeSingle(),
+                  ]);
+
+                  if (oRes.data?.gymId === autoSelectedGym.gymId) isAuthorizedForGym = true;
+                  if (cRes.data?.gymId === autoSelectedGym.gymId) isAuthorizedForGym = true;
+                  if (tRes.data?.gymId === autoSelectedGym.gymId) isAuthorizedForGym = true;
+                } catch (error) {
+                  console.error('[SignIn] Auto-nav check error:', error);
+                }
+
+                if (!isAuthorizedForGym) {
+                  await supabase.auth.signOut();
+                  if (isMounted.current) {
+                    toast.error('Invalid credentials or check gym');
+                    setLoading(false);
+                  }
+                  return;
+                }
+              }
+            }
+          }
           hasNavigated.current = true;
           navigateBasedOnRole(role);
         }
@@ -186,9 +221,9 @@ export default function OtpAuthScreen() {
             }
 
             const [oRes, cRes, tRes, gtRes] = await Promise.all([
-              supabase.from('gym_owners').select('gymOwnerId, is_deleted').eq('ownerEmail', targetEmail).maybeSingle(),
-              supabase.from('gym_customers').select('customerId, is_deleted').eq('email', targetEmail).maybeSingle(),
-              supabase.from('gym_trainers').select('gymTrainerId, is_deleted').eq('email', targetEmail).maybeSingle(),
+              supabase.from('gym_owners').select('gymOwnerId, gymId, is_deleted').eq('ownerEmail', targetEmail).maybeSingle(),
+              supabase.from('gym_customers').select('customerId, gymId, is_deleted').eq('email', targetEmail).maybeSingle(),
+              supabase.from('gym_trainers').select('gymTrainerId, gymId, is_deleted').eq('email', targetEmail).maybeSingle(),
               supabase.from('global_trainers').select('globalTrainerId, is_deleted').eq('email', targetEmail).maybeSingle(),
             ]);
 
@@ -221,8 +256,43 @@ export default function OtpAuthScreen() {
                 isManualLoginRef.current = false;
                 return;
               }
+
+              // GYM ID MATCHING: Verify the user belongs to the selected gym
+              // We check this for ANY role they hold, to ensure they can't bypass by losing the typeId param
+              const currentSelectedGym = await getSelectedGym();
+              if (currentSelectedGym?.gymId) {
+                const selectedGymId = currentSelectedGym.gymId;
+                let isAuthorizedForGym = false;
+                let hasGymBoundRole = false;
+
+                if (oRes.data && oRes.data.is_deleted !== true) {
+                  hasGymBoundRole = true;
+                  if (oRes.data.gymId === selectedGymId) isAuthorizedForGym = true;
+                }
+                if (cRes.data && cRes.data.is_deleted !== true) {
+                  hasGymBoundRole = true;
+                  if (cRes.data.gymId === selectedGymId) isAuthorizedForGym = true;
+                }
+                if (tRes.data && tRes.data.is_deleted !== true) {
+                  hasGymBoundRole = true;
+                  if (tRes.data.gymId === selectedGymId) isAuthorizedForGym = true;
+                }
+
+                // If they don't have a gym-bound role, they are individual/global_trainer and don't need gym validation
+                if (!hasGymBoundRole) {
+                  isAuthorizedForGym = true;
+                }
+
+                if (!isAuthorizedForGym) {
+                  toast.error('Invalid credentials or check gym');
+                  setLoading(false);
+                  isManualLoginRef.current = false;
+                  return;
+                }
+              }
             }
-          } catch {
+          } catch (preCheckError) {
+            console.error('[SignIn] Pre-check failed:', preCheckError);
             // Ignore pre-check failures and continue to post-check
           }
         }
@@ -309,6 +379,56 @@ export default function OtpAuthScreen() {
             }
           } catch (error) {
             console.error('[SignIn] Error checking gym status:', error);
+          }
+
+          // POST-AUTH GYM ID MATCHING (MANDATORY - not inside try/catch so it cannot be silently bypassed)
+          // For roles that go through find-organization (customer, trainer) and owners,
+          // verify the user's gymId matches the selected gym before allowing access
+          const postSelectedGym = await getSelectedGym();
+          if (postSelectedGym?.gymId) {
+            const postSelectedGymId = postSelectedGym.gymId;
+            let gymCheckFailed = false;
+            let isAuthorizedForGym = false;
+            let hasGymBoundRole = false;
+
+            try {
+              const [oRes, cRes, tRes] = await Promise.all([
+                supabase.from('gym_owners').select('gymId').eq('userId', userId).eq('is_deleted', false).maybeSingle(),
+                supabase.from('gym_customers').select('gymId').eq('userId', userId).eq('is_deleted', false).maybeSingle(),
+                supabase.from('gym_trainers').select('gymId').eq('userId', userId).eq('is_deleted', false).maybeSingle(),
+              ]);
+
+              if (oRes.data) {
+                hasGymBoundRole = true;
+                if (oRes.data.gymId === postSelectedGymId) isAuthorizedForGym = true;
+              }
+              if (cRes.data) {
+                hasGymBoundRole = true;
+                if (cRes.data.gymId === postSelectedGymId) isAuthorizedForGym = true;
+              }
+              if (tRes.data) {
+                hasGymBoundRole = true;
+                if (tRes.data.gymId === postSelectedGymId) isAuthorizedForGym = true;
+              }
+
+            } catch (gymCheckError) {
+              console.error('[SignIn] Gym ID check query failed:', gymCheckError);
+              gymCheckFailed = true;
+            }
+
+            if (!hasGymBoundRole) {
+              isAuthorizedForGym = true;
+            }
+
+            if (gymCheckFailed || !isAuthorizedForGym) {
+              await supabase.auth.signOut();
+              if (isMounted.current) {
+                toast.error('Invalid credentials or check gym');
+                setLoading(false);
+              }
+              isManualLoginRef.current = false;
+              return;
+            }
           }
 
           await refreshUserContext();
@@ -588,7 +708,7 @@ export default function OtpAuthScreen() {
               <Pressable
                 onPress={async () => {
                   await clearSelectedGym();
-                  router.replace('/auth/find-organization');
+                  router.replace({ pathname: '/auth/find-organization', params: { type: typeId } });
                 }}
                 className="bg-[#2A2A2A] px-3 py-1.5 rounded-lg active:opacity-80"
               >

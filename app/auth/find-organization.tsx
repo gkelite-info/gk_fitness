@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, FlatList, ActivityIndicator, Pressable, TextInput, KeyboardAvoidingView, Platform, Image, Linking, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { Text } from '@/components/nativewindui/Text';
@@ -126,8 +126,8 @@ export default function FindOrganizationScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View className="flex-1 px-6 pt-14">
-          <Pressable 
-            onPress={() => router.back()} 
+          <Pressable
+            onPress={() => router.back()}
             className="w-10 h-10 -ml-1 items-center justify-center rounded-full bg-[#121212] border border-[#1E1E1E] mb-4 active:opacity-70"
           >
             <CaretLeft size={22} color="#FFFFFF" weight="bold" />

@@ -88,7 +88,7 @@ export async function fetchAssignedTrainersByCustomer(customerId: string) {
 export async function fetchAssignedCustomersByTrainer(gymTrainerId: string) {
   const { data, error } = await supabase
     .from('customer_trainers')
-    .select('*, customer:gym_customers(*, users(profilePhoto))')
+    .select('*, customer:gym_customers(*, users!gym_customers_userId_fkey(profilePhoto))')
     .eq('gymTrainerId', gymTrainerId)
     .eq('isActive', true)
     .eq('is_deleted', false)
@@ -111,7 +111,7 @@ export async function fetchAssignedCustomersByTrainerPaginated(
 ) {
   let query = supabase
     .from('customer_trainers')
-    .select('*, customer:gym_customers(*, users(profilePhoto))', { count: 'exact' })
+    .select('*, customer:gym_customers(*, users!gym_customers_userId_fkey(profilePhoto))', { count: 'exact' })
     .eq('gymTrainerId', gymTrainerId)
     .eq('isActive', true)
     .eq('is_deleted', false)

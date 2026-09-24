@@ -107,8 +107,8 @@ async function enrichExercisesWithVideos(exercises: any[], targetGender?: string
     };
   });
 
-  const videoMap = new Map<string, string>();
-  const nameMap = new Map<string, string>();
+  const videoMap = new Map<string, { videoUrl: string, isStretching: boolean }>();
+  const nameMap = new Map<string, { videoUrl: string, isStretching: boolean }>();
 
   if (missingNameSet.size > 0 || missingVideoIdSet.size > 0) {
     try {
@@ -166,18 +166,22 @@ async function enrichExercisesWithVideos(exercises: any[], targetGender?: string
 
     if (ex.workoutVideoId && videoMap.has(ex.workoutVideoId)) {
       const matchObj = videoMap.get(ex.workoutVideoId);
-      return { ...ex, videoUrl: matchObj.videoUrl, isStretching: matchObj.isStretching };
+      if (matchObj) {
+        return { ...ex, videoUrl: matchObj.videoUrl, isStretching: matchObj.isStretching };
+      }
     }
 
     if (ex.exerciseName) {
       const normName = normalizeName(ex.exerciseName);
       if (nameMap.has(normName)) {
         const matchObj = nameMap.get(normName);
-        return { ...ex, videoUrl: matchObj.videoUrl, isStretching: matchObj.isStretching };
+        if (matchObj) {
+          return { ...ex, videoUrl: matchObj.videoUrl, isStretching: matchObj.isStretching };
+        }
       }
 
       for (const [key, matchObj] of nameMap.entries()) {
-        if (key.includes(normName) || normName.includes(key)) {
+        if (matchObj && (key.includes(normName) || normName.includes(key))) {
           return { ...ex, videoUrl: matchObj.videoUrl, isStretching: matchObj.isStretching };
         }
       }

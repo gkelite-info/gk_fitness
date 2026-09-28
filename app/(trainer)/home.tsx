@@ -1,26 +1,40 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, ScrollView, Text, Image, Pressable, ActivityIndicator } from 'react-native';
 import { CaretRight, Plus, Users, User, ArrowRight, ClipboardText, Bag, Star } from 'phosphor-react-native';
 import { useRouter } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { useAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function TrainerHome() {
   const router = useRouter();
   const { userId, name } = useUser();
 
-  const { data: assignments, isLoading: loadingAssignments } = useAssignedCustomersByTrainer(userId ?? undefined);
+  const { data: assignments, isLoading: loadingAssignments, refetch: refetchAssignments } = useAssignedCustomersByTrainer(userId ?? undefined);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetchAssignments();
+    setRefreshing(false);
+  };
 
   const todaySessionsCount = useMemo(() => {
     if (!assignments) return 0;
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const fullDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const today = days[new Date().getDay()];
-    const todayFull = fullDays[new Date().getDay()];
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
 
     return assignments.filter((assignment: any) => {
-      const daysArr = assignment.weekDays || [];
-      return daysArr.includes(today) || daysArr.includes(todayFull);
+      const isActive = assignment.isActive === true || String(assignment.isActive).toLowerCase() === 'true';
+
+      let isNotExpired = true;
+      if (assignment.expiryOn) {
+        const expiryDate = new Date(assignment.expiryOn);
+        isNotExpired = expiryDate >= startOfToday;
+      }
+
+      return isActive && isNotExpired;
     }).length;
   }, [assignments]);
 
@@ -32,10 +46,14 @@ export default function TrainerHome() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-[#09090B]" contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView
+      className="flex-1 bg-[#09090B]"
+      contentContainerStyle={{ paddingBottom: 100 }}
+      refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       <View className="px-5 pt-5 pb-6">
         <Text className="text-white text-[28px] font-semibold">{getGreeting()}, <Text className="text-[#CCFF00]">{name?.split(' ')[0] || 'Trainer'}</Text> 👋</Text>
-        <Text className="text-[#A3A3A3] text-sm mt-1">Strength & Conditioning Coach</Text>
+        <Text className="text-[#A3A3A3] text-sm mt-1 font-sans">Strength & Conditioning Coach</Text>
       </View>
 
       <View className="px-5 mb-6">
@@ -77,23 +95,26 @@ export default function TrainerHome() {
         <Text className="text-[#CCFF00] text-xs font-semibold tracking-wider mb-3">TODAY</Text>
         <View className="flex-row justify-between">
           <View className="bg-[#141414] rounded-2xl p-4 border border-[#1A1A1A] flex-1 mr-2">
-            <View className="flex-row items-center mb-2">
+            <Pressable
+              className="flex-row items-center mb-2 active:opacity-70"
+              onPress={() => router.push('/(trainer)/session-history' as any)}
+            >
               <View className="w-10 h-10 rounded-full border border-[#CCFF00]/30 items-center justify-center mr-3">
                 <Users size={20} color="#CCFF00" />
               </View>
               <View>
-                <Text className="text-[#A3A3A3] text-xs">PT Sessions</Text>
+                <Text className="text-[#A3A3A3] text-xs font-sans">PT Sessions</Text>
                 {loadingAssignments ? (
                   <ActivityIndicator size="small" color="#CCFF00" style={{ alignSelf: 'flex-start', marginTop: 4 }} />
                 ) : (
                   <Text className="text-white text-2xl font-semibold">{todaySessionsCount}</Text>
                 )}
               </View>
-            </View>
+            </Pressable>
             <View className="flex-row items-center justify-between mt-2 pt-3 border-t border-[#1A1A1A]">
-              <Text className="text-[#A3A3A3] text-[10px]">Scheduled today</Text>
+              <Text className="text-[#A3A3A3] text-[10px] font-sans">Scheduled today</Text>
               <Pressable
-                onPress={() => router.push('/(trainer)/session-history' as any)}
+                onPress={() => router.push('/(trainer)/pt-sessions' as any)}
                 className="w-5 h-5 rounded-full border border-[#CCFF00] items-center justify-center active:opacity-70"
               >
                 <ArrowRight size={12} color="#CCFF00" />
@@ -107,7 +128,7 @@ export default function TrainerHome() {
                 <User size={20} color="#CCFF00" />
               </View>
               <View>
-                <Text className="text-[#A3A3A3] text-xs">PT Customers</Text>
+                <Text className="text-[#A3A3A3] text-xs font-sans">PT Customers</Text>
                 {loadingAssignments ? (
                   <ActivityIndicator size="small" color="#CCFF00" style={{ alignSelf: 'flex-start', marginTop: 4 }} />
                 ) : (
@@ -116,7 +137,7 @@ export default function TrainerHome() {
               </View>
             </View>
             <View className="flex-row items-center justify-between mt-2 pt-3 border-t border-[#1A1A1A]">
-              <Text className="text-[#A3A3A3] text-[10px]">Assigned to you</Text>
+              <Text className="text-[#A3A3A3] text-[10px] font-sans">Assigned to you</Text>
               <Pressable
                 onPress={() => router.push('/(trainer)/pt-customers' as any)}
                 className="w-5 h-5 rounded-full border border-[#CCFF00] items-center justify-center active:opacity-70"

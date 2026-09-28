@@ -146,6 +146,13 @@ export default function TrainerLayout() {
           headerShown: true,
         }}
       />
+      <Tabs.Screen
+        name="pt-sessions"
+        options={{
+          href: null,
+          headerShown: true,
+        }}
+      />
     </Tabs>
   );
 }

@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, WarningCircle, CaretRight, Trash } from 'phosphor-react-native';
+import { ArrowLeft, WarningCircle, CaretRight, Trash, LockKey } from 'phosphor-react-native';
 
 export default function ManageAccountScreen() {
   const router = useRouter();
@@ -22,6 +22,20 @@ export default function ManageAccountScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
         
         <Text className="text-[#8E8E93] text-[11px] font-bold tracking-[1px] mb-4 mt-2">ACCOUNT ACTIONS</Text>
+
+        <Pressable 
+          onPress={() => router.navigate('/(customer)/change-password')}
+          className="bg-[#1A1A1A] border border-[#27272A] rounded-2xl p-4 flex-row items-center mb-3 active:opacity-70"
+        >
+          <View className="w-10 h-10 rounded-full bg-[#D4FF00]/10 items-center justify-center mr-4 border border-[#D4FF00]/20">
+            <LockKey size={20} color="#D4FF00" weight="bold" />
+          </View>
+          <View className="flex-1 pr-2">
+            <Text className="text-white text-base font-semibold mb-0.5">Change Password</Text>
+            <Text className="text-[#8E8E93] text-sm">Update your account password</Text>
+          </View>
+          <CaretRight size={16} color="#8E8E93" />
+        </Pressable>
 
         <Pressable 
           onPress={() => router.navigate('/(customer)/delete-account')}

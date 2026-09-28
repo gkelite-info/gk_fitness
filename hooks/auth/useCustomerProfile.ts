@@ -12,7 +12,7 @@ export function useCustomerProfile(userId: string | null | undefined) {
           .from('gym_customers')
           .select('*')
           .eq('customerId', userId)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('customer_onboarding')
           .select('*')
@@ -20,7 +20,10 @@ export function useCustomerProfile(userId: string | null | undefined) {
           .maybeSingle()
       ]);
 
-      if (customerRes.error) throw customerRes.error;
+      if (customerRes.error && customerRes.error.code !== 'PGRST116') {
+        throw customerRes.error;
+      }
+      
       // It's okay if onboarding throws an error because it's maybeSingle, but if it's a real error we throw
       if (onboardingRes.error && onboardingRes.error.code !== 'PGRST116') {
         // PGRST116 is multiple rows returned but single expected. maybeSingle handles 0 or 1 rows.

@@ -21,7 +21,7 @@ import { useWorkoutPlanDayById } from '@/hooks/customerWorkouts/useWorkoutPlanDa
 import { useWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/useWorkoutPlanDayExercises';
 import { useLogWorkoutCompletion } from '@/hooks/customerWorkouts/useLogWorkoutCompletion';
 import { useSaveSetLog } from '@/hooks/customerWorkouts/useSaveSetLog';
-import { useLastSessionWeights } from '@/hooks/customerWorkouts/useWorkoutSetLogs';
+import { useLastSessionWeights, useWorkoutSetLogs } from '@/hooks/customerWorkouts/useWorkoutSetLogs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
 import { SetRow, WorkoutSetRow, SetType } from '@/components/workout/SetRow';
@@ -92,24 +92,62 @@ export default function ExerciseDetail() {
   }, []);
 
   // Fetch last session weights for current exercise
-  const { data: lastWeights } = useLastSessionWeights(
+  const { data: lastWeights, isLoading: isLoadingLast } = useLastSessionWeights(
     userId,
-    currentExercise?.dayExerciseId,
+    currentExercise?.exerciseName,
+    sessionDate
+  );
+
+  // Fetch today's logs for this plan day
+  const { data: todayAllLogs, isLoading: isLoadingToday } = useWorkoutSetLogs(
+    userId,
+    params.dayId,
     sessionDate
   );
 
   // Initialize sets for current exercise
   useEffect(() => {
-    if (!currentExercise) return;
+    if (!currentExercise || isLoadingLast || isLoadingToday) return;
     const key = currentExercise.dayExerciseId;
     if (setsMap[key]) return;
+
+    const todayLogs = todayAllLogs?.filter(l => l.dayExerciseId === key) || [];
+    
+    if (todayLogs.length > 0) {
+      // populate from todayLogs
+      const mapped: WorkoutSetRow[] = todayLogs.map(l => ({
+        setNumber: l.setNumber,
+        weight: l.weight,
+        reps: l.reps.toString(),
+        setType: l.setType as SetType,
+        isCompleted: l.isCompleted
+      }));
+      
+      const planned = Math.max(currentExercise.sets ?? 3, 1);
+      const parsedReps = parseInt((currentExercise.reps || '10').replace(/[^0-9]/g, ''), 10) || 10;
+      
+      for (let i = mapped.length; i < planned; i++) {
+        const setNum = i + 1;
+        const prev = lastWeights?.find((w) => w.setNumber === setNum);
+        mapped.push({
+          setNumber: setNum,
+          setType: 'working',
+          weight: prev?.weight ?? 0,
+          reps: prev?.reps ?? parsedReps,
+          isCompleted: false,
+        });
+      }
+      setSetsMap((prev) => ({ ...prev, [key]: mapped }));
+      return;
+    }
+
     const rows = buildInitialSets(
       currentExercise.sets ?? 3,
       currentExercise.reps ?? '10',
       lastWeights ?? []
     );
     setSetsMap((prev) => ({ ...prev, [key]: rows }));
-  }, [currentExercise, lastWeights, setsMap]);
+  }, [currentExercise, lastWeights, todayAllLogs, isLoadingLast, isLoadingToday, setsMap]);
 
   const currentSets: WorkoutSetRow[] = currentExercise
     ? setsMap[currentExercise.dayExerciseId] ?? []

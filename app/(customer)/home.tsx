@@ -305,7 +305,7 @@ export default function CustomerHome() {
                       }
                     });
                   }}
-                  className="bg-[#D7FF00] rounded-full py-3 px-5 flex-row items-center justify-center self-start active:opacity-90"
+                  className="bg-[#D7FF00] rounded-full py-2 px-5 flex-row items-center justify-center self-start active:opacity-90"
                 >
                   <Text className="text-black font-semibold text-sm mr-2">Start Workout</Text>
                   <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
@@ -324,7 +324,7 @@ export default function CustomerHome() {
               </Text>
               <Pressable
                 onPress={() => router.push('/(customer)/workoutPlan')}
-                className="bg-[#D7FF00] rounded-full py-3 px-3 flex-row items-center justify-center active:opacity-90 mt-1"
+                className="bg-[#D7FF00] rounded-full py-2 px-3 flex-row items-center justify-center active:opacity-90 mt-1"
               >
                 <Text className="text-black font-semibold text-sm mr-2">Add workout plan</Text>
                 <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">

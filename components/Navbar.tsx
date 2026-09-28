@@ -12,6 +12,7 @@ import { BellRingingIcon, UsersThree, CaretLeft } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { Image } from 'react-native';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
+import { useGym } from '@/hooks/gyms/useGym';
 
 export function Navbar() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export function Navbar() {
   const { name, userId, role, profilePhoto, gymId } = useUser();
   const topPadding = insets.top;
 
+  const { data: gymData } = useGym(gymId);
   const { announcements, loading, hasNew, clearHasNew } = useRealtimeAnnouncements(gymId);
   const { birthdayAnnouncements, isLoadingBirthday } = useBirthdayAnnouncements(gymId);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -66,13 +68,16 @@ export function Navbar() {
             }}
           >
             <StaticAvatar
-              uri={profilePhoto}
-              name={name || 'User'}
+              uri={pathname.includes('community') ? profilePhoto : (gymData?.logo || profilePhoto)}
+              name={pathname.includes('community') ? (name || 'User') : (gymData?.gymName || name || 'User')}
               size={40}
               className="h-10 w-10 rounded-full"
             />
             <Text className="font-semibold text-white">
-              {name ? `Welcome, ${name}` : 'Welcome Back'}
+              {pathname.includes('community') 
+                ? (name ? `Welcome, ${name}` : 'Welcome Back')
+                : (gymData?.gymName ? `Welcome to ${gymData.gymName}` : (name ? `Welcome, ${name}` : 'Welcome Back'))
+              }
             </Text>
           </Pressable>
         </View>

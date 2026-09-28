@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Modal, Alert } from 'react-native';
+import { View, ScrollView, Pressable, Modal, Alert, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -140,12 +140,21 @@ export default function OwnerProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="bg-[#161616] rounded-3xl p-6 items-center mt-2 border border-[#1F1F22]">
-          <View className="w-[84px] h-[84px] rounded-2xl bg-[#000000] border border-[#C4EF00] items-center justify-center mb-4">
-            <Barbell size={32} color="#C4EF00" weight="fill" />
-            <Text className="text-[#C4EF00] text-[8px] font-semibold tracking-wider mt-1 text-center px-1" numberOfLines={1}>{gym?.gymName?.toUpperCase() || 'GYM'}</Text>
+          <View className="w-[84px] h-[84px] rounded-2xl bg-[#000000] border border-[#C4EF00] items-center justify-center mb-4 overflow-hidden">
+            {gym?.logo ? (
+              <Image source={{ uri: gym.logo }} className="w-full h-full" />
+            ) : (
+              <>
+                <Barbell size={32} color="#C4EF00" weight="fill" />
+                <Text className="text-[#C4EF00] text-[8px] font-semibold tracking-wider mt-1 text-center px-1" numberOfLines={1}>{gym?.gymName?.toUpperCase() || 'GYM'}</Text>
+              </>
+            )}
           </View>
 
-          <Pressable className="border border-[#C4EF00] rounded-full px-5 py-1.5 mb-4 flex-row items-center active:opacity-70">
+          <Pressable 
+            className="border border-[#C4EF00] rounded-full px-5 py-1.5 mb-4 flex-row items-center active:opacity-70"
+            onPress={() => router.push('/(owner)/profile/edit-profile' as any)}
+          >
             <PencilSimple size={14} color="#C4EF00" weight="regular" style={{ marginRight: 6 }} />
             <Text className="text-white text-xs font-semibold">Edit Profile</Text>
           </Pressable>
@@ -244,7 +253,7 @@ export default function OwnerProfileScreen() {
             icon={<PencilSimple size={18} color="#C4EF00" />}
             title="Edit Gym Profile"
             subtitle="Update your gym information, logo, contact details and business hours"
-            onPress={() => { }}
+            onPress={() => router.push('/(owner)/profile/edit-profile' as any)}
           />
           <MenuItem
             icon={<Bank size={18} color="#C4EF00" weight="fill" />}

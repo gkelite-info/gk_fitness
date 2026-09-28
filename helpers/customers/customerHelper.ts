@@ -317,7 +317,7 @@ export async function fetchGymCustomersPaginated(
 export async function fetchGymCustomerById(customerId: string) {
   const { data, error } = await supabase
     .from('gym_customers')
-    .select('*, user:users(address)')
+    .select('*, user:users!gym_customers_userId_fkey(address)')
     .eq('customerId', customerId)
     .eq('is_deleted', false)
     .maybeSingle();

@@ -16,7 +16,7 @@ export function useGymCustomerMembershipPlans(userId: string | null, customerId?
         .from('gym_customer_membership_plans')
         .select(`
           *,
-          gym_customers(fullName, email, phone, users(profilePhoto)),
+          gym_customers(fullName, email, phone, users!gym_customers_userId_fkey(profilePhoto)),
           gym_membership_plans(planName, durationMonths, price)
         `)
         .eq('gymId', gymId)

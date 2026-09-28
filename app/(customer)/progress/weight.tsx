@@ -145,7 +145,7 @@ export default function WeightTrackingScreen() {
             </View>
 
             <View className="flex-row justify-between">
-              <Text className="text-[#D4FF00] text-[13px] font-medium">{summary.weightChange.toFixed(1)} kg {summary.goalType === 'gain' ? 'gained' : 'lost'}</Text>
+              <Text className="text-[#D4FF00] text-[13px] font-medium">{Math.abs(summary.weightChange).toFixed(1)} kg {summary.weightChange > 0 ? 'gained' : 'lost'}</Text>
               <Text className="text-[#8E8E93] text-[13px] font-medium">{remaining.toFixed(1)} kg remaining</Text>
             </View>
           </View>

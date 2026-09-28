@@ -13,6 +13,23 @@ import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useQueryClient } from '@tanstack/react-query';
 import WorkoutShimmer from '@/components/shimmers/workoutShimmer';
 import { supabase } from '@/lib/supabase';
+import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { useWorkouts } from '@/hooks/workouts/useWorkouts';
+import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
+const getWorkoutImage = (type: string | undefined | null) => {
+  if (!type) return require('../../assets/workout.png');
+  const lower = type.toLowerCase();
+  if (lower.includes('push')) return require('../../assets/push-day.png');
+  if (lower.includes('pull')) return require('../../assets/back-stood.png');
+  if (lower.includes('leg')) return require('../../assets/fit-1.png');
+  if (lower.includes('chest')) return require('../../assets/chest-stood.png');
+  if (lower.includes('shoulder')) return require('../../assets/shoulders-stood.png');
+  if (lower.includes('arm') || lower.includes('bicep') || lower.includes('tricep')) return require('../../assets/dumbell-strength.png');
+  if (lower.includes('full')) return require('../../assets/bodyweight-blast.png');
+  if (lower.includes('core') || lower.includes('ab')) return require('../../assets/lower-chest-sculpt.png');
+  if (lower.includes('cardio')) return require('../../assets/resistance-band-flow.png');
+  return require('../../assets/workout.png');
+};
 
 export default function CustomerWorkout() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
@@ -74,6 +91,7 @@ export default function CustomerWorkout() {
     { image: require('../../assets/workout_abs.jpg'), text: "Abs Workout" }
   ];
 
+
   return (
     <ScrollView
       className="flex-1 bg-[#0A0A0A]"
@@ -82,9 +100,12 @@ export default function CustomerWorkout() {
       refreshControl={<CustomRefreshControl refreshing={isManualRefreshing || isRefetching} onRefresh={handleRefresh} />}
     >
       <View className="items-start justify-start p-5 gap-3 pb-20">
-        <Text className="text-foreground text-sm text-[#8E8E8E]">
-          Hi {name || 'User'} <HandWavingIcon size={20} color='#FFCB3F' weight='fill' />
-        </Text>
+        <View className="flex-row items-center gap-1">
+          <Text className="text-foreground text-sm text-[#8E8E8E]">
+            Hi {name || 'User'}
+          </Text>
+          <HandWavingIcon size={20} color='#FFCB3F' weight='fill' />
+        </View>
         <Text className="text-foreground text-sm text-white">
           Let's crush your <Text className='text-base font-semibold text-[#C4EF00]'>Muscle Gain</Text> goal today!
         </Text>
@@ -319,7 +340,7 @@ export default function CustomerWorkout() {
                   <View className='w-[50%] items-end justify-end'>
                     {todayWorkout?.type?.toLowerCase() !== 'rest' && (
                       <Image
-                        source={require('../../assets/fit-1.png')}
+                        source={getWorkoutImage(todayWorkout?.type)}
                         style={{ width: 160, height: 160, marginRight: -10, marginBottom: -10 }}
                         resizeMode='contain'
                       />
@@ -401,7 +422,7 @@ export default function CustomerWorkout() {
               <View className='bg-[#111111] border border-[#1D1D1D] mt-5 w-full p-4 rounded-lg flex flex-row justify-between'>
                 <View className='bg-yellow-00 flex-row items-center justify-start'>
                   <Image
-                    source={require('../../assets/workout.png')}
+                    source={getWorkoutImage(yesterdayWorkout.type)}
                     style={{ height: 120, width: 120 }}
                     resizeMode='contain'
                   />
@@ -414,8 +435,15 @@ export default function CustomerWorkout() {
                   </View>
                 </View>
                 <View className='bg-blue-00 flex flex-col items-center justify-center gap-1'>
-                  <Text className='text-[#8E8E8E] text-sm'>Yesterday</Text>
-                  <CheckCircleIcon size={25} weight='fill' color='#C4EF00' />
+                  <Text className={`text-[10px] font-bold uppercase ${yesterdayWorkout.isCompleted ? 'text-[#C4EF00]' : 'text-red-500'}`}>
+                    {yesterdayWorkout.isCompleted ? 'Completed' : 'Missed'}
+                  </Text>
+                  <Text className='text-[#8E8E8E] text-xs'>Yesterday</Text>
+                  {yesterdayWorkout.isCompleted ? (
+                    <CheckCircleIcon size={25} weight='fill' color='#C4EF00' />
+                  ) : (
+                    <XCircle size={25} weight='fill' color='#ef4444' />
+                  )}
                 </View>
               </View>
             )}
@@ -435,12 +463,7 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [videoTitle, setVideoTitle] = useState('');
 
-  const [page, setPage] = useState(1);
   const limit = 5;
-
-  useEffect(() => {
-    setPage(1);
-  }, [activeSubTab]);
 
   const openVideo = (exerciseName: string, videoSource: any) => {
     if (videoSource) {
@@ -497,7 +520,41 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
     popularWorkoutsMap['All'] = [...popularWorkoutsMap['Chest'], ...popularWorkoutsMap['Back'], ...popularWorkoutsMap['Shoulders'], ...popularWorkoutsMap['Legs'], ...popularWorkoutsMap['Abs']];
   }
 
-  const currentPopular = popularWorkoutsMap[activeSubTab] || popularWorkoutsMap['All'];
+  const { data: customerProfileData } = useCustomerProfile(userId);
+  const userGender = customerProfileData?.customerData?.gender?.toLowerCase() || 'all';
+
+  const getWorkoutType = (cat: string) => {
+    const c = cat.toLowerCase();
+    if (c === 'shoulders') return 'shoulder';
+    if (c === 'arms') return 'arms';
+    if (c === 'all') return 'all';
+    return c;
+  };
+
+  const { data: popularVideosData, isLoading: isPopularLoading } = useWorkoutVideos(1, 20, getWorkoutType(activeSubTab), userGender, 'all');
+
+  const popularVideos = React.useMemo(() => {
+    const rawExercises = popularVideosData?.data || [];
+    const uniqueRecommended: any[] = [];
+    const seenNames = new Set<string>();
+    
+    for (const ex of rawExercises) {
+      const name = ex.exerciseName || 'Workout Video';
+      if (!seenNames.has(name.toLowerCase())) {
+        seenNames.add(name.toLowerCase());
+        uniqueRecommended.push({ ...ex, exerciseName: name, category: activeSubTab });
+      }
+    }
+
+    return uniqueRecommended.map(ex => {
+      let videoSource = null;
+      if (ex.videoUrl) {
+        const isAbsolute = ex.videoUrl.startsWith('http://') || ex.videoUrl.startsWith('https://');
+        videoSource = isAbsolute ? ex.videoUrl : supabase.storage.from('workout-videos').getPublicUrl(ex.videoUrl).data.publicUrl;
+      }
+      return { ...ex, video: videoSource || ex.video || null, reps: 'Follow along' };
+    });
+  }, [popularVideosData, activeSubTab]);
 
   const placeholderRecommendedMap: Record<string, any[]> = {
     Chest: [
@@ -565,6 +622,7 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
             allowed.startsWith(cat.slice(0, 4)) ||
             dayType === allowed ||
             dayType.startsWith(allowed.slice(0, 4)) ||
+            dayType.startsWith(dayType.slice(0, 4)) ||
             allowed.startsWith(dayType.slice(0, 4))
           );
         });
@@ -573,8 +631,8 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
     return recs;
   }, [recommendedExercises, filterTabs]);
 
-  const paginatedRecommended = currentRecommended.slice(0, page * limit);
-  const hasMore = paginatedRecommended.length < currentRecommended.length;
+  const hasMore = currentRecommended.length > 0;
+  const paginatedRecommended = currentRecommended.slice(0, limit);
 
   return (
     <View className="w-full mt-5 gap-6">
@@ -606,35 +664,68 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
       </View> */}
 
       <View className="w-full gap-4 mt-2">
-        <Text className="text-white font-semibold text-xl">Popular {activeSubTab !== 'All' ? activeSubTab : ''} Workouts</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-          {currentPopular.map((workout, i) => (
-            <View key={i} className="bg-[#111111] rounded-3xl p-3 border border-[#1D1D1D] gap-3" style={{ width: 280 }}>
-              <Image source={workout.image} style={{ width: '100%', height: 160, borderRadius: 16 }} />
-              <View className="gap-1 mt-1">
-                <Text className="text-white font-semibold text-xl">{workout.title}</Text>
-                <Text className="text-[#8E8E8E] text-sm font-medium">{workout.subtitle}</Text>
-              </View>
-              <View className="flex-row items-center justify-between mt-2 mb-1">
-                <View className="flex-row items-center gap-4">
-                  <View className="flex-row items-center gap-1.5">
-                    <ClockIcon size={16} color="#8E8E8E" />
-                    <Text className="text-[#8E8E8E] text-sm">{workout.time}</Text>
-                  </View>
-                  {workout.exercisesCount && (
-                    <View className="flex-row items-center gap-1.5">
-                      <Barbell size={16} color="#8E8E8E" />
-                      <Text className="text-[#8E8E8E] text-sm">{workout.exercisesCount}</Text>
-                    </View>
+        <Text className="text-white font-semibold text-xl">Popular {activeSubTab !== 'All' ? activeSubTab : ''} Exercises</Text>
+        {isPopularLoading && popularVideos.length === 0 ? (
+          <View className="mt-8 items-center justify-center">
+            <ActivityIndicator size="large" color="#C4EF00" />
+          </View>
+        ) : popularVideos.length === 0 ? (
+          <View className="bg-[#111111] border border-[#1D1D1D] rounded-2xl p-5 mt-2">
+            <Text className="text-[#8E8E8E] text-center leading-5">No popular exercises found for {activeSubTab}.</Text>
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 20 }}>
+            {popularVideos.map((workout, i) => (
+              <View key={i} className="bg-[#111111] rounded-3xl border border-[#1D1D1D] pb-4" style={{ width: 220 }}>
+                <View className="w-full h-48 bg-[#1a1a1a] rounded-t-3xl items-center justify-center overflow-hidden">
+                  {workout.video ? (
+                    (workout.exerciseName.toLowerCase().includes('chin up') || workout.exerciseName.toLowerCase().includes('chin-up') || workout.exerciseName.toLowerCase().includes('chinups') || workout.exerciseName.toLowerCase().includes('woodchopper') || workout.exerciseName.toLowerCase().includes('wood chopper')) ? (
+                      <Image
+                        source={workout.video}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Video
+                        source={workout.video}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode={ResizeMode.COVER}
+                        shouldPlay={false}
+                        isLooping={false}
+                        isMuted={true}
+                      />
+                    )
+                  ) : (
+                    <Image source={workout.image ? (typeof workout.image === 'string' ? { uri: workout.image } : workout.image) : require('../../assets/dumbell-strength.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                   )}
+                  {workout.video && (
+                    <Pressable
+                      onPress={() => openVideo(workout.exerciseName, workout.video)}
+                      className="absolute inset-0 bg-black/30 items-center justify-center active:opacity-80"
+                    >
+                      <BlurView intensity={30} tint="light" className="p-3 rounded-full overflow-hidden border border-white/30">
+                        <PlayCircle size={36} color="white" weight="fill" />
+                      </BlurView>
+                    </Pressable>
+                  )}
+                  <View className="absolute top-3 left-3 flex-row gap-1">
+                    <View className="bg-[#C4EF00] p-1.5 rounded-lg"><Barbell size={14} color="black" weight="fill" /></View>
+                  </View>
+                  <View className="absolute top-3 right-3">
+                    <Pressable onPress={() => toggleSave(workout.exerciseName)}>
+                      <BookmarkSimple size={20} color={savedWorkouts[workout.exerciseName] ? "#C4EF00" : "white"} weight={savedWorkouts[workout.exerciseName] ? "fill" : "bold"} />
+                    </Pressable>
+                  </View>
                 </View>
-                <Pressable onPress={() => toggleSave(workout.title)}>
-                  <BookmarkSimple size={24} color={savedWorkouts[workout.title] ? "#C4EF00" : "white"} weight={savedWorkouts[workout.title] ? "fill" : "regular"} />
-                </Pressable>
+                <View className="px-4 pt-4 gap-1.5">
+                  <Text className="text-white font-semibold text-base">{workout.exerciseName}</Text>
+                  <Text className="text-[#8E8E8E] text-xs font-medium">{workout.category}</Text>
+                  <Text className="text-[#8E8E8E] text-xs font-medium mt-1">{workout.reps}</Text>
+                </View>
               </View>
-            </View>
-          ))}
-        </ScrollView>
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       <View className="w-full gap-4 mt-2">
@@ -703,22 +794,26 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
               </View>
             ))}
             {hasMore ? (
-              <View className="justify-center px-4 ml-3" style={{ height: 192 }}>
+              <View className="justify-center px-4 ml-2" style={{ height: 280 }}>
                 {isFetching ? (
                   <ActivityIndicator size="small" color="#C4EF00" />
                 ) : (
                   <Pressable
-                    onPress={() => setPage(p => p + 1)}
-                    className="flex-row items-center justify-center gap-x-2 bg-[#1a2000] border border-[#C4EF00]/50 px-5 py-4 rounded-2xl active:opacity-70"
-                    style={{ height: 128 }}
+                    onPress={() => router.push({
+                      pathname: '/(customer)/explore/recommended/[category]' as any,
+                      params: { 
+                        category: activeSubTab,
+                        filterTabs: filterTabs ? JSON.stringify(filterTabs) : undefined 
+                      }
+                    })}
+                    className="py-2.5 px-6 rounded-full border border-[#27272A] bg-[#111111] active:opacity-70"
                   >
-                    <ArrowsClockwise size={20} color="#C4EF00" />
-                    <Text className="text-[#C4EF00] text-base font-semibold">Load More</Text>
+                    <Text className="text-white text-sm font-medium">View All</Text>
                   </Pressable>
                 )}
               </View>
             ) : currentRecommended.length > limit ? (
-              <View className="justify-center px-4 ml-3" style={{ height: 192 }}>
+              <View className="justify-center px-4 ml-3" style={{ height: 280 }}>
                 <Text className="text-[#666666] text-sm font-medium text-center w-24">End of list</Text>
               </View>
             ) : null}
@@ -875,4 +970,3 @@ function EquipmentView() {
     </View>
   );
 }
-

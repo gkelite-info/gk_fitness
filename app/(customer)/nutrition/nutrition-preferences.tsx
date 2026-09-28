@@ -26,7 +26,18 @@ export default function NutritionPreferences() {
 
   const formatGoal = (goal: string) => {
     if (!goal) return 'Maintain Fitness';
-    return goal.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase());
+    const goalMap: Record<string, string> = {
+      'loseweight': 'Weight Loss',
+      'buildmuscle': 'Muscle Gain',
+      'stayfit': 'Maintain Fitness',
+      'gainweight': 'Weight Gain',
+      'imporoveendurance': 'Improve Endurance',
+      'weightloss': 'Weight Loss',
+      'musclegain': 'Muscle Gain',
+      'maintainfitness': 'Maintain Fitness',
+      'improveendurance': 'Improve Endurance'
+    };
+    return goalMap[goal] || goal.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase());
   };
 
   const goalTitle = formatGoal(onboardingData?.primaryGoal || '');

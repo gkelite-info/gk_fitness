@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, Modal, TextInput, KeyboardAvoidingView, Pl
 import { Text } from '@/components/nativewindui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChartLineUp, Ruler, Camera, ChartBar, CaretRight, Fire, Lightning, PencilSimple } from 'phosphor-react-native';
+import { ChartLineUp, Ruler, Camera, ChartBar, CaretRight, Fire, Lightning, PencilSimple, Barbell } from 'phosphor-react-native';
 import { useProgressData } from '@/hooks/fitness/useProgressData';
 import { useUpdateTargetWeight } from '@/hooks/fitness/useUpdateProgress';
 import { useUser } from '@/context/UserContext';
@@ -19,21 +19,16 @@ export default function ProgressScreen() {
   const [editTargetWeight, setEditTargetWeight] = useState('');
 
   const handleSaveTargetWeight = async () => {
-    if (!progressData?.onboarding?.onboardingId) {
-      Alert.alert('Error', 'User data not found. Please complete your profile to set a target weight.');
-      return;
-    }
-    
     if (editTargetWeight && !isNaN(Number(editTargetWeight))) {
       try {
         await updateTargetWeight({ 
           userId: userId!, 
-          onboardingId: progressData.onboarding.onboardingId, 
+          onboardingId: progressData?.onboarding?.onboardingId, 
           targetWeight: editTargetWeight 
         });
         setEditModalVisible(false);
       } catch (err: any) {
-        Alert.alert("Error", "Failed to update target weight: " + err.message);
+        import('react-native').then(({ Alert }) => Alert.alert("Error", "Failed to update target weight: " + err.message));
       }
     }
   };
@@ -63,6 +58,12 @@ export default function ProgressScreen() {
       icon: ChartBar,
       href: '/(customer)/progress/monthly-analysis',
     },
+    {
+      title: 'Strength Analytics',
+      subtitle: 'Track your lifting volume and maxes',
+      icon: Barbell,
+      href: '/(customer)/progress/strength',
+    },
   ];
 
   if (loading || !progressData || !progressData.summary) {
@@ -74,7 +75,7 @@ export default function ProgressScreen() {
   }
 
   const { summary, onboarding } = progressData;
-  const { goalType, weightChange, isGoalReached } = summary;
+  const { goalType, weightChange, isGoalReached, targetWeight, currentWeight } = summary;
 
   return (
     <ScrollView 
@@ -82,7 +83,7 @@ export default function ProgressScreen() {
       contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       showsVerticalScrollIndicator={false}
     >
-      <View className="px-5 pt-6 pb-4">
+      <View className="px-5 pt-4 pb-4">
         <Text className="text-white text-[32px] font-bold mb-1 tracking-tight">Progress</Text>
         <Text className="text-[#8E8E93] text-[15px] mb-8">
           Track. Analyze. Transform. 💪
@@ -116,11 +117,19 @@ export default function ProgressScreen() {
 
           <View className="flex-row justify-between items-end mb-6">
             <View>
-              <Text className={`${weightChange > 0 ? 'text-[#D4FF00]' : 'text-white'} text-[13px] font-medium mb-1`}>
-                {weightChange > 0 
-                  ? `${goalType === 'gain' ? '↑' : '↓'} ${weightChange.toFixed(1)} kg ${goalType === 'gain' ? 'gained' : 'lost'}` 
-                  : isGoalReached ? '🎉 Goal Reached!' : 'Keep going!'}
-              </Text>
+              {isGoalReached ? (
+                <Text className="text-[#D4FF00] text-[13px] font-medium mb-1">🎉 Goal Reached!</Text>
+              ) : (
+                <Text className={`${weightChange !== 0 ? 'text-[#D4FF00]' : 'text-white'} text-[13px] font-medium mb-1`}>
+                  {weightChange > 0 
+                    ? `${goalType === 'loss' ? '↓' : '↑'} ${Math.abs(weightChange).toFixed(1)} kg ${goalType === 'loss' ? 'lost' : 'gained'} ` 
+                    : weightChange < 0
+                    ? `${goalType === 'loss' ? '↑' : '↓'} ${Math.abs(weightChange).toFixed(1)} kg ${goalType === 'loss' ? 'gained' : 'lost'} `
+                    : 'Getting started '}
+                  {targetWeight > 0 && goalType === 'loss' && currentWeight > targetWeight && `• ${(currentWeight - targetWeight).toFixed(1)} kg to go`}
+                  {targetWeight > 0 && goalType === 'gain' && currentWeight < targetWeight && `• ${(targetWeight - currentWeight).toFixed(1)} kg to go`}
+                </Text>
+              )}
               <Text className="text-[#8E8E93] text-[13px]">Since {new Date(onboarding?.createdAt || new Date()).toLocaleDateString()}</Text>
             </View>
             <View className="items-end">
@@ -146,7 +155,7 @@ export default function ProgressScreen() {
         <View className="flex-row gap-4 mb-8">
           <View className="flex-1 bg-[#1C1C1E] rounded-3xl p-5 items-center justify-center border border-[#2A2A2D]/50">
             <View className="flex-row items-baseline gap-1 mb-2">
-              <Text className="text-white text-[28px] font-bold tracking-tight">{weightChange > 0 ? weightChange.toFixed(1) : '0'}</Text>
+              <Text className="text-white text-[28px] font-bold tracking-tight">{weightChange !== 0 ? Math.abs(weightChange).toFixed(1) : '0'}</Text>
               <Text className="text-[#8E8E93] text-[15px] font-medium">kg</Text>
             </View>
             <Text className="text-[#8E8E93] text-[10px] font-bold tracking-[1.5px] uppercase">{goalType === 'gain' ? 'Total Gained' : 'Total Lost'}</Text>

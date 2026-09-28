@@ -87,11 +87,11 @@ export const progressService = {
     } else {
       const latest = await this.getLatestMeasurements(userId);
       const newEntry = {
+        ...(latest || {}), // default to previous values
         userId,
         loggedAt: loggedAt || now,
         createdAt: now,
         updatedAt: now,
-        ...(latest || {}), // default to previous values
         ...measurements, // override with new
         customerMeasurementId: Crypto.randomUUID() // ensure fresh ID
       };

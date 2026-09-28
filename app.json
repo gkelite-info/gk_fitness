@@ -53,7 +53,9 @@
             "enableProguardInReleaseBuilds": true
           }
         }
-      ]
+      ],
+      "react-native-health-connect",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -32,7 +32,7 @@ export interface SaveGymCustomerMembershipPlanParams {
 export async function fetchGymCustomerMembershipPlans(gymId?: string, customerId?: string) {
   let query = supabase
     .from('gym_customer_membership_plans')
-    .select('*, plan:gym_membership_plans(planName, durationMonths, price), gym_customers(fullName, email, phone, gymId, is_Active, users(profilePhoto, status, createdAt))')
+    .select('*, plan:gym_membership_plans(planName, durationMonths, price), gym_customers(fullName, email, phone, gymId, is_Active, users!gym_customers_userId_fkey(profilePhoto, status, createdAt))')
     .eq('is_deleted', false)
     .order('createdAt', { ascending: false })
     .limit(50);

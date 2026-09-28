@@ -21,17 +21,29 @@ export function useProgressData(userId: string | null) {
         fetchCustomerOnboarding(userId)
       ]);
 
-      const currentWeight = latestMeasurements?.weight || Number(onboarding?.weight) || 0;
+      const oldestMeasurement = measurementHistory[measurementHistory.length - 1];
+      const startingWeight = Number(onboarding?.weight) || Number(oldestMeasurement?.weight) || 0;
       const targetWeight = Number(onboarding?.targetWeight) || 0;
-      const startingWeight = Number(onboarding?.weight) || 0;
+      const currentWeight = latestMeasurements?.weight || startingWeight || 0;
 
       // Determine goal type
       let goalType: 'loss' | 'gain' | 'maintain' = 'maintain';
-      if (targetWeight < startingWeight && targetWeight > 0) goalType = 'loss';
-      else if (targetWeight > startingWeight) goalType = 'gain';
+      if (targetWeight > 0 && startingWeight > 0) {
+        if (targetWeight < startingWeight) goalType = 'loss';
+        else if (targetWeight > startingWeight) goalType = 'gain';
+      }
 
       // Determine progress
-      const weightChange = Math.abs(currentWeight - startingWeight);
+      let weightChange = 0;
+      if (startingWeight > 0) {
+        if (goalType === 'loss') {
+          weightChange = startingWeight - currentWeight; // Positive means weight lost
+        } else if (goalType === 'gain') {
+          weightChange = currentWeight - startingWeight; // Positive means weight gained
+        } else {
+          weightChange = currentWeight - startingWeight;
+        }
+      }
       
       let isGoalReached = false;
       if (goalType === 'loss') isGoalReached = currentWeight <= targetWeight && targetWeight > 0;

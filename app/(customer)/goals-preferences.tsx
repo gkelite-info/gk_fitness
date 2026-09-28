@@ -4,7 +4,7 @@ import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  CaretLeft, Info, Target, Barbell, Heart, Lightning, Moon, Sun, SunHorizon, Person, Check, Heartbeat, PersonArmsSpread
+  CaretLeft, Info, Target, Barbell, Heart, Lightning, Moon, Sun, SunHorizon, Person, Check, Heartbeat, PersonArmsSpread, ClipboardText, CaretRight
 } from 'phosphor-react-native';
 import { mockProfileData } from '@/constants/mockProfileData';
 import { useUser } from '@/context/UserContext';
@@ -131,9 +131,25 @@ function GoalsPreferencesView({ userId, preferences, saveMutation }: { userId: s
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
-        <Text className="text-[#A1A1AA] text-sm text-center mt-6 mb-8 px-4 leading-relaxed">
+        <Text className="text-[#A1A1AA] text-sm text-center mt-6 mb-6 px-4 leading-relaxed">
           Update your goals and preferences to get a more personalized experience.
         </Text>
+
+        <Pressable 
+          className="bg-[#1A1A1A] rounded-2xl p-4 mb-8 border border-[#27272A] flex-row items-center justify-between active:opacity-70"
+          onPress={() => router.push('/(customer)/(onboarding)/step1')}
+        >
+          <View className="flex-row items-center">
+            <View className="w-10 h-10 rounded-full bg-[#2A2A2D] items-center justify-center mr-3 border border-[#3A3A3D]">
+              <ClipboardText size={20} color="#D4FF00" weight="regular" />
+            </View>
+            <View>
+              <Text className="text-white font-semibold text-[15px]">Edit Onboarding Info</Text>
+              <Text className="text-[#8E8E93] text-xs mt-0.5">Update full profile details</Text>
+            </View>
+          </View>
+          <CaretRight size={20} color="#8E8E93" weight="bold" />
+        </Pressable>
 
         <Text className="text-white text-lg font-semibold mb-4">Fitness Goal</Text>
         <View className="flex-row flex-wrap justify-between gap-y-4">

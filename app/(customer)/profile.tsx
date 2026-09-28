@@ -82,9 +82,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
       <View className="flex-row justify-between items-center px-5 py-4">
         <Text className="text-white text-3xl font-semibold">Profile</Text>
-        <Pressable>
-          <GearSix size={28} color="#FFFFFF" weight="regular" />
-        </Pressable>
+        <View className="w-7 h-7" />
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
@@ -146,7 +144,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
 
         <Text className="text-white text-lg font-semibold mt-8 mb-4">Manage Your Account</Text>
         <View className="bg-[#1A1A1A] rounded-3xl overflow-hidden border border-[#27272A]">
-          {!loading && !onboardingData && (
+          {!loading && (!onboardingData || !onboardingData.primaryGoal || onboardingData.primaryGoal === 'Not specified') && (
             <MenuItem
               icon={<ClipboardText size={20} color="#000000" weight="bold" />}
               title="Complete Onboarding"
@@ -190,7 +188,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
             subtitle="Manage your plan and billing"
             onPress={() => router.push('/(customer)/memberships' as any)}
           />
-          <MenuItem icon={<Bell size={20} color="#D4FF00" />} title="Notifications" subtitle="Manage your notification preferences" />
+          <MenuItem icon={<Bell size={20} color="#D4FF00" />} title="Notifications" subtitle="Manage your notification preferences" onPress={() => router.push('/(customer)/notifications/preferences' as any)} />
           <MenuItem
             icon={<ShieldCheck size={20} color="#D4FF00" />}
             title="Privacy & Security"

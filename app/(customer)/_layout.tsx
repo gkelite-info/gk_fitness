@@ -59,6 +59,28 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
+          name="explore/category/[workoutId]"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="explore/recommended/[category]"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="explore/exercise-detail/[workoutVideoId]"
+          options={{
+            href: null,
+            headerShown: false,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
           name="shop"
           options={{
             href: null,
@@ -312,6 +334,28 @@ export default function CustomerLayout() {
             href: null,
             headerShown: false,
             tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
+          name="change-password"
+          options={{
+            href: null,
+            headerShown: false,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
+          name="notifications/index"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="notifications/preferences"
+          options={{
+            href: null,
+            headerShown: false,
           }}
         />
       </Tabs>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { getLocalDateString } from '@/lib/dateUtils';
 import { useUser } from '@/context/UserContext';
 import { supabaseFitnessService } from '@/lib/services/supabaseFitnessService';
@@ -7,7 +7,9 @@ import { Platform, AppState, AppStateStatus } from 'react-native';
 import {
   initialize,
   requestPermission,
-  readRecords,
+  aggregateRecord,
+  getSdkStatus,
+  SdkAvailabilityStatus,
 } from 'react-native-health-connect';
 
 interface PedometerContextValue {
@@ -29,47 +31,82 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
   const [steps, setSteps] = useState(0);
   const [debugInfo, setDebugInfo] = useState('');
   const { userId } = useUser();
+  const hcReadyRef = useRef(false);
 
-  const syncSteps = async (isMounted: boolean) => {
+  // ──────────────────────────────────────────────────────────
+  // Android: Read steps from Health Connect using aggregate()
+  // This is the INDUSTRY STANDARD approach. Health Connect is
+  // a system-level store — the OS hardware sensor hub writes
+  // step data here 24/7, even when our app is killed.
+  // ──────────────────────────────────────────────────────────
+  const getHealthConnectSteps = async (): Promise<number> => {
     try {
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
       const now = new Date();
 
+      // aggregateRecord is the correct function name in react-native-health-connect
+      // The return type for Steps is { COUNT_TOTAL: number, dataOrigins: string[] }
+      const result = await aggregateRecord({
+        recordType: 'Steps',
+        timeRangeFilter: {
+          operator: 'between',
+          startTime: startOfDay.toISOString(),
+          endTime: now.toISOString(),
+        },
+      });
+
+      return result.COUNT_TOTAL ?? 0;
+    } catch (e) {
+      console.warn('[Pedometer] Health Connect aggregateRecord failed:', e);
+      return 0;
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // Fallback: expo-sensors hardware step counter
+  // Works while app is in foreground. Less reliable for
+  // background/killed state but still useful as a fallback.
+  // ──────────────────────────────────────────────────────────
+  const getHardwareSteps = async (): Promise<number> => {
+    try {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const now = new Date();
+      const result = await Pedometer.getStepCountAsync(startOfDay, now);
+      return result?.steps || 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // Main sync function — runs on mount, on app foreground,
+  // and periodically. Takes the BEST value from all sources.
+  // ──────────────────────────────────────────────────────────
+  const syncSteps = async (isMounted: boolean) => {
+    try {
       if (Platform.OS === 'ios') {
-        const result = await Pedometer.getStepCountAsync(startOfDay, now);
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const result = await Pedometer.getStepCountAsync(startOfDay, new Date());
         if (isMounted && result) setSteps(result.steps);
       } else if (Platform.OS === 'android') {
-        let hardwareSteps = 0;
         let hcSteps = 0;
+        let hwSteps = 0;
 
-        // 1. Query hardware step counter from midnight (accumulates continuously even when app is killed)
-        try {
-          const hwResult = await Pedometer.getStepCountAsync(startOfDay, now);
-          if (hwResult && typeof hwResult.steps === 'number') {
-            hardwareSteps = hwResult.steps;
-          }
-        } catch (hwErr) {
-          // Hardware step sensor fallback
+        // Primary: Health Connect aggregate (works after app kill)
+        if (hcReadyRef.current) {
+          hcSteps = await getHealthConnectSteps();
         }
 
-        // 2. Query Health Connect steps if available
-        try {
-          const result = await readRecords('Steps', {
-            timeRangeFilter: {
-              operator: 'between',
-              startTime: startOfDay.toISOString(),
-              endTime: now.toISOString(),
-            },
-          });
-          hcSteps = result.records.reduce((sum: number, record: any) => sum + (record.count || 0), 0);
-        } catch (hcErr) {
-          // Health Connect unavailable or unlinked in Expo Go
-        }
+        // Fallback: Hardware sensor (works while app is alive)
+        hwSteps = await getHardwareSteps();
 
-        const bestSteps = Math.max(hardwareSteps, hcSteps);
+        const bestSteps = Math.max(hcSteps, hwSteps);
         if (isMounted && bestSteps > 0) {
           setSteps(bestSteps);
+          setDebugInfo(`HC: ${hcSteps}, HW: ${hwSteps}, Using: ${bestSteps}`);
         }
       }
     } catch (e) {
@@ -84,48 +121,62 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
     const subscribe = async () => {
       try {
         if (Platform.OS === 'android') {
-          // Request physical activity recognition permission on Android
+          // ── Step 1: Check if Health Connect SDK is available ──
+          let hcAvailable = false;
           try {
-            const perm = await Pedometer.requestPermissionsAsync();
-            if (!perm.granted) {
-              setDebugInfo('Activity Recognition permission pending');
+            const status = await getSdkStatus();
+            hcAvailable = status === SdkAvailabilityStatus.SDK_AVAILABLE;
+            if (isMounted) {
+              setDebugInfo(`HC SDK Status: ${status === SdkAvailabilityStatus.SDK_AVAILABLE ? 'Available' : 'Unavailable'}`);
             }
-          } catch (pErr) {
+          } catch {
+            // getSdkStatus may throw in Expo Go
+          }
+
+          // ── Step 2: Initialize Health Connect if available ──
+          if (hcAvailable) {
+            try {
+              const isInitialized = await initialize();
+              if (isInitialized) {
+                await requestPermission([
+                  { accessType: 'read', recordType: 'Steps' },
+                ]);
+                hcReadyRef.current = true;
+                if (isMounted) {
+                  setDebugInfo(prev => prev + ' | HC Initialized ✓');
+                }
+              }
+            } catch (err: any) {
+              if (isMounted) {
+                setDebugInfo(prev => prev + ` | HC Init Error: ${err?.message || 'unknown'}`);
+              }
+            }
+          }
+
+          // ── Step 3: Request Activity Recognition permission ──
+          try {
+            await Pedometer.requestPermissionsAsync();
+          } catch {
             // Permission request fallback
           }
 
-          setDebugInfo('Initializing Health Connect...');
-          let hcReady = false;
-          try {
-            const isInitialized = await initialize();
-            if (isInitialized) {
-              await requestPermission([
-                { accessType: 'read', recordType: 'Steps' },
-              ]);
-              hcReady = true;
-            }
-          } catch (err: any) {
-            // Health connect unavailable or unlinked in Expo Go
-          }
-
-          const available = await Pedometer.isAvailableAsync();
+          const hwAvailable = await Pedometer.isAvailableAsync();
           if (isMounted) {
-            setIsAvailable(available || hcReady);
-            setDebugInfo(`Android Pedometer: ${available ? 'HW Ready' : 'HW N/A'}, HC: ${hcReady ? 'Ready' : 'N/A'}`);
+            setIsAvailable(hwAvailable || hcReadyRef.current);
           }
 
-          // Initial sync on mount
+          // ── Step 4: Initial sync ──
           await syncSteps(isMounted);
 
-          // Watch for live step updates while app is open on Android
-          if (available) {
+          // ── Step 5: Watch for live step events while app is open ──
+          if (hwAvailable) {
             subscription = Pedometer.watchStepCount(() => {
               syncSteps(isMounted);
             });
           }
         } else if (Platform.OS === 'ios') {
-          // Keep using Expo Pedometer for iOS (uses Apple Health natively)
-          setDebugInfo(`Checking sensor availability...`);
+          // iOS: Keep using Expo Pedometer (uses Apple Health natively)
+          setDebugInfo('Checking sensor availability...');
           const available = await Pedometer.isAvailableAsync();
 
           if (isMounted) {
@@ -139,7 +190,6 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
           // Watch for live step updates while app is open
           subscription = Pedometer.watchStepCount(() => {
-            // Re-sync full Apple Health count to ensure accuracy
             syncSteps(isMounted);
           });
         }
@@ -151,7 +201,10 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
     subscribe();
 
-    // Re-sync steps every time the app comes back to the foreground (recovers steps taken while app was killed)
+    // Re-sync steps every time the app comes back to foreground
+    // This is the KEY recovery mechanism — when the user reopens the
+    // app after it was killed, this queries Health Connect for all
+    // steps taken while the app was dead.
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         syncSteps(isMounted);
@@ -176,7 +229,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
   const calories = Math.round(steps * 0.04);
 
-  // Auto-sync debouncer: syncs to Supabase 10 seconds after user stops walking or data updates
+  // Auto-sync debouncer: syncs to Supabase 10 seconds after data updates
   useEffect(() => {
     if (!userId || steps === 0) return;
 
@@ -200,3 +253,4 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 export function usePedometer() {
   return useContext(PedometerContext);
 }
+

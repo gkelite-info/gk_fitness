@@ -19,15 +19,15 @@ export function useWorkoutSetLogs(
 
 export function useLastSessionWeights(
   userId: string | null | undefined,
-  dayExerciseId: string | null | undefined,
+  exerciseName: string | null | undefined,
   currentSessionDate: string | null | undefined
 ) {
   return useQuery({
-    queryKey: ['lastSessionWeights', userId, dayExerciseId, currentSessionDate],
+    queryKey: ['lastSessionWeights', userId, exerciseName, currentSessionDate],
     queryFn: async () => {
-      if (!userId || !dayExerciseId || !currentSessionDate) return [];
-      return await fetchLastSessionWeights(userId, dayExerciseId, currentSessionDate);
+      if (!userId || !exerciseName || !currentSessionDate) return [];
+      return await fetchLastSessionWeights(userId, exerciseName, currentSessionDate);
     },
-    enabled: !!userId && !!dayExerciseId && !!currentSessionDate,
+    enabled: !!userId && !!exerciseName && !!currentSessionDate,
   });
 }

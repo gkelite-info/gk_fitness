@@ -78,15 +78,15 @@ export async function fetchTodaySetLogs(
 
 export async function fetchLastSessionWeights(
   userId: string,
-  dayExerciseId: string,
+  exerciseName: string,
   currentSessionDate: string
 ): Promise<{ setNumber: number; weight: number; reps: number }[]> {
   // Find the most recent previous session date for this exercise
   const { data: latestSessionData, error: latestError } = await supabase
     .from('customer_workout_set_logs')
-    .select('sessionDate')
+    .select('sessionDate, workout_plan_day_exercises!inner(exerciseName)')
     .eq('userId', userId)
-    .eq('dayExerciseId', dayExerciseId)
+    .eq('workout_plan_day_exercises.exerciseName', exerciseName)
     .lt('sessionDate', currentSessionDate)
     .is('deletedAt', null)
     .order('sessionDate', { ascending: false })
@@ -105,9 +105,9 @@ export async function fetchLastSessionWeights(
 
   const { data, error } = await supabase
     .from('customer_workout_set_logs')
-    .select('setNumber, weight, reps')
+    .select('setNumber, weight, reps, workout_plan_day_exercises!inner(exerciseName)')
     .eq('userId', userId)
-    .eq('dayExerciseId', dayExerciseId)
+    .eq('workout_plan_day_exercises.exerciseName', exerciseName)
     .eq('sessionDate', lastDate)
     .is('deletedAt', null)
     .order('setNumber', { ascending: true });

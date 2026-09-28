@@ -45,7 +45,7 @@ export interface SaveCustomerGymPaymentParams {
 export async function fetchCustomerGymPayments(gymId?: string, customerId?: string) {
   let query = supabase
     .from('customer_gym_payments')
-    .select('*, plan:gym_membership_plans(planName), gym_customers(fullName, email, phone, is_Active, users(profilePhoto, status, createdAt))')
+    .select('*, plan:gym_membership_plans(planName), gym_customers(fullName, email, phone, is_Active, users!gym_customers_userId_fkey(profilePhoto, status, createdAt))')
     .eq('is_deleted', false)
     .order('createdAt', { ascending: false });
 

@@ -7,8 +7,8 @@ export async function saveCustomerOnboarding(
   data: OnboardingData,
   customAllergy?: string
 ) {
-  if (!userId || !data.gymId) {
-    throw new Error('Missing user ID or Gym ID for onboarding.');
+  if (!userId) {
+    throw new Error('Missing user ID for onboarding.');
   }
 
   const now = new Date().toISOString();
@@ -18,12 +18,64 @@ export async function saveCustomerOnboarding(
     allergies.push(customAllergy.trim());
   }
 
+  const goalMap: Record<string, string> = {
+    'weightloss': 'loseweight',
+    'musclegain': 'buildmuscle',
+    'maintainfitness': 'stayfit',
+    'improveendurance': 'imporoveendurance' // Matching typo in database enum
+  };
+  
+  const mappedGoal = goalMap[data.primaryGoal] || data.primaryGoal;
+
+  let finalGymId = data.gymId;
+  if (!finalGymId || finalGymId === '00000000-0000-0000-0000-000000000000') {
+    const { data: fallbackGym } = await supabase.from('gyms').select('gymId').limit(1).single();
+    finalGymId = fallbackGym?.gymId || '00000000-0000-0000-0000-000000000000';
+  }
+
+  // Ensure user exists in gym_customers to satisfy foreign key constraints
+  const { data: existingCustomer } = await supabase
+    .from('gym_customers')
+    .select('customerId')
+    .eq('customerId', userId)
+    .maybeSingle();
+
+  if (!existingCustomer) {
+    const { data: userRecord } = await supabase.from('users').select('*').eq('userId', userId).single();
+    if (userRecord) {
+      await supabase.from('gym_customers').insert({
+        customerId: userId,
+        userId: userId,
+        gymId: finalGymId,
+        fullName: data.fullName || userRecord.name || 'New Customer',
+        phone: userRecord.phone || '',
+        email: userRecord.email || '',
+        gender: data.gender || 'other',
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString() : new Date().toISOString(),
+        emergencyContactName: '',
+        relationship: '',
+        emergencyContactNumber: '',
+        createdBy: userId,
+        is_Active: true,
+        is_deleted: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+  } else {
+    // Update existing customer details (fullName, gender, dateOfBirth)
+    await supabase.from('gym_customers').update({
+      fullName: data.fullName,
+      gender: data.gender || 'other',
+      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString() : new Date().toISOString(),
+    }).eq('customerId', userId);
+  }
+
   const payload = {
-    onboardingId: Crypto.randomUUID(),
-    gymId: data.gymId,
+    gymId: finalGymId,
     height: data.height || '0',
     weight: data.weight || '0',
-    primaryGoal: data.primaryGoal,
+    primaryGoal: mappedGoal,
     targetWeight: data.targetWeight || '0',
     workoutLocation: data.workoutLocation,
     workoutDays: data.workoutDays,
@@ -36,25 +88,55 @@ export async function saveCustomerOnboarding(
     calorieDistribution: data.calorieDistribution || 'Balanced',
     goalTimeframe: data.goalTimeframe || '12 weeks',
     createdBy: userId,
-    createdAt: now,
     updatedAt: now,
   };
 
-  let { error } = await supabase
+  // Check if user already has an onboarding record
+  const { data: existing } = await supabase
     .from('customer_onboarding')
-    .insert([payload]);
+    .select('onboardingId')
+    .eq('createdBy', userId)
+    .limit(1)
+    .maybeSingle();
+
+  let error;
+  if (existing?.onboardingId) {
+    const { error: updateError } = await supabase
+      .from('customer_onboarding')
+      .update(payload)
+      .eq('onboardingId', existing.onboardingId);
+    error = updateError;
+  } else {
+    const insertPayload = {
+      ...payload,
+      onboardingId: Crypto.randomUUID(),
+      createdAt: now,
+    };
+    const { error: insertError } = await supabase
+      .from('customer_onboarding')
+      .insert([insertPayload]);
+    error = insertError;
+  }
 
   // Fallback if goalTimeframe column is missing in schema
   if (error && error.message.includes('goalTimeframe')) {
-    console.warn("Retrying insert without goalTimeframe due to schema error.");
+    console.warn("Retrying without goalTimeframe due to schema error.");
     const safePayload = { ...payload };
     delete (safePayload as any).goalTimeframe;
     
-    const retry = await supabase
-      .from('customer_onboarding')
-      .insert([safePayload]);
-      
-    error = retry.error;
+    if (existing?.onboardingId) {
+      const { error: retryError } = await supabase
+        .from('customer_onboarding')
+        .update(safePayload)
+        .eq('onboardingId', existing.onboardingId);
+      error = retryError;
+    } else {
+      const safeInsertPayload = { ...safePayload, onboardingId: Crypto.randomUUID(), createdAt: now };
+      const { error: retryError } = await supabase
+        .from('customer_onboarding')
+        .insert([safeInsertPayload]);
+      error = retryError;
+    }
   }
 
   if (error) {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, ScrollView, SafeAreaView, Platform } from 'react-native';
+import { View, Text, Pressable, ScrollView, SafeAreaView, Platform, ActivityIndicator } from 'react-native';
 import { Stepper } from './Stepper';
 import { ArrowRight } from 'phosphor-react-native';
 
@@ -11,6 +11,7 @@ interface OnboardingLayoutProps {
   onContinue: () => void;
   continueText?: string;
   isContinueDisabled?: boolean;
+  isLoading?: boolean;
   headerRight?: React.ReactNode;
 }
 
@@ -22,6 +23,7 @@ export function OnboardingLayout({
   onContinue,
   continueText = 'Continue',
   isContinueDisabled = false,
+  isLoading = false,
   headerRight,
 }: OnboardingLayoutProps) {
   return (
@@ -57,14 +59,20 @@ export function OnboardingLayout({
       <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#09090b]">
         <Pressable
           onPress={onContinue}
-          disabled={isContinueDisabled}
-          className={`flex-row items-center justify-center py-4 rounded-xl ${isContinueDisabled ? 'bg-gray-700 opacity-50' : 'bg-neon'
+          disabled={isContinueDisabled || isLoading}
+          className={`flex-row items-center justify-center py-4 rounded-xl ${isContinueDisabled || isLoading ? 'bg-gray-700 opacity-50' : 'bg-neon'
             }`}
         >
-          <Text className="text-black font-semibold text-lg mr-2">
-            {continueText}
-          </Text>
-          <ArrowRight weight="bold" color="#000" size={20} />
+          {isLoading ? (
+            <ActivityIndicator color="#000" />
+          ) : (
+            <>
+              <Text className="text-black font-semibold text-lg mr-2">
+                {continueText}
+              </Text>
+              <ArrowRight weight="bold" color="#000" size={20} />
+            </>
+          )}
         </Pressable>
       </View>
     </SafeAreaView>

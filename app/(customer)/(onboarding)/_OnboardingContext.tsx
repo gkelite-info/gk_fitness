@@ -64,15 +64,43 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   const { data: profile, isLoading } = useCustomerProfile(userId);
 
   useEffect(() => {
-    if (profile?.customerData) {
-      setData((prev) => ({
-        ...prev,
-        fullName: profile.customerData.fullName || '',
-        gender: profile.customerData.gender || '',
-        dateOfBirth: profile.customerData.dateOfBirth || '',
-        gymId: profile.customerData.gymId || '',
-      }));
-    }
+      setData((prev) => {
+        const newData = {
+          ...prev,
+          fullName: profile?.customerData?.fullName || '',
+          gender: profile?.customerData?.gender || '',
+          dateOfBirth: profile?.customerData?.dateOfBirth || '',
+          gymId: profile?.customerData?.gymId || '',
+        };
+
+        if (profile?.onboardingData) {
+          const ob = profile.onboardingData;
+          newData.height = ob.height || '';
+          newData.weight = ob.weight || '';
+          
+          const reverseGoalMap: Record<string, string> = {
+            'loseweight': 'weightloss',
+            'buildmuscle': 'musclegain',
+            'stayfit': 'maintainfitness',
+            'imporoveendurance': 'improveendurance'
+          };
+          newData.primaryGoal = reverseGoalMap[ob.primaryGoal] || ob.primaryGoal || '';
+          
+          newData.targetWeight = ob.targetWeight || '';
+          newData.workoutLocation = ob.workoutLocation || '';
+          newData.workoutDays = ob.workoutDays || [];
+          newData.preferWorkoutTime = ob.preferWorkoutTime || '';
+          newData.dietType = ob.dietType || '';
+          newData.mealsPerDay = ob.mealsPerDay || null;
+          newData.foodAllergies = ob.foodAllergies || [];
+          newData.dailyWaterGoal = ob.dailyWaterGoal ? parseFloat(ob.dailyWaterGoal) : 3.0;
+          newData.preferredCuisine = ob.preferredCuisine || '';
+          newData.calorieDistribution = ob.calorieDistribution || '';
+          newData.goalTimeframe = ob.goalTimeframe || '';
+        }
+        
+        return newData;
+      });
     setLoading(isLoading);
   }, [profile, isLoading]);
 

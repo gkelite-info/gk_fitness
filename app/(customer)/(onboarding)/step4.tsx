@@ -39,6 +39,7 @@ export default function Step4() {
     try {
       await saveCustomerOnboarding(userId, data, customAllergy);
       await queryClient.invalidateQueries({ queryKey: ['customerOnboardingStatus', userId] });
+      await queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] });
       router.push('/(customer)/(onboarding)/step5');
     } catch (err: any) {
       toast.error('Could not save your preferences. Try again.');
@@ -71,6 +72,7 @@ export default function Step4() {
       description="Tell us about your eating preferences so we can plan your meals better."
       onContinue={handleContinue}
       isContinueDisabled={!isFormValid}
+      isLoading={saving}
     >
       <View className="mb-8">
         <Text className="text-white font-semibold mb-2">1. Diet Type <Text className="text-red-500">*</Text></Text>

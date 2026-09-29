@@ -37,7 +37,7 @@ export default function SuperAdminProfileScreen() {
       if (error) {
         toast.error(error.message);
       } else {
-        router.replace('/auth/otp-auth');
+        router.replace('/auth/account-type');
       }
     } catch (err: any) {
       toast.error(err.message || 'An error occurred.');

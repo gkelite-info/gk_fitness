@@ -5,6 +5,8 @@ import { CustomTabBar } from '@/components/CustomTabBar';
 export default function OwnerLayout() {
   return (
     <Tabs
+      initialRouteName="dashboard"
+      backBehavior="history"
       tabBar={(props) => <CustomTabBar {...props} centerRouteName="dashboard" />}
       screenOptions={{
         header: () => <Navbar />,

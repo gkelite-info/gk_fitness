@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getLocalDateString } from '@/lib/dateUtils';
-import { View, ScrollView, Image, Pressable, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Image, Pressable, ActivityIndicator, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -60,6 +60,17 @@ export default function CustomerHome() {
   const [daysLeft, setDaysLeft] = useState<number | string>('--');
   const [progressPercentage, setProgressPercentage] = useState<number>(0);
   const [isLoadingMembership, setIsLoadingMembership] = useState(true);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        BackHandler.exitApp();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [])
+  );
 
   const openCamera = () => {
     router.push('/(customer)/home/scan');
@@ -272,7 +283,7 @@ export default function CustomerHome() {
       <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 relative overflow-hidden flex-row items-center justify-between">
         <View className="flex-1 z-10 pr-2">
           <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider mb-1">
-            TODAY'S WORKOUT
+            TODAY&apos;S WORKOUT
           </Text>
           {todayWorkoutDayId && todayWorkoutType ? (
             <>
@@ -446,7 +457,7 @@ export default function CustomerHome() {
             <BowlFood size={22} color="#C0F905" weight="fill" />
           </View>
 
-          <Text className="text-white text-2xl font-semibold tracking-tight mb-1">Today's Meal Plan</Text>
+          <Text className="text-white text-2xl font-semibold tracking-tight mb-1">Today&apos;s Meal Plan</Text>
 
           <Text className="text-[#8E8E93] text-[11px] font-medium mb-5">
             Dinner  <Text className="text-[#C0F905]">●</Text>  Breakfast  <Text className="text-[#C0F905]">●</Text>  Lunch  <Text className="text-[#C0F905]">●</Text>  Snack  <Text className="text-[#C0F905]">●</Text>

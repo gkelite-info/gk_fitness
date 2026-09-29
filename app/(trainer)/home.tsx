@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { View, ScrollView, Text, Image, Pressable, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Text, Image, Pressable, ActivityIndicator, BackHandler } from 'react-native';
 import { CaretRight, Plus, Users, User, ArrowRight, ClipboardText, Bag, Star } from 'phosphor-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { useAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
@@ -13,6 +13,17 @@ export default function TrainerHome() {
   const { data: assignments, isLoading: loadingAssignments, refetch: refetchAssignments } = useAssignedCustomersByTrainer(userId ?? undefined);
 
   const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        BackHandler.exitApp();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);

@@ -29,7 +29,8 @@ import {
   PencilSimple,
   Crown,
   UserCircle,
-  Bank
+  Bank,
+  QrCode
 } from 'phosphor-react-native';
 
 const MenuItem = ({ icon, title, subtitle, onPress, isDanger = false }: any) => (
@@ -121,7 +122,7 @@ export default function OwnerProfileScreen() {
       } else {
         queryClient.clear();
         setModalVisible(false);
-        router.replace('/auth/otp-auth');
+        router.replace('/auth/account-type');
       }
     } catch (err: any) {
       Alert.alert('Sign Out Error', err.message || 'An error occurred.');
@@ -260,6 +261,12 @@ export default function OwnerProfileScreen() {
             title="Payment Settings"
             subtitle="Manage where your membership payments are received"
             onPress={() => router.push('/(owner)/payment-details' as any)}
+          />
+          <MenuItem
+            icon={<QrCode size={18} color="#C4EF00" weight="fill" />}
+            title="Open Check-In QR"
+            subtitle="Display QR code for member check-in"
+            onPress={() => router.push('/(owner)/dashboard/qr')}
           />
           <MenuItem
             icon={<Crown size={18} color="#C4EF00" weight="fill" />}

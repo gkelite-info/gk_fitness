@@ -5,6 +5,8 @@ import { CustomTabBar } from '@/components/CustomTabBar';
 export default function DoctorLayout() {
   return (
     <Tabs
+      initialRouteName="patients"
+      backBehavior="history"
       tabBar={(props) => <CustomTabBar {...props} centerRouteName="patients" />}
       screenOptions={{
         header: () => <Navbar />,

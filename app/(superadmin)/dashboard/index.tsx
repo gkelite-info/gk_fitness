@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, ScrollView, Pressable, Image } from 'react-native';
+import { View, ScrollView, Pressable, Image, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { triggerMediumHaptic } from '@/lib/haptics';
@@ -51,6 +51,17 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const { data: gyms, isLoading: isLoadingGyms, refetch: refetchGyms } = useGyms();
   const { data: users, refetch: refetchUsers } = useUsers();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        BackHandler.exitApp();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [])
+  );
 
   const getGreeting = () => {
     const hour = new Date().getHours();

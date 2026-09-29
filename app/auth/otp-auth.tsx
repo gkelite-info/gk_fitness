@@ -664,7 +664,13 @@ export default function OtpAuthScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false} bounces={false}>
         <Pressable
-          onPress={() => router.push('/auth/account-type')}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/auth/account-type');
+            }
+          }}
           className="absolute top-12 left-6 z-10 w-10 h-10 bg-[#121212] border border-[#1E1E1E] rounded-full items-center justify-center"
         >
           <CaretLeft size={20} color="#FFFFFF" />

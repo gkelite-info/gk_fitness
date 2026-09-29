@@ -7,6 +7,9 @@ import { User, Buildings, Barbell, Globe, ShieldCheck, CaretRight } from 'phosph
 import { clearSelectedGym } from '@/helpers/tenantHelper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useUser } from '@/context/UserContext';
+import { navigateBasedOnRole } from '@/helpers/otpHelper';
+
 const ACCOUNT_TYPES = [
   { id: 'individual', title: 'Individual', icon: User, color: '#C3F400' },
   { id: 'owner', title: 'Gym Owner', icon: Buildings, color: '#C3F400' },
@@ -17,11 +20,16 @@ const ACCOUNT_TYPES = [
 
 export default function AccountTypeScreen() {
   const insets = useSafeAreaInsets();
+  const { role, loading } = useUser();
 
   useFocusEffect(
     useCallback(() => {
-      clearSelectedGym();
-    }, [])
+      if (!loading && role) {
+        navigateBasedOnRole(role);
+      } else {
+        clearSelectedGym();
+      }
+    }, [role, loading])
   );
 
   const handleSelect = (typeId: string) => {

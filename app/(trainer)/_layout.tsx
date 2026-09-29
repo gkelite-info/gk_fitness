@@ -5,6 +5,7 @@ import { CustomTabBar } from '@/components/CustomTabBar';
 export default function TrainerLayout() {
   return (
     <Tabs
+      initialRouteName="home"
       backBehavior="history"
       tabBar={(props) => <CustomTabBar {...props} centerRouteName="home" />}
       screenOptions={{

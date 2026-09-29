@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { View, ScrollView, Pressable, Platform } from 'react-native';
+import { View, ScrollView, Pressable, Platform, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
 import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
@@ -10,7 +10,7 @@ import { useCustomerTrainersByGym } from '@/hooks/customerTrainers/useCustomerTr
 import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   Users,
   CheckCircle,
@@ -43,7 +43,6 @@ const OVERVIEW_ITEMS = [
 const QUICK_ACTIONS = [
   { id: 'add-member', icon: UserPlus, label: 'Add Member' },
   { id: 'create-announcement', icon: Megaphone, label: 'Create Announcement' },
-  { id: 'open-qr', icon: QrCode, label: 'Open Check-In QR' },
   { id: 'manage-inventory', icon: Package, label: 'Manage Inventory' },
   { id: 'record-payment', icon: Wallet, label: 'Record Payment' },
   { id: 'manage-biometric', icon: Fingerprint, label: 'Manage Biometric' },
@@ -62,6 +61,17 @@ export default function OwnerDashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        BackHandler.exitApp();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [])
+  );
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -376,8 +386,6 @@ export default function OwnerDashboardScreen() {
               onPress={() => {
                 if (action.id === 'add-member') {
                   router.push('/(owner)/dashboard/customers');
-                } else if (action.id === 'open-qr') {
-                  router.push('/(owner)/dashboard/qr');
                 } else if (action.id === 'manage-inventory') {
                   router.push('/(owner)/dashboard/manage-inventory');
                 } else if (action.id === 'record-payment') {

@@ -65,7 +65,7 @@ export default function TrainerProfileScreen() {
       } else {
         queryClient.clear();
         setModalVisible(false);
-        router.replace('/auth/otp-auth');
+        router.replace('/auth/account-type');
       }
     } catch (err: any) {
       Alert.alert('Sign Out Error', err.message || 'An error occurred.');

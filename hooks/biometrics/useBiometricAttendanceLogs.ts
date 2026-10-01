@@ -22,5 +22,7 @@ export function useBiometricAttendanceLogs(
       return { data: res.data || [], total: res.total || 0 };
     },
     enabled: !!gymId,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 }

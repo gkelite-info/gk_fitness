@@ -286,27 +286,6 @@ export const processBiometricScan = async (body: ScanPayload) => {
     }
 
     const scanDateOnly = scanTimestampStr.split('T')[0];
-
-    const { data: existingAttendance, error: attErr } = await supabase
-      .from("gym_attendance")
-      .select("attendanceId")
-      .eq("gymId", device.gymId)
-      .eq("customerId", customerId)
-      .eq("markedAt", scanTimestamp)
-      .maybeSingle();
-
-    if (!existingAttendance && !attErr) {
-      await supabase
-        .from("gym_attendance")
-        .insert([{
-          attendanceId: Crypto.randomUUID(),
-          gymId: device.gymId,
-          customerId,
-          markedAt: scanTimestamp,
-          date: scanDateOnly
-        }]);
-    }
-
     const currentDate = new Date(scanTimestamp);
     const currentScanTimeMs = currentDate.getTime();
     const dedupeKey = `${customerId}-${device.deviceId}`;
@@ -366,16 +345,14 @@ export const processBiometricScan = async (body: ScanPayload) => {
       return { success: false, reason: 'DuplicateScan' };
     }
 
-    const { data: membershipData, error: membershipError } = await supabase
+    const { data: memberships, error: membershipError } = await supabase
       .from('gym_customer_membership_plans')
-      .select('is_Active, endDate')
-      .eq('gymId', device.gymId)
+      .select('is_Active, endDate, gymId')
       .eq('customerId', customerId)
-      .eq('is_deleted', false)
-      .maybeSingle();
+      .eq('is_deleted', false);
 
-    if (membershipError || !membershipData) {
-      console.warn(`[Biometric Scan Helper] Customer ${customerId} has no membership at gym ${device.gymId}`);
+    if (membershipError || !memberships || memberships.length === 0) {
+      console.warn(`[Biometric Scan Helper] Customer ${customerId} has no membership plans found`);
       await supabase
         .from("gym_biometric_attendance_logs")
         .update({
@@ -387,32 +364,32 @@ export const processBiometricScan = async (body: ScanPayload) => {
       return { success: false, reason: 'NoActiveMembership' };
     }
 
-    if (membershipData.is_Active && membershipData.endDate) {
-      const endDate = new Date(membershipData.endDate);
-      if (currentDate > endDate) {
-        membershipData.is_Active = false;
-        supabase
-          .from('gym_customer_membership_plans')
-          .update({ is_Active: false })
-          .eq('gymId', device.gymId)
-          .eq('customerId', customerId)
-          .then();
-      }
-    }
+    let hasAccess = false;
+    const scanDateObj = new Date(scanTimestamp);
+    const scanDateStart = new Date(scanDateObj.getFullYear(), scanDateObj.getMonth(), scanDateObj.getDate()).getTime();
 
-    let hasAccess = membershipData.is_Active;
+    for (const plan of memberships) {
+      if (plan.endDate) {
+        const endDateParts = String(plan.endDate).split('T')[0].split('-').map(Number);
+        const endDateObj = endDateParts.length === 3
+          ? new Date(endDateParts[0], endDateParts[1] - 1, endDateParts[2])
+          : new Date(plan.endDate);
 
-    if (!hasAccess && membershipData.endDate) {
-      const endDate = new Date(membershipData.endDate);
-      const gracePeriodEnd = new Date(endDate.getTime() + 5 * 24 * 60 * 60 * 1000);
+        const endDateStart = new Date(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate()).getTime();
+        const graceEnd = endDateStart + (5 * 24 * 60 * 60 * 1000); // 5 days grace period
 
-      if (currentDate <= gracePeriodEnd) {
+        if (scanDateStart <= graceEnd) {
+          hasAccess = true;
+          break;
+        }
+      } else if (plan.is_Active) {
         hasAccess = true;
+        break;
       }
     }
 
     if (!hasAccess) {
-      console.warn(`[Biometric Scan Helper] Customer ${customerId} membership is inactive/expired`);
+      console.warn(`[Biometric Scan Helper] Customer ${customerId} has no active/valid membership for scan date`);
       await supabase
         .from("gym_biometric_attendance_logs")
         .update({
@@ -498,9 +475,30 @@ export const processBiometricScan = async (body: ScanPayload) => {
       .from("gym_biometric_attendance_logs")
       .update({
         processedStatus: 'Accepted',
+        rejectionReason: null,
         updatedAt: new Date().toISOString(),
       })
       .eq("logId", logId);
+
+    const { data: existingAttendance, error: attErr } = await supabase
+      .from("gym_attendance")
+      .select("attendanceId")
+      .eq("gymId", device.gymId)
+      .eq("customerId", customerId)
+      .eq("markedAt", scanTimestamp)
+      .maybeSingle();
+
+    if (!existingAttendance && !attErr) {
+      await supabase
+        .from("gym_attendance")
+        .insert([{
+          attendanceId: Crypto.randomUUID(),
+          gymId: device.gymId,
+          customerId,
+          markedAt: scanTimestamp,
+          date: scanDateOnly
+        }]);
+    }
 
     return { success: true };
 
@@ -536,9 +534,25 @@ export const syncDeviceLogs = async (deviceId: string) => {
       startTime = new Date(new Date(latestLog.scanTimestamp).getTime() - 5 * 60 * 1000);
     }
 
-    const formatHikTime = (date: Date) => date.toISOString().split('.')[0] + '+00:00';
+    const formatHikTime = (date: Date) => {
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const y = date.getFullYear();
+      const m = pad(date.getMonth() + 1);
+      const d = pad(date.getDate());
+      const h = pad(date.getHours());
+      const min = pad(date.getMinutes());
+      const s = pad(date.getSeconds());
+
+      const tzo = -date.getTimezoneOffset();
+      const dif = tzo >= 0 ? '+' : '-';
+      const tzoH = pad(Math.floor(Math.abs(tzo) / 60));
+      const tzoM = pad(Math.abs(tzo) % 60);
+
+      return `${y}-${m}-${d}T${h}:${min}:${s}${dif}${tzoH}:${tzoM}`;
+    };
+
     const startTimeStr = formatHikTime(startTime);
-    const endTimeStr = formatHikTime(new Date(Date.now() + 60 * 60 * 1000)); // 1 hour into future
+    const endTimeStr = formatHikTime(new Date(Date.now() + 24 * 60 * 60 * 1000));
 
     const payload = {
       AcsEventCond: {
@@ -554,7 +568,6 @@ export const syncDeviceLogs = async (deviceId: string) => {
 
     const res = await deviceDigestFetch(device, "AccessControl/AcsEvent?format=json", "POST", payload);
     const events = res?.AcsEvent?.InfoList || res?.AcsEventSearch?.InfoList || [];
-
 
     let processedCount = 0;
     let successCount = 0;
@@ -598,6 +611,10 @@ export const syncDeviceLogs = async (deviceId: string) => {
       })
       .eq("deviceId", deviceId);
 
+    if (device?.gymId) {
+      await reprocessRejectedLogs(device.gymId);
+    }
+
     return {
       success: true,
       totalEvents: events.length,
@@ -606,7 +623,7 @@ export const syncDeviceLogs = async (deviceId: string) => {
     };
 
   } catch (error: any) {
-    console.error(`[Biometric Scan Helper] Sync failed for device: ${deviceId}`, error);
+    console.log(`[Biometric Scan Helper] Sync failed for device: ${deviceId}`, error?.message || error);
 
     try {
       await supabase
@@ -619,5 +636,86 @@ export const syncDeviceLogs = async (deviceId: string) => {
       success: false,
       error: error.message || "Failed to sync logs from device"
     };
+  }
+};
+
+export const reprocessRejectedLogs = async (gymId: string) => {
+  try {
+    const { data: rejectedLogs } = await supabase
+      .from("gym_biometric_attendance_logs")
+      .select("logId, customerId, scanTimestamp, deviceId")
+      .eq("gymId", gymId)
+      .eq("processedStatus", "Rejected")
+      .eq("rejectionReason", "NoActiveMembership");
+
+    if (!rejectedLogs || rejectedLogs.length === 0) return;
+
+    for (const log of rejectedLogs) {
+      const { data: memberships } = await supabase
+        .from('gym_customer_membership_plans')
+        .select('is_Active, endDate')
+        .eq('customerId', log.customerId)
+        .eq('is_deleted', false);
+
+      if (!memberships || memberships.length === 0) continue;
+
+      let hasAccess = false;
+      const scanDateObj = new Date(log.scanTimestamp);
+      const scanDateStart = new Date(scanDateObj.getFullYear(), scanDateObj.getMonth(), scanDateObj.getDate()).getTime();
+
+      for (const plan of memberships) {
+        if (plan.endDate) {
+          const endDateParts = String(plan.endDate).split('T')[0].split('-').map(Number);
+          const endDateObj = endDateParts.length === 3
+            ? new Date(endDateParts[0], endDateParts[1] - 1, endDateParts[2])
+            : new Date(plan.endDate);
+
+          const endDateStart = new Date(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate()).getTime();
+          const graceEnd = endDateStart + (5 * 24 * 60 * 60 * 1000);
+
+          if (scanDateStart <= graceEnd) {
+            hasAccess = true;
+            break;
+          }
+        } else if (plan.is_Active) {
+          hasAccess = true;
+          break;
+        }
+      }
+
+      if (hasAccess) {
+        await supabase
+          .from("gym_biometric_attendance_logs")
+          .update({
+            processedStatus: 'Accepted',
+            rejectionReason: null,
+            updatedAt: new Date().toISOString(),
+          })
+          .eq("logId", log.logId);
+
+        const scanDateOnly = log.scanTimestamp.split('T')[0];
+        const { data: existingAttendance } = await supabase
+          .from("gym_attendance")
+          .select("attendanceId")
+          .eq("gymId", gymId)
+          .eq("customerId", log.customerId)
+          .eq("markedAt", log.scanTimestamp)
+          .maybeSingle();
+
+        if (!existingAttendance) {
+          await supabase
+            .from("gym_attendance")
+            .insert([{
+              attendanceId: Crypto.randomUUID(),
+              gymId,
+              customerId: log.customerId,
+              markedAt: log.scanTimestamp,
+              date: scanDateOnly
+            }]);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Biometric Scan Helper] Error reprocessing rejected logs:', err);
   }
 };

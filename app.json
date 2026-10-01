@@ -49,6 +49,7 @@
             "minSdkVersion": 26,
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
+            "usesCleartextTraffic": true,
             "enableMinifyInReleaseBuilds": true,
             "enableProguardInReleaseBuilds": true
           }
@@ -76,7 +77,10 @@
         "UIViewControllerBasedStatusBarAppearance": false,
         "NSMotionUsageDescription": "GK Fitness needs access to your device motion data to accurately track your daily step count and calculate calories burned during your active workout sessions.",
         "NSCameraUsageDescription": "GK Fitness needs access to your camera to scan QR codes for gym attendance and check-ins.",
-        "NSPhotoLibraryUsageDescription": "Allow GK Fitness to access your photos to upload gym logos, progress photos, and profile pictures."
+        "NSPhotoLibraryUsageDescription": "Allow GK Fitness to access your photos to upload gym logos, progress photos, and profile pictures.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {

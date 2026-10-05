@@ -5,6 +5,7 @@ import { CaretLeft, CalendarBlank, MagnifyingGlass, CaretDown, Clock, Barbell, U
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useUser } from '@/context/UserContext';
 import { useAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
+import { useGymTrainerByUserId } from '@/hooks/trainers/useGymTrainers';
 import { useTrainerSessionsForDate, useSaveTrainerSession } from '@/hooks/trainerSessions/useTrainerSessions';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -12,7 +13,9 @@ import ConfirmModal from '@/components/ConfirmModal';
 export default function PTSessions() {
   const router = useRouter();
   const { userId } = useUser();
-  const { data: assignments, isLoading, refetch: refetchAssignments } = useAssignedCustomersByTrainer(userId ?? undefined);
+  const { data: trainerData } = useGymTrainerByUserId(userId ?? undefined);
+  const loggedInGymTrainerId = trainerData?.trainer?.gymTrainerId;
+  const { data: assignments, isLoading, refetch: refetchAssignments } = useAssignedCustomersByTrainer(loggedInGymTrainerId);
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -346,6 +349,7 @@ export default function PTSessions() {
             saveSession({
               trainerSessionId: existingSession?.trainerSessionId,
               customerTrainerId: selectedSessionId,
+              gymTrainerId: loggedInGymTrainerId!,
               sessionDate: selectedDate,
               status: backendStatus as any
             });

@@ -27,14 +27,14 @@ export default function AuthLayout() {
 
   return (
     <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
-      <Stack.Screen name="account-type" />
-      <Stack.Screen name="otp-auth" />
-      <Stack.Screen name="find-organization" />
-      <Stack.Screen name="signup" />
-      <Stack.Screen name="global-trainer-signup" />
-      <Stack.Screen name="forgot-password" />
-      <Stack.Screen name="reset-password" />
-      <Stack.Screen name="registration-status" />
+      <Stack.Screen name="account-type" options={{ headerShown: false }} />
+      <Stack.Screen name="otp-auth" options={{ headerShown: false }} />
+      <Stack.Screen name="find-organization" options={{ headerShown: false }} />
+      <Stack.Screen name="signup" options={{ headerShown: false }} />
+      <Stack.Screen name="global-trainer-signup" options={{ headerShown: false }} />
+      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+      <Stack.Screen name="registration-status" options={{ headerShown: false }} />
     </Stack>
   );
 }

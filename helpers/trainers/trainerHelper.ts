@@ -212,6 +212,32 @@ export async function fetchTrainerById(gymTrainerId: string) {
   return { trainer, schedules: schedules || [] };
 }
 
+export async function fetchTrainerByUserId(userId: string) {
+  const { data: trainer, error: trainerErr } = await supabase
+    .from('gym_trainers')
+    .select('*, users!gym_trainers_userId_fkey(profilePhoto)')
+    .eq('userId', userId)
+    .eq('is_deleted', false)
+    .maybeSingle();
+
+  if (trainerErr) {
+    console.error('[trainerHelper] fetchTrainerByUserId Error:', trainerErr);
+    throw trainerErr;
+  }
+
+  if (!trainer) {
+    return { trainer: null, schedules: [] };
+  }
+
+  const { data: schedules } = await supabase
+    .from('gym_trainer_schedules')
+    .select('*')
+    .eq('gymTrainerId', trainer.gymTrainerId)
+    .eq('is_deleted', false);
+
+  return { trainer, schedules: schedules || [] };
+}
+
 
 export async function saveGymTrainer(params: SaveGymTrainerParams) {
   const now = new Date().toISOString();

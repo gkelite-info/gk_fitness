@@ -127,7 +127,13 @@ export default function FindOrganizationScreen() {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View className="flex-1 px-6 pt-14">
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/auth/account-type');
+              }
+            }}
             className="w-10 h-10 -ml-1 items-center justify-center rounded-full bg-[#121212] border border-[#1E1E1E] mb-4 active:opacity-70"
           >
             <CaretLeft size={22} color="#FFFFFF" weight="bold" />

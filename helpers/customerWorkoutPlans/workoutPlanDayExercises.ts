@@ -35,7 +35,9 @@ function normalizeName(name: string): string {
   return name.toLowerCase().replace(/[-_]/g, ' ').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
 }
 
+let cachedGender: string | null = null;
 async function getUserGender(): Promise<string> {
+  if (cachedGender) return cachedGender;
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (user?.id) {
@@ -45,7 +47,8 @@ async function getUserGender(): Promise<string> {
         .eq('customerId', user.id)
         .maybeSingle();
       if (cust?.gender) {
-        return cust.gender.toLowerCase();
+        cachedGender = cust.gender.toLowerCase();
+        return cachedGender as string;
       }
     }
   } catch (e) {
@@ -61,6 +64,26 @@ function isRealVideoUrl(url?: string | null): boolean {
   if (lower.includes('workout-videos')) return true;
   if (lower.match(/\.(mp4|mov|webm|gif)(\?.*)?$/i)) return true;
   return false;
+}
+
+let cachedWorkoutVideos: any[] | null = null;
+let cachedWorkoutVideosTime: number = 0;
+
+async function getWorkoutVideos() {
+  const now = Date.now();
+  if (cachedWorkoutVideos && (now - cachedWorkoutVideosTime < 60000)) {
+     return cachedWorkoutVideos;
+  }
+  const { data: wvRows } = await supabase
+    .from('workout_videos')
+    .select('workoutVideoId, videoUrl, exerciseName, workoutId, workouts:workoutId(role, isStretching)')
+    .eq('is_deleted', false);
+  
+  if (wvRows) {
+    cachedWorkoutVideos = wvRows;
+    cachedWorkoutVideosTime = now;
+  }
+  return wvRows || [];
 }
 
 async function enrichExercisesWithVideos(exercises: any[], targetGender?: string) {
@@ -112,10 +135,7 @@ async function enrichExercisesWithVideos(exercises: any[], targetGender?: string
 
   if (missingNameSet.size > 0 || missingVideoIdSet.size > 0) {
     try {
-      const { data: wvRows } = await supabase
-        .from('workout_videos')
-        .select('workoutVideoId, videoUrl, exerciseName, workoutId, workouts:workoutId(role, isStretching)')
-        .eq('is_deleted', false);
+      const wvRows = await getWorkoutVideos();
 
       if (wvRows && wvRows.length > 0) {
         const nameGroupMap = new Map<string, any[]>();

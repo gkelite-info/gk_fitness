@@ -13,6 +13,7 @@ export default function ProgressLayout() {
       <Stack.Screen name="preview-photo" options={{ presentation: 'modal' }} />
       <Stack.Screen name="monthly-analysis" />
       <Stack.Screen name="strength" />
+      <Stack.Screen name="weekly-progress" />
     </Stack>
   );
 }

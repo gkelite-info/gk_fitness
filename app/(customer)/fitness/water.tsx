@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Drop, Plus } from 'phosphor-react-native';
+import { ArrowLeft, Drop, Plus, Trash } from 'phosphor-react-native';
 import { ProgressRing } from '@/components/fitness/ProgressRing';
 import { useUser } from '@/context/UserContext';
 import { useWaterTracking } from '@/hooks/fitness/useWaterTracking';
@@ -30,7 +30,7 @@ export default function WaterScreen() {
     isLoading: isTimelineLoading,
   } = useFitnessTimelineData(userId, 'water', 'D');
 
-  const { logs, logWater, isLogging, isLoadingLogs } = useWaterTracking(userId, todayStr);
+  const { logs, logWater, isLogging, isLoadingLogs, deleteWaterLog, isDeletingLog } = useWaterTracking(userId, todayStr);
 
   const displayValueML = timeframe === 'D' ? totalValue : avgValue;
   const currentGoalML = goalValue || DEFAULT_WATER_GOAL_ML;
@@ -42,6 +42,22 @@ export default function WaterScreen() {
     } catch (e) {
       console.error('Failed to log water', e);
     }
+  };
+
+  const handleDelete = (logId: string, amountML: number) => {
+    if (logId.startsWith('temp-')) return;
+    Alert.alert(
+      "Delete Log",
+      `Are you sure you want to delete this ${amountML}ml water log?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive",
+          onPress: () => deleteWaterLog({ logId, amountML }) 
+        }
+      ]
+    );
   };
 
   const maxWater = Math.max(...chartBars.map((b) => b.value), 1000);
@@ -150,6 +166,13 @@ export default function WaterScreen() {
                               <Text className="text-[#8E8E93] text-xs">{time}</Text>
                             </View>
                           </View>
+                          <Pressable 
+                            onPress={() => handleDelete(log.id, log.amountML)}
+                            disabled={isDeletingLog || log.id.startsWith('temp-')}
+                            className="p-2 active:opacity-70 disabled:opacity-50"
+                          >
+                            <Trash size={20} color="#FF3B30" />
+                          </Pressable>
                         </View>
                       );
                     })}

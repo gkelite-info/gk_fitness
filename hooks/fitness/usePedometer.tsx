@@ -235,9 +235,28 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
     const today = getLocalDateString(new Date());
 
-    const syncTimeout = setTimeout(() => {
-      supabaseFitnessService.updateSteps(userId, today, steps, calories)
-        .catch(err => console.error('Pedometer auto-sync failed:', err));
+    const syncTimeout = setTimeout(async () => {
+      try {
+        await supabaseFitnessService.updateSteps(userId, today, steps, calories);
+        
+        // Progress Milestone: 10k steps
+        if (steps >= 10000) {
+          const milestoneKey = `milestone_10k_steps_${userId}_${today}`;
+          const hasSent = await AsyncStorage.getItem(milestoneKey);
+          if (!hasSent) {
+            const { sendMilestonePushNotification } = require('@/lib/services/notificationService');
+            await sendMilestonePushNotification(
+              userId,
+              '10k_steps',
+              '🏆 10K Steps Achieved!',
+              'Incredible work today! You\'ve reached your 10,000 steps goal.'
+            );
+            await AsyncStorage.setItem(milestoneKey, 'true');
+          }
+        }
+      } catch (err) {
+        console.error('Pedometer auto-sync failed:', err);
+      }
     }, 10000);
 
     return () => clearTimeout(syncTimeout);

@@ -87,10 +87,10 @@ export default function WeeklyProgressScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: Math.max(insets.top + 8, 28) }}>
+    <View className="flex-1 bg-[#0A0A0A]">
       <ScrollView 
         className="flex-1" 
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 + insets.bottom }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 120 + insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}

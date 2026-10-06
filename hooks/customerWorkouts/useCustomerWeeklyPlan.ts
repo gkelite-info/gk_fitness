@@ -17,19 +17,23 @@ export function useCustomerWeeklyPlan(userId: string | null | undefined) {
       const days = await fetchWorkoutPlanDays(activePlan.planId);
       const loadedPlanDays: any = { 1: {}, 2: {}, 3: {}, 4: {} };
       
-      for (const d of days) {
-        if (d.workoutType && d.workoutType !== 'Rest') {
-          const exs = await fetchWorkoutPlanDayExercises(d.planDayId);
-          const weekNum = d.weekNumber || 1;
-          loadedPlanDays[weekNum][d.dayOfWeek] = {
-            dayOfWeek: d.dayOfWeek,
-            workoutType: d.workoutType,
-            workoutId: d.workoutId || null,
-            durationMinutes: d.durationMinutes,
-            exercises: exs,
-            planDayId: d.planDayId
-          };
-        }
+      const activeDays = days.filter((d: any) => d.workoutType && d.workoutType !== 'Rest');
+      const fetchPromises = activeDays.map(async (d: any) => {
+        const exs = await fetchWorkoutPlanDayExercises(d.planDayId);
+        return { d, exs };
+      });
+      const results = await Promise.all(fetchPromises);
+      
+      for (const { d, exs } of results) {
+        const weekNum = d.weekNumber || 1;
+        loadedPlanDays[weekNum][d.dayOfWeek] = {
+          dayOfWeek: d.dayOfWeek,
+          workoutType: d.workoutType,
+          workoutId: d.workoutId || null,
+          durationMinutes: d.durationMinutes,
+          exercises: exs,
+          planDayId: d.planDayId
+        };
       }
       return loadedPlanDays;
     },

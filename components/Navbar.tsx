@@ -7,6 +7,7 @@ import { Text } from '@/components/nativewindui/Text';
 import { useState } from 'react';
 import { useRealtimeAnnouncements } from '@/hooks/gymAnnouncements/useRealtimeAnnouncements';
 import { useBirthdayAnnouncements } from '@/hooks/gymAnnouncements/useBirthdayAnnouncements';
+import { useNotifications } from '@/hooks/notifications/useNotifications';
 import { AnnouncementsModal } from '@/components/AnnouncementsModal';
 import { BellRingingIcon, UsersThree, CaretLeft } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
@@ -24,11 +25,13 @@ export function Navbar() {
   const { data: gymData } = useGym(gymId);
   const { announcements, loading, hasNew, clearHasNew } = useRealtimeAnnouncements(gymId);
   const { birthdayAnnouncements, isLoadingBirthday } = useBirthdayAnnouncements(gymId);
+  const { unreadCount } = useNotifications(userId ?? undefined);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [hasViewedBirthdays, setHasViewedBirthdays] = useState(false);
 
   const combinedAnnouncements = [...birthdayAnnouncements, ...announcements];
   const combinedHasNew = hasNew || (birthdayAnnouncements.length > 0 && !hasViewedBirthdays);
+  const showBadge = combinedHasNew || unreadCount > 0;
   const combinedLoading = loading || isLoadingBirthday;
 
   const isProfilePage = pathname === '/community/profile' ? false : pathname.includes('/profile');
@@ -108,7 +111,7 @@ export function Navbar() {
             }}
           >
             <BellRingingIcon size={24} color='#ffffff' />
-            {combinedHasNew && (
+            {showBadge && (
               <View className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border border-[#0D0D0D]" />
             )}
           </Pressable>

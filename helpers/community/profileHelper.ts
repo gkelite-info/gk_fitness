@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
+import { sendCommunityPushNotification } from '@/lib/services/notificationService';
 
 export interface CommunityProfile {
   gymCommunityProfileId: string;
@@ -181,6 +182,19 @@ export async function followUser(followerId: string, followingId: string) {
     console.error('Error following user:', error);
     throw error;
   }
+
+  // Trigger follow notification in background (non-blocking)
+  (async () => {
+    try {
+      await sendCommunityPushNotification({
+        targetUserId: followingId,
+        actorUserId: followerId,
+        type: 'follow',
+      });
+    } catch (notifErr) {
+      console.warn('[followUser] Notification dispatch error:', notifErr);
+    }
+  })();
 }
 
 export async function unfollowUser(followerId: string, followingId: string) {

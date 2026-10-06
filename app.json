@@ -89,12 +89,9 @@
         "foregroundImage": "./assets/app-adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "googleServicesFile": "./google-services.json",
       "package": "com.gkeliteinfo.gkgymlife",
       "permissions": [
-        "android.permission.ACTIVITY_RECOGNITION",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.health.READ_STEPS",
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",

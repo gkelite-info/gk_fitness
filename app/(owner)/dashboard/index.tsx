@@ -30,6 +30,7 @@ import {
   CaretDown,
   QrCode,
   Fingerprint,
+  PhoneCall,
 } from 'phosphor-react-native';
 import { triggerMediumHaptic } from '@/lib/haptics';
 
@@ -41,6 +42,7 @@ const OVERVIEW_ITEMS = [
 ];
 
 const QUICK_ACTIONS = [
+  { id: 'enquiries', icon: PhoneCall, label: 'Enquiries' },
   { id: 'add-member', icon: UserPlus, label: 'Add Member' },
   { id: 'create-announcement', icon: Megaphone, label: 'Create Announcement' },
   { id: 'manage-inventory', icon: Package, label: 'Manage Inventory' },
@@ -384,7 +386,9 @@ export default function OwnerDashboardScreen() {
             <Pressable
               key={action.id}
               onPress={() => {
-                if (action.id === 'add-member') {
+                if (action.id === 'enquiries') {
+                  router.push('/(owner)/dashboard/enquiries');
+                } else if (action.id === 'add-member') {
                   router.push('/(owner)/dashboard/customers');
                 } else if (action.id === 'manage-inventory') {
                   router.push('/(owner)/dashboard/manage-inventory');

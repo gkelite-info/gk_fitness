@@ -21,16 +21,16 @@ export function useCustomerMuscleGroupWorkouts(userId: string | null | undefined
 
       const days = await fetchWorkoutPlanDays(activePlan.planId);
 
-      let allExercises: WorkoutPlanDayExerciseAttributes[] = [];
-
-      for (const day of days) {
+      const exercisesPromises = days.map(async (day) => {
         const exercises = await fetchWorkoutPlanDayExercises(day.planDayId);
-        const exercisesWithContext = exercises.map(ex => ({
+        return exercises.map(ex => ({
           ...ex,
           dayWorkoutType: day.workoutType,
         }));
-        allExercises = [...allExercises, ...exercisesWithContext];
-      }
+      });
+
+      const exercisesResults = await Promise.all(exercisesPromises);
+      let allExercises = exercisesResults.flat();
 
       if (muscleGroup && muscleGroup !== 'All') {
         const target = muscleGroup.toLowerCase();

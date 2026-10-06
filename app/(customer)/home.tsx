@@ -16,6 +16,7 @@ import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/custom
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 import { fetchGymCustomerMembershipPlans, toggleGymCustomerMembershipPlanActiveStatus } from '@/helpers/gymCustomerMembershipPlans/gymCustomerMembershipPlans';
+import { syncMembershipRenewalReminders, syncPTSessionReminders } from '@/lib/services/notificationService';
 import {
   Star,
   QrCode,
@@ -80,6 +81,8 @@ export default function CustomerHome() {
     if (!userId) return;
     setIsLoadingMembership(true);
     try {
+      syncMembershipRenewalReminders(userId).catch(console.error);
+      syncPTSessionReminders(userId).catch(console.error);
       const plans = await fetchGymCustomerMembershipPlans(undefined, userId);
       const activePlan = plans.find((p: any) => p.is_Active && p.endDate);
       if (activePlan) {
@@ -417,7 +420,7 @@ export default function CustomerHome() {
           <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider">
             WEEKLY PROGRESS
           </Text>
-          <Pressable onPress={() => router.push('/(customer)/weekly-progress')} className="flex-row items-center gap-1 active:opacity-80">
+          <Pressable onPress={() => router.push('/(customer)/progress/weekly-progress')} className="flex-row items-center gap-1 active:opacity-80">
             <Text className="text-[#8E8E93] text-xs font-medium">View All</Text>
             <ArrowRight size={13} color="#8E8E93" />
           </Pressable>

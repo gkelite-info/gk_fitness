@@ -10,7 +10,12 @@ export function useTrainerDashboardData(userId: string | null | undefined) {
     queryFn: async () => {
       if (!userId) return null;
       
-      const plans = await fetchTrainerWorkoutPlans(userId);
+      const [plans, userLogsRes] = await Promise.all([
+        fetchTrainerWorkoutPlans(userId),
+        supabase.from('customer_workout_logs').select('planDayId').eq('userId', userId)
+      ]);
+      const userLogs = userLogsRes.data;
+
       const activePlan = plans?.find((p: any) => p.isActive) || plans?.[0];
       
       if (!activePlan) {
@@ -35,12 +40,6 @@ export function useTrainerDashboardData(userId: string | null | undefined) {
       const todayIndex = currentDayIndex === 0 ? 6 : currentDayIndex - 1;
       const todayString = dayOrder[todayIndex];
       const yesterdayIndex = todayIndex === 0 ? 6 : todayIndex - 1;
-
-      // Fetch all completed logs to accurately determine status
-      const { data: userLogs } = await supabase
-        .from('customer_workout_logs')
-        .select('planDayId')
-        .eq('userId', userId);
         
       const completedPlanDayIds = new Set(userLogs?.map(l => l.planDayId) || []);
 

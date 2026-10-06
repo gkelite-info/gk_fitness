@@ -134,6 +134,10 @@ export async function getUserRole(userId: string, email?: string): Promise<strin
 export function navigateBasedOnRole(role: string | null) {
   const normalizedRole = role?.trim().toLowerCase();
   
+  if (router.canDismiss()) {
+    router.dismissAll();
+  }
+  
   if (normalizedRole === 'superadmin') {
     router.replace('/(superadmin)/dashboard');
   } else if (normalizedRole === 'owner') {

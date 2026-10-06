@@ -3,6 +3,9 @@ import { View, Text, TouchableOpacity, ScrollView, Modal, ActivityIndicator, Pre
 import { X, Megaphone, Gift, Trash, GearSix } from 'phosphor-react-native';
 import { GymAnnouncementAttributes } from '@/helpers/gymAnnouncements/gymAnnouncementsHelper';
 import { useRouter } from 'expo-router';
+import { useNotifications } from '@/hooks/notifications/useNotifications';
+import { useUser } from '@/context/UserContext';
+import { formatDistanceToNow } from 'date-fns';
 
 interface AnnouncementsModalProps {
   visible: boolean;
@@ -11,22 +14,16 @@ interface AnnouncementsModalProps {
   isLoading: boolean;
 }
 
-const initialNotifications = [
-  { id: 1, title: 'Workout Reminder', message: 'Chest Day starts in 30 minutes.', time: '10 min ago', unread: true },
-  { id: 2, title: 'Membership', message: 'Your Gold Membership expires in 18 days.', time: '45 min ago', unread: true },
-  { id: 3, title: 'Trainer Update', message: 'Rahul Sharma accepted your trainer request.', time: '1 hr ago', unread: true },
-  { id: 4, title: 'Hydration Reminder', message: 'Time to drink water. 500 ml remaining today.', time: '2 hrs ago', unread: true },
-  { id: 5, title: 'Nutrition', message: "Today's meal plan is ready.", time: '3 hrs ago', unread: true },
-  { id: 6, title: 'Progress Milestone', message: 'Congratulations! 🎉 You reached your weekly workout goal.', time: 'Yesterday, 8:30 PM', unread: true },
-];
+
 
 export function AnnouncementsModal({ visible, onClose, announcements, isLoading }: AnnouncementsModalProps) {
   const router = useRouter();
+  const { userId } = useUser();
   const [activeTab, setActiveTab] = useState<'announcements' | 'notifications'>('announcements');
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const { data: notifications = [], isLoading: isLoadingNotifs, markRead, deleteRead } = useNotifications(userId ?? undefined);
 
   const clearRead = () => {
-    setNotifications([]);
+    deleteRead.mutate();
   };
 
   const formatDate = (dateStr?: string | null | Date, timeStr?: string | null) => {
@@ -126,18 +123,34 @@ export function AnnouncementsModal({ visible, onClose, announcements, isLoading 
             ) : (
               // Notifications Tab
               <View>
-                {notifications.map((item) => (
-                  <View key={item.id} className="bg-[#1C1C1E] border border-[#27272A] rounded-2xl p-4 mb-3">
-                    <View className="flex-row justify-between items-start">
-                      <Text className="text-white font-bold text-base">{item.title}</Text>
-                      {item.unread && (
-                        <View className="w-2.5 h-2.5 rounded-full bg-[#CCF200] mt-1" />
-                      )}
-                    </View>
-                    <Text className="text-[#888888] text-sm mt-1">{item.message}</Text>
-                    <Text className="text-[#666666] text-xs mt-3">{item.time}</Text>
-                  </View>
-                ))}
+                {isLoadingNotifs ? (
+                  <ActivityIndicator color="#CCF200" className="mt-10" />
+                ) : (
+                  notifications.map((item) => (
+                    <Pressable 
+                      key={item.id} 
+                      className="bg-[#1C1C1E] border border-[#27272A] rounded-2xl p-4 mb-3"
+                      onPress={() => {
+                        if (!item.is_read) markRead.mutate(item.id);
+                        if (item.data?.route) {
+                          onClose();
+                          router.push(item.data.route as any);
+                        }
+                      }}
+                    >
+                      <View className="flex-row justify-between items-start">
+                        <Text className="text-white font-bold text-base">{item.title}</Text>
+                        {!item.is_read && (
+                          <View className="w-2.5 h-2.5 rounded-full bg-[#CCF200] mt-1" />
+                        )}
+                      </View>
+                      <Text className="text-[#888888] text-sm mt-1">{item.body}</Text>
+                      <Text className="text-[#666666] text-xs mt-3">
+                        {item.created_at ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true }) : ''}
+                      </Text>
+                    </Pressable>
+                  ))
+                )}
 
                 {notifications.length > 0 && (
                   <Pressable 

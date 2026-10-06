@@ -22,5 +22,6 @@ export interface FitnessRepository {
   setWaterGoal(userId: string, goalML: number): Promise<void>;
   logWater(userId: string, amountML: number, date: string): Promise<WaterLogEntry>;
   getWaterLogs(userId: string, date: string): Promise<WaterLogEntry[]>;
+  deleteWaterLog(userId: string, logId: string, amountML: number, date: string): Promise<void>;
   getDailyTotalWater(userId: string, date: string): Promise<number>;
 }

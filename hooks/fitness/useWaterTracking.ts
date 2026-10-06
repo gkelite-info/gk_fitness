@@ -56,6 +56,19 @@ export function useWaterTracking(userId: string | null, date: string) {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['waterLogs', userId, date] });
       queryClient.invalidateQueries({ queryKey: ['fitnessStats', userId, date] });
+      queryClient.invalidateQueries({ queryKey: ['fitnessTimeline'] });
+    },
+  });
+
+  const deleteWaterLogMutation = useMutation({
+    mutationFn: async ({ logId, amountML }: { logId: string, amountML: number }) => {
+      if (!userId) throw new Error('User ID is required');
+      return fitnessService.deleteWaterLog(userId, logId, amountML, date);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['waterLogs', userId, date] });
+      queryClient.invalidateQueries({ queryKey: ['fitnessStats', userId, date] });
+      queryClient.invalidateQueries({ queryKey: ['fitnessTimeline'] });
     },
   });
 
@@ -66,6 +79,7 @@ export function useWaterTracking(userId: string | null, date: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fitnessStats', userId] });
+      queryClient.invalidateQueries({ queryKey: ['fitnessTimeline'] });
     },
   });
 
@@ -74,6 +88,8 @@ export function useWaterTracking(userId: string | null, date: string) {
     isLoadingLogs: logsQuery.isLoading,
     logWater: logWaterMutation.mutateAsync,
     isLogging: logWaterMutation.isPending,
+    deleteWaterLog: deleteWaterLogMutation.mutateAsync,
+    isDeletingLog: deleteWaterLogMutation.isPending,
     updateGoal: updateGoalMutation.mutateAsync,
     isUpdatingGoal: updateGoalMutation.isPending,
   };

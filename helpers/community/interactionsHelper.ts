@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
 import { fetchBlockedUsers } from './blockCache';
+import { sendCommunityPushNotification } from '@/lib/services/notificationService';
 
 export async function toggleLike(postId: string, userId: string) {
   try {
@@ -12,6 +13,8 @@ export async function toggleLike(postId: string, userId: string) {
       .eq('likedBy', userId)
       .single();
 
+    let isLiking = false;
+
     if (existingLike) {
       if (existingLike.is_deleted) {
         // Restore like
@@ -19,12 +22,14 @@ export async function toggleLike(postId: string, userId: string) {
           .from('gym_community_likes')
           .update({ is_deleted: false, updatedAt: new Date().toISOString(), deletedAt: null })
           .eq('gymCommunityLikesId', existingLike.gymCommunityLikesId);
+        isLiking = true;
       } else {
         // Remove like
         await supabase
           .from('gym_community_likes')
           .update({ is_deleted: true, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
           .eq('gymCommunityLikesId', existingLike.gymCommunityLikesId);
+        isLiking = false;
       }
     } else {
       // Create new like
@@ -37,6 +42,32 @@ export async function toggleLike(postId: string, userId: string) {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }]);
+      isLiking = true;
+    }
+
+    if (isLiking) {
+      // Trigger community notification in background (non-blocking)
+      (async () => {
+        try {
+          const { data: post } = await supabase
+            .from('gym_community_posts')
+            .select('createdBy, imagePath')
+            .eq('gymCommunityPostId', postId)
+            .maybeSingle();
+
+          if (post?.createdBy && post.createdBy !== userId) {
+            await sendCommunityPushNotification({
+              targetUserId: post.createdBy,
+              actorUserId: userId,
+              type: 'like',
+              postId,
+              postImage: post.imagePath,
+            });
+          }
+        } catch (notifErr) {
+          console.warn('[toggleLike] Notification dispatch error:', notifErr);
+        }
+      })();
     }
   } catch (error) {
     console.error('[interactionsHelper] toggleLike Error:', error);
@@ -131,6 +162,53 @@ export async function addComment(postId: string, userId: string, content: string
       .single();
 
     if (error) throw error;
+
+    // Trigger community notification in background (non-blocking)
+    (async () => {
+      try {
+        if (parentId) {
+          // Reply to a comment: notify parent comment author
+          const { data: parentComment } = await supabase
+            .from('gym_community_comments')
+            .select('authorId')
+            .eq('gymCommunityCommentId', parentId)
+            .maybeSingle();
+
+          if (parentComment?.authorId && parentComment.authorId !== userId) {
+            await sendCommunityPushNotification({
+              targetUserId: parentComment.authorId,
+              actorUserId: userId,
+              type: 'reply',
+              postId,
+              commentId: data.gymCommunityCommentId,
+              commentText: content,
+            });
+          }
+        } else {
+          // Top-level comment: notify post creator
+          const { data: post } = await supabase
+            .from('gym_community_posts')
+            .select('createdBy, imagePath')
+            .eq('gymCommunityPostId', postId)
+            .maybeSingle();
+
+          if (post?.createdBy && post.createdBy !== userId) {
+            await sendCommunityPushNotification({
+              targetUserId: post.createdBy,
+              actorUserId: userId,
+              type: 'comment',
+              postId,
+              postImage: post.imagePath,
+              commentId: data.gymCommunityCommentId,
+              commentText: content,
+            });
+          }
+        }
+      } catch (notifErr) {
+        console.warn('[addComment] Notification dispatch error:', notifErr);
+      }
+    })();
+
     return {
       ...data,
       users: Array.isArray(data.users) ? data.users[0] : data.users

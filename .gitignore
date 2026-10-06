@@ -25,3 +25,6 @@ android
 # Environment files
 .env
 .env*.local
+
+# Temporary database patch scripts
+fix_*.sql

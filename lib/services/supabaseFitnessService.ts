@@ -154,6 +154,29 @@ export const supabaseFitnessService: FitnessRepository = {
     };
   },
 
+  deleteWaterLog: async (userId: string, logId: string, amountML: number, date: string): Promise<void> => {
+    const { error: logError } = await supabase
+      .from('health_metric_logs')
+      .delete()
+      .eq('logId', logId)
+      .eq('userId', userId);
+
+    if (logError) throw logError;
+
+    const summary = await getOrCreateDailySummary(userId, date);
+    const newWaterIntake = Math.max(0, (summary.waterIntake || 0) - (amountML / 1000));
+    
+    const { error: updateError } = await supabase
+      .from('daily_health_summaries')
+      .update({
+        waterIntake: newWaterIntake,
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('summaryId', summary.summaryId);
+
+    if (updateError) throw updateError;
+  },
+
   getWaterLogs: async (userId: string, date: string): Promise<WaterLogEntry[]> => {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);

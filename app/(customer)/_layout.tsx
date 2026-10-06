@@ -8,7 +8,7 @@ export default function CustomerLayout() {
     <PedometerProvider>
       <Tabs
         initialRouteName="home"
-        backBehavior="history"
+        backBehavior="initialRoute"
         tabBar={(props) => <CustomTabBar {...props} centerRouteName="home" />}
         screenOptions={{
           header: () => <Navbar />,
@@ -305,14 +305,7 @@ export default function CustomerLayout() {
             headerShown: false,
           }}
         />
-        <Tabs.Screen
-          name="weekly-progress"
-          options={{
-            href: null,
-            headerShown: false,
-            tabBarStyle: { display: 'none' },
-          }}
-        />
+
         <Tabs.Screen
           name="streak-details"
           options={{

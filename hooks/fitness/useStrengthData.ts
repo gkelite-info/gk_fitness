@@ -55,95 +55,125 @@ export function useStrengthData() {
           const { fetchTrainerWorkoutPlanDays } = await import('@/helpers/trainerWorkoutPlans/trainerWorkoutPlanDays');
           const { fetchTrainerWorkoutPlanDayExercises } = await import('@/helpers/trainerWorkoutPlans/trainerWorkoutPlanDayExercises');
           const days = await fetchTrainerWorkoutPlanDays(activePlan.planId);
-          for (const d of days) {
-            if (d.workoutType && d.workoutType !== 'Rest') {
-              const exs = await fetchTrainerWorkoutPlanDayExercises(d.planDayId);
-              exs?.forEach((ex: any) => {
-                if (!exerciseMap[ex.exerciseName]) {
-                  exerciseMap[ex.exerciseName] = {
-                    exerciseName: ex.exerciseName,
-                    category: (ex.category && ex.category.toLowerCase() !== 'other' && ex.category.toLowerCase() !== 'exercise') ? ex.category : guessCategory(ex.exerciseName),
-                    maxWeight: 0,
-                    totalVolume: 0,
-                    totalSets: 0,
-                  };
-                }
-              });
-            }
-          }
+          
+          const activeDays = days.filter((d: any) => d.workoutType && d.workoutType !== 'Rest');
+          const fetchPromises = activeDays.map((d: any) => fetchTrainerWorkoutPlanDayExercises(d.planDayId));
+          const allExercises = await Promise.all(fetchPromises);
+          
+          allExercises.forEach(exs => {
+            exs?.forEach((ex: any) => {
+              if (!exerciseMap[ex.exerciseName]) {
+                exerciseMap[ex.exerciseName] = {
+                  exerciseName: ex.exerciseName,
+                  category: (ex.category && ex.category.toLowerCase() !== 'other' && ex.category.toLowerCase() !== 'exercise') ? ex.category : guessCategory(ex.exerciseName),
+                  maxWeight: 0,
+                  totalVolume: 0,
+                  totalSets: 0,
+                };
+              }
+            });
+          });
         } else {
           const days = await fetchWorkoutPlanDays(activePlan.planId);
-          for (const d of days) {
-            if (d.workoutType && d.workoutType !== 'Rest') {
-              const exs = await fetchWorkoutPlanDayExercises(d.planDayId);
-              exs?.forEach((ex: any) => {
-                if (!exerciseMap[ex.exerciseName]) {
-                  exerciseMap[ex.exerciseName] = {
-                    exerciseName: ex.exerciseName,
-                    category: (ex.category && ex.category.toLowerCase() !== 'other' && ex.category.toLowerCase() !== 'exercise') ? ex.category : guessCategory(ex.exerciseName),
-                    maxWeight: 0,
-                    totalVolume: 0,
-                    totalSets: 0,
-                  };
-                }
-              });
-            }
-          }
+          
+          const activeDays = days.filter((d: any) => d.workoutType && d.workoutType !== 'Rest');
+          const fetchPromises = activeDays.map((d: any) => fetchWorkoutPlanDayExercises(d.planDayId));
+          const allExercises = await Promise.all(fetchPromises);
+          
+          allExercises.forEach(exs => {
+            exs?.forEach((ex: any) => {
+              if (!exerciseMap[ex.exerciseName]) {
+                exerciseMap[ex.exerciseName] = {
+                  exerciseName: ex.exerciseName,
+                  category: (ex.category && ex.category.toLowerCase() !== 'other' && ex.category.toLowerCase() !== 'exercise') ? ex.category : guessCategory(ex.exerciseName),
+                  maxWeight: 0,
+                  totalVolume: 0,
+                  totalSets: 0,
+                };
+              }
+            });
+          });
         }
       }
 
-      // 2. Fetch logged data to populate the stats
-      const { data: logs, error } = await supabase
-        .from('customer_workout_set_logs')
-        .select(`
-          weight,
-          reps,
-          dayExerciseId,
-          workout_plan_day_exercises ( exerciseName, category )
-        `)
-        .eq('userId', userId)
-        .eq('isCompleted', true);
+      // 2. Fetch aggregated stats directly from Supabase RPC (database-side aggregation for high performance & scale)
+      const { data: rpcStats, error: rpcError } = await supabase.rpc('get_user_strength_analytics', {
+        p_user_id: userId,
+      });
 
-      if (error) {
-        console.error('[useStrengthData] Error:', error);
-      }
-
-      if (logs && logs.length > 0) {
-        logs.forEach((log: any) => {
-          if (!log.weight || !log.reps) return;
-          
-          let exName = log.workout_plan_day_exercises?.exerciseName;
-          let exCategory = log.workout_plan_day_exercises?.category || 'Other';
-          
-          if (!exName) {
-            // fallback if it was a trainer plan or deleted exercise
-            exName = 'Logged Exercise';
-          }
-          
-          if (exCategory.toLowerCase() === 'other' || exCategory.toLowerCase() === 'exercise') {
-            exCategory = guessCategory(exName);
-          }
-
-          if (!exerciseMap[exName]) {
-            exerciseMap[exName] = {
-              exerciseName: exName,
-              category: exCategory,
-              maxWeight: 0,
-              totalVolume: 0,
-              totalSets: 0,
+      if (!rpcError && rpcStats) {
+        rpcStats.forEach((stat: any) => {
+          if (!stat.exerciseName) return;
+          if (exerciseMap[stat.exerciseName]) {
+            exerciseMap[stat.exerciseName].maxWeight = Number(stat.maxWeight) || 0;
+            exerciseMap[stat.exerciseName].totalVolume = Number(stat.totalVolume) || 0;
+            exerciseMap[stat.exerciseName].totalSets = Number(stat.totalSets) || 0;
+            if (stat.category && stat.category !== 'Other') {
+              exerciseMap[stat.exerciseName].category = stat.category;
+            }
+          } else {
+            exerciseMap[stat.exerciseName] = {
+              exerciseName: stat.exerciseName,
+              category: stat.category || guessCategory(stat.exerciseName),
+              maxWeight: Number(stat.maxWeight) || 0,
+              totalVolume: Number(stat.totalVolume) || 0,
+              totalSets: Number(stat.totalSets) || 0,
             };
           }
-
-          const stats = exerciseMap[exName];
-          const volume = log.weight * log.reps;
-
-          if (log.weight > stats.maxWeight) {
-            stats.maxWeight = log.weight;
-          }
-
-          stats.totalVolume += volume;
-          stats.totalSets += 1;
         });
+      } else {
+        // Fallback: in case the RPC function has not yet been executed in Supabase SQL Editor
+        const { data: logs, error } = await supabase
+          .from('customer_workout_set_logs')
+          .select(`
+            weight,
+            reps,
+            dayExerciseId,
+            workout_plan_day_exercises ( exerciseName, category )
+          `)
+          .eq('userId', userId)
+          .eq('isCompleted', true);
+
+        if (error) {
+          console.error('[useStrengthData] Error:', error);
+        }
+
+        if (logs && logs.length > 0) {
+          logs.forEach((log: any) => {
+            if (!log.weight || !log.reps) return;
+            
+            let exName = log.workout_plan_day_exercises?.exerciseName;
+            let exCategory = log.workout_plan_day_exercises?.category || 'Other';
+            
+            if (!exName) {
+              exName = 'Logged Exercise';
+            }
+            
+            if (exCategory.toLowerCase() === 'other' || exCategory.toLowerCase() === 'exercise') {
+              exCategory = guessCategory(exName);
+            }
+
+            if (!exerciseMap[exName]) {
+              exerciseMap[exName] = {
+                exerciseName: exName,
+                category: exCategory,
+                maxWeight: 0,
+                totalVolume: 0,
+                totalSets: 0,
+              };
+            }
+
+            const stats = exerciseMap[exName];
+            const volume = log.weight * log.reps;
+
+            if (log.weight > stats.maxWeight) {
+              stats.maxWeight = log.weight;
+            }
+
+            stats.totalVolume += volume;
+            stats.totalSets += 1;
+          });
+        }
       }
 
       // 3. Return sorted by maxWeight, then alphabetically

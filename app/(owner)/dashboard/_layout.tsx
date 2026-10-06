@@ -11,6 +11,10 @@ export default function DashboardLayout() {
       <Stack.Screen name="add-equipment" />
       <Stack.Screen name="payments" />
       <Stack.Screen name="renewals" />
+      <Stack.Screen name="enquiries/index" />
+      <Stack.Screen name="enquiries/add" />
+      <Stack.Screen name="enquiries/view" />
+      <Stack.Screen name="enquiries/converted" />
       <Stack.Screen name="announcements/index" />
       <Stack.Screen name="announcements/create" options={{ presentation: 'transparentModal', animation: 'fade' }} />
     </Stack>

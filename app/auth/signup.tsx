@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator, Image as RNImage } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
@@ -87,6 +87,13 @@ export default function SignupScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const typeId = (params.type as string) || 'individual';
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 200);
+  };
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -421,10 +428,20 @@ export default function SignupScreen() {
   const states = country ? State.getStatesOfCountry(country).map(s => ({ label: s.name, value: s.isoCode })) : [];
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-[#09090B]">
-      <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView className="flex-1">
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <SafeAreaView className="flex-1 bg-[#09090B]">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+        className="flex-1"
+      >
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingBottom: 140 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           <View className="pt-5 pb-6">
             <Pressable
               onPress={() => router.back()}
@@ -967,6 +984,7 @@ export default function SignupScreen() {
                 <TextInput autoCorrect={false} spellCheck={false}
                   value={password}
                   onChangeText={setPassword}
+                  onFocus={scrollToBottom}
                   placeholder="Enter your password"
                   placeholderTextColor="#6B6B6B"
                   secureTextEntry={!showPassword}
@@ -986,6 +1004,7 @@ export default function SignupScreen() {
                 <TextInput autoCorrect={false} spellCheck={false}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
+                  onFocus={scrollToBottom}
                   placeholder="Confirm your password"
                   placeholderTextColor="#6B6B6B"
                   secureTextEntry={!showConfirmPassword}
@@ -1019,7 +1038,7 @@ export default function SignupScreen() {
           </Pressable>
 
         </ScrollView>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

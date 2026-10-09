@@ -57,6 +57,7 @@ export function useWaterTracking(userId: string | null, date: string) {
       queryClient.invalidateQueries({ queryKey: ['waterLogs', userId, date] });
       queryClient.invalidateQueries({ queryKey: ['fitnessStats', userId, date] });
       queryClient.invalidateQueries({ queryKey: ['fitnessTimeline'] });
+      queryClient.invalidateQueries({ queryKey: ['water_streak', userId] });
     },
   });
 
@@ -69,6 +70,7 @@ export function useWaterTracking(userId: string | null, date: string) {
       queryClient.invalidateQueries({ queryKey: ['waterLogs', userId, date] });
       queryClient.invalidateQueries({ queryKey: ['fitnessStats', userId, date] });
       queryClient.invalidateQueries({ queryKey: ['fitnessTimeline'] });
+      queryClient.invalidateQueries({ queryKey: ['water_streak', userId] });
     },
   });
 

@@ -58,10 +58,10 @@ export default function MembershipsScreen() {
   const planAmount = currentPlan?.customAmount ? `₹${currentPlan.customAmount}` : '₹0';
 
   return (
-    <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A]">
-      <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#1C1C1E]">
+    <View className="flex-1 bg-[#0A0A0A]">
+      <View className="flex-row items-center justify-between px-5 py-3.5 border-b border-[#1C1C1E]">
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center -ml-2 active:opacity-70">
-          <ArrowLeft size={24} color="#FFF" />
+          <ArrowLeft size={22} color="#FFF" />
         </Pressable>
         <View className="items-center flex-1">
           <Text className="text-white text-lg font-semibold">Gym Membership</Text>

@@ -132,7 +132,6 @@ export default function CustomerLayout() {
           name="streak-details"
           options={{
             href: null,
-            headerShown: false,
             tabBarStyle: { display: 'none' },
           }}
         />

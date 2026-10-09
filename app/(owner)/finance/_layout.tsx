@@ -6,7 +6,7 @@ export default function FinanceLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="revenue" />
       <Stack.Screen name="customers" />
-      <Stack.Screen name="membership-plan/[id]" />
+      <Stack.Screen name="expenditure" />
     </Stack>
   );
 }

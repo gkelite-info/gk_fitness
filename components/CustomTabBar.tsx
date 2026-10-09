@@ -62,7 +62,8 @@ export function CustomTabBar({
             const { options } = descriptors[route.key];
             const isHidden =
               (options.tabBarItemStyle && (options.tabBarItemStyle as any).display === 'none') ||
-              (options as any).href === null;
+              (options as any).href === null ||
+              route.name.includes('/');
             return !isHidden;
           })
           .map((route: any) => {

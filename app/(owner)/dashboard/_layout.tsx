@@ -11,6 +11,7 @@ export default function DashboardLayout() {
       <Stack.Screen name="add-equipment" />
       <Stack.Screen name="payments" />
       <Stack.Screen name="renewals" />
-      </Stack>
+      <Stack.Screen name="alerts" />
+    </Stack>
   );
 }

@@ -1,0 +1,62 @@
+diff --git a/node_modules/expo-router/build/fork/NavigationContainer.js b/node_modules/expo-router/build/fork/NavigationContainer.js
+index 3db5ea4..d7560e9 100644
+--- a/node_modules/expo-router/build/fork/NavigationContainer.js
++++ b/node_modules/expo-router/build/fork/NavigationContainer.js
+@@ -41,13 +41,31 @@ function NavigationContainerInner({ direction = react_native_1.I18nManager.getCo
+     (0, useDocumentTitle_1.useDocumentTitle)(refContainer, documentTitle);
+     (0, imperative_api_1.useImperativeApiEmitter)(refContainer);
+     const [lastUnhandledLink, setLastUnhandledLink] = react_1.default.useState();
++    const isMountedRef = react_1.default.useRef(false);
++    react_1.default.useEffect(() => {
++        isMountedRef.current = true;
++        return () => {
++            isMountedRef.current = false;
++        };
++    }, []);
++    const safeSetLastUnhandledLink = react_1.default.useCallback((value) => {
++        if (!isMountedRef.current) {
++            setTimeout(() => {
++                if (isMountedRef.current) {
++                    setLastUnhandledLink(value);
++                }
++            }, 0);
++        } else {
++            setLastUnhandledLink(value);
++        }
++    }, []);
+     const { getInitialState } = (0, useLinking_1.useLinking)(refContainer, {
+         enabled: isLinkingEnabled,
+         prefixes: [],
+         ...linking,
+-    }, setLastUnhandledLink);
++    }, safeSetLastUnhandledLink);
+     const linkingContext = react_1.default.useMemo(() => ({ options: linking }), [linking]);
+-    const unhandledLinkingContext = react_1.default.useMemo(() => ({ lastUnhandledLink, setLastUnhandledLink }), [lastUnhandledLink, setLastUnhandledLink]);
++    const unhandledLinkingContext = react_1.default.useMemo(() => ({ lastUnhandledLink, setLastUnhandledLink: safeSetLastUnhandledLink }), [lastUnhandledLink, safeSetLastUnhandledLink]);
+     const onReadyForLinkingHandling = (0, useLatestCallback_1.default)(() => {
+         // If the screen path matches lastUnhandledLink, we do not track it
+         const path = refContainer.current?.getCurrentRoute()?.path;
+diff --git a/node_modules/expo-router/build/fork/useLinking.native.js b/node_modules/expo-router/build/fork/useLinking.native.js
+index c080a58..1b365d1 100644
+--- a/node_modules/expo-router/build/fork/useLinking.native.js
++++ b/node_modules/expo-router/build/fork/useLinking.native.js
+@@ -124,13 +124,17 @@ function useLinking(ref, { enabled = true, prefixes, filter, config, getInitialU
+                         const state = getStateFromURL(url);
+                         if (typeof url === 'string') {
+                             // If the link were handled, it gets cleared in NavigationContainer
+-                            onUnhandledLinking((0, extractPathFromURL_1.extractExpoPathFromURL)(prefixes, url));
++                            setTimeout(() => {
++                                onUnhandledLinking((0, extractPathFromURL_1.extractExpoPathFromURL)(prefixes, url));
++                            }, 0);
+                         }
+                         return state;
+                     });
+                 }
+                 else {
+-                    onUnhandledLinking((0, extractPathFromURL_1.extractExpoPathFromURL)(prefixes, url));
++                    setTimeout(() => {
++                        onUnhandledLinking((0, extractPathFromURL_1.extractExpoPathFromURL)(prefixes, url));
++                    }, 0);
+                 }
+             }
+             state = getStateFromURL(url);

@@ -44,9 +44,13 @@ export function useNotifications(userId: string | undefined) {
   useEffect(() => {
     if (!Notifications) return;
     const sub = Notifications.addNotificationResponseReceivedListener((response: any) => {
-      const route = response.notification.request.content.data?.route as string;
-      if (route) {
-        router.push(route as any);
+      try {
+        const route = response?.notification?.request?.content?.data?.route as string;
+        if (route) {
+          router.push(route as any);
+        }
+      } catch (e) {
+        console.warn('[useNotifications] Notification navigation warning:', e);
       }
     });
     return () => sub.remove();

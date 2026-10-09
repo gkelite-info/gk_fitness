@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, Image, ActivityIndicator } from 'react-native';
-import { Text } from '@/components/nativewindui/Text';
+import { View, ScrollView, Pressable, Image, ActivityIndicator, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
@@ -112,18 +111,18 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-[#0F0F0F]">
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-4 border-b border-white/10">
+      <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-white/10">
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-start justify-center">
-          <ArrowLeft size={24} color="#FFFFFF" />
+          <ArrowLeft size={22} color="#FFFFFF" />
         </Pressable>
         <Text className="text-white text-lg font-bold">Activity</Text>
         <Pressable 
           onPress={() => router.push('/(customer)/notifications/preferences' as any)} 
           className="w-10 h-10 items-end justify-center"
         >
-          <GearSix size={24} color="#FFFFFF" />
+          <GearSix size={22} color="#FFFFFF" />
         </Pressable>
       </View>
 
@@ -182,10 +181,10 @@ export default function NotificationsScreen() {
             return (
               <Pressable 
                 key={item.id} 
-                className={`flex-row items-center p-3.5 mb-2.5 rounded-2xl border transition-all ${
+                className={`flex-row items-center p-3.5 mb-2.5 rounded-2xl border ${
                   item.is_read 
                     ? 'bg-[#141414] border-white/5' 
-                    : 'bg-[#1C1C1E] border-[#D4FF00]/30 shadow-sm'
+                    : 'bg-[#1C1C1E] border-[#D4FF00]/30'
                 }`}
                 onPress={() => handleNotificationPress(item)}
               >
@@ -236,7 +235,7 @@ export default function NotificationsScreen() {
                 ) : isFollow ? (
                   <Pressable 
                     onPress={() => handleNotificationPress(item)}
-                    className="bg-[#27272A] border border-white/10 px-3 py-1.5 rounded-full ml-2 active:opacity-70"
+                    className="bg-[#27272A] border border-white/10 px-3 py-1.5 rounded-full ml-2"
                   >
                     <Text className="text-[#D4FF00] text-xs font-bold">Profile</Text>
                   </Pressable>
@@ -251,7 +250,7 @@ export default function NotificationsScreen() {
         {filteredNotifications.length > 0 && (
           <Pressable 
             onPress={clearRead}
-            className="flex-row items-center justify-center border border-white/10 rounded-xl py-3 mt-4 mb-6 active:opacity-70"
+            className="flex-row items-center justify-center border border-white/10 rounded-xl py-3 mt-4 mb-6"
           >
             <Trash size={16} color="#A1A1AA" weight="regular" />
             <Text className="text-[#A1A1AA] font-bold text-sm ml-2">Clear Read</Text>

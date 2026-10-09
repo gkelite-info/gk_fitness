@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { View, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, ScrollView, TextInput, Pressable, Platform, Modal, FlatList, ActivityIndicator, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, Stack } from 'expo-router';
@@ -83,12 +83,56 @@ const SearchableModalPicker = ({ visible, onClose, data, onSelect, placeholder, 
 export default function GlobalTrainerSignupScreen() {
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const focusedFieldRef = useRef<string | null>(null);
+  const fieldPositions = useRef<{ [key: string]: number }>({});
+  const formContainerY = useRef<number>(0);
 
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 200);
+  const registerField = (name: string, y: number) => {
+    fieldPositions.current[name] = y;
   };
+
+  const scrollToField = (name: string) => {
+    focusedFieldRef.current = name;
+    const relativeY = fieldPositions.current[name];
+    if (relativeY !== undefined) {
+      const targetY = Math.max(0, formContainerY.current + relativeY - 80);
+      scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+    }
+  };
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      const h = e.endCoordinates.height;
+      setKeyboardHeight(h);
+      if (focusedFieldRef.current) {
+        const relativeY = fieldPositions.current[focusedFieldRef.current];
+        if (relativeY !== undefined) {
+          const targetY = Math.max(0, formContainerY.current + relativeY - 80);
+          if (Platform.OS === 'android') {
+            setTimeout(() => {
+              scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+            }, 60);
+          } else {
+            scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+          }
+        }
+      }
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+      focusedFieldRef.current = null;
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -194,19 +238,18 @@ export default function GlobalTrainerSignupScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#09090B]">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
-        className="flex-1"
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingBottom: keyboardHeight > 0 ? keyboardHeight + 80 : 40,
+        }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
-        <Stack.Screen options={{ headerShown: false }} />
-        <ScrollView
-          ref={scrollViewRef}
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingBottom: 140 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-        >
 
           <DatePickerModal
             visible={dobModalVisible}
@@ -259,7 +302,12 @@ export default function GlobalTrainerSignupScreen() {
             </View>
           </View>
 
-          <View className="gap-5 mb-8">
+          <View
+            className="gap-5 mb-8"
+            onLayout={(e) => {
+              formContainerY.current = e.nativeEvent.layout.y;
+            }}
+          >
             <View className="mb-2">
               <Text className="text-[#C3F400] text-sm font-semibold tracking-wider">PERSONAL DETAILS</Text>
               <View className="h-[1px] bg-[#1E1E1E] mt-2 mb-2" />
@@ -529,12 +577,13 @@ export default function GlobalTrainerSignupScreen() {
               </View>
             </View>
 
-            <View className="flex-row gap-3">
+            <View className="flex-row gap-3" onLayout={(e) => registerField('cityRow', e.nativeEvent.layout.y)}>
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
                 <MapPin size={18} color="#6B6B6B" />
                 <TextInput
                   value={city}
                   onChangeText={setCity}
+                  onFocus={() => scrollToField('cityRow')}
                   placeholder="City"
                   placeholderTextColor="#6B6B6B"
                   className="flex-1 text-white text-[14px] p-0 font-medium"
@@ -545,6 +594,7 @@ export default function GlobalTrainerSignupScreen() {
                 <TextInput
                   value={pinCode}
                   onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
+                  onFocus={() => scrollToField('cityRow')}
                   placeholder="PIN Code"
                   placeholderTextColor="#6B6B6B"
                   keyboardType="number-pad"
@@ -559,14 +609,14 @@ export default function GlobalTrainerSignupScreen() {
               <View className="h-[1px] bg-[#1E1E1E] mt-2 mb-2" />
             </View>
 
-            <View>
+            <View onLayout={(e) => registerField('password', e.nativeEvent.layout.y)}>
               <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Password <Text className="text-red-500">*</Text></Text>
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <LockKey size={18} color="#6B6B6B" />
                 <TextInput
                   value={password}
                   onChangeText={setPassword}
-                  onFocus={scrollToBottom}
+                  onFocus={() => scrollToField('password')}
                   placeholder="Create a password"
                   placeholderTextColor="#6B6B6B"
                   secureTextEntry={!showPassword}
@@ -578,14 +628,14 @@ export default function GlobalTrainerSignupScreen() {
               </View>
             </View>
 
-            <View>
+            <View onLayout={(e) => registerField('confirmPassword', e.nativeEvent.layout.y)}>
               <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Confirm Password <Text className="text-red-500">*</Text></Text>
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <LockKey size={18} color="#6B6B6B" />
                 <TextInput
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  onFocus={scrollToBottom}
+                  onFocus={() => scrollToField('confirmPassword')}
                   placeholder="Confirm your password"
                   placeholderTextColor="#6B6B6B"
                   secureTextEntry={!showConfirmPassword}
@@ -611,7 +661,6 @@ export default function GlobalTrainerSignupScreen() {
             )}
           </Pressable>
         </ScrollView>
-      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

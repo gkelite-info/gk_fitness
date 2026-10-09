@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Modal,
   Animated,
   Dimensions,
-  Alert,
+  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -48,6 +48,7 @@ import {
   CaretRight,
   CreditCard,
   Megaphone,
+  WarningCircle,
 } from 'phosphor-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -118,29 +119,27 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
     }, 150);
   };
 
-  const handleSignOut = () => {
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleOpenConfirm = () => {
     triggerWarningHaptic();
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out of your account?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              triggerMediumHaptic();
-              onClose();
-              await supabase.auth.signOut();
-              router.replace('/auth/otp-auth');
-            } catch (err) {
-              console.error('Sign out error:', err);
-            }
-          },
-        },
-      ]
-    );
+    setConfirmModalVisible(true);
+  };
+
+  const handleConfirmSignOut = async () => {
+    try {
+      setSigningOut(true);
+      triggerMediumHaptic();
+      await supabase.auth.signOut();
+      setConfirmModalVisible(false);
+      onClose();
+      router.replace('/auth/otp-auth');
+    } catch (err) {
+      console.error('Sign out error:', err);
+    } finally {
+      setSigningOut(false);
+    }
   };
 
   // Build role-tailored sections
@@ -434,7 +433,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
           {/* Drawer Footer: Logout & Version */}
           <View className="px-5 pt-3 border-t border-[#232631]">
             <Pressable
-              onPress={handleSignOut}
+              onPress={handleOpenConfirm}
               className="flex-row items-center justify-center gap-2.5 bg-[#231518] border border-[#EF4444]/25 rounded-2xl py-3 px-4 active:opacity-75"
             >
               <SignOut size={18} color="#EF4444" weight="bold" />
@@ -447,6 +446,47 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
           </View>
         </Animated.View>
       </View>
+
+      {/* Sign Out Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={confirmModalVisible}
+        onRequestClose={() => setConfirmModalVisible(false)}
+        statusBarTranslucent
+      >
+        <View className="flex-1 bg-black/75 justify-center items-center px-6">
+          <View className="bg-[#1A1A1A] border border-[#27272A] w-full max-w-[340px] rounded-3xl p-6 items-center">
+            <View className="w-12 h-12 rounded-full bg-red-500/10 items-center justify-center mb-4 border border-red-500/20">
+              <WarningCircle size={28} color="#EF4444" weight="fill" />
+            </View>
+            <Text className="text-white text-lg font-semibold mb-2">Sign Out</Text>
+            <Text className="text-[#8E8E93] text-sm text-center mb-6 leading-5">
+              Are you sure you want to sign out of your account? You will need to log in again to access the platform.
+            </Text>
+
+            <View className="flex-row gap-3 w-full">
+              <Pressable
+                onPress={() => setConfirmModalVisible(false)}
+                className="flex-1 bg-[#27272A] rounded-2xl py-3.5 items-center active:opacity-80"
+              >
+                <Text className="text-white font-semibold">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleConfirmSignOut}
+                disabled={signingOut}
+                className="flex-1 bg-red-500 rounded-2xl py-3.5 items-center active:opacity-80 flex-row justify-center gap-2"
+              >
+                {signingOut ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text className="text-white font-semibold">Sign Out</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }

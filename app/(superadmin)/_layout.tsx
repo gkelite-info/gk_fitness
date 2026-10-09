@@ -12,6 +12,13 @@ export default function SuperAdminLayout() {
         header: () => <Navbar />,
       }}>
       <Tabs.Screen
+        name="gyms"
+        options={{
+          title: 'Gyms',
+          href: '/(superadmin)/gyms',
+        }}
+      />
+      <Tabs.Screen
         name="owners"
         options={{
           title: 'Owners',

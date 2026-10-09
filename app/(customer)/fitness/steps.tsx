@@ -38,8 +38,8 @@ export default function StepsScreen() {
 
   return (
     <View className="flex-1 bg-[#0A0A0A]">
-      <View className="flex-row items-center justify-between px-5 pt-14 pb-4 bg-[#141414] border-b border-[#222222]">
-        <Pressable onPress={() => router.navigate('/(customer)/home')} className="w-10 h-10 rounded-full bg-[#1A1A1A] items-center justify-center border border-[#2A2A2A] active:opacity-80">
+      <View className="flex-row items-center justify-between px-5 py-3.5 bg-[#141414] border-b border-[#222222]">
+        <Pressable onPress={() => router.canGoBack() ? router.back() : router.navigate('/(customer)/home')} className="w-10 h-10 rounded-full bg-[#1A1A1A] items-center justify-center border border-[#2A2A2A] active:opacity-80">
           <ArrowLeft size={20} color="#FFFFFF" />
         </Pressable>
         <Text className="text-white text-lg font-semibold">Steps & Movement</Text>

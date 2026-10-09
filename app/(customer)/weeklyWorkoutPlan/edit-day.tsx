@@ -218,11 +218,11 @@ export default function EditWorkoutDay() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] px-5 pt-12 pb-20">
-      <View className="flex-row items-center mb-8">
+    <View className="flex-1 bg-[#0A0A0A] px-5 pt-3 pb-20">
+      <View className="flex-row items-center mb-5">
         <Pressable
           onPress={() => router.back()}
-          className="w-10 h-10 bg-[#111111] border border-[#242424] rounded-full items-center justify-center mr-4"
+          className="w-10 h-10 bg-[#111111] border border-[#242424] rounded-full items-center justify-center mr-3"
         >
           <CaretLeft size={20} color="#fff" />
         </Pressable>

@@ -47,6 +47,7 @@ import {
   ShieldCheck,
   CaretRight,
   CreditCard,
+  Megaphone,
 } from 'phosphor-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -154,7 +155,8 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
             { name: 'Dashboard', href: '/(owner)/dashboard', icon: House },
             { name: 'Users & Members', href: '/(owner)/users', icon: Users },
             { name: 'Membership Plans', href: '/(owner)/membership', icon: Crown },
-            { name: 'PT Sessions', href: '/(owner)/explore/trainers', icon: CalendarCheck },
+            { name: 'Membership Expiry', href: '/(owner)/dashboard/renewals', icon: CalendarCheck },
+            { name: 'PT Sessions', href: '/(owner)/explore/trainers', icon: Barbell },
           ],
         },
         {
@@ -172,7 +174,8 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
           items: [
             { name: 'Explore Programs', href: '/(owner)/explore', icon: Compass },
             { name: 'Enquiries & Leads', href: '/(owner)/dashboard/enquiries', icon: Headset },
-            { name: 'Announcements', href: '/(owner)/announcements', icon: Bell },
+            { name: 'Alerts & Reminders', href: '/(owner)/dashboard/alerts', icon: Bell },
+            { name: 'Announcements', href: '/(owner)/announcements', icon: Megaphone },
             { name: 'Biometric Access', href: '/(owner)/profile/gym-access/settings', icon: Fingerprint },
           ],
         },

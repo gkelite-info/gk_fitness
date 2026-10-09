@@ -20,8 +20,8 @@ export default function StreakDetailsScreen() {
   const habitProgress = Math.min((currentStreak / habitGoal) * 100, 100);
 
   return (
-    <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: Math.max(insets.top + 8, 28) }}>
-      <View className="flex-row items-center justify-between px-4 mb-4 bg-transparent">
+    <View className="flex-1 bg-[#0A0A0A]">
+      <View className="flex-row items-center justify-between px-4 py-3 border-b border-[#1A1A1A] bg-[#0A0A0A] mb-2">
         <Pressable
           onPress={() => router.back()}
           className="w-10 h-10 items-center justify-center rounded-full bg-[#18181B] active:bg-[#262626]"

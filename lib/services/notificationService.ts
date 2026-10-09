@@ -124,17 +124,27 @@ export async function cancelAllScheduledNotifications() {
  */
 export async function cancelWaterReminders() {
   if (!Notifications) return;
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  for (const notification of scheduled) {
-    if (notification.content.data?.type === 'water_reminder') {
-      await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+  try {
+    for (let h = 0; h < 24; h++) {
+      await Notifications.cancelScheduledNotificationAsync(`water_reminder_hour_${h}`).catch(() => {});
     }
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const notification of scheduled) {
+      if (
+        notification.content.data?.type === 'water_reminder' ||
+        notification.identifier?.startsWith('water_reminder_')
+      ) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn('[cancelWaterReminders] Warning:', err);
   }
 }
 
 /**
  * Schedules daily water reminders with custom start, end, and intervals.
- * Industry standard pattern to ensure users hydrate consistently throughout the day.
+ * Industry standard pattern using deterministic notification identifiers to prevent duplicates.
  */
 export async function scheduleWaterReminders(startHour = 8, endHour = 20, interval = 2) {
   if (!Notifications) return;
@@ -162,11 +172,12 @@ export async function scheduleWaterReminders(startHour = 8, endHour = 20, interv
     const message = messages[i % messages.length];
 
     await Notifications.scheduleNotificationAsync({
+      identifier: `water_reminder_hour_${hour}`,
       content: {
         title: message.title,
         body: message.body,
         sound: true,
-        data: { type: 'water_reminder' },
+        data: { type: 'water_reminder', hour },
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -183,21 +194,41 @@ export async function scheduleWaterReminders(startHour = 8, endHour = 20, interv
  */
 export async function cancelWorkoutReminders() {
   if (!Notifications) return;
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  for (const notification of scheduled) {
-    if (notification.content.data?.type === 'workout_reminder') {
-      await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+  try {
+    for (let day = 1; day <= 7; day++) {
+      await Notifications.cancelScheduledNotificationAsync(`workout_reminder_day_${day}`).catch(() => {});
     }
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const notification of scheduled) {
+      if (
+        notification.content.data?.type === 'workout_reminder' ||
+        notification.identifier?.startsWith('workout_reminder_')
+      ) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn('[cancelWorkoutReminders] Warning:', err);
   }
 }
 
 /**
  * Schedules dynamic workout reminders as per industry standards.
- * Reminds users at 5 PM on weekdays and 10 AM on weekends.
+ * Supports custom weekday and weekend hours/minutes or defaults to 5:00 PM weekdays and 10:30 AM weekends.
  */
-export async function scheduleWorkoutReminders() {
+export async function scheduleWorkoutReminders(options?: {
+  weekdayHour?: number;
+  weekdayMinute?: number;
+  weekendHour?: number;
+  weekendMinute?: number;
+}) {
   if (!Notifications) return;
   await cancelWorkoutReminders(); // Clear existing to prevent duplicates
+
+  const weekdayHour = options?.weekdayHour ?? 17;
+  const weekdayMinute = options?.weekdayMinute ?? 0;
+  const weekendHour = options?.weekendHour ?? 10;
+  const weekendMinute = options?.weekendMinute ?? 30;
 
   const messages = [
     { title: '💪 Time to Crush It!', body: 'Your workout awaits. Let\'s hit the gym and make today count!' },
@@ -206,29 +237,31 @@ export async function scheduleWorkoutReminders() {
     { title: '🔥 Burn Those Calories', body: 'Step into the gym and unleash your potential today.' }
   ];
 
-  // Schedule daily, we can use a rotating schedule for days 1-7
+  // Schedule daily, rotating schedule for days 1-7 (Sun=1, Sat=7)
   for (let day = 1; day <= 7; day++) {
-    const isWeekend = day === 1 || day === 7; // Sunday=1, Saturday=7 in JS
-    const hour = isWeekend ? 10 : 17; // 10 AM weekends, 5 PM weekdays
+    const isWeekend = day === 1 || day === 7;
+    const hour = isWeekend ? weekendHour : weekdayHour;
+    const minute = isWeekend ? weekendMinute : weekdayMinute;
     const message = messages[day % messages.length];
 
     await Notifications.scheduleNotificationAsync({
+      identifier: `workout_reminder_day_${day}`,
       content: {
         title: message.title,
         body: message.body,
         sound: true,
-        data: { type: 'workout_reminder' },
+        data: { type: 'workout_reminder', day, hour, minute },
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
         weekday: day,
         hour,
-        minute: 0,
+        minute,
       },
     });
   }
   
-  console.log(`Successfully scheduled industry-standard weekly workout reminders.`);
+  console.log(`Successfully scheduled weekly workout reminders (Weekdays: ${weekdayHour}:${weekdayMinute.toString().padStart(2, '0')}, Weekends: ${weekendHour}:${weekendMinute.toString().padStart(2, '0')}).`);
 }
 
 /**
@@ -236,11 +269,22 @@ export async function scheduleWorkoutReminders() {
  */
 export async function cancelMealReminders() {
   if (!Notifications) return;
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  for (const notification of scheduled) {
-    if (notification.content.data?.type === 'meal_reminder') {
-      await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+  try {
+    const mealKeys = ['breakfast', 'lunch', 'dinner'];
+    for (const meal of mealKeys) {
+      await Notifications.cancelScheduledNotificationAsync(`meal_reminder_${meal}`).catch(() => {});
     }
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const notification of scheduled) {
+      if (
+        notification.content.data?.type === 'meal_reminder' ||
+        notification.identifier?.startsWith('meal_reminder_')
+      ) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn('[cancelMealReminders] Warning:', err);
   }
 }
 
@@ -258,7 +302,7 @@ export async function scheduleMealReminders(options?: {
 
   const breakfast = options?.breakfastTime ?? { hour: 8, minute: 30 };
   const lunch = options?.lunchTime ?? { hour: 13, minute: 15 };
-  const dinner = options?.dinnerTime ?? { hour: 20, minute: 0 };
+  const dinner = options?.dinnerTime ?? { hour: 20, minute: 15 }; // 8:15 PM to avoid colliding with 8:00 PM final water reminder
 
   const mealSchedules = [
     {
@@ -286,6 +330,7 @@ export async function scheduleMealReminders(options?: {
 
   for (const item of mealSchedules) {
     await Notifications.scheduleNotificationAsync({
+      identifier: `meal_reminder_${item.meal}`,
       content: {
         title: item.title,
         body: item.body,
@@ -311,8 +356,11 @@ export async function cancelPTSessionReminders() {
   try {
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     for (const notification of scheduled) {
-      if (notification.content.data?.type === 'pt_session_reminder') {
-        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+      if (
+        notification.content.data?.type === 'pt_session_reminder' ||
+        notification.identifier?.startsWith('pt_session_')
+      ) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => {});
       }
     }
   } catch (err) {
@@ -335,10 +383,13 @@ export async function schedulePTSessionReminders(sessions: any[]) {
     const sessionDate = new Date(session.sessionDate);
     if (isNaN(sessionDate.getTime())) continue;
 
+    const sessionId = session.trainerSessionId || session.id || sessionDate.getTime();
+
     // Schedule 24 hours before
     const twentyFourHoursBefore = new Date(sessionDate.getTime() - 24 * 60 * 60 * 1000);
     if (twentyFourHoursBefore > now) {
       await Notifications.scheduleNotificationAsync({
+        identifier: `pt_session_${sessionId}_24h`,
         content: {
           title: '🗓️ Upcoming PT Session Tomorrow',
           body: `You have a personal training session scheduled tomorrow at ${sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`,
@@ -357,6 +408,7 @@ export async function schedulePTSessionReminders(sessions: any[]) {
     const oneHourBefore = new Date(sessionDate.getTime() - 1 * 60 * 60 * 1000);
     if (oneHourBefore > now) {
       await Notifications.scheduleNotificationAsync({
+        identifier: `pt_session_${sessionId}_1h`,
         content: {
           title: '⏳ PT Session in 1 Hour',
           body: `Get ready! Your personal training session starts in 1 hour.`,
@@ -444,16 +496,16 @@ export async function sendMilestonePushNotification(userId: string, milestoneTyp
 
     const validTokens = (tokens || []).map(t => t.expoPushToken).filter(Boolean);
     
-    // Save to inbox
+    // Save to inbox with aligned snake_case schema
     await supabase.from('user_notifications').insert({
-      userNotificationId: Crypto.randomUUID(),
+      id: Crypto.randomUUID(),
       userId,
       title,
-      message: body,
-      type: 'milestone',
-      metadata: { milestoneType },
-      isRead: false,
-      createdAt: new Date().toISOString(),
+      body,
+      category: 'MILESTONE',
+      data: { type: 'milestone', milestoneType, route: '/(customer)/notifications' },
+      is_read: false,
+      created_at: new Date().toISOString(),
     });
 
     if (validTokens.length > 0) {
@@ -530,14 +582,14 @@ export async function sendPromotionPushNotification({
 
     // 3. Insert notification records for in-app inbox
     const notificationRecords = optedInUserIds.map((uid) => ({
-      userNotificationId: Crypto.randomUUID(),
+      id: Crypto.randomUUID(),
       userId: uid,
       title: title || 'Special Promotion',
-      message: message,
-      type: 'promotion',
-      metadata: { gymId },
-      isRead: false,
-      createdAt: new Date().toISOString(),
+      body: message,
+      category: 'PROMOTION',
+      data: { type: 'promotion', gymId, route: '/(customer)/notifications' },
+      is_read: false,
+      created_at: new Date().toISOString(),
     }));
 
     // Batch insert 
@@ -569,7 +621,7 @@ export async function sendPromotionPushNotification({
         sound: 'default',
         title: title || 'Special Promotion',
         body: message,
-        data: { route: '/(customer)/notifications' },
+        data: { route: '/(customer)/notifications', type: 'promotion' },
       }));
 
       for (let i = 0; i < expoMessages.length; i += chunkSize) {
@@ -634,10 +686,10 @@ export async function sendGymAnnouncementPushNotification({
       return { recipientCount: 0, pushesSent: 0 };
     }
 
-    // 2. Filter out users who turned off gym_announcements in preferences
+    // 2. Filter out users who turned off gym_announcements in preferences (checking camelCase & snake_case)
     const { data: prefs, error: prefErr } = await supabase
       .from('user_notification_preferences')
-      .select('userId, gymAnnouncements')
+      .select('userId, gymAnnouncements, gym_announcements')
       .in('userId', userIds);
 
     if (prefErr) {
@@ -645,7 +697,7 @@ export async function sendGymAnnouncementPushNotification({
     }
 
     const optedOutSet = new Set(
-      prefs?.filter(p => p.gymAnnouncements === false).map(p => p.userId) || []
+      prefs?.filter(p => p.gymAnnouncements === false || p.gym_announcements === false).map(p => p.userId) || []
     );
 
     const eligibleUserIds = userIds.filter(id => !optedOutSet.has(id));
@@ -701,7 +753,7 @@ export async function sendGymAnnouncementPushNotification({
           sound: 'default',
           title: announcementTitle,
           body: message,
-          data: { route: '/(customer)/notifications' },
+          data: { route: '/(customer)/notifications', type: 'announcement' },
         }));
 
         try {
@@ -775,11 +827,11 @@ export async function sendCommunityPushNotification({
     // 3. Guard: Check notification preferences of target user
     const { data: pref, error: prefErr } = await supabase
       .from('user_notification_preferences')
-      .select('communityActivity')
+      .select('communityActivity, community_activity')
       .eq('userId', targetUserId)
       .maybeSingle();
 
-    if (pref && pref.communityActivity === false) {
+    if (pref && (pref.communityActivity === false || pref.community_activity === false)) {
       // User explicitly turned off community notifications
       return false;
     }
@@ -852,7 +904,7 @@ export async function sendCommunityPushNotification({
         p_data: notificationPayload,
       });
 
-      if (!rpcErr && rpcRes?.success) {
+      if (!rpcErr && rpcRes) {
         inboxSaved = true;
       }
     } catch (e) {
@@ -885,13 +937,12 @@ export async function sendCommunityPushNotification({
     }
 
     // 7. Dispatch push notification via Expo Push API to device tokens
-    // We use a SECURITY DEFINER RPC to bypass RLS so User A can send a push to User B.
     const { data: tokenRecords, error: tokenErr } = await supabase
       .rpc('get_user_push_tokens', { p_user_id: targetUserId });
 
     if (!tokenErr && tokenRecords && tokenRecords.length > 0) {
       const validTokens = tokenRecords
-        .map((t: any) => t.expoPushToken || t.expopushtoken) // Handle case-insensitivity from RPC
+        .map((t: any) => t.expoPushToken || t.expopushtoken)
         .filter((t: any) => typeof t === 'string' && (t.startsWith('ExponentPushToken') || t.startsWith('ExpoPushToken')));
 
       const uniqueTokens = Array.from(new Set(validTokens));
@@ -939,10 +990,17 @@ export async function sendCommunityPushNotification({
 export async function cancelMembershipRenewalReminders() {
   if (!Notifications) return;
   try {
+    const milestones = [7, 3, 1, 0];
+    for (const days of milestones) {
+      await Notifications.cancelScheduledNotificationAsync(`membership_renewal_${days}d`).catch(() => {});
+    }
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     for (const notification of scheduled) {
-      if (notification.content.data?.type === 'membership_renewal') {
-        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+      if (
+        notification.content.data?.type === 'membership_renewal' ||
+        notification.identifier?.startsWith('membership_renewal_')
+      ) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => {});
       }
     }
   } catch (err) {
@@ -952,7 +1010,8 @@ export async function cancelMembershipRenewalReminders() {
 
 /**
  * Schedules local countdown notifications leading up to a member's expiration date.
- * Industry standard multi-touch cadence: 7 days, 3 days, 1 day before, and Day of Expiry.
+ * Industry standard multi-touch cadence: 7 days, 3 days, 1 day before (at 9:30 AM), and Day of Expiry (at 9:00 AM).
+ * Staggered from 10:00 AM to prevent collisions with water reminders and weekend workouts.
  */
 export async function scheduleMembershipRenewalReminders(endDateInput: string | Date, planName = 'gym') {
   if (!Notifications) return;
@@ -963,7 +1022,7 @@ export async function scheduleMembershipRenewalReminders(endDateInput: string | 
 
   const now = new Date();
 
-  const createTargetDate = (daysBefore: number, hour = 10, minute = 0) => {
+  const createTargetDate = (daysBefore: number, hour = 9, minute = 30) => {
     const d = new Date(endDate);
     d.setDate(d.getDate() - daysBefore);
     d.setHours(hour, minute, 0, 0);
@@ -973,19 +1032,19 @@ export async function scheduleMembershipRenewalReminders(endDateInput: string | 
   const milestones = [
     {
       daysLeft: 7,
-      targetDate: createTargetDate(7, 10, 0),
+      targetDate: createTargetDate(7, 9, 30),
       title: '⏳ Membership Renewal (7 Days Left)',
       body: `Your ${planName} membership expires in 7 days. Renew early at the gym desk to maintain continuous floor & biometric access!`,
     },
     {
       daysLeft: 3,
-      targetDate: createTargetDate(3, 10, 0),
+      targetDate: createTargetDate(3, 9, 30),
       title: '⚠️ 3 Days Remaining on Membership',
       body: `Only 3 days left on your ${planName} plan! Keep your workout streak and biometric entry active by renewing today.`,
     },
     {
       daysLeft: 1,
-      targetDate: createTargetDate(1, 10, 0),
+      targetDate: createTargetDate(1, 9, 30),
       title: '🚨 Membership Expires Tomorrow',
       body: `Your gym membership expires tomorrow. Visit reception today to avoid biometric access interruption!`,
     },
@@ -1001,6 +1060,7 @@ export async function scheduleMembershipRenewalReminders(endDateInput: string | 
   for (const item of milestones) {
     if (item.targetDate.getTime() > now.getTime()) {
       await Notifications.scheduleNotificationAsync({
+        identifier: `membership_renewal_${item.daysLeft}d`,
         content: {
           title: item.title,
           body: item.body,

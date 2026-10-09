@@ -102,15 +102,15 @@ export default function WeeklyWorkoutPlan() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] px-2 pt-12 pb-6">
-      <View className="mb-8">
-        <Pressable onPress={() => router.back()} className="mb-4 w-10 h-10 items-center justify-center -ml-2 active:opacity-75">
+    <View className="flex-1 bg-[#0A0A0A] px-3 pt-3 pb-6">
+      <View className="mb-6">
+        <Pressable onPress={() => router.back()} className="mb-3 w-10 h-10 items-center justify-center -ml-2 active:opacity-75">
           <CaretLeft size={24} color="#FFFFFF" />
         </Pressable>
-        <Text className="text-white text-3xl font-semibold mb-2">
+        <Text className="text-white text-2xl font-bold mb-1">
           {isTrainerPlan ? 'Trainer Weekly Workout Plan' : 'Monthly Workout Plan'}
         </Text>
-        <Text className="text-[#8E8E8E] text-base">
+        <Text className="text-[#8E8E8E] text-sm">
           {isTrainerPlan ? 'Review your trainer assigned weekly schedule.' : 'Review and customize your monthly schedule.'}
         </Text>
       </View>

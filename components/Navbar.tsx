@@ -14,6 +14,7 @@ import { useUser } from '@/context/UserContext';
 import { Image } from 'react-native';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { useGym } from '@/hooks/gyms/useGym';
+import { useCommunityProfile } from '@/hooks/community/useProfile';
 import { HamburgerMenu } from '@/components/HamburgerMenu';
 import { triggerLightHaptic } from '@/lib/haptics';
 
@@ -25,6 +26,7 @@ export function Navbar() {
   const topPadding = insets.top;
 
   const { data: gymData } = useGym(gymId);
+  const { data: communityProfile } = useCommunityProfile(userId ?? '');
   const { announcements, loading, hasNew, clearHasNew } = useRealtimeAnnouncements(gymId);
   const { birthdayAnnouncements, isLoadingBirthday } = useBirthdayAnnouncements(gymId);
   const { unreadCount } = useNotifications(userId ?? undefined);
@@ -66,35 +68,46 @@ export function Navbar() {
           >
             <List size={24} color="#ffffff" weight="bold" />
           </Pressable>
-          <Pressable
-            className="flex-row items-center gap-3 active:opacity-70"
-            onPress={() => {
-              if (pathname.includes('community')) {
-                router.push(`/community/profile/${userId}`);
-              } else if (role === 'customer') {
-                router.push('/(customer)/profile');
-              } else if (role === 'trainer') {
-                router.push('/(trainer)/profile' as any);
-              } else if (role === 'doctor') {
-                router.push('/(doctor)/profile');
-              } else {
-                router.push('/(owner)/profile');
-              }
-            }}
-          >
-            <StaticAvatar
-              uri={pathname.includes('community') ? profilePhoto : (gymData?.logo || profilePhoto)}
-              name={pathname.includes('community') ? (name || 'User') : (gymData?.gymName || name || 'User')}
-              size={40}
-              className="h-10 w-10 rounded-full"
-            />
-            <Text className="font-semibold text-white">
-              {pathname.includes('community') 
-                ? (name ? `Welcome, ${name}` : 'Welcome Back')
-                : (gymData?.gymName ? `${gymData.gymName}` : (name ? `Welcome, ${name}` : 'Welcome Back'))
-              }
-            </Text>
-          </Pressable>
+          {pathname.includes('community') ? (
+            <Pressable
+              className="flex-row items-center gap-3 active:opacity-75"
+              onPress={() => {
+                triggerLightHaptic();
+                if (userId) {
+                  router.push(`/community/profile/${userId}`);
+                }
+              }}
+            >
+              <StaticAvatar
+                uri={profilePhoto}
+                name={name || 'User'}
+                size={40}
+                className="h-10 w-10 rounded-full border border-[#D4FF32]/30"
+              />
+              <View className="flex-row items-center gap-1.5">
+                <Text className="font-semibold text-white text-sm" numberOfLines={1}>
+                  {name || 'Community Member'}
+                </Text>
+                {communityProfile?.username ? (
+                  <Text className="text-[#8E8E93] text-xs font-medium" numberOfLines={1}>
+                    (@{communityProfile.username})
+                  </Text>
+                ) : null}
+              </View>
+            </Pressable>
+          ) : (
+            <View className="flex-row items-center gap-3">
+              <StaticAvatar
+                uri={gymData?.logo || profilePhoto}
+                name={gymData?.gymName || name || 'User'}
+                size={40}
+                className="h-10 w-10 rounded-full"
+              />
+              <Text className="font-semibold text-white">
+                {gymData?.gymName ? `${gymData.gymName}` : (name ? name : 'GK Fitness')}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View className="flex-row items-center gap-5">

@@ -147,19 +147,19 @@ export default function ViewDay() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] pt-12 pb-28 px-4">
-      <View className="flex-row items-center mb-6">
+    <View className="flex-1 bg-[#0A0A0A] pt-3 pb-28 px-4">
+      <View className="flex-row items-center mb-5">
         <Pressable
           onPress={() => router.back()}
-          className="w-11 h-11 rounded-full border border-[#242424] items-center justify-center bg-[#161616] mr-4 active:opacity-70"
+          className="w-10 h-10 rounded-full border border-[#242424] items-center justify-center bg-[#161616] mr-3 active:opacity-70"
         >
           <ArrowLeft size={20} color="#fff" />
         </Pressable>
         <View>
-          <Text className="text-white text-2xl font-semibold">
+          <Text className="text-white text-xl font-bold">
             {dayData ? `${dayData.dayOfWeek.charAt(0).toUpperCase() + dayData.dayOfWeek.slice(1)} Workout` : 'Workout'}
           </Text>
-          <Text className="text-[#8E8E8E] text-sm">View your planned workout details.</Text>
+          <Text className="text-[#8E8E8E] text-xs">View your planned workout details.</Text>
         </View>
       </View>
 

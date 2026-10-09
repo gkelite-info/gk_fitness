@@ -102,18 +102,18 @@ export default function SwapDay() {
   const moveToList = weeklyPlan.filter(d => d.id !== dayId);
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] pt-12 px-4 pb-20">
+    <View className="flex-1 bg-[#0A0A0A] pt-3 px-4 pb-20">
       {/* Header */}
-      <View className="flex-row items-center mb-6">
+      <View className="flex-row items-center mb-5">
         <Pressable
           onPress={() => router.back()}
-          className="w-11 h-11 rounded-full border border-[#242424] items-center justify-center bg-[#161616] mr-4 active:opacity-70"
+          className="w-10 h-10 rounded-full border border-[#242424] items-center justify-center bg-[#161616] mr-3 active:opacity-70"
         >
           <ArrowLeft size={20} color="#fff" />
         </Pressable>
         <View>
-          <Text className="text-white text-2xl font-semibold">Swap Workout Day</Text>
-          <Text className="text-[#8E8E8E] text-sm">Move this workout to another day of the week.</Text>
+          <Text className="text-white text-xl font-bold">Swap Workout Day</Text>
+          <Text className="text-[#8E8E8E] text-xs">Move this workout to another day of the week.</Text>
         </View>
       </View>
 

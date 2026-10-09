@@ -2,10 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useEffect } from 'react';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { isRunningInExpoGo } from 'expo';
 import { registerForPushNotifications } from '@/lib/services/notificationService';
 import { useRouter } from 'expo-router';
 
-const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const isExpoGo =
+  (typeof isRunningInExpoGo === 'function' ? isRunningInExpoGo() : false) ||
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 let Notifications: any = null;
 if (!isExpoGo) {
   try {
@@ -33,7 +36,7 @@ export function useNotifications(userId: string | undefined) {
   });
 
   useEffect(() => {
-    if (userId) {
+    if (userId && !isExpoGo) {
       registerForPushNotifications(userId);
     }
   }, [userId]);

@@ -2,58 +2,79 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { isRunningInExpoGo } from 'expo';
 import * as Crypto from 'expo-crypto';
 import { fetchBlockedUsers } from '@/helpers/community/blockCache';
 
-const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-import * as Notifications from 'expo-notifications';
+const isExpoGo =
+  (typeof isRunningInExpoGo === 'function' ? isRunningInExpoGo() : false) ||
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+let Notifications: any = null;
+
+// Remote push notifications were removed from Expo Go on Android with SDK 53+.
+// Importing expo-notifications in Expo Go on Android triggers a fatal error during module evaluation.
+// Therefore, we only load expo-notifications when NOT running in Expo Go.
+if (!isExpoGo) {
+  try {
+    Notifications = require('expo-notifications');
+    if (Notifications?.setNotificationHandler) {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+        }),
+      });
+    }
+  } catch (error) {
+    console.warn('[notificationService] Failed to load expo-notifications:', error);
+  }
+}
 
 export async function registerForPushNotifications(userId: string): Promise<string | null> {
-  // 1. ALWAYS request permissions (crucial for iOS local notifications to work anywhere)
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync({
-      ios: { allowAlert: true, allowBadge: true, allowSound: true }
-    });
-    finalStatus = status;
-  }
-  if (finalStatus !== 'granted') {
-    console.log('Failed to get permissions for notifications!');
-    return null;
-  }
-
-  // 2. Gating for Remote Push Tokens (APNs/FCM)
-  if (isExpoGo && Platform.OS === 'ios') {
-    console.log('Remote push tokens are disabled in Expo Go for iOS. Local notifications will still work.');
-    return null;
-  }
-  
-  if (!Device.isDevice) {
-    console.log('Must use physical device for Remote Push Notifications. Local notifications will still work.');
+  if (isExpoGo || !Notifications) {
+    if (__DEV__) {
+      console.log('[notificationService] Push notifications are disabled in Expo Go. Use a development build to test push notifications.');
+    }
     return null;
   }
 
   try {
-    const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
+    // 1. ALWAYS request permissions (crucial for local/push notifications to work anywhere)
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: { allowAlert: true, allowBadge: true, allowSound: true }
+      });
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.log('Failed to get permissions for notifications!');
+      return null;
+    }
+
+    if (!Device.isDevice) {
+      console.log('Must use physical device for Remote Push Notifications. Local notifications will still work.');
+      return null;
+    }
+
+    const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID || Constants?.expoConfig?.extra?.eas?.projectId;
     if (!projectId) {
-      console.warn('EXPO_PUBLIC_EAS_PROJECT_ID is not defined, push token registration might fail if using EAS.');
+      console.warn('EAS Project ID is not defined, push token registration will fail.');
+      return null;
     }
     
     const tokenData = await Notifications.getExpoPushTokenAsync({
       projectId,
     });
     
-    const expoPushToken = tokenData.data;
+    const expoPushToken = tokenData?.data;
+    if (!expoPushToken) {
+      return null;
+    }
 
     // Save token to Supabase
     const { error } = await supabase.from('user_push_tokens').upsert(
@@ -379,7 +400,7 @@ export async function syncPTSessionReminders(userId: string) {
       .from('trainer_sessions')
       .select('sessionDate, customer_trainers!inner(customerId)')
       .eq('customer_trainers.customerId', userId)
-      .eq('status', 'scheduled')
+      .eq('status', 'pending')
       .gte('sessionDate', new Date().toISOString())
       .order('sessionDate', { ascending: true })
       .limit(10);

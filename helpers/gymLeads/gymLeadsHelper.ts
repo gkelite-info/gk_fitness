@@ -308,3 +308,15 @@ export async function uploadGymLeadLogo(uri: string): Promise<string | null> {
     throw error;
   }
 }
+
+export function getGymLeadLogoUrl(fileName: string | null): string | null {
+  if (!fileName) return null;
+  if (fileName.startsWith('http')) return fileName;
+
+  const { data } = supabase.storage
+    .from('gym-lead-logos')
+    .getPublicUrl(fileName);
+
+  return data.publicUrl;
+}
+

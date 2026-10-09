@@ -7,6 +7,7 @@ export interface UserProfile {
   name: string | null;
   email: string | null;
   phone: string | null;
+  gender?: string | null;
   address: string | null;
   country?: string | null;
   state?: string | null;
@@ -35,6 +36,7 @@ export async function fetchUserAndRoleProfile(
     name: 'User',
     email: authEmail,
     phone: null,
+    gender: null,
     address: null,
     role: 'customer',
   };
@@ -42,14 +44,14 @@ export async function fetchUserAndRoleProfile(
   try {
     let { data: userRecord, error } = await supabase
       .from('users')
-      .select('userId, name, email, phone, address, country, state, city, pincode, role, profilePhoto')
+      .select('userId, name, email, phone, gender, address, country, state, city, pincode, role, profilePhoto')
       .eq('userId', authUserId)
       .maybeSingle();
 
     if (!userRecord && authEmail) {
       const emailRes = await supabase
         .from('users')
-        .select('userId, name, email, phone, address, country, state, city, pincode, role, profilePhoto')
+        .select('userId, name, email, phone, gender, address, country, state, city, pincode, role, profilePhoto')
         .eq('email', authEmail)
         .maybeSingle();
       userRecord = emailRes.data;
@@ -67,6 +69,7 @@ export async function fetchUserAndRoleProfile(
             name: metadata.name || 'User',
             email: authUser.email || authEmail || '',
             phone: metadata.phone || '',
+            gender: metadata.gender || 'male',
             address: metadata.address || '',
             country: metadata.country || null,
             state: metadata.state || null,

@@ -153,7 +153,11 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
     if (existingUserRecord) {
       const { error: userUpErr } = await supabase
         .from('users')
-        .update({ role: 'customer', updatedAt: now })
+        .update({
+          role: 'customer',
+          updatedAt: now,
+          ...(params.gender ? { gender: params.gender.toLowerCase() === 'other' ? 'others' : params.gender.toLowerCase() } : {}),
+        })
         .eq('userId', targetUserId);
       if (userUpErr) throw new Error(`Table 1 (users) update failed: ${userUpErr.message}`);
     } else {
@@ -165,6 +169,7 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
           name: params.fullName.trim(),
           email: cleanEmail,
           phone: cleanPhone,
+          gender: params.gender ? (params.gender.toLowerCase() === 'other' ? 'others' : params.gender.toLowerCase()) : 'male',
           role: 'customer',
           status: 'active',
           isEmailVerified: false,

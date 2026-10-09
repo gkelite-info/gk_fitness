@@ -69,6 +69,13 @@ export async function saveCustomerOnboarding(
       gender: data.gender || 'other',
       dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString() : new Date().toISOString(),
     }).eq('customerId', userId);
+
+    if (data.gender) {
+      await supabase.from('users').update({
+        gender: data.gender.toLowerCase() === 'other' ? 'others' : data.gender.toLowerCase(),
+        updatedAt: new Date().toISOString()
+      }).eq('userId', userId);
+    }
   }
 
   const payload = {

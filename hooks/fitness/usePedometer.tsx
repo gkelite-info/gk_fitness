@@ -4,6 +4,7 @@ import { useUser } from '@/context/UserContext';
 import { supabaseFitnessService } from '@/lib/services/supabaseFitnessService';
 import { Pedometer } from 'expo-sensors';
 import { Platform, AppState, AppStateStatus } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   initialize,
   requestPermission,

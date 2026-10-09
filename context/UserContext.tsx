@@ -21,6 +21,7 @@ const UserContext = createContext<UserContextType>({
   name: null,
   email: null,
   phone: null,
+  gender: null,
   address: null,
   role: null,
   profilePhoto: null,

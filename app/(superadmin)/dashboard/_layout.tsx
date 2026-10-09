@@ -5,8 +5,6 @@ export default function DashboardLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="register" />
-      <Stack.Screen name="workouts/index" />
-      <Stack.Screen name="workouts/add" />
-    </Stack>
+      </Stack>
   );
 }

@@ -339,7 +339,11 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
     if (existingUserRecord) {
       const { error: userUpErr } = await supabase
         .from('users')
-        .update({ role: 'trainer', updatedAt: now })
+        .update({
+          role: 'trainer',
+          updatedAt: now,
+          ...(params.gender ? { gender: String(params.gender).toLowerCase() === 'other' ? 'others' : String(params.gender).toLowerCase() } : {}),
+        })
         .eq('userId', targetUserId);
       if (userUpErr) throw new Error(`Table 1 (users) update failed: ${userUpErr.message}`);
     } else {
@@ -349,6 +353,7 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
         name: params.fullName.trim(),
         email: cleanEmail,
         phone: cleanPhone,
+        gender: params.gender ? (String(params.gender).toLowerCase() === 'other' ? 'others' : String(params.gender).toLowerCase()) : 'male',
         role: 'trainer',
       });
       if (!createdUser || !createdUser.userId) {

@@ -9,11 +9,13 @@ import { useRealtimeAnnouncements } from '@/hooks/gymAnnouncements/useRealtimeAn
 import { useBirthdayAnnouncements } from '@/hooks/gymAnnouncements/useBirthdayAnnouncements';
 import { useNotifications } from '@/hooks/notifications/useNotifications';
 import { AnnouncementsModal } from '@/components/AnnouncementsModal';
-import { BellRingingIcon, UsersThree, CaretLeft } from 'phosphor-react-native';
+import { BellRingingIcon, UsersThree, CaretLeft, List } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { Image } from 'react-native';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { useGym } from '@/hooks/gyms/useGym';
+import { HamburgerMenu } from '@/components/HamburgerMenu';
+import { triggerLightHaptic } from '@/lib/haptics';
 
 export function Navbar() {
   const router = useRouter();
@@ -28,6 +30,7 @@ export function Navbar() {
   const { unreadCount } = useNotifications(userId ?? undefined);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [hasViewedBirthdays, setHasViewedBirthdays] = useState(false);
+  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
 
   const combinedAnnouncements = [...birthdayAnnouncements, ...announcements];
   const combinedHasNew = hasNew || (birthdayAnnouncements.length > 0 && !hasViewedBirthdays);
@@ -55,6 +58,15 @@ export function Navbar() {
             </Pressable>
           )}
           <Pressable
+            className="mr-3 p-1 active:opacity-60"
+            onPress={() => {
+              triggerLightHaptic();
+              setIsDrawerVisible(true);
+            }}
+          >
+            <List size={24} color="#ffffff" weight="bold" />
+          </Pressable>
+          <Pressable
             className="flex-row items-center gap-3 active:opacity-70"
             onPress={() => {
               if (pathname.includes('community')) {
@@ -79,7 +91,7 @@ export function Navbar() {
             <Text className="font-semibold text-white">
               {pathname.includes('community') 
                 ? (name ? `Welcome, ${name}` : 'Welcome Back')
-                : (gymData?.gymName ? `Welcome to ${gymData.gymName}` : (name ? `Welcome, ${name}` : 'Welcome Back'))
+                : (gymData?.gymName ? `${gymData.gymName}` : (name ? `Welcome, ${name}` : 'Welcome Back'))
               }
             </Text>
           </Pressable>
@@ -122,6 +134,10 @@ export function Navbar() {
         onClose={() => setIsModalVisible(false)}
         announcements={combinedAnnouncements}
         isLoading={combinedLoading}
+      />
+      <HamburgerMenu
+        visible={isDrawerVisible}
+        onClose={() => setIsDrawerVisible(false)}
       />
     </View>
   );

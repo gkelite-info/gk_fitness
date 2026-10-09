@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { saveGymEnquiry, GymEnquiry } from '@/helpers/enquiries/enquiriesHelper';
+import { saveGymEnquiry, SaveGymEnquiryParams } from '@/helpers/enquiries/enquiriesHelper';
 import { useUser } from '@/context/UserContext';
 
 export function useCreateEnquiry() {
@@ -7,12 +7,15 @@ export function useCreateEnquiry() {
   const { gymId } = useUser();
 
   return useMutation({
-    mutationFn: (enquiry: Partial<GymEnquiry>) => {
+    mutationFn: (enquiry: Omit<SaveGymEnquiryParams, 'gymId'>) => {
       if (!gymId) throw new Error('No gym ID found');
-      return saveGymEnquiry(gymId, enquiry);
+      return saveGymEnquiry({ ...enquiry, gymId });
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['gymEnquiries'] });
+      if (variables.gymEnquiryId) {
+        queryClient.invalidateQueries({ queryKey: ['gymEnquiry', variables.gymEnquiryId] });
+      }
     },
   });
 }

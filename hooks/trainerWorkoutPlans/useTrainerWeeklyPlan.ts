@@ -17,18 +17,22 @@ export function useTrainerWeeklyPlan(userId: string | null | undefined) {
       const days = await fetchTrainerWorkoutPlanDays(activePlan.planId);
       const loadedPlanDays: any = {};
       
-      for (const d of days) {
-        if (d.workoutType && d.workoutType !== 'Rest') {
-          const exs = await fetchTrainerWorkoutPlanDayExercises(d.planDayId);
-          loadedPlanDays[d.dayOfWeek] = {
-            dayOfWeek: d.dayOfWeek,
-            workoutType: d.workoutType,
-            workoutId: d.workoutId || null,
-            durationMinutes: d.durationMinutes,
-            exercises: exs,
-            planDayId: d.planDayId
-          };
-        }
+      const activeDays = days.filter((d: any) => d.workoutType && d.workoutType !== 'Rest');
+      const fetchPromises = activeDays.map(async (d: any) => {
+        const exs = await fetchTrainerWorkoutPlanDayExercises(d.planDayId);
+        return { d, exs };
+      });
+      const results = await Promise.all(fetchPromises);
+      
+      for (const { d, exs } of results) {
+        loadedPlanDays[d.dayOfWeek] = {
+          dayOfWeek: d.dayOfWeek,
+          workoutType: d.workoutType,
+          workoutId: d.workoutId || null,
+          durationMinutes: d.durationMinutes,
+          exercises: exs,
+          planDayId: d.planDayId
+        };
       }
       return loadedPlanDays;
     },

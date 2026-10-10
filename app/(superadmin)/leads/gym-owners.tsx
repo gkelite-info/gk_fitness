@@ -43,9 +43,12 @@ const getStatusLabel = (status: string) => {
   }
 };
 
-const LeadCard = ({ item, onStatusPress }: { item: any; onStatusPress: (item: any) => void }) => {
+const LeadCard = ({ item, onStatusPress, router }: { item: any; onStatusPress: (item: any) => void; router: any }) => {
   return (
-    <View className="bg-[#1C1C1E] rounded-2xl p-4 mb-4">
+    <Pressable
+      onPress={() => router.push(`/(superadmin)/leads/${item.gymLeadId}`)}
+      className="bg-[#1C1C1E] rounded-2xl p-4 mb-4 active:opacity-90"
+    >
       <View className="flex-row items-start justify-between mb-3">
         <View className="flex-row items-center flex-1 pr-2">
           <View className="w-10 h-10 rounded-full bg-[#2A2A2D] items-center justify-center mr-3 shrink-0">
@@ -95,7 +98,7 @@ const LeadCard = ({ item, onStatusPress }: { item: any; onStatusPress: (item: an
           </Text>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 };
 
@@ -302,7 +305,7 @@ export default function GymOwnerLeadsScreen() {
       <FlatList
         data={accumulatedLeads}
         keyExtractor={(item) => item.gymLeadId || Math.random().toString()}
-        renderItem={({ item }) => <LeadCard item={item} onStatusPress={handleStatusPress} />}
+        renderItem={({ item }) => <LeadCard item={item} onStatusPress={handleStatusPress} router={router} />}
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}
         showsVerticalScrollIndicator={false}
         onEndReached={() => {

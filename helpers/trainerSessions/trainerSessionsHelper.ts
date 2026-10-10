@@ -6,6 +6,7 @@ export type SessionStatus = 'pending' | 'completed' | 'cancelled';
 export interface TrainerSessionAttributes {
   trainerSessionId?: string;
   customerTrainerId: string;
+  gymTrainerId: string;
   sessionDate: string | Date;
   status: SessionStatus;
   createdAt?: string | Date;
@@ -15,6 +16,7 @@ export interface TrainerSessionAttributes {
 export interface SaveTrainerSessionParams {
   trainerSessionId?: string;
   customerTrainerId: string;
+  gymTrainerId: string;
   sessionDate: string | Date;
   status?: SessionStatus;
 }
@@ -71,6 +73,58 @@ export async function fetchTrainerSessionsForDate(customerTrainerIds: string[], 
   return data ?? [];
 }
 
+export async function fetchTrainerSessionsByGymTrainerId(gymTrainerId: string) {
+  const { data, error } = await supabase
+    .from('trainer_sessions')
+    .select('*')
+    .eq('gymTrainerId', gymTrainerId)
+    .order('sessionDate', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+export async function fetchTrainerSessionsByGymTrainerIdAndDateRange(gymTrainerId: string, startDate: string | Date, endDate: string | Date) {
+  const { data, error } = await supabase
+    .from('trainer_sessions')
+    .select('*')
+    .eq('gymTrainerId', gymTrainerId)
+    .gte('sessionDate', new Date(startDate).toISOString())
+    .lte('sessionDate', new Date(endDate).toISOString())
+    .order('sessionDate', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+export async function fetchTrainerSessionsForDateByGymTrainerIds(gymTrainerIds: string[], sessionDate: string | Date) {
+  if (!gymTrainerIds || gymTrainerIds.length === 0) return [];
+
+  const startOfDay = new Date(sessionDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(sessionDate);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const { data, error } = await supabase
+    .from('trainer_sessions')
+    .select('*')
+    .in('gymTrainerId', gymTrainerIds)
+    .gte('sessionDate', startOfDay.toISOString())
+    .lte('sessionDate', endOfDay.toISOString());
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
 export async function saveTrainerSession(params: SaveTrainerSessionParams) {
   if (params.trainerSessionId) {
     const payload = {
@@ -94,6 +148,7 @@ export async function saveTrainerSession(params: SaveTrainerSessionParams) {
     const payload = {
       trainerSessionId: Crypto.randomUUID(),
       customerTrainerId: params.customerTrainerId,
+      gymTrainerId: params.gymTrainerId,
       sessionDate: params.sessionDate instanceof Date ? params.sessionDate.toISOString() : params.sessionDate,
       status: params.status || 'pending',
       createdAt: new Date().toISOString(),

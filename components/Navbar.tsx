@@ -7,12 +7,16 @@ import { Text } from '@/components/nativewindui/Text';
 import { useState } from 'react';
 import { useRealtimeAnnouncements } from '@/hooks/gymAnnouncements/useRealtimeAnnouncements';
 import { useBirthdayAnnouncements } from '@/hooks/gymAnnouncements/useBirthdayAnnouncements';
+import { useNotifications } from '@/hooks/notifications/useNotifications';
 import { AnnouncementsModal } from '@/components/AnnouncementsModal';
-import { BellRingingIcon, UsersThree, CaretLeft } from 'phosphor-react-native';
+import { BellRingingIcon, UsersThree, CaretLeft, List } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { Image } from 'react-native';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { useGym } from '@/hooks/gyms/useGym';
+import { useCommunityProfile } from '@/hooks/community/useProfile';
+import { HamburgerMenu } from '@/components/HamburgerMenu';
+import { triggerLightHaptic } from '@/lib/haptics';
 
 export function Navbar() {
   const router = useRouter();
@@ -22,13 +26,17 @@ export function Navbar() {
   const topPadding = insets.top;
 
   const { data: gymData } = useGym(gymId);
+  const { data: communityProfile } = useCommunityProfile(userId ?? '');
   const { announcements, loading, hasNew, clearHasNew } = useRealtimeAnnouncements(gymId);
   const { birthdayAnnouncements, isLoadingBirthday } = useBirthdayAnnouncements(gymId);
+  const { unreadCount } = useNotifications(userId ?? undefined);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [hasViewedBirthdays, setHasViewedBirthdays] = useState(false);
+  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
 
   const combinedAnnouncements = [...birthdayAnnouncements, ...announcements];
   const combinedHasNew = hasNew || (birthdayAnnouncements.length > 0 && !hasViewedBirthdays);
+  const showBadge = combinedHasNew || unreadCount > 0;
   const combinedLoading = loading || isLoadingBirthday;
 
   const isProfilePage = pathname === '/community/profile' ? false : pathname.includes('/profile');
@@ -52,34 +60,54 @@ export function Navbar() {
             </Pressable>
           )}
           <Pressable
-            className="flex-row items-center gap-3 active:opacity-70"
+            className="mr-3 p-1 active:opacity-60"
             onPress={() => {
-              if (pathname.includes('community')) {
-                router.push(`/community/profile/${userId}`);
-              } else if (role === 'customer') {
-                router.push('/(customer)/profile');
-              } else if (role === 'trainer') {
-                router.push('/(trainer)/profile' as any);
-              } else if (role === 'doctor') {
-                router.push('/(doctor)/profile');
-              } else {
-                router.push('/(owner)/profile');
-              }
+              triggerLightHaptic();
+              setIsDrawerVisible(true);
             }}
           >
-            <StaticAvatar
-              uri={pathname.includes('community') ? profilePhoto : (gymData?.logo || profilePhoto)}
-              name={pathname.includes('community') ? (name || 'User') : (gymData?.gymName || name || 'User')}
-              size={40}
-              className="h-10 w-10 rounded-full"
-            />
-            <Text className="font-semibold text-white">
-              {pathname.includes('community') 
-                ? (name ? `Welcome, ${name}` : 'Welcome Back')
-                : (gymData?.gymName ? `Welcome to ${gymData.gymName}` : (name ? `Welcome, ${name}` : 'Welcome Back'))
-              }
-            </Text>
+            <List size={24} color="#ffffff" weight="bold" />
           </Pressable>
+          {pathname.includes('community') ? (
+            <Pressable
+              className="flex-row items-center gap-3 active:opacity-75"
+              onPress={() => {
+                triggerLightHaptic();
+                if (userId) {
+                  router.push(`/community/profile/${userId}`);
+                }
+              }}
+            >
+              <StaticAvatar
+                uri={profilePhoto}
+                name={name || 'User'}
+                size={40}
+                className="h-10 w-10 rounded-full border border-[#D4FF32]/30"
+              />
+              <View className="flex-row items-center gap-1.5">
+                <Text className="font-semibold text-white text-sm" numberOfLines={1}>
+                  {name || 'Community Member'}
+                </Text>
+                {communityProfile?.username ? (
+                  <Text className="text-[#8E8E93] text-xs font-medium" numberOfLines={1}>
+                    (@{communityProfile.username})
+                  </Text>
+                ) : null}
+              </View>
+            </Pressable>
+          ) : (
+            <View className="flex-row items-center gap-3">
+              <StaticAvatar
+                uri={gymData?.logo || profilePhoto}
+                name={gymData?.gymName || name || 'User'}
+                size={40}
+                className="h-10 w-10 rounded-full"
+              />
+              <Text className="font-semibold text-white">
+                {gymData?.gymName ? `${gymData.gymName}` : (name ? name : 'GK Fitness')}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View className="flex-row items-center gap-5">
@@ -108,7 +136,7 @@ export function Navbar() {
             }}
           >
             <BellRingingIcon size={24} color='#ffffff' />
-            {combinedHasNew && (
+            {showBadge && (
               <View className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border border-[#0D0D0D]" />
             )}
           </Pressable>
@@ -119,6 +147,10 @@ export function Navbar() {
         onClose={() => setIsModalVisible(false)}
         announcements={combinedAnnouncements}
         isLoading={combinedLoading}
+      />
+      <HamburgerMenu
+        visible={isDrawerVisible}
+        onClose={() => setIsDrawerVisible(false)}
       />
     </View>
   );

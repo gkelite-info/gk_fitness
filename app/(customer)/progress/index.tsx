@@ -64,6 +64,12 @@ export default function ProgressScreen() {
       icon: Barbell,
       href: '/(customer)/progress/strength',
     },
+    {
+      title: 'Weekly Progress',
+      subtitle: 'Track your weekly goals and adherence',
+      icon: Fire,
+      href: '/(customer)/progress/weekly-progress',
+    },
   ];
 
   if (loading || !progressData || !progressData.summary) {

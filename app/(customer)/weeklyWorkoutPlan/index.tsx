@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 // @ts-ignore
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { CaretRight, Eye, PencilSimple, ArrowsLeftRight, Plus } from 'phosphor-react-native';
+import { CaretLeft, CaretRight, Eye, PencilSimple, ArrowsLeftRight, Plus } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { useCustomerWeeklyPlan } from '@/hooks/customerWorkouts/useCustomerWeeklyPlan';
 import { useTrainerWeeklyPlan } from '@/hooks/trainerWorkoutPlans/useTrainerWeeklyPlan';
@@ -102,12 +102,15 @@ export default function WeeklyWorkoutPlan() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] px-2 pt-12 pb-6">
-      <View className="mb-8">
-        <Text className="text-white text-3xl font-semibold mb-2">
+    <View className="flex-1 bg-[#0A0A0A] px-3 pt-3 pb-6">
+      <View className="mb-6">
+        <Pressable onPress={() => router.back()} className="mb-3 w-10 h-10 items-center justify-center -ml-2 active:opacity-75">
+          <CaretLeft size={24} color="#FFFFFF" />
+        </Pressable>
+        <Text className="text-white text-2xl font-bold mb-1">
           {isTrainerPlan ? 'Trainer Weekly Workout Plan' : 'Monthly Workout Plan'}
         </Text>
-        <Text className="text-[#8E8E8E] text-base">
+        <Text className="text-[#8E8E8E] text-sm">
           {isTrainerPlan ? 'Review your trainer assigned weekly schedule.' : 'Review and customize your monthly schedule.'}
         </Text>
       </View>

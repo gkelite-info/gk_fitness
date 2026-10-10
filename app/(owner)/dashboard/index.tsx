@@ -30,6 +30,7 @@ import {
   CaretDown,
   QrCode,
   Fingerprint,
+  PhoneCall,
 } from 'phosphor-react-native';
 import { triggerMediumHaptic } from '@/lib/haptics';
 
@@ -41,11 +42,13 @@ const OVERVIEW_ITEMS = [
 ];
 
 const QUICK_ACTIONS = [
+  { id: 'enquiries', icon: PhoneCall, label: 'Enquiries' },
   { id: 'add-member', icon: UserPlus, label: 'Add Member' },
-  { id: 'create-announcement', icon: Megaphone, label: 'Create Announcement' },
-  { id: 'manage-inventory', icon: Package, label: 'Manage Inventory' },
+  { id: 'membership-expiry', icon: CalendarCheck, label: 'Renewals' },
   { id: 'record-payment', icon: Wallet, label: 'Record Payment' },
-  { id: 'manage-biometric', icon: Fingerprint, label: 'Manage Biometric' },
+  { id: 'manage-inventory', icon: Package, label: 'Manage Inventory' },
+  { id: 'create-announcement', icon: Megaphone, label: 'Announcements' },
+  { id: 'manage-biometric', icon: Fingerprint, label: 'Biometric' },
 ];
 
 const OPERATIONS = [
@@ -384,8 +387,13 @@ export default function OwnerDashboardScreen() {
             <Pressable
               key={action.id}
               onPress={() => {
-                if (action.id === 'add-member') {
+                triggerMediumHaptic();
+                if (action.id === 'enquiries') {
+                  router.push('/(owner)/dashboard/enquiries');
+                } else if (action.id === 'add-member') {
                   router.push('/(owner)/dashboard/customers');
+                } else if (action.id === 'membership-expiry') {
+                  router.push('/(owner)/dashboard/renewals');
                 } else if (action.id === 'manage-inventory') {
                   router.push('/(owner)/dashboard/manage-inventory');
                 } else if (action.id === 'record-payment') {
@@ -417,6 +425,17 @@ export default function OwnerDashboardScreen() {
           let displayValue = op.value;
           if (op.id === 'pt-sessions') {
             displayValue = activePtSessionsCount.toString();
+          } else if (op.id === 'renewals') {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const expiringSoon = (customerPlans || []).filter((p: any) => {
+              if (!p.endDate) return false;
+              const end = new Date(p.endDate);
+              end.setHours(0, 0, 0, 0);
+              const diffDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              return diffDays >= 0 && diffDays <= 7;
+            }).length;
+            displayValue = expiringSoon.toString();
           }
 
           return (
@@ -448,11 +467,11 @@ export default function OwnerDashboardScreen() {
 
       <View className="flex-row items-center justify-between mb-3">
         <Text className="text-base font-semibold text-white">Alerts & Reminders</Text>
-        {/* <Pressable className="active:opacity-70">
+        <Pressable onPress={() => router.push('/(owner)/dashboard/alerts' as any)} className="active:opacity-70">
           <Text className="text-xs font-semibold" style={{ color: '#CCF200' }}>
             View All
           </Text>
-        </Pressable> */}
+        </Pressable>
       </View>
 
       <View className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-3 mb-6 gap-y-3">
@@ -461,7 +480,17 @@ export default function OwnerDashboardScreen() {
           return (
             <React.Fragment key={alert.id}>
               {index > 0 && <View className="h-[1px] bg-[#1F293D]" />}
-              <Pressable className="flex-row items-center justify-between py-1 active:opacity-70">
+              <Pressable
+                onPress={() => {
+                  triggerMediumHaptic();
+                  if (alert.id === 'expiring') {
+                    router.push('/(owner)/dashboard/renewals');
+                  } else {
+                    router.push('/(owner)/dashboard/alerts' as any);
+                  }
+                }}
+                className="flex-row items-center justify-between py-1 active:opacity-70"
+              >
                 <View className="flex-row items-center gap-3 flex-1 pr-2">
                   <View
                     className="w-10 h-10 rounded-xl items-center justify-center"

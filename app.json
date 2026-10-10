@@ -82,12 +82,9 @@
         "foregroundImage": "./assets/app-adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "googleServicesFile": "./google-services.json",
       "package": "com.gkeliteinfo.gkgymlife",
       "permissions": [
-        "android.permission.ACTIVITY_RECOGNITION",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.health.READ_STEPS",
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -102,14 +99,14 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5d58a773-7b20-402a-b488-fd27bccbc462"
+        "projectId": "99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/5d58a773-7b20-402a-b488-fd27bccbc462"
+      "url": "https://u.expo.dev/99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
     }
   }
 }

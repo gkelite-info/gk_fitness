@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { View, FlatList, Pressable, Dimensions, ActivityIndicator, ScrollView, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
-import { CaretDown, Crown, Star, SketchLogo, Medal, CaretRight, CalendarBlank, User, CurrencyInr, Users, ChartLine } from 'phosphor-react-native';
+import { CaretDown, Crown, Star, SketchLogo, Medal, CaretRight, CalendarBlank, User, CurrencyInr, Users, ChartLine, Receipt } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
 import { useGymCustomerMembershipPlans } from '@/hooks/gymCustomerMembershipPlans/useGymCustomerMembershipPlans';
@@ -293,6 +293,23 @@ export default function FinanceDashboard() {
             </View>
           </View>
         </View>
+
+        <Pressable
+          onPress={() => router.push('/(owner)/finance/expenditure')}
+          className="bg-[#09090B] p-4 rounded-[24px] border border-[#27272A] active:opacity-80"
+          style={{ width: width * 0.38 }}
+        >
+          <View className="w-12 h-12 rounded-[16px] bg-[#2A1B1A] mb-6 items-center justify-center border border-[#3E2422]">
+            <Receipt size={22} color="#EF5350" weight="bold" />
+          </View>
+          <View className="gap-2">
+            <Text className="text-[#8E8E93] text-xs">Expenditure</Text>
+            <Text className="text-white text-[20px] leading-[24px] font-semibold tracking-tight">Expenses</Text>
+            <View className="flex-row items-center">
+              <Text className="text-[#CCFF00] text-[11px] flex-1 font-semibold" numberOfLines={1}>Track expenses →</Text>
+            </View>
+          </View>
+        </Pressable>
       </ScrollView>
 
       <View className="px-5 mb-8">

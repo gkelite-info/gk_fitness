@@ -131,17 +131,17 @@ export default function MembershipDetailsScreen() {
 
   if (isCustomerPlansLoading || isGymPlansLoading || (isPaymentsLoading && page === 1)) {
     return (
-      <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A] justify-center items-center">
+      <View className="flex-1 bg-[#0A0A0A] justify-center items-center">
         <ActivityIndicator size="large" color="#CCFF00" />
       </View>
     );
   }
 
   return (
-    <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A]">
-      <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#1C1C1E]">
+    <View className="flex-1 bg-[#0A0A0A]">
+      <View className="flex-row items-center justify-between px-5 py-3.5 border-b border-[#1C1C1E]">
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center -ml-2 active:opacity-70">
-          <CaretLeft size={24} color="#FFF" weight="bold" />
+          <CaretLeft size={22} color="#FFF" weight="bold" />
         </Pressable>
         <Text className="text-white text-lg font-semibold">Membership</Text>
         <View className="w-10 h-10" />

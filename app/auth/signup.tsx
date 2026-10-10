@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator, Image as RNImage } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, ScrollView, TextInput, Pressable, Platform, Modal, FlatList, ActivityIndicator, Image as RNImage, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
@@ -31,6 +31,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useCreateUser } from '@/hooks/auth/useCreateUser';
 import { useCreateGymLead } from '@/hooks/gymLeads/useCreateGymLead';
 import { useUploadGymLeadLogo } from '@/hooks/gymLeads/useUploadGymLeadLogo';
+import { ActionSheet } from '@/components/ActionSheet';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 
@@ -87,10 +88,63 @@ export default function SignupScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const typeId = (params.type as string) || 'individual';
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const focusedFieldRef = useRef<string | null>(null);
+  const fieldPositions = useRef<{ [key: string]: number }>({});
+  const formContainerY = useRef<number>(0);
+
+  const registerField = (name: string, y: number) => {
+    fieldPositions.current[name] = y;
+  };
+
+  const scrollToField = (name: string) => {
+    focusedFieldRef.current = name;
+    const relativeY = fieldPositions.current[name];
+    if (relativeY !== undefined) {
+      const targetY = Math.max(0, formContainerY.current + relativeY - 80);
+      scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+    }
+  };
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      const h = e.endCoordinates.height;
+      setKeyboardHeight(h);
+      if (focusedFieldRef.current) {
+        const relativeY = fieldPositions.current[focusedFieldRef.current];
+        if (relativeY !== undefined) {
+          const targetY = Math.max(0, formContainerY.current + relativeY - 80);
+          if (Platform.OS === 'android') {
+            setTimeout(() => {
+              scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+            }, 60);
+          } else {
+            scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+          }
+        }
+      }
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+      focusedFieldRef.current = null;
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [gender, setGender] = useState<'Male' | 'Female' | 'Others' | 'Select gender'>('Select gender');
+  const [genderModalVisible, setGenderModalVisible] = useState(false);
   const [address, setAddress] = useState('');
   const [country, setCountry] = useState('');
   const [state, setState] = useState('');
@@ -314,6 +368,10 @@ export default function SignupScreen() {
       toast.error('Please enter Mobile Number.');
       return;
     }
+    if (gender === 'Select gender' || !gender) {
+      toast.error('Please select Gender.');
+      return;
+    }
     if (!password) {
       toast.error('Please enter Password.');
       return;
@@ -331,6 +389,7 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       if (typeId === 'individual') {
+        const normalizedGender = (gender.toLowerCase() === 'other' ? 'others' : gender.toLowerCase()) as 'male' | 'female' | 'others';
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
           password: password,
@@ -338,6 +397,7 @@ export default function SignupScreen() {
             data: {
               name: fullName.trim(),
               phone: phone.trim(),
+              gender: normalizedGender,
               role: 'customer',
             },
           },
@@ -357,6 +417,7 @@ export default function SignupScreen() {
           name: fullName,
           email,
           phone,
+          gender: normalizedGender,
           address,
           country,
           state,
@@ -421,10 +482,19 @@ export default function SignupScreen() {
   const states = country ? State.getStatesOfCountry(country).map(s => ({ label: s.name, value: s.isoCode })) : [];
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-[#09090B]">
+    <SafeAreaView className="flex-1 bg-[#09090B]">
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView className="flex-1">
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingBottom: keyboardHeight > 0 ? keyboardHeight + 80 : 40,
+        }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
           <View className="pt-5 pb-6">
             <Pressable
               onPress={() => router.back()}
@@ -465,7 +535,12 @@ export default function SignupScreen() {
             </View>
           )}
 
-          <View className="gap-5 mb-8">
+          <View
+            className="gap-5 mb-8"
+            onLayout={(e) => {
+              formContainerY.current = e.nativeEvent.layout.y;
+            }}
+          >
             {typeId === 'owner' ? (
               <>
                 <View className="mb-2">
@@ -821,13 +896,14 @@ export default function SignupScreen() {
               </>
             ) : (
               <>
-                <View>
+                <View onLayout={(e) => registerField('fullName', e.nativeEvent.layout.y)}>
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Full Name <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <User size={18} color="#6B6B6B" />
                     <TextInput autoCorrect={false} spellCheck={false}
                       value={fullName}
                       onChangeText={(val) => setFullName(val.replace(/[0-9]/g, ''))}
+                      onFocus={() => scrollToField('fullName')}
                       placeholder="Enter your full name"
                       placeholderTextColor="#6B6B6B"
                       className="flex-1 text-white text-[14px] p-0 font-medium"
@@ -835,13 +911,14 @@ export default function SignupScreen() {
                   </View>
                 </View>
 
-                <View>
+                <View onLayout={(e) => registerField('email', e.nativeEvent.layout.y)}>
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Email <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <EnvelopeSimple size={18} color="#6B6B6B" />
                     <TextInput autoCorrect={false} spellCheck={false}
                       value={email}
                       onChangeText={setEmail}
+                      onFocus={() => scrollToField('email')}
                       placeholder="Enter your email"
                       placeholderTextColor="#6B6B6B"
                       keyboardType="email-address"
@@ -851,13 +928,14 @@ export default function SignupScreen() {
                   </View>
                 </View>
 
-                <View>
+                <View onLayout={(e) => registerField('phone', e.nativeEvent.layout.y)}>
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Mobile Number <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <Phone size={18} color="#6B6B6B" />
                     <TextInput autoCorrect={false} spellCheck={false}
                       value={phone}
                       onChangeText={handlePhoneInput(setPhone)}
+                      onFocus={() => scrollToField('phone')}
                       placeholder="Enter mobile number"
                       placeholderTextColor="#6B6B6B"
                       keyboardType="phone-pad"
@@ -867,13 +945,30 @@ export default function SignupScreen() {
                   </View>
                 </View>
 
-                <View>
+                <View onLayout={(e) => registerField('gender', e.nativeEvent.layout.y)}>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Gender <Text className="text-red-500">*</Text></Text>
+                  <Pressable
+                    onPress={() => setGenderModalVisible(true)}
+                    className="flex-row items-center justify-between bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 active:opacity-80"
+                  >
+                    <View className="flex-row items-center gap-3">
+                      <User size={18} color="#6B6B6B" />
+                      <Text className={gender === 'Select gender' ? 'text-[#6B6B6B] text-[14px] font-medium' : 'text-white text-[14px] font-medium'}>
+                        {gender}
+                      </Text>
+                    </View>
+                    <CaretDown size={18} color="#6B6B6B" />
+                  </Pressable>
+                </View>
+
+                <View onLayout={(e) => registerField('address', e.nativeEvent.layout.y)}>
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Address</Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 mb-3">
                     <MapPin size={18} color="#6B6B6B" />
                     <TextInput autoCorrect={false} spellCheck={false}
                       value={address}
                       onChangeText={setAddress}
+                      onFocus={() => scrollToField('address')}
                       placeholder="House / Flat / Building / Street"
                       placeholderTextColor="#6B6B6B"
                       className="flex-1 text-white text-[14px] p-0 font-medium"
@@ -932,12 +1027,13 @@ export default function SignupScreen() {
                     </View>
                   </View>
 
-                  <View className="flex-row gap-3">
+                  <View className="flex-row gap-3" onLayout={(e) => registerField('cityRow', e.nativeEvent.layout.y)}>
                     <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
                       <Buildings size={18} color="#6B6B6B" />
                       <TextInput autoCorrect={false} spellCheck={false}
                         value={city}
                         onChangeText={setCity}
+                        onFocus={() => scrollToField('cityRow')}
                         placeholder="City"
                         placeholderTextColor="#6B6B6B"
                         className="flex-1 text-white text-[14px] p-0 font-medium"
@@ -948,6 +1044,7 @@ export default function SignupScreen() {
                       <TextInput autoCorrect={false} spellCheck={false}
                         value={pinCode}
                         onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
+                        onFocus={() => scrollToField('cityRow')}
                         placeholder="PIN Code"
                         placeholderTextColor="#6B6B6B"
                         keyboardType="number-pad"
@@ -960,13 +1057,14 @@ export default function SignupScreen() {
               </>
             )}
 
-            <View>
+            <View onLayout={(e) => registerField('password', e.nativeEvent.layout.y)}>
               <Text className="text-white text-[13px] font-medium mb-2">Password <Text className="text-red-500">*</Text></Text>
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <LockKey size={18} color="#6B6B6B" />
                 <TextInput autoCorrect={false} spellCheck={false}
                   value={password}
                   onChangeText={setPassword}
+                  onFocus={() => scrollToField('password')}
                   placeholder="Enter your password"
                   placeholderTextColor="#6B6B6B"
                   secureTextEntry={!showPassword}
@@ -979,13 +1077,14 @@ export default function SignupScreen() {
               </View>
             </View>
 
-            <View>
+            <View onLayout={(e) => registerField('confirmPassword', e.nativeEvent.layout.y)}>
               <Text className="text-white text-[13px] font-medium mb-2">Confirm Password <Text className="text-red-500">*</Text></Text>
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <LockKey size={18} color="#6B6B6B" />
                 <TextInput autoCorrect={false} spellCheck={false}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
+                  onFocus={() => scrollToField('confirmPassword')}
                   placeholder="Confirm your password"
                   placeholderTextColor="#6B6B6B"
                   secureTextEntry={!showConfirmPassword}
@@ -1019,7 +1118,18 @@ export default function SignupScreen() {
           </Pressable>
 
         </ScrollView>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+
+        <ActionSheet
+          visible={genderModalVisible}
+          onClose={() => setGenderModalVisible(false)}
+          title="Select Gender"
+          options={['Male', 'Female', 'Others']}
+          onSelect={(idx) => {
+            if (idx === 0) setGender('Male');
+            if (idx === 1) setGender('Female');
+            if (idx === 2) setGender('Others');
+          }}
+        />
+    </SafeAreaView>
   );
 }

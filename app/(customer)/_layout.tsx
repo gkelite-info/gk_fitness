@@ -8,7 +8,7 @@ export default function CustomerLayout() {
     <PedometerProvider>
       <Tabs
         initialRouteName="home"
-        backBehavior="history"
+        backBehavior="initialRoute"
         tabBar={(props) => <CustomTabBar {...props} centerRouteName="home" />}
         screenOptions={{
           header: () => <Navbar />,
@@ -60,28 +60,6 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
-          name="explore/category/[workoutId]"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="explore/recommended/[category]"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="explore/exercise-detail/[workoutVideoId]"
-          options={{
-            href: null,
-            headerShown: false,
-            tabBarStyle: { display: 'none' },
-          }}
-        />
-        <Tabs.Screen
           name="shop"
           options={{
             href: null,
@@ -115,14 +93,6 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
-          name="home/scan"
-          options={{
-            href: null,
-            headerShown: false,
-            tabBarStyle: { display: 'none' },
-          }}
-        />
-        <Tabs.Screen
           name="workout-session"
           options={{
             href: null,
@@ -145,27 +115,6 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
-          name="fitness/steps"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="fitness/calories"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="fitness/water"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
           name="privacy-policy"
           options={{
             href: null,
@@ -180,144 +129,9 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
-          name="nutrition/index"
-          options={{
-            href: null,
-            headerShown: true,
-          }}
-        />
-        <Tabs.Screen
-          name="nutrition/food-preferences"
-          options={{
-            href: null,
-            headerShown: true,
-          }}
-        />
-        <Tabs.Screen
-          name="nutrition/generating-plan"
-          options={{
-            href: null,
-            headerShown: true,
-          }}
-        />
-        <Tabs.Screen
-          name="nutrition/my-nutrition-plan"
-          options={{
-            href: null,
-            headerShown: true,
-          }}
-        />
-        <Tabs.Screen
-          name="nutrition/meal-detail"
-          options={{
-            href: null,
-            headerShown: true,
-          }}
-        />
-        <Tabs.Screen
-          name="nutrition/swap-meal"
-          options={{
-            href: null,
-            headerShown: true,
-          }}
-        />
-        <Tabs.Screen
-          name="nutrition/alternative-meal-detail"
-          options={{
-            href: null,
-            headerShown: true,
-          }}
-        />
-        <Tabs.Screen
-          name="nutrition/nutrition-preferences"
-          options={{
-            href: null,
-            headerShown: true,
-          }}
-        />
-        <Tabs.Screen
-          name="trainer/book-trainer"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="trainer/trainer-request"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="trainer/[id]"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="explore/trainers"
-          options={{
-            href: null,
-            headerShown: true,
-          }}
-        />
-        <Tabs.Screen
-          name="explore/[id]"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="memberships/index"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="memberships/details"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="memberships/review"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="memberships/payment"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="memberships/success"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="weekly-progress"
-          options={{
-            href: null,
-            headerShown: false,
-            tabBarStyle: { display: 'none' },
-          }}
-        />
-        <Tabs.Screen
           name="streak-details"
           options={{
             href: null,
-            headerShown: false,
             tabBarStyle: { display: 'none' },
           }}
         />
@@ -346,17 +160,21 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
-          name="notifications/index"
+          name="memberships"
           options={{
             href: null,
-            headerShown: false,
           }}
         />
         <Tabs.Screen
-          name="notifications/preferences"
+          name="notifications"
           options={{
             href: null,
-            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="nutrition"
+          options={{
+            href: null,
           }}
         />
       </Tabs>

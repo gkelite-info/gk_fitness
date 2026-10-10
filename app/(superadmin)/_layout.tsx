@@ -12,9 +12,10 @@ export default function SuperAdminLayout() {
         header: () => <Navbar />,
       }}>
       <Tabs.Screen
-        name="gyms/index"
+        name="gyms"
         options={{
           title: 'Gyms',
+          href: '/(superadmin)/gyms',
         }}
       />
       <Tabs.Screen
@@ -42,45 +43,6 @@ export default function SuperAdminLayout() {
           headerShown: false,
         }}
       />
-      <Tabs.Screen
-        name="dashboard/gym/[id]"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' }
-        }}
-      />
-      <Tabs.Screen
-        name="customers/[id]"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' }
-        }}
-      />
-      <Tabs.Screen
-        name="trainers/[id]"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' }
-        }}
-      />
-      <Tabs.Screen
-        name="leads/gym-owners"
-        options={{
-          href: null
-        }}
-      />
-      <Tabs.Screen
-        name="leads/global-trainers"
-        options={{
-          href: null
-        }}
-      />
-      <Tabs.Screen
-        name="leads/payment-requests"
-        options={{
-          href: null
-        }}
-      />
-    </Tabs>
+      </Tabs>
   );
 }

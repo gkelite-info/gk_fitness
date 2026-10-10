@@ -21,6 +21,17 @@ export function useUpdateCustomerProfile() {
 
       if (customerError) throw customerError;
 
+      // Keep public.users in sync
+      await supabase
+        .from('users')
+        .update({
+          name: form.fullName,
+          phone: form.phone,
+          gender: form.gender.toLowerCase() === 'other' ? 'others' : form.gender.toLowerCase(),
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('userId', userId);
+
       const { data: existingOnboarding } = await supabase
         .from('customer_onboarding')
         .select('onboardingId')

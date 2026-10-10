@@ -87,25 +87,27 @@ export default function WeeklyProgressScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: Math.max(insets.top + 8, 28) }}>
+    <View className="flex-1 bg-[#0A0A0A]">
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-5 py-3.5 bg-[#141414] border-b border-[#222222]">
+        <Pressable 
+          onPress={() => router.back()}
+          className="w-10 h-10 rounded-full bg-[#1A1A1A] border border-[#2A2A2A] items-center justify-center active:opacity-80"
+        >
+          <CaretLeft size={20} color="#FFFFFF" />
+        </Pressable>
+        <View className="items-center">
+          <Text className="text-white text-lg font-semibold">Weekly Progress</Text>
+          <Text className="text-[#8E8E93] text-[11px]">Track your weekly performance</Text>
+        </View>
+        <View className="w-10 h-10" />
+      </View>
+
       <ScrollView 
         className="flex-1" 
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 + insets.bottom }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 + insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View className="flex-row items-center mb-6 pt-2">
-          <Pressable 
-            onPress={() => router.back()}
-            className="w-10 h-10 rounded-2xl bg-[#141414] border border-[#222222] items-center justify-center active:opacity-80"
-          >
-            <CaretLeft size={20} color="#FFFFFF" />
-          </Pressable>
-          <View className="flex-1 items-center pr-10">
-            <Text className="text-white text-xl font-bold">Weekly Progress</Text>
-            <Text className="text-[#8E8E93] text-xs mt-1">Track your performance for the week</Text>
-          </View>
-        </View>
 
         {/* Date Picker Button */}
         <Pressable className="bg-[#141414] border border-[#222222] rounded-full py-3 px-5 flex-row items-center justify-center self-center mb-8 active:opacity-80">

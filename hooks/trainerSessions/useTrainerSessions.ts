@@ -3,6 +3,9 @@ import {
   fetchTrainerSessionsByCustomerTrainerId,
   fetchTrainerSessionsByDateRange,
   fetchTrainerSessionsForDate,
+  fetchTrainerSessionsByGymTrainerId,
+  fetchTrainerSessionsByGymTrainerIdAndDateRange,
+  fetchTrainerSessionsForDateByGymTrainerIds,
   saveTrainerSession,
   updateTrainerSessionStatus,
   deleteTrainerSession,
@@ -46,6 +49,42 @@ export function useTrainerSessionsForDate(customerTrainerIds: string[], sessionD
   });
 }
 
+export function useTrainerSessionsByGymTrainerId(gymTrainerId?: string) {
+  return useQuery({
+    queryKey: ['trainerSessions', 'gymTrainer', gymTrainerId],
+    queryFn: async () => {
+      if (!gymTrainerId) return [];
+      const data = await fetchTrainerSessionsByGymTrainerId(gymTrainerId);
+      return data;
+    },
+    enabled: !!gymTrainerId,
+  });
+}
+
+export function useTrainerSessionsByGymTrainerIdAndDateRange(gymTrainerId?: string, startDate?: string | Date, endDate?: string | Date) {
+  return useQuery({
+    queryKey: ['trainerSessions', 'gymTrainer', gymTrainerId, 'range', startDate, endDate],
+    queryFn: async () => {
+      if (!gymTrainerId || !startDate || !endDate) return [];
+      const data = await fetchTrainerSessionsByGymTrainerIdAndDateRange(gymTrainerId, startDate, endDate);
+      return data;
+    },
+    enabled: !!gymTrainerId && !!startDate && !!endDate,
+  });
+}
+
+export function useTrainerSessionsForDateByGymTrainerIds(gymTrainerIds: string[], sessionDate: Date) {
+  return useQuery({
+    queryKey: ['trainerSessions', 'date', 'gymTrainer', sessionDate.toISOString().split('T')[0], gymTrainerIds],
+    queryFn: async () => {
+      if (!gymTrainerIds || gymTrainerIds.length === 0) return [];
+      const data = await fetchTrainerSessionsForDateByGymTrainerIds(gymTrainerIds, sessionDate);
+      return data;
+    },
+    enabled: gymTrainerIds.length > 0 && !!sessionDate,
+  });
+}
+
 export function useSaveTrainerSession() {
   const queryClient = useQueryClient();
 
@@ -53,6 +92,7 @@ export function useSaveTrainerSession() {
     mutationFn: (params: SaveTrainerSessionParams) => saveTrainerSession(params),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['trainerSessions', 'customerTrainer', variables.customerTrainerId] });
+      queryClient.invalidateQueries({ queryKey: ['trainerSessions', 'gymTrainer', variables.gymTrainerId] });
       queryClient.invalidateQueries({ queryKey: ['trainerSessions', 'date'] }); // Invalidate date queries too
     },
   });

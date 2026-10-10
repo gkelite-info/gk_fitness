@@ -98,6 +98,18 @@ export const localFitnessService: FitnessRepository = {
       return [];
     } catch (e) {
       console.error('Error fetching water logs', e);
+      return [];
+    }
+  },
+
+  deleteWaterLog: async (userId: string, logId: string, amountML: number, date: string): Promise<void> => {
+    const key = `${STORAGE_KEYS.WATER_LOGS}${userId}_${date}`;
+    try {
+      const existingLogs = await localFitnessService.getWaterLogs(userId, date);
+      const updatedLogs = existingLogs.filter(log => log.id !== logId);
+      await AsyncStorage.setItem(key, JSON.stringify(updatedLogs));
+    } catch (e) {
+      console.error('Error deleting water log', e);
       throw e;
     }
   },

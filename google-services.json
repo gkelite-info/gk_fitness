@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "257209250661",
+    "project_id": "gk-gym-life",
+    "storage_bucket": "gk-gym-life.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:257209250661:android:1b9957c860193c20d8278c",
+        "android_client_info": {
+          "package_name": "com.gkeliteinfo.gkgymlife"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCH3cJZ3zhB5uOfqyhoSZUXoz9kyL_Q1go"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

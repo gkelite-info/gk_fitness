@@ -10,10 +10,10 @@ export default function MembershipPaymentScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={{ paddingTop: insets.top }} className="flex-1 bg-[#0A0A0A]">
-      <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#1C1C1E]">
+    <View className="flex-1 bg-[#0A0A0A]">
+      <View className="flex-row items-center justify-between px-5 py-3.5 border-b border-[#1C1C1E]">
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center -ml-2 active:opacity-70">
-          <CaretLeft size={24} color="#FFF" weight="bold" />
+          <CaretLeft size={22} color="#FFF" weight="bold" />
         </Pressable>
         <Text className="text-white text-lg font-semibold flex-1 text-center mr-8">Gym Payment</Text>
       </View>

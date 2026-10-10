@@ -9,6 +9,7 @@ import { useUser } from '@/context/UserContext';
 import { useGymAnnouncements, useSaveGymAnnouncement } from '@/hooks/gymAnnouncements/useGymAnnouncements';
 import { useGymOwners } from '@/hooks/gymOwners/useGymOwners';
 import { toast } from '@/lib/toast';
+import { sendGymAnnouncementPushNotification } from '@/lib/services/notificationService';
 
 export default function AnnouncementsScreen() {
   const insets = useSafeAreaInsets();
@@ -66,7 +67,7 @@ export default function AnnouncementsScreen() {
         announcementTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       });
       
-      // Notify customers via Supabase Broadcast
+      // 1. Notify active in-app customers via Supabase Broadcast
       if (saved) {
         try {
           const channel = supabase.channel(`gym_broadcast_${gymId}`);
@@ -83,6 +84,13 @@ export default function AnnouncementsScreen() {
         } catch (e) {
           console.error('Failed to notify via Supabase Broadcast:', e);
         }
+
+        // 2. Dispatch push notifications to customer devices and record in their inboxes
+        sendGymAnnouncementPushNotification({
+          gymId,
+          title: '📢 Gym Announcement',
+          message: newMessage.trim(),
+        }).catch((e) => console.error('Failed to dispatch announcement push notifications:', e));
       }
 
       toast.success('Announcement sent successfully!');

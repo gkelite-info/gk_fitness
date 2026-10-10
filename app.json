@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "GK-Gymlife",
+    "name": "GK Gymlife",
     "slug": "gk-fitness",
     "owner": "gk-elite-info",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "scheme": "gk-fitness",
     "platforms": [
       "ios",
@@ -29,18 +29,16 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow GK Fitness to access your camera to scan QR codes for gym attendance.",
+          "cameraPermission": "Allow GK Fitness to access your camera to scan QR codes for attendance.",
           "recordAudioAndroid": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow GK Fitness to access your photos to upload gym logos, progress photos, and profile pictures."
+          "photosPermission": "Allow GK Fitness to access your photos to upload gym logos and profiles."
         }
       ],
-      "expo-status-bar",
-      "expo-web-browser",
       "expo-asset",
       [
         "expo-build-properties",
@@ -75,12 +73,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIViewControllerBasedStatusBarAppearance": false,
-        "NSMotionUsageDescription": "GK Fitness needs access to your device motion data to accurately track your daily step count and calculate calories burned during your active workout sessions.",
-        "NSCameraUsageDescription": "GK Fitness needs access to your camera to scan QR codes for gym attendance and check-ins.",
-        "NSPhotoLibraryUsageDescription": "Allow GK Fitness to access your photos to upload gym logos, progress photos, and profile pictures.",
-        "NSAppTransportSecurity": {
-          "NSAllowsLocalNetworking": true
-        }
+        "NSMotionUsageDescription": "GK Fitness needs access to your device motion data to accurately track your daily step count and calculate calories burned during your active workout sessions."
       }
     },
     "android": {

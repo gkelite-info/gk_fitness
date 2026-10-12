@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, FlatList, Pressable, ActivityIndicator, TextInput, Platform, UIManager, Modal, ScrollView } from 'react-native';
+import { View, FlatList, Pressable, ActivityIndicator, TextInput, Platform, UIManager, ScrollView } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,14 +10,10 @@ import {
   CalendarBlank,
   Phone,
   EnvelopeSimple,
-  Buildings
+  Buildings,
 } from 'phosphor-react-native';
-import { useQueryClient } from '@tanstack/react-query';
 import { useGymLeads } from '@/hooks/gymLeads/useGymLeads';
-import { updateGymLeadStatus } from '@/helpers/gymLeads/gymLeadsHelper';
-import { toast } from '@/lib/toast';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
-import ConfirmModal from '@/components/ConfirmModal';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -43,7 +39,7 @@ const getStatusLabel = (status: string) => {
   }
 };
 
-const LeadCard = ({ item, onStatusPress, router }: { item: any; onStatusPress: (item: any) => void; router: any }) => {
+const LeadCard = ({ item, router }: { item: any; router: any }) => {
   return (
     <Pressable
       onPress={() => router.push(`/(superadmin)/leads/${item.gymLeadId}`)}
@@ -64,9 +60,8 @@ const LeadCard = ({ item, onStatusPress, router }: { item: any; onStatusPress: (
           </View>
         </View>
 
-        <Pressable
-          onPress={() => onStatusPress(item)}
-          className="px-2 py-1 rounded-md active:opacity-70"
+        <View
+          className="px-2 py-1 rounded-md"
           style={{ backgroundColor: `${getStatusColor(item.status)}20` }}
         >
           <Text
@@ -75,7 +70,7 @@ const LeadCard = ({ item, onStatusPress, router }: { item: any; onStatusPress: (
           >
             {getStatusLabel(item.status).toUpperCase()}
           </Text>
-        </Pressable>
+        </View>
       </View>
 
       <View className="bg-[#2A2A2D] rounded-xl p-3 mb-3">
@@ -126,12 +121,6 @@ export default function GymOwnerLeadsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedLead, setSelectedLead] = useState<any>(null);
-  const [statusModalVisible, setStatusModalVisible] = useState(false);
-  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
-  const [rejectModalVisible, setRejectModalVisible] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const queryClient = useQueryClient();
 
   const statuses = ['all', 'submitted', 'underreview', 'approved', 'rejected'];
 
@@ -160,11 +149,10 @@ export default function GymOwnerLeadsScreen() {
         setAccumulatedLeads(data.data);
       } else {
         setAccumulatedLeads((prev) => {
-          const newDataMap = new Map(data.data.map((l: any) => [l.gymLeadId, l]));
-          const updatedPrev = prev.map(l => newDataMap.has(l.gymLeadId) ? newDataMap.get(l.gymLeadId) : l);
-          const prevIds = new Set(prev.map(l => l.gymLeadId));
-          const newUnique = data.data.filter((l: any) => !prevIds.has(l.gymLeadId));
-          return [...updatedPrev, ...newUnique];
+          const newItems = data.data.filter(
+            (item: any) => !prev.some((p: any) => p.gymLeadId === item.gymLeadId)
+          );
+          return [...prev, ...newItems];
         });
       }
     }
@@ -180,75 +168,8 @@ export default function GymOwnerLeadsScreen() {
     setRefreshing(false);
   }, [page, refetch]);
 
-  const handleStatusPress = (lead: any) => {
-    setSelectedLead(lead);
-    setStatusModalVisible(true);
-  };
-
   const handleBack = () => {
     router.push('/(superadmin)/dashboard');
-  }
-
-  const handleConfirmApprove = async () => {
-    setConfirmModalVisible(false);
-    if (!selectedLead) return;
-    setIsUpdating(true);
-    try {
-      await updateGymLeadStatus(selectedLead.gymLeadId, 'underreview');
-      toast.success('Lead set to Under Review. Redirecting to registration...');
-
-      setAccumulatedLeads([]);
-      setPage(1);
-
-      await queryClient.resetQueries({ queryKey: ['gymLeads'] });
-
-      router.push({
-        pathname: '/(superadmin)/dashboard/register',
-        params: { gymLeadId: selectedLead.gymLeadId }
-      });
-    } catch (error) {
-      toast.error('Failed to process approval');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleConfirmReject = async () => {
-    setRejectModalVisible(false);
-    if (!selectedLead) return;
-    setIsUpdating(true);
-    try {
-      await updateGymLeadStatus(selectedLead.gymLeadId, 'rejected');
-      toast.success('Gym Lead Rejected!');
-
-      setAccumulatedLeads([]);
-      setPage(1);
-
-      await queryClient.resetQueries({ queryKey: ['gymLeads'] });
-    } catch (error) {
-      toast.error('Failed to process rejection');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const changeStatus = async (newStatus: 'submitted' | 'underreview' | 'approved' | 'rejected') => {
-    if (!selectedLead) return;
-    setIsUpdating(true);
-    try {
-      await updateGymLeadStatus(selectedLead.gymLeadId, newStatus);
-      toast.success(`Status updated to ${getStatusLabel(newStatus)}`);
-
-      setAccumulatedLeads([]);
-      setPage(1);
-
-      await queryClient.resetQueries({ queryKey: ['gymLeads'] });
-    } catch (error) {
-      toast.error('Failed to update status');
-    } finally {
-      setIsUpdating(false);
-      setStatusModalVisible(false);
-    }
   };
 
   return (
@@ -259,39 +180,36 @@ export default function GymOwnerLeadsScreen() {
         <View className="flex-row items-center flex-1 pt-5">
           <Pressable
             onPress={handleBack}
-            className="w-10 h-10 bg-[#1C1C1E] rounded-full items-center justify-center mr-3 active:opacity-70"
+            className="w-10 h-10 bg-[#1C1C1E] rounded-full items-center justify-center mr-4 active:opacity-70"
           >
-            <CaretLeft size={20} color="#FFFFFF" />
+            <CaretLeft size={20} color="#8E8E93" />
           </Pressable>
           <View>
-            <Text className="text-white text-xl font-semibold">Gym Owners Leads</Text>
-            <Text className="text-[#8E8E93] text-xs mt-0.5">Manage incoming applications</Text>
+            <Text className="text-[#BEF227] text-2xl font-semibold">Gym Owner <Text className="text-white font-semibold">Leads</Text></Text>
+            <Text className="text-[#8E8E93] text-sm mt-0.5">Manage Gym Registration Requests</Text>
           </View>
         </View>
       </View>
 
       <View className="px-4 pb-4">
-        <View className="flex-row items-center bg-[#1C1C1E] rounded-xl px-3 h-12">
-          <MagnifyingGlass size={20} color="#8E8E93" />
+        <View className="flex-row items-center bg-[#1C1C1E] rounded-xl px-3 py-2.5 mb-3 border border-[#2A2A2D]">
+          <MagnifyingGlass size={16} color="#8E8E93" />
           <TextInput
-            className="flex-1 text-white ml-2 text-[15px] font-sans"
-            placeholder="Search gym, name, email or mobile..."
+            placeholder="Search by name, gym, phone, email..."
             placeholderTextColor="#8E8E93"
             value={searchQuery}
             onChangeText={setSearchQuery}
-            autoCorrect={false}
-            spellCheck={false}
-            autoCapitalize="none"
+            className="flex-1 text-white ml-2 text-sm"
           />
         </View>
 
-        <View className="mt-4">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View className="overflow-hidden">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
             {statuses.map((status) => (
               <Pressable
                 key={status}
                 onPress={() => setStatusFilter(status)}
-                className={`px-4 py-2 rounded-full mr-2 ${statusFilter === status ? 'bg-[#BEF227]' : 'bg-[#1C1C1E]'}`}
+                className={`px-4 py-2 rounded-xl mr-2 ${statusFilter === status ? 'bg-[#BEF227]' : 'bg-[#1C1C1E]'}`}
               >
                 <Text className={`text-sm font-semibold ${statusFilter === status ? 'text-black' : 'text-white'}`}>
                   {status === 'all' ? 'All Leads' : getStatusLabel(status)}
@@ -305,7 +223,7 @@ export default function GymOwnerLeadsScreen() {
       <FlatList
         data={accumulatedLeads}
         keyExtractor={(item) => item.gymLeadId || Math.random().toString()}
-        renderItem={({ item }) => <LeadCard item={item} onStatusPress={handleStatusPress} router={router} />}
+        renderItem={({ item }) => <LeadCard item={item} router={router} />}
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }}
         showsVerticalScrollIndicator={false}
         onEndReached={() => {
@@ -345,96 +263,6 @@ export default function GymOwnerLeadsScreen() {
             </View>
           ) : null
         }
-      />
-
-      <Modal
-        visible={statusModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setStatusModalVisible(false)}
-      >
-        <Pressable
-          className="flex-1 justify-end bg-black/60"
-          onPress={() => setStatusModalVisible(false)}
-        >
-          <Pressable
-            className="bg-[#1C1C1E] rounded-t-3xl p-6 pb-10"
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View className="items-center mb-6">
-              <View className="w-12 h-1.5 bg-[#2A2A2D] rounded-full mb-4" />
-              <Text className="text-white text-lg font-semibold">Change Status</Text>
-              <Text className="text-[#8E8E93] text-sm mt-1">
-                {selectedLead?.gymName} ({selectedLead?.fullName})
-              </Text>
-            </View>
-
-            <View className="gap-3">
-              {[
-                { id: 'submitted', label: 'Submitted', color: '#3B82F6' },
-                { id: 'underreview', label: 'Under Review', color: '#FBBF24' },
-                { id: 'approved', label: 'Approve', color: '#84CC16' },
-                { id: 'rejected', label: 'Reject', color: '#EF4444' },
-              ].map((s) => {
-                const isDisabled = isUpdating || selectedLead?.status === s.id || s.id === 'submitted';
-                return (
-                  <Pressable
-                    key={s.id}
-                    onPress={() => {
-                      if (s.id === 'approved') {
-                        setStatusModalVisible(false);
-                        setConfirmModalVisible(true);
-                      } else if (s.id === 'rejected') {
-                        setStatusModalVisible(false);
-                        setRejectModalVisible(true);
-                      } else {
-                        changeStatus(s.id as any);
-                      }
-                    }}
-                    disabled={isDisabled}
-                    className={`flex-row items-center justify-between p-4 rounded-xl border ${selectedLead?.status === s.id ? 'border-white/20 bg-[#2A2A2D]' : 'border-[#2A2A2D] bg-[#121212]'} ${isDisabled ? 'opacity-50' : 'active:opacity-70'}`}
-                  >
-                    <View className="flex-row items-center">
-                      <View className="w-3 h-3 rounded-full mr-3" style={{ backgroundColor: s.color }} />
-                      <Text className={`text-base font-semibold ${selectedLead?.status === s.id ? 'text-white' : 'text-[#E0E0E0]'}`}>
-                        {s.label}
-                      </Text>
-                    </View>
-                    {selectedLead?.status === s.id && (
-                      <Text className="text-[#8E8E93] text-xs">Current</Text>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <ConfirmModal
-        visible={confirmModalVisible}
-        onClose={() => setConfirmModalVisible(false)}
-        onConfirm={handleConfirmApprove}
-        title="Approve Lead & Register Gym"
-        description={`Are you sure you want to approve "${selectedLead?.gymName || 'this gym'}"? This will set the lead status to "Under Review" and redirect you to complete the registration.`}
-        confirmText="Confirm"
-        cancelText="Cancel"
-        confirmButtonColor="bg-[#BEF227]"
-        confirmTextColor="text-black"
-        icon={<Buildings size={40} color="#BEF227" />}
-      />
-
-      <ConfirmModal
-        visible={rejectModalVisible}
-        onClose={() => setRejectModalVisible(false)}
-        onConfirm={handleConfirmReject}
-        title="Reject Gym Lead"
-        description={`Are you sure you want to reject "${selectedLead?.gymName || 'this gym'}"?`}
-        confirmText="Reject"
-        cancelText="Cancel"
-        confirmButtonColor="bg-[#EF4444]"
-        confirmTextColor="text-white"
-        icon={<Buildings size={40} color="#EF4444" />}
       />
     </View>
   );

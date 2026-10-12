@@ -34,9 +34,10 @@ import { YearSelectorModal } from './YearSelectorModal';
 interface GymRegistrationFormProps {
   editGymId?: string;
   gymLeadId?: string;
+  label?: string;
 }
 
-export function GymRegistrationForm({ editGymId, gymLeadId }: GymRegistrationFormProps) {
+export function GymRegistrationForm({ editGymId, gymLeadId, label }: GymRegistrationFormProps) {
   const router = useRouter();
   const { userId: currentUserId } = useUser();
 
@@ -420,6 +421,7 @@ export function GymRegistrationForm({ editGymId, gymLeadId }: GymRegistrationFor
         notes: notes.trim() || null,
         logo: finalLogoUrl,
         qrPath: finalQrPath,
+        label: (label as any) || 'basic',
         isActive: true,
         createdBy: currentUserId || '',
       };

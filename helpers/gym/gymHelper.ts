@@ -4,6 +4,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Crypto from 'expo-crypto';
 import { base64ToArrayBuffer } from '@/components/imageCompressor';
 
+export type GymLabelType = 'basic' | 'silver' | 'white' | 'premiumwhite';
+
 export interface GymAttributes {
   gymId?: string;
   gymName: string;
@@ -26,6 +28,7 @@ export interface GymAttributes {
   deletedAt?: string | Date | null;
   website?: string | null;
   qrPath?: string | null;
+  label?: GymLabelType | string | null;
 }
 
 export interface SaveGymParams {
@@ -46,9 +49,8 @@ export interface SaveGymParams {
   createdBy: string;
   website?: string | null;
   qrPath?: string | null;
+  label?: GymLabelType | string | null;
 }
-
-
 
 export async function fetchGyms(createdBy?: string) {
   let query = supabase
@@ -77,7 +79,8 @@ export async function fetchGymsPaginated(
   searchQuery?: string,
   statusFilter?: string,
   createdBy?: string,
-  sortOrder: 'newest' | 'oldest' = 'newest'
+  sortOrder: 'newest' | 'oldest' = 'newest',
+  labelFilter?: string
 ) {
   let query = supabase
     .from('gyms')
@@ -90,6 +93,10 @@ export async function fetchGymsPaginated(
 
   if (statusFilter && statusFilter !== 'all') {
     query = query.eq('isActive', statusFilter === 'active');
+  }
+
+  if (labelFilter && labelFilter !== 'all') {
+    query = query.eq('label', labelFilter);
   }
 
   if (searchQuery) {
@@ -133,26 +140,32 @@ export async function saveGym(gymData: SaveGymParams) {
   const now = new Date().toISOString();
 
   if (gymData.gymId) {
+    const updatePayload: any = {
+      gymName: gymData.gymName,
+      gymEmail: gymData.gymEmail,
+      phone: gymData.phone,
+      alternatePhone: gymData.alternatePhone,
+      address: gymData.address,
+      city: gymData.city,
+      state: gymData.state,
+      pinCode: gymData.pinCode,
+      noOfBranches: gymData.noOfBranches,
+      establishYear: gymData.establishYear,
+      notes: gymData.notes,
+      logo: gymData.logo,
+      website: gymData.website,
+      qrPath: gymData.qrPath,
+      isActive: gymData.isActive ?? true,
+      updatedAt: now,
+    };
+
+    if (gymData.label !== undefined) {
+      updatePayload.label = gymData.label;
+    }
+
     const { data, error } = await supabase
       .from('gyms')
-      .update({
-        gymName: gymData.gymName,
-        gymEmail: gymData.gymEmail,
-        phone: gymData.phone,
-        alternatePhone: gymData.alternatePhone,
-        address: gymData.address,
-        city: gymData.city,
-        state: gymData.state,
-        pinCode: gymData.pinCode,
-        noOfBranches: gymData.noOfBranches,
-        establishYear: gymData.establishYear,
-        notes: gymData.notes,
-        logo: gymData.logo,
-        website: gymData.website,
-        qrPath: gymData.qrPath,
-        isActive: gymData.isActive ?? true,
-        updatedAt: now,
-      })
+      .update(updatePayload)
       .eq('gymId', gymData.gymId)
       .select();
 
@@ -183,6 +196,7 @@ export async function saveGym(gymData: SaveGymParams) {
           logo: gymData.logo || null,
           website: gymData.website || null,
           qrPath: gymData.qrPath || null,
+          label: gymData.label || 'basic',
           isActive: gymData.isActive ?? true,
           is_deleted: false,
           createdBy: gymData.createdBy,
@@ -199,6 +213,26 @@ export async function saveGym(gymData: SaveGymParams) {
 
     return data ? data[0] : null;
   }
+}
+
+export async function updateGymLabel(gymId: string, label: GymLabelType | string) {
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('gyms')
+    .update({
+      label,
+      updatedAt: now,
+    })
+    .eq('gymId', gymId)
+    .select();
+
+  if (error) {
+    console.error('[gymHelper] updateGymLabel Error:', error);
+    throw error;
+  }
+
+  return data ? data[0] : null;
 }
 
 export async function deleteGym(gymId: string) {
@@ -311,4 +345,3 @@ export async function uploadGymQR(base64Data: string, gymId: string): Promise<st
     throw error;
   }
 }
-

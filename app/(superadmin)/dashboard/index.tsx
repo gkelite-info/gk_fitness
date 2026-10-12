@@ -143,7 +143,7 @@ export default function DashboardScreen() {
             {getGreeting()}, {name} 👋
           </Text>
           <Text className="text-sm text-[#888888] leading-5">
-            {"Here's"} what{"'"}s happening on your{'\n'}platform today.
+            {"Here's"} what happening on your{'\n'}platform today.
           </Text>
         </View>
 

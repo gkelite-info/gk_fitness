@@ -125,48 +125,122 @@ export async function fetchUserAndRoleProfile(
     }
 
     if (profile.role) {
-      switch (profile.role) {
+      const normalizedRole = (profile.role || '').trim().toLowerCase().replace(/[\s_-]/g, '');
+      switch (normalizedRole) {
         case 'owner': {
-          const { data: ownerData } = await supabase
-            .from('gym_owners')
-            .select('gymOwnerId, gymId')
-            .eq('userId', profile.userId)
-            .maybeSingle();
+          let ownerData: { gymOwnerId?: string | null; gymId: string } | null = null;
+          if (profile.userId) {
+            const { data } = await supabase
+              .from('gym_owners')
+              .select('gymOwnerId, gymId')
+              .eq('userId', profile.userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            ownerData = data;
+          }
+          if (!ownerData?.gymId && profile.email) {
+            const { data } = await supabase
+              .from('gym_owners')
+              .select('gymOwnerId, gymId')
+              .ilike('ownerEmail', profile.email.trim())
+              .eq('is_deleted', false)
+              .maybeSingle();
+            ownerData = data;
+          }
+          if (!ownerData?.gymId && profile.userId) {
+            const { data } = await supabase
+              .from('gym_owners')
+              .select('gymOwnerId, gymId')
+              .eq('createdBy', profile.userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            ownerData = data;
+          }
+          if (!ownerData?.gymId && profile.userId) {
+            const { data: gymRec } = await supabase
+              .from('gyms')
+              .select('gymId')
+              .eq('createdBy', profile.userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            if (gymRec?.gymId) {
+              ownerData = { gymOwnerId: null, gymId: gymRec.gymId };
+            }
+          }
           profile.gymOwnerId = ownerData?.gymOwnerId || null;
           profile.gymId = ownerData?.gymId || null;
           break;
         }
         case 'customer': {
-          const { data: customerData } = await supabase
-            .from('gym_customers')
-            .select('customerId, gymId')
-            .eq('customerId', profile.userId)
-            .maybeSingle();
+          let customerData: { customerId?: string | null; gymId: string } | null = null;
+          if (profile.userId) {
+            const { data } = await supabase
+              .from('gym_customers')
+              .select('customerId, gymId')
+              .eq('userId', profile.userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            customerData = data;
+          }
+          if (!customerData?.gymId && profile.userId) {
+            const { data } = await supabase
+              .from('gym_customers')
+              .select('customerId, gymId')
+              .eq('customerId', profile.userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            customerData = data;
+          }
+          if (!customerData?.gymId && profile.email) {
+            const { data } = await supabase
+              .from('gym_customers')
+              .select('customerId, gymId')
+              .ilike('email', profile.email.trim())
+              .eq('is_deleted', false)
+              .maybeSingle();
+            customerData = data;
+          }
           profile.customerId = customerData?.customerId || null;
           profile.gymId = customerData?.gymId || null;
           break;
         }
         case 'trainer': {
-          // TODO: Implement trainer table fetch when available
-          // const { data } = await supabase.from('trainers').select('trainerId').eq('userId', profile.userId).maybeSingle();
-          // profile.trainerId = data?.trainerId || null;
+          let trainerData: { gymTrainerId?: string | null; gymId: string } | null = null;
+          if (profile.userId) {
+            const { data } = await supabase
+              .from('gym_trainers')
+              .select('gymTrainerId, gymId')
+              .eq('userId', profile.userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            trainerData = data;
+          }
+          if (!trainerData?.gymId && profile.email) {
+            const { data } = await supabase
+              .from('gym_trainers')
+              .select('gymTrainerId, gymId')
+              .ilike('email', profile.email.trim())
+              .eq('is_deleted', false)
+              .maybeSingle();
+            trainerData = data;
+          }
+          profile.trainerId = trainerData?.gymTrainerId || null;
+          profile.gymId = trainerData?.gymId || null;
           break;
         }
         case 'doctor': {
           // TODO: Implement doctor table fetch when available
-          // const { data } = await supabase.from('doctors').select('doctorId').eq('userId', profile.userId).maybeSingle();
-          // profile.doctorId = data?.doctorId || null;
           break;
         }
         case 'dietician': {
           // TODO: Implement dietician table fetch when available
-          // const { data } = await supabase.from('dieticians').select('dieticianId').eq('userId', profile.userId).maybeSingle();
-          // profile.dieticianId = data?.dieticianId || null;
           break;
         }
         case 'superadmin':
+        case 'globaltrainer':
+        case 'globalcustomer':
         default:
-          // Superadmins do not have a specific dependent table ID attached yet
+          // Global/superadmin roles do not have a gymId
           break;
       }
     }

@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, usePathname } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/UserContext';
+import { useGym } from '@/hooks/gyms/useGym';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { triggerLightHaptic, triggerMediumHaptic, triggerWarningHaptic } from '@/lib/haptics';
 import {
@@ -75,7 +77,144 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  const { name, email, role, profilePhoto } = useUser();
+  const { name, email, role, profilePhoto, gymId: contextGymId, userId } = useUser();
+
+  const normalizedRole = (role || 'customer').trim().toLowerCase().replace(/[\s_-]/g, '');
+  const isGlobalOrSuperAdmin = ['superadmin', 'globaltrainer', 'globalcustomer'].includes(normalizedRole);
+
+  const { data: resolvedGymId } = useQuery({
+    queryKey: ['hamburgerGymId', normalizedRole, userId, email, contextGymId],
+    queryFn: async () => {
+
+      if (isGlobalOrSuperAdmin) {
+        return null;
+      }
+
+      if (contextGymId) {
+        return contextGymId;
+      }
+
+      try {
+        if (normalizedRole === 'owner') {
+          if (userId) {
+            const { data: oUser, error: oUserErr } = await supabase
+              .from('gym_owners')
+              .select('gymId')
+              .eq('userId', userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            if (oUserErr) console.warn('[HamburgerMenu] gym_owners by userId error:', oUserErr);
+            if (oUser?.gymId) {
+              return oUser.gymId;
+            }
+          }
+          // 2. Check gym_owners by ownerEmail
+          if (email) {
+            const { data: oEmail, error: oEmailErr } = await supabase
+              .from('gym_owners')
+              .select('gymId')
+              .ilike('ownerEmail', email.trim())
+              .eq('is_deleted', false)
+              .maybeSingle();
+            if (oEmailErr) console.warn('[HamburgerMenu] gym_owners by ownerEmail error:', oEmailErr);
+            if (oEmail?.gymId) {
+              return oEmail.gymId;
+            }
+          }
+          if (userId) {
+            const { data: oCreated } = await supabase
+              .from('gym_owners')
+              .select('gymId')
+              .eq('createdBy', userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            if (oCreated?.gymId) {
+              return oCreated.gymId;
+            }
+          }
+          if (userId) {
+            const { data: gCreated } = await supabase
+              .from('gyms')
+              .select('gymId')
+              .eq('createdBy', userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            if (gCreated?.gymId) {
+              return gCreated.gymId;
+            }
+          }
+        } else if (normalizedRole === 'customer') {
+          if (userId) {
+            const { data: cUser, error: cUserErr } = await supabase
+              .from('gym_customers')
+              .select('gymId')
+              .eq('userId', userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            if (cUserErr) console.warn('[HamburgerMenu] gym_customers by userId error:', cUserErr);
+            if (cUser?.gymId) {
+              return cUser.gymId;
+            }
+          }
+          if (userId) {
+            const { data: cCust } = await supabase
+              .from('gym_customers')
+              .select('gymId')
+              .eq('customerId', userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            if (cCust?.gymId) {
+              return cCust.gymId;
+            }
+          }
+          if (email) {
+            const { data: cEmail } = await supabase
+              .from('gym_customers')
+              .select('gymId')
+              .ilike('email', email.trim())
+              .eq('is_deleted', false)
+              .maybeSingle();
+            if (cEmail?.gymId) {
+              return cEmail.gymId;
+            }
+          }
+        } else if (normalizedRole === 'trainer') {
+          if (userId) {
+            const { data: tUser, error: tUserErr } = await supabase
+              .from('gym_trainers')
+              .select('gymId')
+              .eq('userId', userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            if (tUserErr) console.warn('[HamburgerMenu] gym_trainers by userId error:', tUserErr);
+            if (tUser?.gymId) {
+              return tUser.gymId;
+            }
+          }
+          if (email) {
+            const { data: tEmail } = await supabase
+              .from('gym_trainers')
+              .select('gymId')
+              .ilike('email', email.trim())
+              .eq('is_deleted', false)
+              .maybeSingle();
+            if (tEmail?.gymId) {
+              return tEmail.gymId;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[HamburgerMenu] Unexpected error during gymId resolution:', err);
+      }
+
+      return null;
+    },
+    enabled: !isGlobalOrSuperAdmin && (!!userId || !!email || !!contextGymId),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const effectiveGymId = !isGlobalOrSuperAdmin ? (resolvedGymId || contextGymId || null) : null;
+  const { data: gym } = useGym(effectiveGymId);
 
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -142,7 +281,6 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
     }
   };
 
-  // Build role-tailored sections
   const getMenuSections = (): MenuSection[] => {
     const userRole = (role || 'customer').toLowerCase();
 
@@ -228,7 +366,6 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
       ];
     }
 
-    // Default: CUSTOMER ROLE
     return [
       {
         title: 'MAIN',
@@ -272,11 +409,31 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
   const menuSections = getMenuSections();
 
   const getPortalLabel = () => {
-    const userRole = (role || 'customer').toLowerCase();
-    if (userRole === 'owner') return 'Owner Portal';
-    if (userRole === 'trainer') return 'Trainer Portal';
-    if (userRole === 'superadmin') return 'SuperAdmin Portal';
+    if (normalizedRole === 'owner') return 'Owner Portal';
+    if (normalizedRole === 'trainer') return 'Trainer Portal';
+    if (normalizedRole === 'superadmin') return 'SuperAdmin Portal';
+    if (normalizedRole === 'globaltrainer') return 'Global Trainer Portal';
+    if (normalizedRole === 'globalcustomer') return 'Global Customer Portal';
     return 'Customer Portal';
+  };
+
+  const getBrandTitle = () => {
+    if (isGlobalOrSuperAdmin) {
+      return 'GK-Gym Life';
+    }
+
+    if (!effectiveGymId || !gym) {
+      return 'GK-Gym Life';
+    }
+
+    const rawLabel = (gym.label || '').toString().trim();
+    const normalizedLabel = rawLabel.toLowerCase().replace(/[\s_-]/g, '');
+
+    if (normalizedLabel === 'white' || normalizedLabel === 'premiumwhite') {
+      return gym.gymName || 'GK-Gym Life';
+    }
+
+    return 'GK-Gym Life';
   };
 
   return (
@@ -288,7 +445,6 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
       statusBarTranslucent
     >
       <View className="flex-1 flex-row">
-        {/* Animated Dark Frosted Backdrop */}
         <Animated.View
           style={{
             position: 'absolute',
@@ -303,7 +459,6 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
           <Pressable className="flex-1" onPress={onClose} />
         </Animated.View>
 
-        {/* Sliding Drawer Container */}
         <Animated.View
           style={{
             width: DRAWER_WIDTH,
@@ -313,16 +468,15 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
           }}
           className="h-full bg-[#0E0F13] border-r-2 border-[#232631] shadow-2xl justify-between"
         >
-          {/* Top Brand & Header Section */}
           <View className="px-5 pt-3 pb-4 border-b border-[#232631]">
             <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center gap-3">
-                <View className="w-10 h-10 bg-[#D4FF32] rounded-xl items-center justify-center shadow-lg">
+              <View className="flex-row items-center gap-3 flex-1 mr-3">
+                <View className="w-10 h-10 bg-[#D4FF32] rounded-xl items-center justify-center shadow-lg shrink-0">
                   <Barbell size={22} weight="fill" color="#000000" />
                 </View>
-                <View>
-                  <Text className="text-white font-bold text-base tracking-tight">
-                    GK-Gym Life
+                <View className="flex-1">
+                  <Text className="text-white font-semibold text-base tracking-tight" numberOfLines={1}>
+                    {getBrandTitle()}
                   </Text>
                   <Text className="text-[#94A3B8] text-[11px] font-semibold tracking-wider uppercase">
                     {getPortalLabel()}
@@ -341,7 +495,6 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
               </Pressable>
             </View>
 
-            {/* Quick Profile Summary Card */}
             <Pressable
               onPress={() => {
                 const target = role === 'owner' ? '/(owner)/profile' : role === 'trainer' ? '/(trainer)/profile' : '/(customer)/profile';
@@ -356,7 +509,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
                 className="w-10 h-10 rounded-full border border-[#D4FF32]/30"
               />
               <View className="flex-1">
-                <Text className="text-white font-bold text-sm tracking-tight" numberOfLines={1}>
+                <Text className="text-white font-semibold text-sm tracking-tight" numberOfLines={1}>
                   {name || 'Fitness Member'}
                 </Text>
                 <Text className="text-[#94A3B8] text-xs font-medium" numberOfLines={1}>
@@ -367,7 +520,6 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
             </Pressable>
           </View>
 
-          {/* Scrollable Navigation Menu */}
           <ScrollView
             className="flex-1 px-4 pt-3"
             showsVerticalScrollIndicator={false}
@@ -376,7 +528,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
             {menuSections.map((section, sIdx) => (
               <View key={sIdx} className="mb-5">
                 {section.title && (
-                  <Text className="text-[#64748B] text-[11px] font-bold tracking-wider uppercase mb-2 px-3">
+                  <Text className="text-[#64748B] text-[11px] font-semibold tracking-wider uppercase mb-2 px-3">
                     {section.title}
                   </Text>
                 )}
@@ -390,11 +542,10 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
                       <Pressable
                         key={item.name}
                         onPress={() => handleNavigate(item.href)}
-                        className={`flex-row items-center justify-between px-3.5 py-3 rounded-2xl transition-all ${
-                          isActive
-                            ? 'bg-[#D4FF32]/10 border border-[#D4FF32]'
-                            : 'active:bg-[#1A1C23]'
-                        }`}
+                        className={`flex-row items-center justify-between px-3.5 py-3 rounded-2xl transition-all ${isActive
+                          ? 'bg-[#D4FF32]/10 border border-[#D4FF32]'
+                          : 'active:bg-[#1A1C23]'
+                          }`}
                       >
                         <View className="flex-row items-center gap-3.5 flex-1">
                           <IconComponent
@@ -403,9 +554,8 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
                             color={isActive ? '#D4FF32' : '#94A3B8'}
                           />
                           <Text
-                            className={`text-sm tracking-wide ${
-                              isActive ? 'text-[#D4FF32] font-bold' : 'text-[#94A3B8] font-medium'
-                            }`}
+                            className={`text-sm tracking-wide ${isActive ? 'text-[#D4FF32] font-semibold' : 'text-[#94A3B8] font-medium'
+                              }`}
                             numberOfLines={1}
                           >
                             {item.name}
@@ -414,7 +564,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
 
                         {item.badge ? (
                           <View className="bg-[#D4FF32] rounded-full px-2 py-0.5">
-                            <Text className="text-black text-[10px] font-bold">{item.badge}</Text>
+                            <Text className="text-black text-[10px] font-semibold">{item.badge}</Text>
                           </View>
                         ) : (
                           <CaretRight
@@ -430,14 +580,13 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
             ))}
           </ScrollView>
 
-          {/* Drawer Footer: Logout & Version */}
           <View className="px-5 pt-3 border-t border-[#232631]">
             <Pressable
               onPress={handleOpenConfirm}
               className="flex-row items-center justify-center gap-2.5 bg-[#231518] border border-[#EF4444]/25 rounded-2xl py-3 px-4 active:opacity-75"
             >
               <SignOut size={18} color="#EF4444" weight="bold" />
-              <Text className="text-[#EF4444] font-bold text-sm">Sign Out</Text>
+              <Text className="text-[#EF4444] font-semibold text-sm">Sign Out</Text>
             </Pressable>
 
             <Text className="text-[#475569] text-[11px] text-center font-medium mt-3">
@@ -447,7 +596,6 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
         </Animated.View>
       </View>
 
-      {/* Sign Out Confirmation Modal */}
       <Modal
         animationType="fade"
         transparent={true}

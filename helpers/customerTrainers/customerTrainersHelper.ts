@@ -69,13 +69,20 @@ export async function fetchCustomerTrainerById(customerTrainerId: string) {
   return data;
 }
 
-export async function fetchAssignedTrainersByCustomer(customerId: string) {
-  const { data, error } = await supabase
+export async function fetchAssignedTrainersByCustomer(customerId: string, fallbackUserId?: string | null) {
+  let query = supabase
     .from('customer_trainers')
-    .select('*, trainer:gym_trainers(*, users!gym_trainers_userId_fkey(profilePhoto))')
-    .eq('customerId', customerId)
+    .select('*, trainer:gym_trainers(*, users!gym_trainers_userId_fkey(*))')
     .eq('is_deleted', false)
     .order('assignedOn', { ascending: false });
+
+  if (fallbackUserId && fallbackUserId !== customerId) {
+    query = query.or(`customerId.eq.${customerId},customerId.eq.${fallbackUserId}`);
+  } else {
+    query = query.eq('customerId', customerId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('[customerTrainersHelper] fetchAssignedTrainersByCustomer Error:', error);
@@ -90,9 +97,7 @@ export async function fetchAssignedCustomersByTrainer(gymTrainerId: string) {
     .from('customer_trainers')
     .select('*, customer:gym_customers(*, users!gym_customers_userId_fkey(profilePhoto))')
     .eq('gymTrainerId', gymTrainerId)
-    .eq('isActive', true)
     .eq('is_deleted', false)
-    .is('deletedAt', null)
     .order('assignedOn', { ascending: false });
 
   if (error) {

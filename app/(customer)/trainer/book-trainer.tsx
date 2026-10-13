@@ -131,6 +131,7 @@ export default function BookTrainerScreen() {
                   <StaticAvatar 
                     uri={trainer.users?.profilePhoto || trainer.profilePhoto} 
                     name={trainer.fullName}
+                    gender={trainer.gender}
                     size={80}
                     className="w-full h-full"
                   />

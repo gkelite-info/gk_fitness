@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { usePersonalTrainerRequestsByUser } from '@/hooks/personalTrainerRequests/usePersonalTrainerRequests';
+import { useAssignedTrainersByCustomer } from '@/hooks/customerTrainers/useCustomerTrainers';
 import { queryClient } from '@/lib/react-query';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
@@ -41,8 +42,15 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
   const userId = customerData?.userId || fallbackUser?.userId;
   const { data: trainerRequests } = usePersonalTrainerRequestsByUser(userId);
 
+  const customerId = customerData?.customerId || userId;
+  const { data: assignedTrainers } = useAssignedTrainersByCustomer(customerId, userId);
+  const activeAssignment = assignedTrainers?.find((a: any) => a.isActive !== false) || assignedTrainers?.[0];
+  const assignedTrainer = activeAssignment?.trainer;
+  const hasAssignedTrainer = !!activeAssignment;
+
   const activeRequest = trainerRequests?.[0];
   const realStatus = activeRequest ? activeRequest.applicationStatus : 'none';
+  const trainerDisplayName = assignedTrainer?.fullName || activeRequest?.gymTrainer?.name || trainer.name;
 
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -156,11 +164,11 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
           )}
           <MenuItem icon={<User size={20} color="#D4FF00" />} title="Personal Information" subtitle="Update your personal details" onPress={() => router.push('/(customer)/edit-profile')} />
           <MenuItem icon={<Target size={20} color="#D4FF00" />} title="Goals & Preferences" subtitle="Manage your fitness goals and preferences" onPress={() => router.push('/(customer)/goals-preferences')} />
-          {realStatus === 'approved' ? (
+          {hasAssignedTrainer || realStatus === 'approved' ? (
             <MenuItem
               icon={<User size={20} color="#000000" weight="bold" />}
               title="My Trainer"
-              subtitle={`Training with ${activeRequest?.gymTrainer?.name || trainer.name}`}
+              subtitle={`Training with ${trainerDisplayName}`}
               iconContainerStyle="bg-[#D4FF00]"
               onPress={() => router.push('/(customer)/my-trainer')}
             />

@@ -213,6 +213,7 @@ export default function ExploreTrainersScreen() {
               <StaticAvatar
                 uri={trainer.users?.profilePhoto || trainer.profilePhoto}
                 name={trainer.fullName}
+                gender={trainer.gender}
                 size={110}
                 className="w-full h-full"
               />

@@ -3,13 +3,16 @@ import { fetchTrainerWorkoutPlans } from '@/helpers/trainerWorkoutPlans/trainerW
 import { fetchTrainerWorkoutPlanDays } from '@/helpers/trainerWorkoutPlans/trainerWorkoutPlanDays';
 import { fetchTrainerWorkoutPlanDayExercises } from '@/helpers/trainerWorkoutPlans/trainerWorkoutPlanDayExercises';
 
-export function useTrainerWeeklyPlan(userId: string | null | undefined) {
+export function useTrainerWeeklyPlan(userId: string | null | undefined, fallbackUserId?: string | null) {
   return useQuery({
-    queryKey: ['trainerWeeklyPlan', userId],
+    queryKey: ['trainerWeeklyPlan', userId, fallbackUserId],
     queryFn: async () => {
-      if (!userId) return null;
+      if (!userId && !fallbackUserId) return null;
       
-      const plans = await fetchTrainerWorkoutPlans(userId);
+      let plans = await fetchTrainerWorkoutPlans(userId || undefined);
+      if ((!plans || plans.length === 0) && fallbackUserId && fallbackUserId !== userId) {
+        plans = await fetchTrainerWorkoutPlans(fallbackUserId);
+      }
       const activePlan = plans?.find((p: any) => p.isActive);
       
       if (!activePlan) return null;
@@ -36,6 +39,6 @@ export function useTrainerWeeklyPlan(userId: string | null | undefined) {
       }
       return loadedPlanDays;
     },
-    enabled: !!userId,
+    enabled: !!(userId || fallbackUserId),
   });
 }

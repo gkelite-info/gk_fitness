@@ -12,9 +12,6 @@ const isExpoGo =
 
 let Notifications: any = null;
 
-// Remote push notifications were removed from Expo Go on Android with SDK 53+.
-// Importing expo-notifications in Expo Go on Android triggers a fatal error during module evaluation.
-// Therefore, we only load expo-notifications when NOT running in Expo Go.
 if (!isExpoGo) {
   try {
     Notifications = require('expo-notifications');
@@ -35,14 +32,10 @@ if (!isExpoGo) {
 
 export async function registerForPushNotifications(userId: string): Promise<string | null> {
   if (isExpoGo || !Notifications) {
-    if (__DEV__) {
-      console.log('[notificationService] Push notifications are disabled in Expo Go. Use a development build to test push notifications.');
-    }
     return null;
   }
 
   try {
-    // 1. ALWAYS request permissions (crucial for local/push notifications to work anywhere)
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
@@ -52,12 +45,10 @@ export async function registerForPushNotifications(userId: string): Promise<stri
       finalStatus = status;
     }
     if (finalStatus !== 'granted') {
-      console.log('Failed to get permissions for notifications!');
       return null;
     }
 
     if (!Device.isDevice) {
-      console.log('Must use physical device for Remote Push Notifications. Local notifications will still work.');
       return null;
     }
 
@@ -66,17 +57,16 @@ export async function registerForPushNotifications(userId: string): Promise<stri
       console.warn('EAS Project ID is not defined, push token registration will fail.');
       return null;
     }
-    
+
     const tokenData = await Notifications.getExpoPushTokenAsync({
       projectId,
     });
-    
+
     const expoPushToken = tokenData?.data;
     if (!expoPushToken) {
       return null;
     }
 
-    // Save token to Supabase
     const { error } = await supabase.from('user_push_tokens').upsert(
       {
         userpushTokenId: Crypto.randomUUID(),
@@ -119,14 +109,11 @@ export async function cancelAllScheduledNotifications() {
   return Notifications.cancelAllScheduledNotificationsAsync();
 }
 
-/**
- * Cancels only the scheduled notifications that are categorized as water reminders.
- */
 export async function cancelWaterReminders() {
   if (!Notifications) return;
   try {
     for (let h = 0; h < 24; h++) {
-      await Notifications.cancelScheduledNotificationAsync(`water_reminder_hour_${h}`).catch(() => {});
+      await Notifications.cancelScheduledNotificationAsync(`water_reminder_hour_${h}`).catch(() => { });
     }
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     for (const notification of scheduled) {
@@ -134,7 +121,7 @@ export async function cancelWaterReminders() {
         notification.content.data?.type === 'water_reminder' ||
         notification.identifier?.startsWith('water_reminder_')
       ) {
-        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => {});
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => { });
       }
     }
   } catch (err) {
@@ -142,20 +129,15 @@ export async function cancelWaterReminders() {
   }
 }
 
-/**
- * Schedules daily water reminders with custom start, end, and intervals.
- * Industry standard pattern using deterministic notification identifiers to prevent duplicates.
- */
 export async function scheduleWaterReminders(startHour = 8, endHour = 20, interval = 2) {
   if (!Notifications) return;
-  // First, clear any existing water reminders to avoid duplicates
   await cancelWaterReminders();
 
   const reminderHours = [];
   for (let h = startHour; h <= endHour; h += interval) {
     reminderHours.push(h);
   }
-  
+
   const messages = [
     { title: '💧 Morning Hydration', body: 'Start your day right! Drink a glass of water.' },
     { title: '💧 Hydration Check', body: 'Time for a quick water break.' },
@@ -168,7 +150,6 @@ export async function scheduleWaterReminders(startHour = 8, endHour = 20, interv
 
   for (let i = 0; i < reminderHours.length; i++) {
     const hour = reminderHours[i];
-    // Cycle through messages if there are more reminders than messages
     const message = messages[i % messages.length];
 
     await Notifications.scheduleNotificationAsync({
@@ -186,17 +167,13 @@ export async function scheduleWaterReminders(startHour = 8, endHour = 20, interv
       },
     });
   }
-  console.log(`Successfully scheduled daily water reminders from ${startHour}:00 to ${endHour}:00 every ${interval} hours.`);
 }
 
-/**
- * Cancels only the scheduled notifications that are categorized as workout reminders.
- */
 export async function cancelWorkoutReminders() {
   if (!Notifications) return;
   try {
     for (let day = 1; day <= 7; day++) {
-      await Notifications.cancelScheduledNotificationAsync(`workout_reminder_day_${day}`).catch(() => {});
+      await Notifications.cancelScheduledNotificationAsync(`workout_reminder_day_${day}`).catch(() => { });
     }
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     for (const notification of scheduled) {
@@ -204,7 +181,7 @@ export async function cancelWorkoutReminders() {
         notification.content.data?.type === 'workout_reminder' ||
         notification.identifier?.startsWith('workout_reminder_')
       ) {
-        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => {});
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => { });
       }
     }
   } catch (err) {
@@ -212,10 +189,6 @@ export async function cancelWorkoutReminders() {
   }
 }
 
-/**
- * Schedules dynamic workout reminders as per industry standards.
- * Supports custom weekday and weekend hours/minutes or defaults to 5:00 PM weekdays and 10:30 AM weekends.
- */
 export async function scheduleWorkoutReminders(options?: {
   weekdayHour?: number;
   weekdayMinute?: number;
@@ -223,7 +196,7 @@ export async function scheduleWorkoutReminders(options?: {
   weekendMinute?: number;
 }) {
   if (!Notifications) return;
-  await cancelWorkoutReminders(); // Clear existing to prevent duplicates
+  await cancelWorkoutReminders();
 
   const weekdayHour = options?.weekdayHour ?? 17;
   const weekdayMinute = options?.weekdayMinute ?? 0;
@@ -237,7 +210,6 @@ export async function scheduleWorkoutReminders(options?: {
     { title: '🔥 Burn Those Calories', body: 'Step into the gym and unleash your potential today.' }
   ];
 
-  // Schedule daily, rotating schedule for days 1-7 (Sun=1, Sat=7)
   for (let day = 1; day <= 7; day++) {
     const isWeekend = day === 1 || day === 7;
     const hour = isWeekend ? weekendHour : weekdayHour;
@@ -260,19 +232,15 @@ export async function scheduleWorkoutReminders(options?: {
       },
     });
   }
-  
-  console.log(`Successfully scheduled weekly workout reminders (Weekdays: ${weekdayHour}:${weekdayMinute.toString().padStart(2, '0')}, Weekends: ${weekendHour}:${weekendMinute.toString().padStart(2, '0')}).`);
+
 }
 
-/**
- * Cancels only the scheduled notifications that are categorized as meal reminders.
- */
 export async function cancelMealReminders() {
   if (!Notifications) return;
   try {
     const mealKeys = ['breakfast', 'lunch', 'dinner'];
     for (const meal of mealKeys) {
-      await Notifications.cancelScheduledNotificationAsync(`meal_reminder_${meal}`).catch(() => {});
+      await Notifications.cancelScheduledNotificationAsync(`meal_reminder_${meal}`).catch(() => { });
     }
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     for (const notification of scheduled) {
@@ -280,7 +248,7 @@ export async function cancelMealReminders() {
         notification.content.data?.type === 'meal_reminder' ||
         notification.identifier?.startsWith('meal_reminder_')
       ) {
-        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => {});
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => { });
       }
     }
   } catch (err) {
@@ -288,21 +256,18 @@ export async function cancelMealReminders() {
   }
 }
 
-/**
- * Schedules daily meal reminders for Breakfast, Lunch, and Dinner as per industry standard nutrition tracking apps.
- * Default times: Breakfast 8:30 AM, Lunch 1:15 PM, Dinner 8:00 PM.
- */
+
 export async function scheduleMealReminders(options?: {
   breakfastTime?: { hour: number; minute: number };
   lunchTime?: { hour: number; minute: number };
   dinnerTime?: { hour: number; minute: number };
 }) {
   if (!Notifications) return;
-  await cancelMealReminders(); // Clear existing to prevent duplicates
+  await cancelMealReminders();
 
   const breakfast = options?.breakfastTime ?? { hour: 8, minute: 30 };
   const lunch = options?.lunchTime ?? { hour: 13, minute: 15 };
-  const dinner = options?.dinnerTime ?? { hour: 20, minute: 15 }; // 8:15 PM to avoid colliding with 8:00 PM final water reminder
+  const dinner = options?.dinnerTime ?? { hour: 20, minute: 15 };
 
   const mealSchedules = [
     {
@@ -345,12 +310,9 @@ export async function scheduleMealReminders(options?: {
     });
   }
 
-  console.log(`Successfully scheduled daily meal reminders for Breakfast, Lunch, and Dinner.`);
 }
 
-/**
- * Cancels only the scheduled local notifications that are categorized as pt session reminders.
- */
+
 export async function cancelPTSessionReminders() {
   if (!Notifications) return;
   try {
@@ -360,7 +322,7 @@ export async function cancelPTSessionReminders() {
         notification.content.data?.type === 'pt_session_reminder' ||
         notification.identifier?.startsWith('pt_session_')
       ) {
-        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => {});
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => { });
       }
     }
   } catch (err) {
@@ -368,9 +330,6 @@ export async function cancelPTSessionReminders() {
   }
 }
 
-/**
- * Schedules local notifications for upcoming PT sessions.
- */
 export async function schedulePTSessionReminders(sessions: any[]) {
   if (!Notifications) return;
   await cancelPTSessionReminders();
@@ -385,7 +344,6 @@ export async function schedulePTSessionReminders(sessions: any[]) {
 
     const sessionId = session.trainerSessionId || session.id || sessionDate.getTime();
 
-    // Schedule 24 hours before
     const twentyFourHoursBefore = new Date(sessionDate.getTime() - 24 * 60 * 60 * 1000);
     if (twentyFourHoursBefore > now) {
       await Notifications.scheduleNotificationAsync({
@@ -404,7 +362,6 @@ export async function schedulePTSessionReminders(sessions: any[]) {
       scheduledCount++;
     }
 
-    // Schedule 1 hour before
     const oneHourBefore = new Date(sessionDate.getTime() - 1 * 60 * 60 * 1000);
     if (oneHourBefore > now) {
       await Notifications.scheduleNotificationAsync({
@@ -423,18 +380,13 @@ export async function schedulePTSessionReminders(sessions: any[]) {
       scheduledCount++;
     }
   }
-  
-  console.log(`[schedulePTSessionReminders] Scheduled ${scheduledCount} local reminders for PT sessions.`);
+
 }
 
-/**
- * Syncs the member's local PT session reminders with their database preference.
- */
 export async function syncPTSessionReminders(userId: string) {
   if (!Notifications || !userId) return;
 
   try {
-    // 1. Check user preferences
     const { data: pref } = await supabase
       .from('user_notification_preferences')
       .select('ptSessionReminders, pt_session_reminders')
@@ -447,7 +399,6 @@ export async function syncPTSessionReminders(userId: string) {
       return;
     }
 
-    // 2. Fetch the user's upcoming PT sessions via customer_trainers inner join
     const { data: sessions, error } = await supabase
       .from('trainer_sessions')
       .select('sessionDate, customer_trainers!inner(customerId)')
@@ -473,12 +424,8 @@ export async function syncPTSessionReminders(userId: string) {
   }
 }
 
-/**
- * Sends a milestone achievement push notification and inbox record if the user has progress_milestones enabled.
- */
 export async function sendMilestonePushNotification(userId: string, milestoneType: string, title: string, body: string) {
   try {
-    // Check preferences
     const { data: pref } = await supabase
       .from('user_notification_preferences')
       .select('progressMilestones, progress_milestones')
@@ -488,15 +435,13 @@ export async function sendMilestonePushNotification(userId: string, milestoneTyp
     const isEnabled = pref?.progressMilestones ?? pref?.progress_milestones ?? true;
     if (!isEnabled) return;
 
-    // Send push
     const { data: tokens } = await supabase
       .from('user_push_tokens')
       .select('expoPushToken')
       .eq('userId', userId);
 
     const validTokens = (tokens || []).map(t => t.expoPushToken).filter(Boolean);
-    
-    // Save to inbox with aligned snake_case schema
+
     await supabase.from('user_notifications').insert({
       id: Crypto.randomUUID(),
       userId,
@@ -527,16 +472,12 @@ export async function sendMilestonePushNotification(userId: string, milestoneTyp
         body: JSON.stringify(expoMessages),
       });
     }
-    
-    console.log(`[sendMilestonePushNotification] Sent ${milestoneType} milestone to user ${userId}`);
+
   } catch (err) {
     console.error('[sendMilestonePushNotification] Error:', err);
   }
 }
 
-/**
- * Sends a promotional push notification to all gym members who have opted-in (promotions = true).
- */
 export async function sendPromotionPushNotification({
   gymId,
   title,
@@ -547,7 +488,6 @@ export async function sendPromotionPushNotification({
   message: string;
 }): Promise<{ recipientCount: number; pushesSent: number }> {
   try {
-    // 1. Fetch customer user IDs belonging to this gym
     const { data: customers, error: custErr } = await supabase
       .from('gym_customers')
       .select('userId')
@@ -563,7 +503,6 @@ export async function sendPromotionPushNotification({
       return { recipientCount: 0, pushesSent: 0 };
     }
 
-    // 2. Fetch preferences for these users (ONLY promotions = true)
     const { data: prefs, error: prefErr } = await supabase
       .from('user_notification_preferences')
       .select('userId, promotions')
@@ -580,7 +519,6 @@ export async function sendPromotionPushNotification({
       return { recipientCount: 0, pushesSent: 0 };
     }
 
-    // 3. Insert notification records for in-app inbox
     const notificationRecords = optedInUserIds.map((uid) => ({
       id: Crypto.randomUUID(),
       userId: uid,
@@ -592,7 +530,6 @@ export async function sendPromotionPushNotification({
       created_at: new Date().toISOString(),
     }));
 
-    // Batch insert 
     const chunkSize = 100;
     for (let i = 0; i < notificationRecords.length; i += chunkSize) {
       const chunk = notificationRecords.slice(i, i + chunkSize);
@@ -602,7 +539,6 @@ export async function sendPromotionPushNotification({
       }
     }
 
-    // 4. Send remote push notifications via Expo API
     const { data: tokensData, error: tokensErr } = await supabase
       .from('user_push_tokens')
       .select('userId, expoPushToken')
@@ -647,7 +583,6 @@ export async function sendPromotionPushNotification({
       }
     }
 
-    console.log(`[sendPromotionPushNotification] Sent to ${optedInUserIds.length} users, ${pushesSent} push tokens.`);
     return { recipientCount: optedInUserIds.length, pushesSent };
   } catch (err) {
     console.error('[sendPromotionPushNotification] Global error:', err);
@@ -655,10 +590,6 @@ export async function sendPromotionPushNotification({
   }
 }
 
-/**
- * Sends push notifications and inbox entries to all gym customers when an announcement is posted.
- * Honors user preferences (gym_announcements) and batches push notifications via Expo API.
- */
 export async function sendGymAnnouncementPushNotification({
   gymId,
   title,
@@ -669,7 +600,6 @@ export async function sendGymAnnouncementPushNotification({
   message: string;
 }): Promise<{ recipientCount: number; pushesSent: number }> {
   try {
-    // 1. Fetch customer user IDs belonging to this gym
     const { data: customers, error: custErr } = await supabase
       .from('gym_customers')
       .select('userId')
@@ -682,11 +612,9 @@ export async function sendGymAnnouncementPushNotification({
 
     const userIds = Array.from(new Set(customers?.map(c => c.userId).filter(Boolean) as string[]));
     if (userIds.length === 0) {
-      console.log('[sendGymAnnouncementPushNotification] No customers found for gymId:', gymId);
       return { recipientCount: 0, pushesSent: 0 };
     }
 
-    // 2. Filter out users who turned off gym_announcements in preferences (checking camelCase & snake_case)
     const { data: prefs, error: prefErr } = await supabase
       .from('user_notification_preferences')
       .select('userId, gymAnnouncements, gym_announcements')
@@ -707,7 +635,6 @@ export async function sendGymAnnouncementPushNotification({
 
     const announcementTitle = title || '📢 Gym Announcement';
 
-    // 3. Insert notification records into user_notifications for their in-app inbox
     const inboxRecords = eligibleUserIds.map(uid => ({
       id: Crypto.randomUUID(),
       userId: uid,
@@ -727,7 +654,6 @@ export async function sendGymAnnouncementPushNotification({
       console.error('[sendGymAnnouncementPushNotification] Inbox insert error:', insertErr);
     }
 
-    // 4. Query Expo Push Tokens for eligible users
     const { data: tokenRecords, error: tokenErr } = await supabase
       .from('user_push_tokens')
       .select('expoPushToken, userId')
@@ -745,7 +671,6 @@ export async function sendGymAnnouncementPushNotification({
 
       const uniqueTokens = Array.from(new Set(validTokens));
 
-      // Batch requests into groups of 100 as per Expo Push API recommendations
       for (let i = 0; i < uniqueTokens.length; i += 100) {
         const batch = uniqueTokens.slice(i, i + 100);
         const pushMessages = batch.map(token => ({
@@ -778,7 +703,6 @@ export async function sendGymAnnouncementPushNotification({
       }
     }
 
-    console.log(`[sendGymAnnouncementPushNotification] Sent announcement to ${eligibleUserIds.length} users (${pushesSent} push notifications).`);
     return { recipientCount: eligibleUserIds.length, pushesSent };
   } catch (error) {
     console.error('[sendGymAnnouncementPushNotification] Unexpected error:', error);
@@ -786,11 +710,6 @@ export async function sendGymAnnouncementPushNotification({
   }
 }
 
-/**
- * Dispatches community activity notifications (Like, Comment, Reply, Follow).
- * Honors user preferences (communityActivity), blocklists, suppresses self-notifications,
- * generates in-app notification inbox records, and dispatches native push notifications via Expo API.
- */
 export async function sendCommunityPushNotification({
   targetUserId,
   actorUserId,
@@ -809,12 +728,10 @@ export async function sendCommunityPushNotification({
   commentText?: string;
 }): Promise<boolean> {
   try {
-    // 1. Guard: Never notify self
     if (!targetUserId || !actorUserId || targetUserId === actorUserId) {
       return false;
     }
 
-    // 2. Guard: Check if target user has blocked actor or vice-versa
     try {
       const blockedUserIds = await fetchBlockedUsers(targetUserId);
       if (blockedUserIds.includes(actorUserId)) {
@@ -824,7 +741,6 @@ export async function sendCommunityPushNotification({
       console.warn('[sendCommunityPushNotification] Block check error:', e);
     }
 
-    // 3. Guard: Check notification preferences of target user
     const { data: pref, error: prefErr } = await supabase
       .from('user_notification_preferences')
       .select('communityActivity, community_activity')
@@ -832,11 +748,9 @@ export async function sendCommunityPushNotification({
       .maybeSingle();
 
     if (pref && (pref.communityActivity === false || pref.community_activity === false)) {
-      // User explicitly turned off community notifications
       return false;
     }
 
-    // 4. Fetch actor identity details (name, username, profilePhoto)
     const [userRes, profileRes] = await Promise.all([
       supabase.from('users').select('name, profilePhoto').eq('userId', actorUserId).maybeSingle(),
       supabase.from('gym_community_profiles').select('username').eq('userId', actorUserId).maybeSingle(),
@@ -847,12 +761,11 @@ export async function sendCommunityPushNotification({
     const actorHandle = actorUsername ? `@${actorUsername}` : actorName;
     const actorPhoto = userRes.data?.profilePhoto || null;
 
-    // 5. Construct Title, Body, and Route according to industry standards (Instagram)
     let title = 'GK Community';
     let body = `${actorHandle} interacted with your profile.`;
     let route = '/community';
 
-    const cleanPreview = commentText 
+    const cleanPreview = commentText
       ? (commentText.length > 55 ? commentText.substring(0, 52) + '...' : commentText)
       : '';
 
@@ -879,7 +792,6 @@ export async function sendCommunityPushNotification({
         break;
     }
 
-    // 6. Insert into in-app notifications inbox (user_notifications)
     const notificationPayload = {
       type,
       actorUserId,
@@ -892,7 +804,6 @@ export async function sendCommunityPushNotification({
       route,
     };
 
-    // A. Try calling the SECURITY DEFINER RPC first (bypasses RLS safely on the server)
     let inboxSaved = false;
     try {
       const { data: rpcRes, error: rpcErr } = await supabase.rpc('send_community_notification', {
@@ -908,10 +819,8 @@ export async function sendCommunityPushNotification({
         inboxSaved = true;
       }
     } catch (e) {
-      // Function may not be installed yet, proceed to direct insert fallback
     }
 
-    // B. Fallback to direct client insert if RPC did not run
     if (!inboxSaved) {
       const notificationId = Crypto.randomUUID();
       const { error: inboxErr } = await supabase
@@ -936,7 +845,6 @@ export async function sendCommunityPushNotification({
       }
     }
 
-    // 7. Dispatch push notification via Expo Push API to device tokens
     const { data: tokenRecords, error: tokenErr } = await supabase
       .rpc('get_user_push_tokens', { p_user_id: targetUserId });
 
@@ -984,15 +892,12 @@ export async function sendCommunityPushNotification({
   }
 }
 
-/**
- * Cancels only the scheduled local notifications that are categorized as membership renewal reminders.
- */
 export async function cancelMembershipRenewalReminders() {
   if (!Notifications) return;
   try {
     const milestones = [7, 3, 1, 0];
     for (const days of milestones) {
-      await Notifications.cancelScheduledNotificationAsync(`membership_renewal_${days}d`).catch(() => {});
+      await Notifications.cancelScheduledNotificationAsync(`membership_renewal_${days}d`).catch(() => { });
     }
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     for (const notification of scheduled) {
@@ -1000,7 +905,7 @@ export async function cancelMembershipRenewalReminders() {
         notification.content.data?.type === 'membership_renewal' ||
         notification.identifier?.startsWith('membership_renewal_')
       ) {
-        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => {});
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => { });
       }
     }
   } catch (err) {
@@ -1008,11 +913,7 @@ export async function cancelMembershipRenewalReminders() {
   }
 }
 
-/**
- * Schedules local countdown notifications leading up to a member's expiration date.
- * Industry standard multi-touch cadence: 7 days, 3 days, 1 day before (at 9:30 AM), and Day of Expiry (at 9:00 AM).
- * Staggered from 10:00 AM to prevent collisions with water reminders and weekend workouts.
- */
+
 export async function scheduleMembershipRenewalReminders(endDateInput: string | Date, planName = 'gym') {
   if (!Notifications) return;
   await cancelMembershipRenewalReminders();
@@ -1080,17 +981,13 @@ export async function scheduleMembershipRenewalReminders(endDateInput: string | 
     }
   }
 
-  console.log(`[scheduleMembershipRenewalReminders] Scheduled ${scheduledCount} local renewal reminders for ${planName} membership.`);
 }
 
-/**
- * Syncs the member's local renewal reminders with their database preference and active membership plan.
- */
+
 export async function syncMembershipRenewalReminders(userId: string) {
   if (!Notifications || !userId) return;
 
   try {
-    // 1. Check user preferences
     const { data: pref } = await supabase
       .from('user_notification_preferences')
       .select('membershipRenewal, membership_renewal')
@@ -1103,7 +1000,6 @@ export async function syncMembershipRenewalReminders(userId: string) {
       return;
     }
 
-    // 2. Fetch the user's latest active membership plan
     const { data: customerPlans, error } = await supabase
       .from('gym_customer_membership_plans')
       .select('*, gym_membership_plans(planName)')
@@ -1126,7 +1022,6 @@ export async function syncMembershipRenewalReminders(userId: string) {
 
     const endDate = new Date(latestPlan.endDate);
     if (isNaN(endDate.getTime()) || endDate.getTime() <= Date.now()) {
-      // Already expired
       await cancelMembershipRenewalReminders();
       return;
     }
@@ -1138,10 +1033,7 @@ export async function syncMembershipRenewalReminders(userId: string) {
   }
 }
 
-/**
- * Sends an in-app inbox notification and Expo push notification for an expiring membership milestone.
- * Honors user preferences and includes anti-spam idempotency guards.
- */
+
 export async function sendMembershipRenewalPushNotification(params: {
   userId: string;
   planName?: string;
@@ -1151,7 +1043,6 @@ export async function sendMembershipRenewalPushNotification(params: {
   const { userId, planName = 'gym', daysLeft, gymId } = params;
 
   try {
-    // 1. Verify user preferences
     const { data: pref } = await supabase
       .from('user_notification_preferences')
       .select('membershipRenewal, membership_renewal')
@@ -1161,7 +1052,6 @@ export async function sendMembershipRenewalPushNotification(params: {
     const isEnabled = pref?.membershipRenewal ?? pref?.membership_renewal ?? true;
     if (!isEnabled) return false;
 
-    // 2. Determine title and body according to milestone
     let title = '⏳ Membership Renewal';
     let body = `Your ${planName} membership is expiring soon. Renew at the gym reception desk to stay active!`;
 
@@ -1182,7 +1072,6 @@ export async function sendMembershipRenewalPushNotification(params: {
       body = `Your ${planName} membership has expired. Renew your plan at the gym reception desk to reactivate your access.`;
     }
 
-    // 3. Prevent duplicate inbox entries within 20 hours for this milestone
     const twentyHoursAgo = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString();
     const { data: existingNotifs } = await supabase
       .from('user_notifications')
@@ -1196,10 +1085,9 @@ export async function sendMembershipRenewalPushNotification(params: {
     );
 
     if (alreadySentForMilestone) {
-      return false; // Skip duplicate
+      return false;
     }
 
-    // 4. Insert into user_notifications
     const notificationId = Crypto.randomUUID();
     const { error: insertErr } = await supabase
       .from('user_notifications')
@@ -1224,7 +1112,6 @@ export async function sendMembershipRenewalPushNotification(params: {
       console.error('[sendMembershipRenewalPushNotification] Error inserting inbox notification:', insertErr);
     }
 
-    // 5. Send Remote Push Notification via Expo Push Tokens
     const { data: tokenRecords } = await supabase
       .from('user_push_tokens')
       .select('expoPushToken')
@@ -1268,10 +1155,7 @@ export async function sendMembershipRenewalPushNotification(params: {
   }
 }
 
-/**
- * Scans active customer memberships across a gym (or all gyms) and dispatches renewal notifications
- * for members whose plan expires in 7 days, 3 days, 1 day, or today.
- */
+
 export async function checkAndDispatchExpiringMembershipNotifications(gymId?: string) {
   try {
     let query = supabase
@@ -1300,7 +1184,6 @@ export async function checkAndDispatchExpiringMembershipNotifications(gymId?: st
       const diffTime = end.getTime() - now.getTime();
       const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-      // Milestones: 7 days, 3 days, 1 day, or 0 days (today)
       if ([7, 3, 1, 0].includes(diffDays)) {
         const sent = await sendMembershipRenewalPushNotification({
           userId: plan.customerId,

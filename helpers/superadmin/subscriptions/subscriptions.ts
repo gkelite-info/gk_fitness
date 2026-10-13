@@ -125,11 +125,6 @@ export async function saveSubscription(subscriptionData: SaveSubscriptionParams)
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  console.log("[subscriptionHelper] Active Auth Session Check:", {
-    hasSession: !!session,
-    userId: session?.user?.id,
-    userRole: session?.user?.user_metadata?.role,
-  });
 
   if (session?.user && session.user.user_metadata?.role !== "superadmin") {
     const { data: profile } = await supabase
@@ -139,15 +134,14 @@ export async function saveSubscription(subscriptionData: SaveSubscriptionParams)
       .maybeSingle();
 
     if (profile?.role === "superadmin") {
-      console.log("[subscriptionHelper] Syncing superadmin role into user_metadata...");
       await supabase.auth.updateUser({ data: { role: "superadmin" } });
     }
   }
 
   const validPlanFor: PlanForEnum =
     subscriptionData.planFor === "customers" ||
-    subscriptionData.planFor === "customer" ||
-    subscriptionData.planFor === "individual_customer"
+      subscriptionData.planFor === "customer" ||
+      subscriptionData.planFor === "individual_customer"
       ? "customer"
       : "gyms";
 

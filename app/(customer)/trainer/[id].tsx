@@ -1,53 +1,112 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Image, Modal } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, ScrollView, Pressable, Image, Modal, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeft, CheckCircle, Star, Users, Medal, Tag, ArrowRight, CaretDown } from 'phosphor-react-native';
-import { startApprovalSimulation } from '@/constants/trainerStore';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
+import { useGymTrainerById } from '@/hooks/trainers/useGymTrainers';
+import { useUser } from '@/context/UserContext';
+import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { useAssignedTrainersByCustomer, useAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
 
 export default function TrainerProfileScreen() {
-  const { id, trainerData } = useLocalSearchParams<{ id: string, trainerData?: string }>();
+  const { id, trainerData, from } = useLocalSearchParams<{ id: string, trainerData?: string, from?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const trainer = trainerData ? JSON.parse(trainerData as string) : null;
+  const parsedTrainer = useMemo(() => {
+    if (!trainerData) return null;
+    try {
+      return JSON.parse(trainerData as string);
+    } catch (e) {
+      return null;
+    }
+  }, [trainerData]);
+
+  const { data: gymTrainerResult, isLoading: isGymTrainerLoading } = useGymTrainerById(id);
+  const fetchedTrainer = gymTrainerResult?.trainer;
+
+  const trainer = parsedTrainer || fetchedTrainer;
+
+  const { userId } = useUser();
+  const { data: customerProfile } = useCustomerProfile(userId || undefined);
+  const customerId = customerProfile?.customerData?.customerId || userId;
+  const { data: assignedTrainers } = useAssignedTrainersByCustomer(customerId, userId);
+
+  const gymTrainerId = trainer?.gymTrainerId || id;
+  const { data: assignedCustomers } = useAssignedCustomersByTrainer(gymTrainerId);
+
+  const isCurrentlyAssigned = assignedTrainers?.some(
+    (a: any) => (a.gymTrainerId === gymTrainerId) && (a.isActive !== false)
+  );
+
   const [modalVisible, setModalVisible] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
 
   const handleBack = () => {
+    if (from === 'my-trainer') {
+      router.replace('/(customer)/my-trainer');
+      return;
+    }
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.push('/(customer)/trainer/book-trainer');
+      router.replace('/(customer)/my-trainer');
     }
+  };
+
+  if (isGymTrainerLoading && !trainer) {
+    return (
+      <View className="flex-1 bg-[#0F0F0F] justify-center items-center" style={{ paddingTop: insets.top }}>
+        <ActivityIndicator size="large" color="#D4FF00" />
+        <Text className="text-[#8E8E93] text-sm mt-3">Loading trainer profile...</Text>
+      </View>
+    );
   }
 
   if (!trainer) {
     return (
-      <View className="flex-1 bg-[#0F0F0F] justify-center items-center">
-        <Text className="text-white">Trainer not found.</Text>
-        <Pressable onPress={() => router.back()} className="mt-4 p-2 bg-[#1A1A1A] rounded-full">
-          <Text className="text-[#D4FF00]">Go Back</Text>
+      <View className="flex-1 bg-[#0F0F0F] justify-center items-center" style={{ paddingTop: insets.top }}>
+        <Text className="text-white text-base">Trainer not found.</Text>
+        <Pressable onPress={handleBack} className="mt-4 px-6 py-2.5 bg-[#1A1A1A] rounded-full border border-[#27272A]">
+          <Text className="text-[#D4FF00] font-semibold">Go Back</Text>
         </Pressable>
       </View>
     );
   }
 
-  const profilePhotoUrl = trainer.users?.profilePhoto || trainer.profilePhoto;
+  const profilePhotoUrl =
+    trainer.users?.profilePhoto ||
+    trainer.users?.profilePicture ||
+    trainer.users?.profilePic ||
+    trainer.profilePhoto ||
+    trainer.profilePicture ||
+    trainer.profilePic;
+
   const fullName = trainer.fullName || 'Unknown Trainer';
   const firstName = fullName.split(' ')[0];
   const isVerified = trainer.isVerified ?? true;
-  const rating = trainer.rating || '4.5';
+  const rating = trainer.rating || '4.8';
   const reviews = trainer.reviews || 0;
   const experience = trainer.experienceYears ?? trainer.experience ?? 0;
-  const clientsCount = trainer.clients || 0;
+
+  const clientsCount = (assignedCustomers && assignedCustomers.length > 0)
+    ? assignedCustomers.length
+    : (isCurrentlyAssigned ? 1 : (trainer.clients || 1));
+
   const bio = trainer.bio || trainer.about || `Passionate about helping people become the best version of themselves. Specializes in ${trainer.specialization || 'fitness'} with a focus on technique, consistency and long-term results.`;
-  const expertise = trainer.expertise || [trainer.specialization || 'General Fitness'];
+  const expertise = Array.isArray(trainer.expertise)
+    ? trainer.expertise
+    : [trainer.specialization || 'General Fitness'];
 
   const rawQualifications = trainer.qualification
-    ? trainer.qualification.split(',').map((q: string) => q.trim()).filter(Boolean)
+    ? (Array.isArray(trainer.qualification)
+      ? trainer.qualification
+      : typeof trainer.qualification === 'string'
+        ? trainer.qualification.split(',')
+        : []
+    ).map((q: string) => q.trim()).filter(Boolean)
     : [];
 
   const certifications = rawQualifications.length > 0
@@ -57,6 +116,7 @@ export default function TrainerProfileScreen() {
       issuer: 'Professional Certification'
     }))
     : [{ name: 'ACE', title: 'ACE Certified', issuer: 'American Council on Exercise' }];
+
   const mockReviews = [
     {
       id: '1',
@@ -64,7 +124,7 @@ export default function TrainerProfileScreen() {
       avatarUrl: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&auto=format&fit=crop&q=80',
       rating: 5,
       date: '2 weeks ago',
-      comment: "Rahul's training and guidance changed my life. I gained so much confidence and strength. Highly recommended for anyone looking to transform their body."
+      comment: `${firstName}'s training and guidance changed my life. I gained so much confidence and strength. Highly recommended for anyone looking to transform their body.`
     },
     {
       id: '2',
@@ -87,7 +147,7 @@ export default function TrainerProfileScreen() {
   const reviewsToDisplay = showAllReviews ? mockReviews : [mockReviews[0]];
 
   return (
-    <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-[#0F0F0F] pt-2">
       <View className="flex-row items-center px-4 py-3">
         <Pressable onPress={handleBack} className="p-2 bg-[#1A1A1A] rounded-full">
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
@@ -100,6 +160,7 @@ export default function TrainerProfileScreen() {
             <StaticAvatar
               uri={profilePhotoUrl}
               name={fullName}
+              gender={trainer.gender}
               size={96}
               className="w-full h-full"
             />
@@ -111,24 +172,18 @@ export default function TrainerProfileScreen() {
           </View>
 
           <Text className="text-[#D4FF00] text-sm font-semibold mb-2">{trainer.specialization || 'Fitness Coach'}</Text>
-
-          <View className="flex-row items-center">
-            <Star size={14} color="#D4FF00" weight="fill" />
-            <Text className="text-white text-xs font-semibold ml-1">{rating}</Text>
-            <Text className="text-[#8E8E93] text-xs ml-1">({reviews} Reviews)</Text>
-          </View>
         </View>
 
         <View className="flex-row mx-4 mb-3 bg-[#1A1A1A] rounded-2xl p-4 border border-[#27272A] justify-between">
           <View className="items-center flex-1">
             <Medal size={24} color="#D4FF00" weight="regular" style={{ marginBottom: 8 }} />
-            <Text className="text-white font-semibold">{experience}</Text>
+            <Text className="text-white font-semibold">{experience}+</Text>
             <Text className="text-[#8E8E93] text-[10px] mt-1">YEARS EXP.</Text>
           </View>
           <View className="w-[1px] h-full bg-[#27272A]" />
           <View className="items-center flex-1">
             <Users size={24} color="#5E5CE6" weight="regular" style={{ marginBottom: 8 }} />
-            <Text className="text-white font-semibold">{clientsCount > 0 ? `${clientsCount}+` : 'New'}</Text>
+            <Text className="text-white font-semibold">{clientsCount > 0 ? `${clientsCount}+` : 'Certified'}</Text>
             <Text className="text-[#8E8E93] text-[10px] mt-1">CLIENTS</Text>
           </View>
           <View className="w-[1px] h-full bg-[#27272A]" />
@@ -140,31 +195,38 @@ export default function TrainerProfileScreen() {
         </View>
 
         <View className="p-4 bg-[#0F0F0F]/90 border-t border-[#1A1A1A]">
-          <Pressable
-            onPress={() => {
-              router.push({
-                pathname: '/(customer)/trainer/trainer-request',
-                params: {
-                  id: trainer.gymTrainerId || trainer.globalTrainerId || trainer.id,
-                  trainerName: fullName,
-                  specializations: JSON.stringify(expertise)
-                }
-              });
-            }}
-            className="bg-[#CCFF00] py-4 rounded-full flex-row justify-center items-center shadow-lg"
-            style={{ shadowColor: '#CCFF00', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 }}
-          >
-            <Text className="text-black text-base font-semibold mr-2">Choose {fullName} as My Trainer</Text>
-            <ArrowRight size={18} color="#000000" weight="bold" />
-          </Pressable>
+          {isCurrentlyAssigned ? (
+            <View className="bg-[#1C2307] border border-[#D4FF00] py-4 rounded-full flex-row justify-center items-center">
+              <CheckCircle size={20} color="#D4FF00" weight="fill" />
+              <Text className="text-[#D4FF00] text-base font-semibold ml-2">Currently Assigned Trainer</Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => {
+                router.push({
+                  pathname: '/(customer)/trainer/trainer-request',
+                  params: {
+                    id: gymTrainerId,
+                    trainerName: fullName,
+                    specializations: JSON.stringify(expertise)
+                  }
+                });
+              }}
+              className="bg-[#CCFF00] py-4 rounded-full flex-row justify-center items-center shadow-lg active:opacity-80"
+              style={{ shadowColor: '#CCFF00', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 }}
+            >
+              <Text className="text-black text-base font-semibold mr-2">Choose {fullName} as My Trainer</Text>
+              <ArrowRight size={18} color="#000000" weight="bold" />
+            </Pressable>
+          )}
         </View>
 
         <View className="flex-row mx-4 mb-8 bg-[#1A1A1A] rounded-2xl p-4 border border-[#27272A] justify-between items-center">
           <View className="flex-row items-center flex-1 justify-center">
             <Users size={16} color="#8E8E93" weight="regular" style={{ marginRight: 8 }} />
             <View>
-              <Text className="text-white text-xs font-semibold">{clientsCount || 0} Members</Text>
-              <Text className="text-[#8E8E93] text-[10px]">training with him</Text>
+              <Text className="text-white text-xs font-semibold">{clientsCount} Members</Text>
+              <Text className="text-[#8E8E93] text-[10px]">training with {firstName}</Text>
             </View>
           </View>
         </View>
@@ -174,16 +236,11 @@ export default function TrainerProfileScreen() {
           <Text className="text-[#A1A1AA] text-sm leading-relaxed mb-2">
             {bio}
           </Text>
-          <View className="flex-row items-center">
-            <Text className="text-[#D4FF00] text-xs font-semibold mr-1">Read More</Text>
-            <CaretDown size={12} color="#D4FF00" weight="bold" />
-          </View>
         </View>
 
         <View className="mb-8">
           <View className="flex-row justify-between items-center px-4 mb-4">
             <Text className="text-white text-lg font-semibold">Expertise</Text>
-            {/* <Text className="text-[#D4FF00] text-xs font-semibold">View All</Text> */}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
             {expertise.map((exp: string, index: number) => (
@@ -198,7 +255,6 @@ export default function TrainerProfileScreen() {
         <View className="mb-8">
           <View className="flex-row justify-between items-center px-4 mb-4">
             <Text className="text-white text-lg font-semibold">Certifications</Text>
-            {/* <Text className="text-[#D4FF00] text-xs font-semibold">View All</Text> */}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
             {certifications.map((cert: any, index: number) => (
@@ -215,7 +271,6 @@ export default function TrainerProfileScreen() {
           <View className="mb-8">
             <View className="flex-row justify-between items-center px-4 mb-4">
               <Text className="text-white text-lg font-semibold">Client Transformations</Text>
-              {/* <Text className="text-[#D4FF00] text-xs font-semibold">View All</Text> */}
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
               {trainer.transformations.map((trans: any) => (
@@ -236,47 +291,6 @@ export default function TrainerProfileScreen() {
             </ScrollView>
           </View>
         )}
-
-        <View className="mb-8">
-          <View className="flex-row justify-between items-center px-4 mb-4">
-            <Text className="text-white text-lg font-semibold">What Clients Say</Text>
-            {!showAllReviews && mockReviews.length > 1 && (
-              <Pressable onPress={() => setShowAllReviews(true)}>
-                <Text className="text-[#D4FF00] text-xs font-semibold">View All</Text>
-              </Pressable>
-            )}
-          </View>
-
-          <View className="px-4 gap-4">
-            {reviewsToDisplay.map((review) => (
-              <View key={review.id} className="bg-[#1A1A1A] border border-[#27272A] rounded-2xl p-4">
-                <View className="flex-row justify-between items-start mb-3">
-                  <View className="flex-row items-center">
-                    <StaticAvatar uri={review.avatarUrl} name={review.name} size={40} className="w-10 h-10 rounded-full mr-3" />
-                    <View>
-                      <Text className="text-white font-semibold text-sm">{review.name}</Text>
-                      <View className="flex-row mt-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star
-                            key={i}
-                            size={12}
-                            color={i < review.rating ? "#D4FF00" : "#333"}
-                            weight="fill"
-                            style={{ marginRight: 2 }}
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  </View>
-                  <Text className="text-[#6C6C70] text-[10px]">{review.date}</Text>
-                </View>
-                <Text className="text-[#A1A1AA] text-xs leading-relaxed mt-1">
-                  {review.comment}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
       </ScrollView>
     </View>
   );

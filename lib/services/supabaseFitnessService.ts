@@ -73,11 +73,13 @@ export const supabaseFitnessService: FitnessRepository = {
 
   updateSteps: async (userId: string, date: string, steps: number, calories: number): Promise<void> => {
     const summary = await getOrCreateDailySummary(userId, date);
+    const newSteps = Math.max(summary.steps || 0, steps);
+    const newCalories = Math.max(summary.activeCalories || 0, calories);
     const { error } = await supabase
       .from('daily_health_summaries')
       .update({
-        steps,
-        activeCalories: calories,
+        steps: newSteps,
+        activeCalories: newCalories,
         updatedAt: new Date().toISOString(),
       })
       .eq('summaryId', summary.summaryId);

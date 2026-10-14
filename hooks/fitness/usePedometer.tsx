@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { getLocalDateString } from '@/lib/dateUtils';
 import { useUser } from '@/context/UserContext';
 import { supabaseFitnessService } from '@/lib/services/supabaseFitnessService';
@@ -18,6 +18,7 @@ interface PedometerContextValue {
   steps: number;
   calories: number;
   debugInfo: string;
+  syncSteps: () => Promise<void>;
 }
 
 const PedometerContext = createContext<PedometerContextValue>({
@@ -25,6 +26,7 @@ const PedometerContext = createContext<PedometerContextValue>({
   steps: 0,
   calories: 0,
   debugInfo: '',
+  syncSteps: async () => {},
 });
 
 export function PedometerProvider({ children }: { children: React.ReactNode }) {
@@ -33,6 +35,33 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
   const [debugInfo, setDebugInfo] = useState('');
   const { userId } = useUser();
   const hcReadyRef = useRef(false);
+
+  // ──────────────────────────────────────────────────────────
+  // Initialize steps from Supabase daily summary for today
+  // Ensures steps are not 0 before sensor query completes or
+  // if sensor is unavailable on this device (e.g. simulator).
+  // ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    let isCurrent = true;
+    if (!userId) return;
+
+    const loadInitialStats = async () => {
+      try {
+        const today = getLocalDateString(new Date());
+        const summary = await supabaseFitnessService.getDailyStats(userId, today);
+        if (isCurrent && summary && typeof summary.steps === 'number' && summary.steps > 0) {
+          setSteps(prev => Math.max(prev, summary.steps));
+        }
+      } catch (e) {
+        // Silently continue if initial DB fetch fails
+      }
+    };
+
+    loadInitialStats();
+    return () => {
+      isCurrent = false;
+    };
+  }, [userId]);
 
   // ──────────────────────────────────────────────────────────
   // Android: Read steps from Health Connect using aggregate()
@@ -85,13 +114,17 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
   // Main sync function — runs on mount, on app foreground,
   // and periodically. Takes the BEST value from all sources.
   // ──────────────────────────────────────────────────────────
-  const syncSteps = async (isMounted: boolean) => {
+  const syncSteps = useCallback(async (isMounted: boolean = true) => {
     try {
       if (Platform.OS === 'ios') {
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
-        const result = await Pedometer.getStepCountAsync(startOfDay, new Date());
-        if (isMounted && result) setSteps(result.steps);
+        const now = new Date();
+        const result = await Pedometer.getStepCountAsync(startOfDay, now);
+        if (isMounted && result && typeof result.steps === 'number' && result.steps > 0) {
+          setSteps(prev => Math.max(prev, result.steps));
+          setDebugInfo(`iOS Steps: ${result.steps}`);
+        }
       } else if (Platform.OS === 'android') {
         let hcSteps = 0;
         let hwSteps = 0;
@@ -106,14 +139,17 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
         const bestSteps = Math.max(hcSteps, hwSteps);
         if (isMounted && bestSteps > 0) {
-          setSteps(bestSteps);
+          setSteps(prev => Math.max(prev, bestSteps));
           setDebugInfo(`HC: ${hcSteps}, HW: ${hwSteps}, Using: ${bestSteps}`);
         }
       }
-    } catch (e) {
-      // Quietly handle fallback
+    } catch (e: any) {
+      if (isMounted) {
+        setDebugInfo(prev => `${prev} | Sync error: ${e?.message || 'unknown'}`);
+      }
+      console.warn('[Pedometer] syncSteps failed:', e);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let subscription: Pedometer.Subscription | null = null;
@@ -176,13 +212,23 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
             });
           }
         } else if (Platform.OS === 'ios') {
-          // iOS: Keep using Expo Pedometer (uses Apple Health natively)
-          setDebugInfo('Checking sensor availability...');
+          // iOS: Request motion permission & query CoreMotion / Health
+          setDebugInfo('Checking iOS sensor & permissions...');
+
+          try {
+            const perm = await Pedometer.requestPermissionsAsync();
+            if (isMounted) {
+              setDebugInfo(`Permission: ${perm?.status || 'granted'}`);
+            }
+          } catch (permErr: any) {
+            console.warn('[Pedometer] iOS requestPermissionsAsync error:', permErr);
+          }
+
           const available = await Pedometer.isAvailableAsync();
 
           if (isMounted) {
             setIsAvailable(available);
-            setDebugInfo(`Sensor Available: ${available}`);
+            setDebugInfo(prev => prev + ` | Sensor Available: ${available}`);
           }
 
           if (!available) return;
@@ -226,7 +272,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
       appStateSub.remove();
       clearInterval(interval);
     };
-  }, []);
+  }, [syncSteps]);
 
   const calories = Math.round(steps * 0.04);
 
@@ -264,7 +310,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
   }, [steps, userId, calories]);
 
   return (
-    <PedometerContext.Provider value={{ isAvailable, steps, calories, debugInfo }}>
+    <PedometerContext.Provider value={{ isAvailable, steps, calories, debugInfo, syncSteps: () => syncSteps(true) }}>
       {children}
     </PedometerContext.Provider>
   );

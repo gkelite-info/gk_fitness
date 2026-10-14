@@ -4,6 +4,7 @@ export default function ProfileLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
-      </Stack>
+      <Stack.Screen name="change-password" />
+    </Stack>
   );
 }

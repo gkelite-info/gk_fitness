@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   MagnifyingGlass, Faders, Star, Briefcase, CaretRight, Heart, Barbell, Fire, ArrowRight, CaretLeft,
-  PersonSimpleRunIcon
+  PersonSimpleRun
 } from 'phosphor-react-native';
 import { useGlobalTrainersPaginated } from '@/hooks/globalTrainers/useGlobalTrainersPaginated';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
@@ -15,7 +15,7 @@ const TABS = [
   { id: 'ALL', label: 'All Trainers' },
   { id: 'STRENGTH', label: 'Strength', icon: Barbell },
   { id: 'FAT LOSS', label: 'Weight Loss', icon: Fire },
-  { id: 'CROSS FIT', label: 'Cross Fit', icon: PersonSimpleRunIcon },
+  { id: 'CROSS FIT', label: 'Cross Fit', icon: PersonSimpleRun },
 ];
 
 export default function ExploreTrainersScreen() {

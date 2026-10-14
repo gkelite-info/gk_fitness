@@ -51,6 +51,8 @@ import {
   CreditCard,
   Megaphone,
   WarningCircle,
+  CheckSquare,
+  LockKey,
 } from 'phosphor-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -291,6 +293,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
           items: [
             { name: 'Dashboard', href: '/(owner)/dashboard', icon: House },
             { name: 'Users & Members', href: '/(owner)/users', icon: Users },
+            { name: 'Manual Attendance', href: '/(owner)/dashboard/manual-attendance', icon: CheckSquare },
             { name: 'Membership Plans', href: '/(owner)/membership', icon: Crown },
             { name: 'Membership Expiry', href: '/(owner)/dashboard/renewals', icon: CalendarCheck },
             { name: 'PT Sessions', href: '/(owner)/explore/trainers', icon: Barbell },
@@ -320,6 +323,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
           title: 'ACCOUNT',
           items: [
             { name: 'Profile & Settings', href: '/(owner)/profile', icon: User },
+            { name: 'Change Password', href: '/(owner)/profile/change-password', icon: LockKey },
           ],
         },
       ];

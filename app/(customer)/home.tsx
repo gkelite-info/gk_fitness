@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getLocalDateString } from '@/lib/dateUtils';
-import { View, ScrollView, Image, Pressable, ActivityIndicator, BackHandler } from 'react-native';
+import { View, ScrollView, Image, Pressable, ActivityIndicator, BackHandler, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -255,19 +255,33 @@ export default function CustomerHome() {
                 <Text className="text-[#8E8E93] text-sm font-medium">Days Left</Text>
               </View>
 
-              <View className="w-full h-1.5 bg-[#262626] rounded-full overflow-hidden">
+              <View className="w-full h-1.5 bg-[#262626] rounded-full overflow-hidden mb-3">
                 <View className="h-full bg-[#D7FF00] rounded-full" style={{ width: `${progressPercentage}%` }} />
               </View>
+
+              <Pressable
+                onPress={() => router.push('/(customer)/memberships' as any)}
+                className="flex-row items-center gap-1.5 active:opacity-70 mt-0.5"
+              >
+                <Text className="text-[#8E8E93] text-xs font-medium">
+                  {Platform.OS === 'ios' ? 'Membership Details' : 'Upgrade or Renew'}
+                </Text>
+                <ArrowRight size={12} color="#8E8E93" weight="bold" />
+              </Pressable>
             </>
           ) : (
             <View className="mb-1">
               <Text className="text-[#EF4444] text-xl font-semibold mb-1">Plan Expired</Text>
-              <Text className="text-[#8E8E93] text-xs font-medium mb-3">Renew your plan to continue your journey.</Text>
+              <Text className="text-[#8E8E93] text-xs font-medium mb-3">
+                {Platform.OS === 'ios' ? 'View membership details to continue your journey.' : 'Renew your plan to continue your journey.'}
+              </Text>
               {/* @ts-ignore */}
               <Pressable className="bg-[#D7FF00] py-2.5 px-5 rounded-xl self-start active:opacity-80"
                 onPress={() => router.push('/(customer)/memberships' as any)}
               >
-                <Text className="text-black text-xs font-semibold tracking-wide">RENEW PLAN</Text>
+                <Text className="text-black text-xs font-semibold tracking-wide">
+                  {Platform.OS === 'ios' ? 'MEMBERSHIP DETAILS' : 'RENEW PLAN'}
+                </Text>
               </Pressable>
             </View>
           )}

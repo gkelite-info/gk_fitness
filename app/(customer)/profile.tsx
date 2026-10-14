@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, ScrollView, Pressable, Image, ActivityIndicator, Modal, Alert } from 'react-native';
+import { View, ScrollView, Pressable, Image, ActivityIndicator, Modal, Alert, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -193,7 +193,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
           <MenuItem
             icon={<Star size={20} color="#D4FF00" />}
             title="Membership & Subscription"
-            subtitle="Manage your plan and billing"
+            subtitle={Platform.OS === 'ios' ? 'View membership status' : 'Manage your plan and billing'}
             onPress={() => router.push('/(customer)/memberships' as any)}
           />
           <MenuItem icon={<Bell size={20} color="#D4FF00" />} title="Notifications" subtitle="Manage your notification preferences" onPress={() => router.push('/(customer)/notifications/preferences' as any)} />

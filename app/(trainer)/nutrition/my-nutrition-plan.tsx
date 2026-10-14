@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, ScrollView, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
-import { CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight, GearIcon as Gear, SunIcon as Sun, CoffeeIcon as Coffee, MoonIcon as Moon, FireIcon as Fire, LeafIcon as Leaf, PencilSimpleIcon as PencilSimple, CheckIcon as Check } from 'phosphor-react-native';
+import { CaretLeft, CaretRight, Gear, Sun, Coffee, Moon, Fire, Leaf, PencilSimple, Check } from 'phosphor-react-native';
 import { useTrainerMealPlan } from '@/hooks/trainerMealPlans/useTrainerMealPlan';
 import { useQueryClient } from '@tanstack/react-query';
 import { saveTrainerMealPlanDayMeal } from '@/helpers/trainerMealPlans/mealPlanDayMeals';

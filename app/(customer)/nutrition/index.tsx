@@ -15,8 +15,8 @@ import {
   Calendar,
   Info,
   CaretRight,
-  FireIcon,
-  HeartStraightIcon
+  Fire,
+  HeartStraight
 } from 'phosphor-react-native';
 
 export default function NutritionAnalysis() {
@@ -62,7 +62,7 @@ export default function NutritionAnalysis() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-8 -mx-5 px-5">
           <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mr-3 w-[115px] items-center">
             <View className="w-10 h-10 rounded-xl bg-[#FF453A]/10 items-center justify-center mb-4">
-              <FireIcon size={20} color="#FF453A" weight="fill" />
+              <Fire size={20} color="#FF453A" weight="fill" />
             </View>
             <Text className="text-[#8E8E93] text-[10px] font-semibold tracking-widest mb-1">CALORIES</Text>
             <Text className="text-white text-2xl font-semibold mb-1">1,750</Text>
@@ -95,7 +95,7 @@ export default function NutritionAnalysis() {
 
           <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mr-8 w-[115px] items-center">
             <View className="w-10 h-10 rounded-xl bg-[#2E1C3D] items-center justify-center mb-4">
-              <HeartStraightIcon size={20} color="#A855F7" weight="fill" />
+              <HeartStraight size={20} color="#A855F7" weight="fill" />
             </View>
             <Text className="text-[#8E8E93] text-[10px] font-semibold tracking-widest mb-1">FAT</Text>
             <View className="flex-row items-baseline mb-1">

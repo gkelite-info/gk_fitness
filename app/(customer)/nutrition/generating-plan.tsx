@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, ScrollView } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
-import { CheckCircleIcon as CheckCircle, CircleIcon as PhosphorCircle, CookingPotIcon as CookingPot } from 'phosphor-react-native';
+import { CheckCircle, CircleIcon as PhosphorCircle, CookingPot } from 'phosphor-react-native';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { useUser } from '@/context/UserContext';
 import { generateAlgorithmicPlan } from '@/lib/mealEngine';

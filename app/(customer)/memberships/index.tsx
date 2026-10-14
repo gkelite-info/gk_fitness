@@ -1,9 +1,12 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, Platform } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Info, CheckCircle, Crown, Star, Diamond, CaretRight, XCircle } from 'phosphor-react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/UserContext';
 import { useGymCustomerMembershipPlans } from '@/hooks/gymCustomerMembershipPlans/useGymCustomerMembershipPlans';
 import { useMembershipPlans } from '@/hooks/membership/useMembershipPlans';
@@ -48,14 +51,108 @@ export default function MembershipsScreen() {
 
   const upgradeOptions = useMemo(() => {
     if (!gymPlans) return [];
-    return gymPlans;
-  }, [gymPlans]);
+    if (!currentPlan) return gymPlans;
+
+    return gymPlans.filter((plan) => {
+      const isSameId = currentPlan.planId && plan.id === currentPlan.planId;
+      const isSameName =
+        currentPlan.plan?.planName &&
+        plan.name &&
+        currentPlan.plan.planName.trim().toLowerCase() === plan.name.trim().toLowerCase();
+
+      return !isSameId && !isSameName;
+    });
+  }, [gymPlans, currentPlan]);
 
   const isExpired = currentPlan?.endDate ? new Date(currentPlan.endDate) < new Date() : false;
   const statusLabel = isExpired ? 'Expired' : (currentPlan?.is_Active ? 'Active' : 'Inactive');
   const statusColor = isExpired ? '#EF4444' : (currentPlan?.is_Active ? '#CCFF00' : '#8E8E93');
   const planName = currentPlan?.plan?.planName || 'Basic Membership';
   const planAmount = currentPlan?.customAmount ? `₹${currentPlan.customAmount}` : '₹0';
+
+  const openWebCheckout = async (targetPlanId?: string | null, targetPlanName?: string | null) => {
+    triggerMediumHaptic();
+    try {
+      let session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token || (session.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
+        const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
+        if (refreshData?.session) {
+          session = refreshData.session;
+        } else {
+          console.warn('[Memberships] Token refresh warning:', refreshErr?.message);
+        }
+      }
+
+      if (!session?.access_token) {
+        Alert.alert(
+          'Login Required',
+          'Your session has expired. Please log in again to continue.',
+          [
+            {
+              text: 'Log In',
+              onPress: () => router.replace('/auth/otp-auth' as any),
+            },
+          ]
+        );
+        return;
+      }
+
+      const webHost = process.env.EXPO_PUBLIC_WEBSITE_URL || 'https://www.gkgymlife.com';
+      const baseUrl = `${webHost}/api/auth/sso`;
+      const params = new URLSearchParams();
+
+      params.append('returnTo', '/customer');
+      if (Platform.OS !== 'ios') {
+        params.append('action', 'renew');
+        if (targetPlanId) params.append('planId', targetPlanId);
+        if (targetPlanName) params.append('planName', targetPlanName);
+      }
+      if (userId) params.append('userId', userId);
+      if (customerProfileData?.customerData?.customerId) {
+        params.append('customerId', customerProfileData.customerData.customerId);
+      }
+      const gymIdVal = customerProfileData?.customerData?.gymId || gymId;
+      if (gymIdVal) params.append('gymId', gymIdVal);
+
+      const emailVal = session.user?.email || customerProfileData?.customerData?.email;
+      const phoneVal = session.user?.phone || customerProfileData?.customerData?.phone;
+      if (emailVal) params.append('email', emailVal);
+      if (phoneVal) params.append('phone', phoneVal);
+
+      params.append('access_token', session.access_token);
+      if (session.refresh_token) {
+        params.append('refresh_token', session.refresh_token);
+      }
+
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      const targetUrl = `${baseUrl}${queryString}`;
+
+      await WebBrowser.openBrowserAsync(targetUrl, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        toolbarColor: '#0A0A0A',
+        controlsColor: '#CCFF00',
+      });
+    } catch (err) {
+      console.error('[Memberships] Error opening web browser:', err);
+      try {
+        const fallbackUrl = Platform.OS === 'ios'
+          ? 'https://www.gkgymlife.com/customer'
+          : 'https://www.gkgymlife.com/customer?action=renew';
+        await Linking.openURL(fallbackUrl);
+      } catch (linkErr) {
+        Alert.alert('Error', 'Unable to open browser. Please visit https://www.gkgymlife.com/customer');
+      }
+    }
+  };
+
+  const handleRenewCurrentPlan = () => {
+    openWebCheckout(currentPlan?.planId, planName);
+  };
+
+  const handleRenewPlan = (plan: any) => {
+    setSelectedPlanId(plan.id);
+    openWebCheckout(plan.id, plan.name);
+  };
 
   return (
     <View className="flex-1 bg-[#0A0A0A]">
@@ -78,7 +175,6 @@ export default function MembershipsScreen() {
           <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Physical Gym Notice Banner */}
         <View className="bg-[#1C1C1E] border border-[#CCFF00]/30 rounded-2xl p-4 mb-6 flex-row items-start">
           <Info size={22} color="#CCFF00" weight="fill" style={{ marginTop: 2, marginRight: 12 }} />
           <View className="flex-1">
@@ -96,37 +192,61 @@ export default function MembershipsScreen() {
             <ActivityIndicator size="small" color="#CCFF00" />
           </View>
         ) : (
-          <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-8 flex-row items-center border border-[#27272A]">
-            <View className="w-16 h-16 rounded-2xl bg-[#EAB308] items-center justify-center mr-4">
-              <Crown size={32} color="#FFF" weight="regular" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-white text-xl font-semibold mb-1">{planName}</Text>
-              {Platform.OS !== 'ios' && (
-                <View className="flex-row items-baseline mb-2">
-                  <Text className="text-white text-lg font-semibold">{planAmount}</Text>
-                  <Text className="text-[#9CA3AF] text-xs ml-1">/ Month (Paid Offline at Gym)</Text>
-                </View>
-              )}
-              <View className="flex-row items-center">
-                {statusLabel === 'Expired' || statusLabel === 'Inactive' ? (
-                  <XCircle size={14} color={statusColor} weight="fill" />
-                ) : (
-                  <CheckCircle size={14} color={statusColor} weight="fill" />
+          <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-8 border border-[#27272A]">
+            <View className="flex-row items-center">
+              <View className="w-16 h-16 rounded-2xl bg-[#EAB308] items-center justify-center mr-4">
+                <Crown size={32} color="#FFF" weight="regular" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-white text-xl font-semibold mb-1">{planName}</Text>
+                {Platform.OS !== 'ios' && (
+                  <View className="flex-row items-baseline mb-2">
+                    <Text className="text-white text-lg font-semibold">{planAmount}</Text>
+                    <Text className="text-[#9CA3AF] text-xs ml-1">/ Month</Text>
+                  </View>
                 )}
-                <Text style={{ color: statusColor }} className="text-[11px] font-medium ml-1.5">{statusLabel}</Text>
+                <View className="flex-row items-center">
+                  {statusLabel === 'Expired' || statusLabel === 'Inactive' ? (
+                    <XCircle size={14} color={statusColor} weight="fill" />
+                  ) : (
+                    <CheckCircle size={14} color={statusColor} weight="fill" />
+                  )}
+                  <Text style={{ color: statusColor }} className="text-[11px] font-medium ml-1.5">{statusLabel}</Text>
+                </View>
               </View>
             </View>
+
+            <Pressable
+              className="bg-[#CCFF00] py-3.5 px-5 rounded-2xl flex-row items-center justify-center mt-4 active:opacity-80"
+              onPress={() => handleRenewCurrentPlan()}
+            >
+              <Text className="text-black text-sm font-semibold tracking-wide mr-1 uppercase">
+                {Platform.OS === 'ios' ? 'MEMBERSHIP DETAILS' : 'RENEW PLAN'}
+              </Text>
+              <CaretRight size={16} color="#000000" weight="bold" />
+            </Pressable>
+
+            {Platform.OS === 'ios' && (
+              <Text className="text-[#9CA3AF] text-[11px] text-center mt-2.5">
+                View your membership details and account profile securely on our web portal.
+              </Text>
+            )}
           </View>
         )}
 
         {Platform.OS !== 'ios' && (
           <>
-            <Text className="text-[#9CA3AF] text-[10px] font-semibold tracking-widest mb-3 uppercase">AVAILABLE GYM PLANS</Text>
+            <Text className="text-[#9CA3AF] text-[10px] font-semibold tracking-widest mb-3 uppercase">OTHER AVAILABLE PLANS</Text>
 
             {isGymPlansLoading ? (
               <View className="py-8 items-center justify-center">
                 <ActivityIndicator size="large" color="#CCFF00" />
+              </View>
+            ) : upgradeOptions.length === 0 ? (
+              <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-8 border border-[#27272A] items-center">
+                <Text className="text-[#9CA3AF] text-xs text-center">
+                  No other gym plans are currently available. You can renew your current plan above.
+                </Text>
               </View>
             ) : (
               upgradeOptions.map((plan, index) => {
@@ -173,11 +293,15 @@ export default function MembershipsScreen() {
                       ))}
                     </View>
 
-                    <View className="bg-[#27272A]/60 rounded-xl p-3 border border-[#3F3F46]">
-                      <Text className="text-[#9CA3AF] text-xs text-center">
-                        Renew or upgrade this plan directly at your gym desk.
+                    <Pressable
+                      className="bg-[#CCFF00] py-3.5 rounded-2xl flex-row items-center justify-center active:opacity-80"
+                      onPress={() => handleRenewPlan(plan)}
+                    >
+                      <Text className="text-black text-sm font-semibold tracking-wide mr-1 uppercase">
+                        RENEW PLAN
                       </Text>
-                    </View>
+                      <CaretRight size={16} color="#000000" weight="bold" />
+                    </Pressable>
                   </Pressable>
                 );
               })

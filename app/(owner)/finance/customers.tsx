@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Pressable, Image, TextInput, FlatList, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeft, CaretDown, Users, MagnifyingGlass, CaretRight, ArrowsClockwise, User } from 'phosphor-react-native';
 
 import { useUser } from '@/context/UserContext';
@@ -103,6 +104,7 @@ function CustomerRow({ user }: { user: CustomerMembershipPlan }) {
 
 export default function CustomersScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { userId } = useUser();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -252,7 +254,10 @@ export default function CustomersScreen() {
 
   return (
     <View className="flex-1 bg-[#09090B]">
-      <View className="flex-row items-center px-5 py-4 border-b border-[#27272A]">
+      <View
+        className="flex-row items-center px-5 pb-4 border-b border-[#27272A]"
+        style={{ paddingTop: Math.max(insets.top, 14) }}
+      >
         <Pressable onPress={() => router.back()} className="mr-4">
           <CaretLeft size={24} color="#FFFFFF" />
         </Pressable>

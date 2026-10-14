@@ -31,6 +31,7 @@ import {
   QrCode,
   Fingerprint,
   PhoneCall,
+  CheckSquare,
 } from 'phosphor-react-native';
 import { triggerMediumHaptic } from '@/lib/haptics';
 
@@ -47,6 +48,7 @@ const QUICK_ACTIONS = [
   { id: 'membership-expiry', icon: CalendarCheck, label: 'Renewals' },
   { id: 'record-payment', icon: Wallet, label: 'Record Payment' },
   { id: 'manage-inventory', icon: Package, label: 'Manage Inventory' },
+  { id: 'manual-attendance', icon: CheckSquare, label: 'Manual Attendance' },
   { id: 'create-announcement', icon: Megaphone, label: 'Announcements' },
   { id: 'manage-biometric', icon: Fingerprint, label: 'Biometric' },
 ];
@@ -396,6 +398,8 @@ export default function OwnerDashboardScreen() {
                   router.push('/(owner)/dashboard/renewals');
                 } else if (action.id === 'manage-inventory') {
                   router.push('/(owner)/dashboard/manage-inventory');
+                } else if (action.id === 'manual-attendance') {
+                  router.push('/(owner)/dashboard/manual-attendance' as any);
                 } else if (action.id === 'record-payment') {
                   router.push('/(owner)/dashboard/payments' as any);
                 } else if (action.id === 'create-announcement') {

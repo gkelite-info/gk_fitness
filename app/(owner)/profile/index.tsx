@@ -30,7 +30,8 @@ import {
   Crown,
   UserCircle,
   Bank,
-  QrCode
+  QrCode,
+  LockKey
 } from 'phosphor-react-native';
 
 const MenuItem = ({ icon, title, subtitle, onPress, isDanger = false }: any) => (
@@ -299,10 +300,16 @@ export default function OwnerProfileScreen() {
             onPress={() => router.push('/(owner)/profile/member-app-access' as any)}
           />
           <MenuItem
+            icon={<LockKey size={18} color="#C4EF00" weight="bold" />}
+            title="Change Password"
+            subtitle="Update your account password securely"
+            onPress={() => router.push('/(owner)/profile/change-password' as any)}
+          />
+          <MenuItem
             icon={<ShieldCheck size={18} color="#C4EF00" />}
             title="Privacy & Security"
             subtitle="Change password and security settings"
-            onPress={() => { }}
+            onPress={() => router.push('/(owner)/profile/change-password' as any)}
           />
           <MenuItem
             icon={<Question size={18} color="#C4EF00" />}

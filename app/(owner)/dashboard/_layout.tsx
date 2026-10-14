@@ -12,6 +12,7 @@ export default function DashboardLayout() {
       <Stack.Screen name="payments" />
       <Stack.Screen name="renewals" />
       <Stack.Screen name="alerts" />
+      <Stack.Screen name="manual-attendance" />
     </Stack>
   );
 }

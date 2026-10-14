@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Pressable, Animated, Image, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
 import QRCode from 'react-native-qrcode-svg';
 import { ArrowLeft, Clock } from 'phosphor-react-native';
@@ -10,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { fetchGymById } from '@/helpers/gym/gymHelper';
 
 export default function GymQRKioskScreen() {
+  const insets = useSafeAreaInsets();
   const { gymId } = useUser();
   const [activeTab, setActiveTab] = useState<'dynamic' | 'static'>('dynamic');
   
@@ -83,7 +85,7 @@ export default function GymQRKioskScreen() {
   }
 
   return (
-    <View className="flex-1 bg-black pt-5 pb-28">
+    <View className="flex-1 bg-black pb-28" style={{ paddingTop: Math.max(insets.top, 14) + 4 }}>
       <View className="px-6 flex-row items-center justify-between mb-2">
         <Pressable
           onPress={() => {

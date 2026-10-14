@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { View, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CaretLeft,
   Users,
@@ -14,6 +15,7 @@ import { CustomerRegistrationForm } from '@/components/forms/CustomerRegistratio
 import { TrainerRegistrationForm } from '@/components/forms/TrainerRegistrationForm';
 
 export default function AddTrainerScreen() {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('trainers');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitFnRef = useRef<(() => void) | null>(null);
@@ -31,7 +33,7 @@ export default function AddTrainerScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] pt-12">
+    <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: Math.max(insets.top, 14) + 6 }}>
       <View className="flex-row items-center px-5 mb-6">
         <Pressable
           onPress={() => router.back()}

@@ -145,7 +145,10 @@ export default function RevenueScreen() {
 
   return (
     <View className="flex-1 bg-[#09090B]">
-      <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#27272A]">
+      <View
+        className="flex-row items-center justify-between px-5 pb-4 border-b border-[#27272A]"
+        style={{ paddingTop: Math.max(insets.top, 14) }}
+      >
         <View className="flex-row items-center">
           <Pressable onPress={() => router.back()} className="mr-4">
             <CaretLeft size={24} color="#FFFFFF" />

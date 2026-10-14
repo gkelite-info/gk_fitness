@@ -241,14 +241,58 @@ export async function markAttendance(qrString: string, customerId: string) {
 }
 
 export async function fetchCustomerAttendance(customerId: string) {
-  const { data, error } = await supabase
-    .from('gym_attendance')
-    .select('*')
-    .eq('customerId', customerId)
-    .order('markedAt', { ascending: false });
+  try {
+    const [attendanceRes, biometricRes] = await Promise.all([
+      supabase
+        .from('gym_attendance')
+        .select('*')
+        .eq('customerId', customerId)
+        .order('markedAt', { ascending: false }),
+      supabase
+        .from('gym_biometric_attendance_logs')
+        .select('*')
+        .eq('customerId', customerId)
+        .is('deletedAt', null)
+        .order('scanTimestamp', { ascending: false })
+    ]);
 
-  if (error) throw error;
-  return data || [];
+    const manualLogs = (attendanceRes.data || []).map((item: any) => ({
+      ...item,
+      date: item.date || (item.markedAt ? item.markedAt.slice(0, 10) : ''),
+      source: 'qr_or_manual',
+    }));
+
+    const biometricLogs = (biometricRes.data || [])
+      .filter((item: any) => item.processedStatus !== 'Rejected')
+      .map((item: any) => ({
+        attendanceId: item.logId,
+        customerId: item.customerId,
+        gymId: item.gymId,
+        date: item.scanTimestamp ? item.scanTimestamp.slice(0, 10) : '',
+        markedAt: item.scanTimestamp,
+        source: 'biometric',
+        authMethod: item.authMethod,
+        logType: item.logType,
+        raw: item,
+      }));
+
+    const combined = [...manualLogs, ...biometricLogs].sort((a, b) => {
+      const timeA = new Date(a.markedAt || a.date).getTime();
+      const timeB = new Date(b.markedAt || b.date).getTime();
+      return timeB - timeA;
+    });
+
+    return combined;
+  } catch (error) {
+    console.error('[attendanceHelper] fetchCustomerAttendance error:', error);
+    const { data, error: err } = await supabase
+      .from('gym_attendance')
+      .select('*')
+      .eq('customerId', customerId)
+      .order('markedAt', { ascending: false });
+    if (err) throw err;
+    return data || [];
+  }
 }
 
 export async function fetchGymAttendanceToday(gymId: string, date?: string) {

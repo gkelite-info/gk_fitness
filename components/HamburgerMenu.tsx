@@ -82,7 +82,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
   const { name, email, role, profilePhoto, gymId: contextGymId, userId } = useUser();
 
   const normalizedRole = (role || 'customer').trim().toLowerCase().replace(/[\s_-]/g, '');
-  const isGlobalOrSuperAdmin = ['superadmin', 'globaltrainer', 'globalcustomer'].includes(normalizedRole);
+  const isGlobalOrSuperAdmin = ['superadmin', 'globaltrainer', 'individual'].includes(normalizedRole);
 
   const { data: resolvedGymId } = useQuery({
     queryKey: ['hamburgerGymId', normalizedRole, userId, email, contextGymId],
@@ -417,7 +417,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
     if (normalizedRole === 'trainer') return 'Trainer Portal';
     if (normalizedRole === 'superadmin') return 'SuperAdmin Portal';
     if (normalizedRole === 'globaltrainer') return 'Global Trainer Portal';
-    if (normalizedRole === 'globalcustomer') return 'Global Customer Portal';
+    if (normalizedRole === 'individual') return 'Global Customer Portal';
     return 'Customer Portal';
   };
 

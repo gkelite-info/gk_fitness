@@ -238,7 +238,7 @@ export async function fetchUserAndRoleProfile(
         }
         case 'superadmin':
         case 'globaltrainer':
-        case 'globalcustomer':
+        case 'individual':
         default:
           // Global/superadmin roles do not have a gymId
           break;

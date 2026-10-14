@@ -131,15 +131,20 @@ export default function CustomerHome() {
     }
   }, [userId]);
 
+  const today = getLocalDateString(new Date());
+  const { steps, calories, syncSteps } = usePedometer();
+  const { data: stats, refetch: refetchStats } = useFitnessStats(userId, today);
+
+  const displaySteps = Math.max(steps, stats?.steps || 0);
+  const displayCalories = Math.max(calories, stats?.calories || 0, Math.round(displaySteps * 0.04));
+
   useFocusEffect(
     React.useCallback(() => {
       fetchMembershipInfo();
-    }, [fetchMembershipInfo])
+      refetchStats();
+      refetchWeeklyStats();
+    }, [fetchMembershipInfo, refetchStats, refetchWeeklyStats])
   );
-
-  const today = getLocalDateString(new Date());
-  const { steps, calories } = usePedometer();
-  const { data: stats, refetch: refetchStats } = useFitnessStats(userId, today);
 
   const onRefresh = React.useCallback(async () => {
     triggerMediumHaptic();
@@ -152,13 +157,14 @@ export default function CustomerHome() {
         refetchStats(),
         fetchMembershipInfo(),
         refetchWeeklyStats(),
+        syncSteps?.(),
       ]);
     } catch (error) {
       console.error('[Customer Home] Refresh error:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchCustomerDash, refetchTrainerDash, refetchOnboarding, refetchStats, fetchMembershipInfo, refetchWeeklyStats]);
+  }, [refetchCustomerDash, refetchTrainerDash, refetchOnboarding, refetchStats, fetchMembershipInfo, refetchWeeklyStats, syncSteps]);
 
   const waterGoal = stats?.waterGoalML || 2500;
   const waterTotal = stats?.totalWaterML || 0;
@@ -363,12 +369,12 @@ export default function CustomerHome() {
           <View className="w-8 h-8 rounded-full bg-[#FF453A]/10 items-center justify-center mb-2">
             <Flame size={20} color="#FF453A" weight="fill" />
           </View>
-          <Text className="text-white text-3xl font-semibold mt-1">{calories}</Text>
+          <Text className="text-white text-3xl font-semibold mt-1">{displayCalories}</Text>
           <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
             CALORIES KCAL
           </Text>
           <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
-            <View className="h-full bg-[#FF453A] rounded-full" style={{ width: `${Math.min((calories / 500) * 100, 100)}%` }} />
+            <View className="h-full bg-[#FF453A] rounded-full" style={{ width: `${Math.min((displayCalories / 500) * 100, 100)}%` }} />
           </View>
         </Pressable>
 
@@ -376,12 +382,12 @@ export default function CustomerHome() {
           <View className="w-8 h-8 rounded-full bg-[#C3F400]/10 items-center justify-center mb-2">
             <Footprints size={20} color="#C3F400" weight="fill" />
           </View>
-          <Text className="text-white text-3xl font-semibold mt-1">{steps.toLocaleString()}</Text>
+          <Text className="text-white text-3xl font-semibold mt-1">{displaySteps.toLocaleString()}</Text>
           <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
             STEPS
           </Text>
           <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
-            <View className="h-full bg-[#C3F400] rounded-full" style={{ width: `${Math.min((steps / 10000) * 100, 100)}%` }} />
+            <View className="h-full bg-[#C3F400] rounded-full" style={{ width: `${Math.min((displaySteps / 10000) * 100, 100)}%` }} />
           </View>
         </Pressable>
 

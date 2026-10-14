@@ -9,7 +9,7 @@ import { useRealtimeAnnouncements } from '@/hooks/gymAnnouncements/useRealtimeAn
 import { useBirthdayAnnouncements } from '@/hooks/gymAnnouncements/useBirthdayAnnouncements';
 import { useNotifications } from '@/hooks/notifications/useNotifications';
 import { AnnouncementsModal } from '@/components/AnnouncementsModal';
-import { BellRingingIcon, UsersThree, CaretLeft, List } from 'phosphor-react-native';
+import { BellRinging as BellRingingIcon, UsersThree, CaretLeft, List } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { Image } from 'react-native';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
@@ -39,8 +39,48 @@ export function Navbar() {
   const showBadge = combinedHasNew || unreadCount > 0;
   const combinedLoading = loading || isLoadingBirthday;
 
-  const isProfilePage = pathname === '/community/profile' ? false : pathname.includes('/profile');
-  if (isProfilePage) {
+  // Helper to determine if current path is a sub-screen / internal page that has its own back header
+  const isSubOrInternalScreen = (currentPath: string): boolean => {
+    // Strip route groups like /(owner), /(customer), etc.
+    const normalized = (currentPath || '').replace(/\/\([^)]+\)/g, '') || '/';
+
+    // Standalone profile pages (except community root)
+    if (normalized.includes('/profile') && normalized !== '/community/profile') {
+      return true;
+    }
+
+    // Owner Dashboard sub-screens (e.g. /dashboard/manual-attendance, /dashboard/renewals, etc.)
+    if (normalized.startsWith('/dashboard/') && normalized !== '/dashboard' && normalized !== '/dashboard/') {
+      return true;
+    }
+
+    // Owner Users sub-screens (e.g. /users/[id], /users/123/personal-details, etc.)
+    if (normalized.startsWith('/users/') && normalized !== '/users' && normalized !== '/users/') {
+      return true;
+    }
+
+    // Owner Finance sub-screens (e.g. /finance/expenditure, /finance/revenue, etc.)
+    if (normalized.startsWith('/finance/') && normalized !== '/finance' && normalized !== '/finance/') {
+      return true;
+    }
+
+    // Standalone or hidden tabs in Owner
+    const standaloneScreens = [
+      '/change-password',
+      '/announcements',
+      '/analytics',
+      '/trainers',
+      '/membership',
+      '/payment-details',
+    ];
+    if (standaloneScreens.some((prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`))) {
+      return true;
+    }
+
+    return false;
+  };
+
+  if (isSubOrInternalScreen(pathname)) {
     return null;
   }
 

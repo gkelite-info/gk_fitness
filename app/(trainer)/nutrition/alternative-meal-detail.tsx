@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, ScrollView, Pressable, ImageBackground, ActivityIndicator, Modal } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeftIcon as ArrowLeft, StarIcon as Star, CaretDownIcon as CaretDown, CheckIcon as Check } from 'phosphor-react-native';
+import { ArrowLeft, Star, CaretDown, Check } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
 import { fetchGlobalMeals, fetchMealIngredients } from '@/helpers/globalMeals/globalMeals';
 import { saveMealPlanDayMeal } from '@/helpers/customerMealPlans/mealPlanDayMeals';

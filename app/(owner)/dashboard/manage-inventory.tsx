@@ -16,11 +16,13 @@ import {
 import { useState, useCallback } from 'react';
 import { ActivityIndicator } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
 import { useOwnerGymId } from '@/hooks/auth/useOwnerGymId';
 import { useGymInventoryList } from '@/hooks/inventory/useGymInventory';
 
 export default function ManageInventoryScreen() {
+  const insets = useSafeAreaInsets();
   const { userId } = useUser();
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -65,7 +67,10 @@ export default function ManageInventoryScreen() {
 
   return (
     <View className="flex-1 bg-[#0A0A0A]">
-      <View className="px-5 pt-6 pb-4 flex-row items-center border-b border-[#161616]">
+      <View
+        className="px-5 pb-4 flex-row items-center border-b border-[#161616]"
+        style={{ paddingTop: Math.max(insets.top, 14) }}
+      >
         <Pressable
           onPress={() => router.back()}
           className="w-10 h-10 rounded-full bg-[#161616] items-center justify-center mr-4 active:opacity-70"

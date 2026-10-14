@@ -132,7 +132,13 @@ export default function ChangePasswordScreen() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          padding: 20,
+          paddingBottom: Math.max(insets.bottom, 20) + 120,
+        }}
+      >
         
         {/* Form Inputs */}
         <View className="bg-[#1A1A1A] border border-[#27272A] rounded-3xl p-2 mb-6">
@@ -206,20 +212,20 @@ export default function ChangePasswordScreen() {
             
             <View className="gap-2.5">
               <View className="flex-row items-center">
-                <View className={`w-1.5 h-1.5 rounded-full mr-3 ${hasMinLength ? 'bg-[#D4FF00]' : 'bg-[#D4FF00]'}`} />
-                <Text className="text-[#E4E4E7] text-sm">Minimum 8 characters</Text>
+                <View className={`w-1.5 h-1.5 rounded-full mr-3 ${hasMinLength ? 'bg-[#D4FF00]' : 'bg-[#3F3F46]'}`} />
+                <Text className={`text-sm ${hasMinLength ? 'text-[#E4E4E7]' : 'text-[#71717A]'}`}>Minimum 8 characters</Text>
               </View>
               <View className="flex-row items-center">
-                <View className={`w-1.5 h-1.5 rounded-full mr-3 ${hasUppercase ? 'bg-[#D4FF00]' : 'bg-[#D4FF00]'}`} />
-                <Text className="text-[#E4E4E7] text-sm">At least 1 uppercase letter</Text>
+                <View className={`w-1.5 h-1.5 rounded-full mr-3 ${hasUppercase ? 'bg-[#D4FF00]' : 'bg-[#3F3F46]'}`} />
+                <Text className={`text-sm ${hasUppercase ? 'text-[#E4E4E7]' : 'text-[#71717A]'}`}>At least 1 uppercase letter</Text>
               </View>
               <View className="flex-row items-center">
-                <View className={`w-1.5 h-1.5 rounded-full mr-3 ${hasNumber ? 'bg-[#D4FF00]' : 'bg-[#D4FF00]'}`} />
-                <Text className="text-[#E4E4E7] text-sm">At least 1 number</Text>
+                <View className={`w-1.5 h-1.5 rounded-full mr-3 ${hasNumber ? 'bg-[#D4FF00]' : 'bg-[#3F3F46]'}`} />
+                <Text className={`text-sm ${hasNumber ? 'text-[#E4E4E7]' : 'text-[#71717A]'}`}>At least 1 number</Text>
               </View>
               <View className="flex-row items-center">
-                <View className={`w-1.5 h-1.5 rounded-full mr-3 ${hasSpecial ? 'bg-[#D4FF00]' : 'bg-[#D4FF00]'}`} />
-                <Text className="text-[#E4E4E7] text-sm">At least 1 special character</Text>
+                <View className={`w-1.5 h-1.5 rounded-full mr-3 ${hasSpecial ? 'bg-[#D4FF00]' : 'bg-[#3F3F46]'}`} />
+                <Text className={`text-sm ${hasSpecial ? 'text-[#E4E4E7]' : 'text-[#71717A]'}`}>At least 1 special character</Text>
               </View>
             </View>
           </View>

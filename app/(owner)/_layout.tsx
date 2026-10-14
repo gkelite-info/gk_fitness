@@ -53,38 +53,37 @@ export default function OwnerLayout() {
         name="analytics"
         options={{
           href: null,
+          headerShown: false,
         }}
       />
       <Tabs.Screen
         name="announcements"
         options={{
           href: null,
+          headerShown: false,
         }}
       />
       <Tabs.Screen
         name="trainers"
         options={{
           href: null,
+          headerShown: false,
         }}
       />
       <Tabs.Screen
         name="payment-details"
         options={{
           href: null,
+          headerShown: false,
         }}
       />
       <Tabs.Screen
-        name="payment-details/add-payment-method"
+        name="change-password"
         options={{
           href: null,
+          headerShown: false,
         }}
       />
-      <Tabs.Screen
-        name="payment-details/payment-verification"
-        options={{
-          href: null,
-        }}
-      />
-      </Tabs>
+    </Tabs>
   );
 }

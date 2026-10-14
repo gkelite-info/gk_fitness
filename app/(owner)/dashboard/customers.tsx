@@ -13,11 +13,13 @@ import {
   CalendarBlank,
   CaretRight,
   Briefcase,
-  CaretDown
+  CaretDown,
+  ArrowLeft
 } from 'phosphor-react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, usePathname } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardDismissView } from '@/components/KeyboardDismissView';
-import { triggerMediumHaptic, triggerSelectionHaptic } from '@/lib/haptics';
+import { triggerMediumHaptic, triggerSelectionHaptic, triggerLightHaptic } from '@/lib/haptics';
 import { AnimatedTabs } from '@/components/AnimatedTabs';
 import { useUser } from '@/context/UserContext';
 import { getOwnerGymId } from '@/helpers/trainers/trainerHelper';
@@ -86,6 +88,8 @@ const ShimmerCard = () => {
 };
 
 export default function CustomersScreen() {
+  const pathname = usePathname();
+  const insets = useSafeAreaInsets();
   const { userId } = useUser();
   const [activeTab, setActiveTab] = useState<'customers' | 'trainers'>('customers');
   const [filter, setFilter] = useState<'all' | 'active' | 'expired'>('all');
@@ -148,8 +152,24 @@ export default function CustomersScreen() {
     setRefreshing(false);
   };
 
+  const isDashboardSubScreen = pathname.includes('/dashboard/customers');
+
   const renderHeader = () => (
     <View>
+      {isDashboardSubScreen && (
+        <View
+          className="flex-row items-center mb-4"
+          style={{ paddingTop: Math.max(insets.top, 14) }}
+        >
+          <Pressable
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-full bg-[#161616] border border-[#242424] items-center justify-center mr-3 active:opacity-70"
+          >
+            <ArrowLeft size={20} color="#FFFFFF" weight="bold" />
+          </Pressable>
+          <Text className="text-xl font-bold text-white tracking-tight">Members & Trainers</Text>
+        </View>
+      )}
       <AnimatedTabs
         tabs={[
           { id: 'customers', label: 'Customers', icon: Users },
@@ -297,8 +317,18 @@ export default function CustomersScreen() {
     const joinedDate = item.dateOfJoining || item.createdAt;
     const formattedJoinedDate = joinedDate ? new Date(joinedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
 
+    const handleItemPress = () => {
+      triggerLightHaptic();
+      if (activeTab === 'customers' && item.customerId) {
+        router.push(`/(owner)/users/${item.customerId}` as any);
+      }
+    };
+
     return (
-      <View className="bg-[#161616] border border-[#242424] rounded-2xl p-4 mb-4">
+      <Pressable
+        onPress={handleItemPress}
+        className="bg-[#161616] border border-[#242424] rounded-2xl p-4 mb-4 active:opacity-80 active:border-[#CCF200]/40"
+      >
         <View className="flex-row justify-between items-start mb-4">
           <View className="flex-row">
             <View className="relative">
@@ -351,7 +381,7 @@ export default function CustomersScreen() {
             <Text className="text-[#D1D5DB] ml-3 text-sm">Joined {formattedJoinedDate}</Text>
           </View>
         </View>
-      </View>
+      </Pressable>
     );
   };
 

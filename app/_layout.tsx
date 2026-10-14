@@ -26,6 +26,7 @@ import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { UserProvider } from '@/context/UserContext';
 import { ToastProvider } from '@/components/ToastProvider';
+import { setupNotificationChannels } from '@/lib/services/notificationService';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -46,12 +47,16 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (error) throw error;
+    if (error) {
+      console.error('🔥 [Font Loading Error]:', error);
+      SplashScreen.hideAsync().catch(() => {});
+    }
   }, [error]);
 
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      setupNotificationChannels().catch(() => {});
     }
   }, [loaded]);
 

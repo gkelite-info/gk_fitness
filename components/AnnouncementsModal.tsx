@@ -126,7 +126,7 @@ export function AnnouncementsModal({ visible, onClose, announcements, isLoading 
                   triggerLightHaptic();
                   setActiveTab('notifications');
                 }}
-                className={`pb-2.5 border-b-2 flex-row items-center gap-x-2 ${activeTab === 'notifications' ? 'border-[#D4FF00]' : 'border-transparent'}`}
+                className={`h-9 justify-center border-b-2 flex-row items-center gap-x-2 ${activeTab === 'notifications' ? 'border-[#D4FF00]' : 'border-transparent'}`}
               >
                 <Text className={`text-lg font-bold ${activeTab === 'notifications' ? 'text-white' : 'text-[#71717A]'}`}>
                   Notifications
@@ -143,7 +143,7 @@ export function AnnouncementsModal({ visible, onClose, announcements, isLoading 
                   triggerLightHaptic();
                   setActiveTab('announcements');
                 }}
-                className={`pb-2.5 border-b-2 flex-row items-center gap-x-2 ${activeTab === 'announcements' ? 'border-[#D4FF00]' : 'border-transparent'}`}
+                className={`h-9 justify-center border-b-2 flex-row items-center gap-x-2 ${activeTab === 'announcements' ? 'border-[#D4FF00]' : 'border-transparent'}`}
               >
                 <Text className={`text-lg font-bold ${activeTab === 'announcements' ? 'text-white' : 'text-[#71717A]'}`}>
                   Announcements

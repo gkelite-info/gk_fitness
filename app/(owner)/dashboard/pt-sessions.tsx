@@ -267,7 +267,10 @@ export default function PTSessionsScreen() {
   return (
     <View className="flex-1 bg-[#09090B]">
       <StatusBar style="light" />
-      <View className="flex-row items-center justify-between px-5 pt-4 pb-4">
+      <View
+        className="flex-row items-center justify-between px-5 pb-4"
+        style={{ paddingTop: Math.max(insets.top, 14) }}
+      >
         <View className="flex-row items-center flex-1">
           <Pressable
             onPress={() => router.back()}

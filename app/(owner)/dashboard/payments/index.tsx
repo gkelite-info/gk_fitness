@@ -52,6 +52,7 @@ const PaymentMethodBadge = ({ method }: { method: string }) => {
 };
 
 export default function PaymentsListScreen() {
+  const insets = useSafeAreaInsets();
   const { userId } = useUser();
   const [activeTab, setActiveTab] = useState<'All' | 'Today' | 'This Month'>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -236,7 +237,10 @@ export default function PaymentsListScreen() {
 
   return (
     <View className="flex-1 bg-[#09090B]">
-      <View className="flex-row items-center justify-between px-5 pt-4 pb-4">
+      <View
+        className="flex-row items-center justify-between px-5 pb-4"
+        style={{ paddingTop: Math.max(insets.top, 14) }}
+      >
         <View className="flex-row items-center gap-3">
           <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 bg-[#1A1A1A] rounded-full items-center justify-center active:opacity-70">
             <CaretLeft size={20} color="#FFFFFF" weight="bold" />

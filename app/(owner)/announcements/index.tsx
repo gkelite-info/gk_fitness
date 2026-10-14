@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, ActivityIndicator, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
-import { CaretLeft, MagnifyingGlass, Megaphone, Plus, X, Faders, CalendarIcon } from 'phosphor-react-native';
+import {  CaretLeft, MagnifyingGlass, Megaphone, Plus, X, Faders , Calendar } from 'phosphor-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useUser } from '@/context/UserContext';
 import { useGymAnnouncements, useSaveGymAnnouncement } from '@/hooks/gymAnnouncements/useGymAnnouncements';
@@ -134,7 +134,7 @@ export default function AnnouncementsScreen() {
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={() => setShowDatePicker(true)} className="w-10 h-10 bg-[#1A1A1A] rounded-lg items-center justify-center">
-            <CalendarIcon size={18} color={selectedDate ? "#CCF200" : "#888888"} weight="fill" />
+            <Calendar size={18} color={selectedDate ? "#CCF200" : "#888888"} weight="fill" />
           </TouchableOpacity>
         </View>
       </View>

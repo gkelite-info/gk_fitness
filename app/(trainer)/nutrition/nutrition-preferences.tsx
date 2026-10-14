@@ -2,7 +2,7 @@ import React from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
-import { CaretLeftIcon as CaretLeft, UserIcon as User, TargetIcon as Target, LeafIcon as Leaf, ForkKnifeIcon as ForkKnife, FlameIcon as Flame, GlobeIcon as Globe, BellIcon as Bell, ProhibitIcon as Prohibit, PintGlassIcon as Glass, MagicWandIcon as MagicWand, LockIcon as Lock, CaretRightIcon as CaretRight } from 'phosphor-react-native';
+import { CaretLeft, User, Target, Leaf, ForkKnife, Flame, Globe, Bell, Prohibit, PintGlass as Glass, MagicWand, Lock, CaretRight } from 'phosphor-react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useCustomerMealPlan } from '@/hooks/customerMealPlans/useCustomerMealPlan';
 import { useQuery, useQueryClient } from '@tanstack/react-query';

@@ -197,7 +197,10 @@ export default function EnquiriesScreen() {
 
   return (
     <View className="flex-1 bg-[#0A0A0A]">
-      <View className="flex-row items-center justify-between px-4 pt-6 pb-4 bg-[#0A0A0A] border-b border-[#1F293D]">
+      <View
+        className="flex-row items-center justify-between px-4 pb-4 bg-[#0A0A0A] border-b border-[#1F293D]"
+        style={{ paddingTop: Math.max(insets.top, 14) }}
+      >
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-start justify-center">
           <CaretLeft size={24} color="#FFFFFF" />
         </Pressable>

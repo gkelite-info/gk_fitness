@@ -14,7 +14,7 @@ import {
   ChartBar,
   CaretRight,
   PlusCircle,
-  CurrencyInrIcon
+  CurrencyInr
 } from 'phosphor-react-native';
 
 export default function PaymentSettingsScreen() {
@@ -113,7 +113,7 @@ export default function PaymentSettingsScreen() {
 
         <View className="bg-[#161616] rounded-2xl p-5 border border-[#1F1F22] mb-4 flex-row items-center">
           <View className="w-14 h-14 rounded-xl bg-[#1E2015] items-center justify-center mr-4">
-            <CurrencyInrIcon size={22} color='#C4EF00' />
+            <CurrencyInr size={22} color='#C4EF00' />
           </View>
           <View className="flex-1">
             <View className="flex-row items-center justify-between mb-1">

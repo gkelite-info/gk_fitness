@@ -17,6 +17,7 @@ const PaymentMethodBadge = ({ method }: { method: string }) => {
 };
 
 export default function PaymentDetailsScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userId } = useUser();
   const { data: payments = [], isLoading } = useGymPayments(userId);
@@ -71,7 +72,10 @@ export default function PaymentDetailsScreen() {
   return (
     <View className="flex-1 bg-[#09090B]">
       {/* Header */}
-      <View className="flex-row items-center gap-3 px-5 pt-4 pb-4">
+      <View
+        className="flex-row items-center gap-3 px-5 pb-4"
+        style={{ paddingTop: Math.max(insets.top, 14) }}
+      >
         <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 bg-[#1A1A1A] rounded-full items-center justify-center active:opacity-70">
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
         </TouchableOpacity>

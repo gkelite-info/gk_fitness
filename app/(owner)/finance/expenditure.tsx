@@ -11,6 +11,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Plus,
   MagnifyingGlass,
@@ -78,6 +79,7 @@ const DATE_FILTER_OPTIONS = [
 
 export default function ExpenditureScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { userId, gymId } = useUser();
 
   // Queries
@@ -349,7 +351,10 @@ export default function ExpenditureScreen() {
   return (
     <View className="flex-1 bg-[#0A0D14]">
       {/* 1. TOP HEADER (Back button, Title, Subtitle, and Add Expense button) */}
-      <View className="flex-row items-center justify-between px-5 py-3.5 border-b border-[#1A232C]/60 bg-[#0A0D14]">
+      <View
+        className="flex-row items-center justify-between px-5 pb-3.5 border-b border-[#1A232C]/60 bg-[#0A0D14]"
+        style={{ paddingTop: Math.max(insets.top, 14) }}
+      >
         <View className="flex-row items-center gap-3 flex-1 mr-3">
           <Pressable
             onPress={() => {

@@ -136,6 +136,22 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
+          name="attendance"
+          options={{
+            href: null,
+            headerShown: false,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
+          name="explore-gyms"
+          options={{
+            href: null,
+            headerShown: false,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
           name="delete-account"
           options={{
             href: null,

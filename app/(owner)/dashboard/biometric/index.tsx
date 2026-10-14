@@ -2,20 +2,25 @@ import React, { useState } from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeft, Fingerprint, Users, Clock } from 'phosphor-react-native';
-import DevicesTab from './components/DevicesTab';
-import CredentialsTab from './components/CredentialsTab';
-import LogsTab from './components/LogsTab';
+import DevicesTab from '@/components/biometric/DevicesTab';
+import CredentialsTab from '@/components/biometric/CredentialsTab';
+import LogsTab from '@/components/biometric/LogsTab';
 
 type BiometricTab = 'devices' | 'credentials' | 'logs';
 
 export default function BiometricManagementScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<BiometricTab>('devices');
 
   return (
     <View className="flex-1 bg-[#0A0A0A]">
-      <View className="flex-row items-center px-4 pt-5 pb-4 bg-[#0F0F0F] border-b border-[#1F293D]">
+      <View
+        className="flex-row items-center px-4 pb-4 bg-[#0F0F0F] border-b border-[#1F293D]"
+        style={{ paddingTop: Math.max(insets.top, 14) }}
+      >
         <Pressable onPress={() => router.back()} className="p-2 -ml-2 active:opacity-70">
           <CaretLeft size={24} color="#FFFFFF" />
         </Pressable>

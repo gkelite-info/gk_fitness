@@ -268,3 +268,67 @@ export async function fetchGymAttendanceToday(gymId: string, date?: string) {
   return data || [];
 }
 
+export async function markOwnerManualAttendance(gymId: string, customerId: string) {
+  const now = new Date();
+  const tzOffset = now.getTimezoneOffset() * 60000;
+  const localDate = new Date(Date.now() - tzOffset).toISOString().slice(0, 10);
+  const markedAt = now.toISOString();
+
+  const { data, error } = await supabase
+    .from('gym_attendance')
+    .insert({
+      attendanceId: Crypto.randomUUID(),
+      gymId,
+      customerId,
+      date: localDate,
+      markedAt,
+    })
+    .select();
+
+  if (error) {
+    console.error('[attendanceHelper] markOwnerManualAttendance error:', error);
+    throw error;
+  }
+  return data?.[0];
+}
+
+export async function undoOwnerManualAttendance(attendanceId: string) {
+  const { error } = await supabase
+    .from('gym_attendance')
+    .delete()
+    .eq('attendanceId', attendanceId);
+
+  if (error) {
+    console.error('[attendanceHelper] undoOwnerManualAttendance error:', error);
+    throw error;
+  }
+  return true;
+}
+
+export async function bulkMarkOwnerManualAttendance(gymId: string, customerIds: string[]) {
+  if (customerIds.length === 0) return [];
+  const now = new Date();
+  const tzOffset = now.getTimezoneOffset() * 60000;
+  const localDate = new Date(Date.now() - tzOffset).toISOString().slice(0, 10);
+  const markedAt = now.toISOString();
+
+  const inserts = customerIds.map((customerId) => ({
+    attendanceId: Crypto.randomUUID(),
+    gymId,
+    customerId,
+    date: localDate,
+    markedAt,
+  }));
+
+  const { data, error } = await supabase
+    .from('gym_attendance')
+    .insert(inserts)
+    .select();
+
+  if (error) {
+    console.error('[attendanceHelper] bulkMarkOwnerManualAttendance error:', error);
+    throw error;
+  }
+  return data || [];
+}
+

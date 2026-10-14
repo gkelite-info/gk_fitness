@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, ScrollView, Pressable, Switch, ActivityIndicator, Text } from 'react-native';
+import { View, ScrollView, Pressable, Switch, ActivityIndicator, Text, Alert, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Clock, Hourglass, ForkKnife, CalendarCheck, CalendarBlank, SunDim, Barbell, Sparkle } from 'phosphor-react-native';
+import { ArrowLeft, Clock, Hourglass, ForkKnife, CalendarCheck, CalendarBlank, SunDim, Barbell, Sparkle, BellRinging, PaperPlaneTilt } from 'phosphor-react-native';
 import { useNotificationPreferences, NotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES } from '@/hooks/notifications/useNotificationPreferences';
 import { useUser } from '@/context/UserContext';
+import { sendTestLocalNotification, registerForPushNotifications } from '@/lib/services/notificationService';
+import { toast } from '@/lib/toast';
 
 function format12Hour(hour: number = 17, minute: number = 0): string {
   const period = hour >= 12 ? 'PM' : 'AM';
@@ -44,6 +46,78 @@ export default function NotificationsPreferencesScreen() {
 
   const toggleSwitch = (id: keyof NotificationPreferences, currentValue: boolean) => {
     updatePreference.mutate({ [id]: !currentValue });
+  };
+
+  const [testingLocal, setTestingLocal] = React.useState(false);
+  const [testingPush, setTestingPush] = React.useState(false);
+
+  const handleTestLocal = async () => {
+    try {
+      setTestingLocal(true);
+      await sendTestLocalNotification(
+        '⚡ GK Fitness Test',
+        'Local notifications and channels are working properly!'
+      );
+      toast.success('Local notification sent!');
+    } catch (err: any) {
+      console.warn('[Notifications] Test local error:', err);
+      const msg = err?.message || 'Failed to trigger local notification';
+      if (msg.includes('PERMISSION_BLOCKED') || msg.toLowerCase().includes('permission')) {
+        Alert.alert(
+          'Notification Permission Needed',
+          'Notification permissions are currently disabled in your device settings. Would you like to open App Settings to enable them?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+      } else {
+        Alert.alert('Notification Diagnostic Error', msg);
+      }
+    } finally {
+      setTestingLocal(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    if (!userId) {
+      toast.error('User not logged in');
+      return;
+    }
+    try {
+      setTestingPush(true);
+      const token = await registerForPushNotifications(userId);
+      if (token) {
+        Alert.alert(
+          'Push Token Active ✅',
+          `Your device has registered for push notifications with token:\n\n${token}\n\nSaved to database for this user.`,
+          [{ text: 'OK' }]
+        );
+        toast.success('Push token registered!');
+      } else {
+        Alert.alert(
+          'Push Token Notice',
+          'Could not retrieve an Expo push token. On Android, make sure your development build includes Google Services.'
+        );
+      }
+    } catch (err: any) {
+      console.warn('[Notifications] Test push token error:', err);
+      const msg = err?.message || 'Error registering push token';
+      if (msg.includes('PERMISSION_BLOCKED') || msg.toLowerCase().includes('permission')) {
+        Alert.alert(
+          'Notification Permission Needed',
+          'Notification permissions are currently disabled in your device settings. Would you like to open App Settings to enable them?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+      } else {
+        Alert.alert('Push Registration Error', msg);
+      }
+    } finally {
+      setTestingPush(false);
+    }
   };
 
   return (
@@ -475,6 +549,51 @@ export default function NotificationsPreferencesScreen() {
             })}
           </View>
         )}
+
+        {/* Diagnostics & Testing Section */}
+        <View className="mt-8 pt-6 border-t border-white/10">
+          <Text className="text-[#D4FF00] text-xs font-bold mb-3 tracking-wider uppercase">
+            Notification Diagnostics
+          </Text>
+
+          <View className="bg-[#1A1A1A] rounded-xl p-4 border border-white/10 gap-y-3">
+            <Text className="text-gray-300 text-xs leading-4">
+              Test your device notification channels and remote push token registration:
+            </Text>
+
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={handleTestLocal}
+                disabled={testingLocal}
+                className="flex-1 bg-[#262626] active:bg-[#333333] border border-white/10 rounded-xl py-3 px-3 flex-row items-center justify-center gap-2"
+              >
+                {testingLocal ? (
+                  <ActivityIndicator size="small" color="#D4FF00" />
+                ) : (
+                  <>
+                    <BellRinging size={16} color="#D4FF00" weight="bold" />
+                    <Text className="text-white text-xs font-bold">Test Local</Text>
+                  </>
+                )}
+              </Pressable>
+
+              <Pressable
+                onPress={handleTestPush}
+                disabled={testingPush}
+                className="flex-1 bg-[#D4FF00] active:bg-[#bce400] rounded-xl py-3 px-3 flex-row items-center justify-center gap-2"
+              >
+                {testingPush ? (
+                  <ActivityIndicator size="small" color="#000000" />
+                ) : (
+                  <>
+                    <PaperPlaneTilt size={16} color="#000000" weight="bold" />
+                    <Text className="text-black text-xs font-bold">Test Token</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </ScrollView>
     </View>
   );

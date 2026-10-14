@@ -12,19 +12,83 @@ const isExpoGo =
 
 let Notifications: any = null;
 
+// Remote push notifications were removed from Expo Go on Android with SDK 53+.
+// Importing expo-notifications in Expo Go on Android triggers a fatal error during module evaluation.
+// Therefore, we only load expo-notifications when NOT running in Expo Go.
+function withTimeout<T = any>(promise: Promise<any>, ms: number, stepName: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`Operation timed out (${ms / 1000}s) during ${stepName}. Check notification settings in Android App Info.`)),
+        ms
+      )
+    ),
+  ]);
+}
+
+let channelsSetupPromise: Promise<void> | null = null;
+export async function setupNotificationChannels(): Promise<void> {
+  if (Platform.OS !== 'android' || !Notifications?.setNotificationChannelAsync) {
+    return;
+  }
+  if (channelsSetupPromise) {
+    return channelsSetupPromise;
+  }
+  channelsSetupPromise = (async () => {
+    try {
+      await withTimeout(
+        Notifications.setNotificationChannelAsync('default', {
+          name: 'Default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#CCF200',
+          enableVibrate: true,
+          showBadge: true,
+        }),
+        5000,
+        'creating default notification channel'
+      );
+
+      await withTimeout(
+        Notifications.setNotificationChannelAsync('reminders', {
+          name: 'Reminders & Workouts',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#CCF200',
+          enableVibrate: true,
+          showBadge: true,
+        }),
+        5000,
+        'creating reminders notification channel'
+      );
+    } catch (e: any) {
+      console.warn('[notificationService] Failed to create notification channels:', e?.message || e);
+    }
+  })();
+  return channelsSetupPromise;
+}
+
 if (!isExpoGo) {
   try {
     Notifications = require('expo-notifications');
     if (Notifications?.setNotificationHandler) {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowBanner: true,
-          shouldShowList: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-        }),
-      });
+      try {
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+          }),
+        });
+      } catch (handlerErr: any) {
+        console.warn('[notificationService] setNotificationHandler failed (native module missing in this build):', handlerErr?.message || handlerErr);
+      }
     }
+    // Initialize channels early on Android
+    setupNotificationChannels().catch(() => {});
   } catch (error) {
     console.warn('[notificationService] Failed to load expo-notifications:', error);
   }
@@ -36,37 +100,68 @@ export async function registerForPushNotifications(userId: string): Promise<stri
   }
 
   try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync({
-        ios: { allowAlert: true, allowBadge: true, allowSound: true }
-      });
-      finalStatus = status;
-    }
+    // 0. Ensure Android notification channels exist
+    await setupNotificationChannels();
+
+    // 1. ALWAYS request permissions (crucial for local/push notifications to work anywhere)
+    const existingStatus = await withTimeout(
+      Notifications.getPermissionsAsync(),
+      5000,
+      'checking notification permission'
+    );
+    let finalStatus = existingStatus?.status;
     if (finalStatus !== 'granted') {
-      return null;
+      const requested = await withTimeout(
+        Notifications.requestPermissionsAsync({
+          ios: { allowAlert: true, allowBadge: true, allowSound: true }
+        }),
+        8000,
+        'requesting notification permission'
+      );
+      finalStatus = requested?.status;
+
+      if (finalStatus !== 'granted') {
+        const canAskAgain = requested?.canAskAgain ?? existingStatus?.canAskAgain;
+        if (canAskAgain === false || finalStatus === 'denied') {
+          throw new Error('PERMISSION_BLOCKED: Notifications are disabled in your system settings. Please enable them in App Info -> Notifications.');
+        }
+        throw new Error(`Notification permission not granted (Status: ${finalStatus}).`);
+      }
     }
 
     if (!Device.isDevice) {
+      console.log('[notificationService] Must use physical device for Remote Push Notifications. Local notifications will still work.');
       return null;
     }
 
-    const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID || Constants?.expoConfig?.extra?.eas?.projectId;
+    const projectId =
+      process.env.EXPO_PUBLIC_EAS_PROJECT_ID ||
+      Constants?.expoConfig?.extra?.eas?.projectId ||
+      Constants?.easConfig?.projectId ||
+      '99fd4ec8-3138-4950-8a93-2f09dd96dbfc';
+
     if (!projectId) {
-      console.warn('EAS Project ID is not defined, push token registration will fail.');
+      console.warn('[notificationService] EAS Project ID is not defined, push token registration will fail.');
       return null;
     }
 
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId,
-    });
+    const tokenData = await withTimeout(
+      Notifications.getExpoPushTokenAsync({
+        projectId,
+      }),
+      10000,
+      'fetching Expo Push Token from server'
+    );
 
     const expoPushToken = tokenData?.data;
     if (!expoPushToken) {
+      console.warn('[notificationService] getExpoPushTokenAsync returned empty token.');
       return null;
     }
 
+    console.log('[notificationService] Registered Expo Push Token successfully:', expoPushToken);
+
+    // Save token to Supabase
     const { error } = await supabase.from('user_push_tokens').upsert(
       {
         userpushTokenId: Crypto.randomUUID(),
@@ -81,13 +176,13 @@ export async function registerForPushNotifications(userId: string): Promise<stri
     );
 
     if (error) {
-      console.error('Error saving push token to Supabase:', error);
+      console.error('[notificationService] Error saving push token to Supabase:', error);
     }
 
     return expoPushToken;
-  } catch (error) {
-    console.error('Error fetching Expo Push Token:', error);
-    return null;
+  } catch (error: any) {
+    console.error('[notificationService] Error fetching Expo Push Token:', error?.message || error);
+    throw error;
   }
 }
 
@@ -98,10 +193,77 @@ export async function scheduleLocalNotification(
   data?: Record<string, any>
 ) {
   if (!Notifications) return;
-  return Notifications.scheduleNotificationAsync({
-    content: { title, body, sound: true, data },
-    trigger,
-  });
+  await setupNotificationChannels();
+  return withTimeout(
+    Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: true,
+        channelId: 'default',
+        data,
+      },
+      trigger,
+    }),
+    6000,
+    'scheduleLocalNotification'
+  );
+}
+
+/**
+ * Triggers an immediate local test notification with sound and vibration.
+ * Works on both Android and iOS development builds.
+ */
+export async function sendTestLocalNotification(title?: string, body?: string) {
+  if (isExpoGo || !Notifications) {
+    throw new Error('Notifications are disabled in Expo Go. Run on a development build.');
+  }
+
+  // 1. Setup channels with timeout
+  await setupNotificationChannels();
+
+  // 2. Check current permission status
+  const existingStatus = await withTimeout(
+    Notifications.getPermissionsAsync(),
+    5000,
+    'checking notification permission'
+  );
+
+  let finalStatus = existingStatus?.status;
+  if (finalStatus !== 'granted') {
+    const requested = await withTimeout(
+      Notifications.requestPermissionsAsync({
+        ios: { allowAlert: true, allowBadge: true, allowSound: true },
+      }),
+      8000,
+      'requesting notification permission'
+    );
+    finalStatus = requested?.status;
+
+    if (finalStatus !== 'granted') {
+      const canAskAgain = requested?.canAskAgain ?? existingStatus?.canAskAgain;
+      if (canAskAgain === false || finalStatus === 'denied') {
+        throw new Error('PERMISSION_BLOCKED: Notifications are disabled in your system settings. Please enable them in App Info -> Notifications.');
+      }
+      throw new Error(`Notification permission not granted (Status: ${finalStatus}).`);
+    }
+  }
+
+  // 3. Schedule notification with channel-aware trigger for Android
+  const trigger = Platform.OS === 'android' ? ({ channelId: 'default' } as any) : null;
+  return await withTimeout(
+    Notifications.scheduleNotificationAsync({
+      content: {
+        title: title || '⚡ GK Fitness Notification Test',
+        body: body || 'Your notification system is working properly on this device!',
+        sound: true,
+        data: { type: 'test', timestamp: Date.now() },
+      },
+      trigger,
+    }),
+    8000,
+    'scheduling local notification'
+  );
 }
 
 export async function cancelAllScheduledNotifications() {
@@ -158,6 +320,7 @@ export async function scheduleWaterReminders(startHour = 8, endHour = 20, interv
         title: message.title,
         body: message.body,
         sound: true,
+        channelId: 'reminders',
         data: { type: 'water_reminder', hour },
       },
       trigger: {
@@ -222,6 +385,7 @@ export async function scheduleWorkoutReminders(options?: {
         title: message.title,
         body: message.body,
         sound: true,
+        channelId: 'reminders',
         data: { type: 'workout_reminder', day, hour, minute },
       },
       trigger: {
@@ -300,6 +464,7 @@ export async function scheduleMealReminders(options?: {
         title: item.title,
         body: item.body,
         sound: true,
+        channelId: 'reminders',
         data: { type: 'meal_reminder', meal: item.meal },
       },
       trigger: {
@@ -352,6 +517,7 @@ export async function schedulePTSessionReminders(sessions: any[]) {
           title: '🗓️ Upcoming PT Session Tomorrow',
           body: `You have a personal training session scheduled tomorrow at ${sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`,
           sound: true,
+          channelId: 'reminders',
           data: { type: 'pt_session_reminder', route: '/(customer)/home' },
         },
         trigger: {
@@ -370,6 +536,7 @@ export async function schedulePTSessionReminders(sessions: any[]) {
           title: '⏳ PT Session in 1 Hour',
           body: `Get ready! Your personal training session starts in 1 hour.`,
           sound: true,
+          channelId: 'reminders',
           data: { type: 'pt_session_reminder', route: '/(customer)/home' },
         },
         trigger: {
@@ -457,6 +624,8 @@ export async function sendMilestonePushNotification(userId: string, milestoneTyp
       const expoMessages = validTokens.map(token => ({
         to: token,
         sound: 'default',
+        channelId: 'default',
+        priority: 'high',
         title,
         body,
         data: { route: '/(customer)/notifications', type: 'milestone' },
@@ -555,6 +724,8 @@ export async function sendPromotionPushNotification({
       const expoMessages = validTokens.map((t) => ({
         to: t.expoPushToken,
         sound: 'default',
+        channelId: 'default',
+        priority: 'high',
         title: title || 'Special Promotion',
         body: message,
         data: { route: '/(customer)/notifications', type: 'promotion' },
@@ -676,6 +847,8 @@ export async function sendGymAnnouncementPushNotification({
         const pushMessages = batch.map(token => ({
           to: token,
           sound: 'default',
+          channelId: 'default',
+          priority: 'high',
           title: announcementTitle,
           body: message,
           data: { route: '/(customer)/notifications', type: 'announcement' },
@@ -859,6 +1032,8 @@ export async function sendCommunityPushNotification({
         const pushMessages = uniqueTokens.map(token => ({
           to: token,
           sound: 'default',
+          channelId: 'default',
+          priority: 'high',
           title,
           body,
           data: {
@@ -966,6 +1141,7 @@ export async function scheduleMembershipRenewalReminders(endDateInput: string | 
           title: item.title,
           body: item.body,
           sound: true,
+          channelId: 'reminders',
           data: {
             type: 'membership_renewal',
             route: '/(customer)/memberships',
@@ -1127,6 +1303,8 @@ export async function sendMembershipRenewalPushNotification(params: {
         const pushMessages = uniqueTokens.map(token => ({
           to: token,
           sound: 'default',
+          channelId: 'default',
+          priority: 'high',
           title,
           body,
           data: {

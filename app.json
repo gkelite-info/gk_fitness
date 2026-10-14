@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "GK Gymlife",
+    "name": "GK-Gymlife",
     "slug": "gk-fitness",
-    "owner": "gk-elite-info",
+    "owner": "ashishgkelite",
     "version": "1.0.2",
     "scheme": "gk-fitness",
     "platforms": [
@@ -13,7 +13,8 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "lang": "en"
     },
     "plugins": [
       "expo-router",
@@ -29,16 +30,18 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow GK Fitness to access your camera to scan QR codes for attendance.",
+          "cameraPermission": "Allow GK Fitness to access your camera to scan QR codes for gym attendance.",
           "recordAudioAndroid": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow GK Fitness to access your photos to upload gym logos and profiles."
+          "photosPermission": "Allow GK Fitness to access your photos to upload gym logos, progress photos, and profile pictures."
         }
       ],
+      "expo-status-bar",
+      "expo-web-browser",
       "expo-asset",
       [
         "expo-build-properties",
@@ -54,7 +57,17 @@
         }
       ],
       "react-native-health-connect",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/app-icon.png",
+          "color": "#CCF200",
+          "defaultChannel": "default",
+          "enableBackgroundRemoteNotifications": true,
+          "mode": "development"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
@@ -69,11 +82,22 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vamshi0111.gkfitness",
-      "buildNumber": "16",
+      "buildNumber": "19",
+      "entitlements": {
+        "aps-environment": "development"
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "UIViewControllerBasedStatusBarAppearance": false,
-        "NSMotionUsageDescription": "GK Fitness needs access to your device motion data to accurately track your daily step count and calculate calories burned during your active workout sessions."
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "NSMotionUsageDescription": "GK Fitness needs access to your device motion data to accurately track your daily step count and calculate calories burned during your active workout sessions.",
+        "NSCameraUsageDescription": "GK Fitness needs access to your camera to scan QR codes for gym attendance and check-ins.",
+        "NSPhotoLibraryUsageDescription": "Allow GK Fitness to access your photos to upload gym logos, progress photos, and profile pictures.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
@@ -85,10 +109,14 @@
       "googleServicesFile": "./google-services.json",
       "package": "com.gkeliteinfo.gkgymlife",
       "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
-        "android.permission.health.READ_STEPS"
+        "android.permission.health.READ_STEPS",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
       ]
     },
     "androidStatusBar": {

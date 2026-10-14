@@ -16,8 +16,7 @@ import {
   Info,
   CaretRight,
   Gear,
-  CurrencyInrIcon,
-  BankIcon
+  CurrencyInr
 } from 'phosphor-react-native';
 
 const CustomInput = ({ label, icon: Icon, placeholder, value, onChangeText, keyboardType = 'default' }: any) => (
@@ -188,7 +187,7 @@ export default function AddPaymentMethodScreen() {
             >
               <View className="flex-row items-center flex-1 mr-2">
                 <View className="w-8 h-8 rounded-lg bg-[#282828] items-center justify-center mr-2">
-                  <BankIcon size={18} color='#D2FF00' />
+                  <Bank size={18} color='#D2FF00' />
                 </View>
                 <View>
                   <Text className="text-white text-[12px] font-semibold mb-0.5">Bank Transfer</Text>
@@ -205,7 +204,7 @@ export default function AddPaymentMethodScreen() {
             >
               <View className="flex-row items-center flex-1 mr-2">
                 <View className="w-8 h-8 rounded-lg bg-[#282828] items-center justify-center mr-2">
-                  <CurrencyInrIcon size={18} color='#D2FF00' />
+                  <CurrencyInr size={18} color='#D2FF00' />
                 </View>
                 <View>
                   <Text className="text-white text-[12px] font-semibold mb-0.5">UPI (Optional)</Text>

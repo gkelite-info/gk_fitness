@@ -95,6 +95,7 @@
         "NSMotionUsageDescription": "GK Fitness needs access to your device motion data to accurately track your daily step count and calculate calories burned during your active workout sessions.",
         "NSCameraUsageDescription": "GK Fitness needs access to your camera to scan QR codes for gym attendance and check-ins.",
         "NSPhotoLibraryUsageDescription": "Allow GK Fitness to access your photos to upload gym logos, progress photos, and profile pictures.",
+        "NSLocationWhenInUseUsageDescription": "GK Fitness needs access to your location to view nearby gyms and detect when you are inside the gym geofence for check-ins.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         }
@@ -109,6 +110,8 @@
       "googleServicesFile": "./google-services.json",
       "package": "com.gkeliteinfo.gkgymlife",
       "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.CAMERA",

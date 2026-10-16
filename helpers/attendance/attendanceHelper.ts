@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
+import { calculateHaversineDistance } from '@/helpers/geofence/geofenceAlgorithm';
 
 const parseTimeToMinutes = (timeStr: string): number => {
   try {
@@ -374,5 +375,93 @@ export async function bulkMarkOwnerManualAttendance(gymId: string, customerIds: 
     throw error;
   }
   return data || [];
+}
+
+export async function markGeofenceAttendance(
+  gymId: string,
+  customerId: string,
+  userCoords: { latitude: number; longitude: number },
+  gymCoords?: { latitude: number; longitude: number; radiusMeters?: number }
+) {
+  try {
+    // 1. Verify active membership
+    const { data: membershipData, error: membershipError } = await supabase
+      .from('gym_customer_membership_plans')
+      .select('is_Active, endDate')
+      .eq('gymId', gymId)
+      .eq('customerId', customerId)
+      .eq('is_deleted', false)
+      .maybeSingle();
+
+    if (membershipError || !membershipData || !membershipData.is_Active) {
+      return { success: false, message: 'You do not have an active membership at this gym.' };
+    }
+
+    // 2. Fetch gym location coordinates if not passed
+    let gLat = gymCoords?.latitude;
+    let gLng = gymCoords?.longitude;
+    const radius = gymCoords?.radiusMeters || 100;
+
+    if (!gLat || !gLng) {
+      const { data: gymData } = await supabase
+        .from('gyms')
+        .select('*')
+        .eq('gymId', gymId)
+        .maybeSingle();
+
+      if (gymData?.latitude && gymData?.longitude) {
+        gLat = Number(gymData.latitude);
+        gLng = Number(gymData.longitude);
+      } else {
+        gLat = 12.9716;
+        gLng = 77.5946;
+      }
+    }
+
+    // 3. Evaluate Haversine distance
+    const distance = calculateHaversineDistance(userCoords, { latitude: gLat, longitude: gLng });
+    if (distance > radius) {
+      return {
+        success: false,
+        message: `You are outside the gym geofence (${Math.round(distance)}m away). Must be within ${radius}m.`
+      };
+    }
+
+    // 4. Record attendance
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    const localDate = new Date(Date.now() - tzOffset).toISOString().slice(0, 10);
+    const markedAt = now.toISOString();
+
+    const { data, error } = await supabase
+      .from('gym_attendance')
+      .insert({
+        attendanceId: Crypto.randomUUID(),
+        gymId,
+        customerId,
+        markedAt,
+        date: localDate,
+      })
+      .select();
+
+    if (error) {
+      if (error.code === '23505') {
+        return { success: false, message: 'Attendance already marked today.' };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      message: `Geofence check-in successful! (${Math.round(distance)}m from gym)`,
+      data: data?.[0]
+    };
+  } catch (err: any) {
+    console.error('[attendanceHelper] markGeofenceAttendance Error:', err);
+    return {
+      success: false,
+      message: 'Failed to verify geofence attendance. Please try again or use QR code.'
+    };
+  }
 }
 

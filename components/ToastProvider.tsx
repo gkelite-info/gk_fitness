@@ -15,26 +15,37 @@ export function ToastProvider() {
   const slideAnim = useRef(new Animated.Value(-100)).current;
   const spinValue = useRef(new Animated.Value(0)).current;
 
+  const timeoutRef = useRef<any>(null);
+
   useImperativeHandle(toastRef, () => ({
     show: (msg, t, duration = 3000) => {
-      setMessage(msg);
-      setType(t);
-      setVisible(true);
-      
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
-      ]).start();
-
-      if (t !== 'loading') {
-        // Clear any previous timeouts if we show a new toast
-        const timer = setTimeout(() => {
-          hideToast();
-        }, duration);
-        return () => clearTimeout(timer);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
+
+      setTimeout(() => {
+        setMessage(msg);
+        setType(t);
+        setVisible(true);
+        
+        Animated.parallel([
+          Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+          Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+        ]).start();
+
+        if (t !== 'loading') {
+          timeoutRef.current = setTimeout(() => {
+            hideToast();
+          }, duration);
+        }
+      }, 0);
     },
     hide: () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
       hideToast();
     }
   }));

@@ -205,7 +205,7 @@ export default function CustomerHome() {
 
     return {
       day: dayStr,
-      height: dailyHeight || 5, // minimum height
+      height: dailyHeight || 5,
       active: dailyHeight >= 50
     };
   }) || [
@@ -313,7 +313,6 @@ export default function CustomerHome() {
         )}
       </View>
 
-      {/* Explore Nearby Gyms Card */}
       <Pressable
         onPress={() => router.push('/(customer)/explore-gyms' as any)}
         className="w-full rounded-3xl overflow-hidden mb-4 border border-[#222222] bg-[#0A0D08] relative active:opacity-95"

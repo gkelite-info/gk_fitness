@@ -16,7 +16,8 @@ import * as ImagePicker from 'expo-image-picker';
 import {
   CaretLeft, Info, Camera, CaretRight, PencilSimple,
   User, Envelope, Phone, Heart, CalendarBlank,
-  Ruler, Scales, Target, ChartBar, WarningCircle
+  Ruler, Scales, Target, ChartBar, WarningCircle,
+  LockIcon
 } from 'phosphor-react-native';
 
 import { mockProfileData } from '@/constants/mockProfileData';
@@ -44,8 +45,9 @@ const ACTIVITY_LEVEL_OPTIONS = [
 ];
 
 const getLabel = (value: string, options: any[]) => {
-  if (!value) return '';
-  const match = options.find(o => o.value === value);
+  if (!value || value === '-') return '-';
+  const cleanVal = value.toLowerCase().replace(/[\s_-]/g, '');
+  const match = options.find(o => o.value.toLowerCase().replace(/[\s_-]/g, '') === cleanVal);
   return match ? match.label : value;
 };
 
@@ -54,20 +56,20 @@ export default function EditProfileScreen() {
   const userId = userContext.userId;
   const { data, isLoading } = useCustomerProfile(userId);
 
-  return <EditProfileView 
-    data={mockProfileData} 
-    customerData={data?.customerData} 
-    onboardingData={data?.onboardingData} 
-    loading={isLoading} 
-    fallbackUser={userContext} 
-    userId={userId} 
+  return <EditProfileView
+    data={mockProfileData}
+    customerData={data?.customerData}
+    onboardingData={data?.onboardingData}
+    loading={isLoading}
+    fallbackUser={userContext}
+    userId={userId}
   />;
 }
 
 function EditProfileView({ data, customerData, onboardingData, loading, fallbackUser, userId }: { data: typeof mockProfileData, customerData: any, onboardingData: any, loading: boolean, fallbackUser: any, userId: string | null }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
+
   const [form, setForm] = useState({
     fullName: '',
     email: '',
@@ -79,10 +81,10 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
     fitnessGoal: '',
     activityLevel: ''
   });
-  
+
   const updateMutation = useUpdateCustomerProfile();
   const updatePhotoMutation = useUpdateProfilePhoto();
-  
+
   const [photoOptionsVisible, setPhotoOptionsVisible] = useState(false);
 
   const [selectorState, setSelectorState] = useState<{ visible: boolean, type: keyof typeof form | '', title: string, options: any[] }>({
@@ -94,25 +96,25 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
 
   React.useEffect(() => {
     setForm({
-      fullName: customerData?.fullName || fallbackUser?.name || data.user.fullName,
-      email: customerData?.email || fallbackUser?.email || data.user.email,
-      phone: customerData?.phone || fallbackUser?.phone || data.user.phone,
-      gender: customerData?.gender || data.user.gender,
-      dateOfBirth: customerData?.dateOfBirth || data.user.dateOfBirth,
-      height: onboardingData?.height || data.physical.height,
-      weight: onboardingData?.weight || data.physical.weight,
-      fitnessGoal: onboardingData?.primaryGoal || data.physical.fitnessGoal,
-      activityLevel: data.physical.activityLevel,
+      fullName: customerData?.fullName || fallbackUser?.name || '',
+      email: customerData?.email || fallbackUser?.email || '',
+      phone: customerData?.phone || fallbackUser?.phone || '',
+      gender: customerData?.gender || fallbackUser?.gender || '',
+      dateOfBirth: customerData?.dateOfBirth || fallbackUser?.dob || '',
+      height: onboardingData?.height ? onboardingData.height.toString() : '-',
+      weight: onboardingData?.weight ? onboardingData.weight.toString() : '-',
+      fitnessGoal: onboardingData?.primaryGoal ? onboardingData.primaryGoal.toString() : '-',
+      activityLevel: '-',
     });
-  }, [customerData, onboardingData, fallbackUser, data]);
+  }, [customerData, onboardingData, fallbackUser]);
 
   const handleSave = () => {
     if (!userId) return;
-    
+
     if (form.phone) {
       const cleanPhone = form.phone.replace(/[^\d+]/g, '');
       const numberPart = cleanPhone.startsWith('+91') ? cleanPhone.slice(3) : cleanPhone.startsWith('+') ? cleanPhone.slice(1) : cleanPhone;
-      
+
       if (numberPart.length !== 10) {
         toast.error('Phone number must be exactly 10 digits.');
         return;
@@ -180,12 +182,12 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
       Alert.alert('Error', error.message || 'An unexpected error occurred while opening the image picker.');
     }
   };
-  
+
   const openSelector = (type: keyof typeof form, title: string, options: any[]) => {
     Keyboard.dismiss();
     setSelectorState({ visible: true, type, title, options });
   };
-  
+
   const handleSelect = (value: string) => {
     if (selectorState.type) {
       setForm(prev => ({ ...prev, [selectorState.type as keyof typeof form]: value }));
@@ -214,14 +216,14 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
         <Pressable onPress={() => router.navigate('/(customer)/profile')} className="p-2">
           <CaretLeft size={24} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="flex-1 text-center text-white text-lg font-bold">Personal Information</Text>
+        <Text className="flex-1 text-center text-white text-lg font-semibold">Personal Information</Text>
         <Pressable className="p-2">
           <Info size={24} color="#D4FF00" weight="regular" />
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
-        
+
         {loading ? (
           <View className="items-center mt-6 mb-6">
             <Skeleton className="w-28 h-28 rounded-full" />
@@ -230,7 +232,7 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
           </View>
         ) : (
           <View className="items-center mt-4 mb-6">
-            <Pressable 
+            <Pressable
               className="relative active:opacity-70"
               onPress={() => setPhotoOptionsVisible(true)}
               disabled={updatePhotoMutation.isPending}
@@ -240,130 +242,130 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
                   <ActivityIndicator color="#C4EF00" />
                 </View>
               ) : (
-                <StaticAvatar 
-                  uri={fallbackUser?.profilePhoto} 
+                <StaticAvatar
+                  uri={fallbackUser?.profilePhoto}
                   name={form.fullName}
                   size={96}
-                  className="w-24 h-24 rounded-full border-2 border-[#1F1F22]" 
+                  className="w-24 h-24 rounded-full border-2 border-[#1F1F22]"
                 />
               )}
               <View className="absolute bottom-0 right-0 bg-[#C4EF00] p-1.5 rounded-full border-2 border-[#0A0A0A]">
                 <PencilSimple size={14} color="#0A0A0A" weight="bold" />
               </View>
             </Pressable>
-            <Text className="text-white text-xl font-bold mt-4">{form.fullName}</Text>
+            <Text className="text-white text-xl font-semibold mt-4">{form.fullName}</Text>
             <Text className="text-[#A1A1AA] text-[15px] mt-1">{form.email}</Text>
           </View>
         )}
 
-        <Text className="text-[#8E8E93] text-[10px] font-bold tracking-[1px] mb-3 mt-2 ml-1">PERSONAL DETAILS</Text>
-        
-        <InputField icon={<User size={20} color="#D4FF00" />} label="FULL NAME" value={form.fullName} onChangeText={(val: string) => setForm(prev => ({...prev, fullName: val}))} />
+        <Text className="text-[#8E8E93] text-[10px] font-semibold tracking-[1px] mb-3 mt-2 ml-1">PERSONAL DETAILS</Text>
+
+        <InputField icon={<User size={20} color="#D4FF00" />} label="FULL NAME" value={form.fullName} onChangeText={(val: string) => setForm(prev => ({ ...prev, fullName: val }))} />
         <InputField icon={<Envelope size={20} color="#D4FF00" />} label="EMAIL ADDRESS" value={form.email} editable={false} />
-        <InputField 
-          icon={<Phone size={20} color="#D4FF00" />} 
-          label="PHONE NUMBER" 
-          value={form.phone} 
+        <InputField
+          icon={<Phone size={20} color="#D4FF00" />}
+          label="PHONE NUMBER"
+          value={form.phone}
           keyboardType="phone-pad"
           onChangeText={(val: string) => {
             let clean = val.replace(/[^\d+]/g, '');
             if (clean.includes('+')) {
               clean = (clean.startsWith('+') ? '+' : '') + clean.replace(/\+/g, '');
             }
-            
+
             let prefix = '';
             let number = clean;
-            
-            if (clean.startsWith('+91')) {
-               prefix = '+91';
-               number = clean.slice(3);
-            } else if (clean.startsWith('+')) {
-               prefix = '+';
-               number = clean.slice(1);
-            }
-            
-            if (number.length > 10) {
-               number = number.slice(0, 10);
-            }
-            
-            setForm(prev => ({...prev, phone: prefix + (prefix && prefix !== '+' ? ' ' : '') + number}));
-          }} 
-        />
-        
-        <InputField 
-          icon={<Heart size={20} color="#D4FF00" />} 
-          label="GENDER" 
-          value={form.gender ? getLabel(form.gender, GENDER_OPTIONS) : 'Select Gender'} 
-          onPress={() => openSelector('gender', 'Select Gender', GENDER_OPTIONS)} 
-        />
-        
-        <InputField icon={<CalendarBlank size={20} color="#D4FF00" />} label="DATE OF BIRTH" value={form.dateOfBirth} onChangeText={(val: string) => setForm(prev => ({...prev, dateOfBirth: val}))} />
 
-        <Text className="text-[#8E8E93] text-[10px] font-bold tracking-[1px] mt-6 mb-3 ml-1">PHYSICAL INFORMATION</Text>
-        
+            if (clean.startsWith('+91')) {
+              prefix = '+91';
+              number = clean.slice(3);
+            } else if (clean.startsWith('+')) {
+              prefix = '+';
+              number = clean.slice(1);
+            }
+
+            if (number.length > 10) {
+              number = number.slice(0, 10);
+            }
+
+            setForm(prev => ({ ...prev, phone: prefix + (prefix && prefix !== '+' ? ' ' : '') + number }));
+          }}
+        />
+
+        <InputField
+          icon={<Heart size={20} color="#D4FF00" />}
+          label="GENDER"
+          value={form.gender ? getLabel(form.gender, GENDER_OPTIONS) : 'Select Gender'}
+          onPress={() => openSelector('gender', 'Select Gender', GENDER_OPTIONS)}
+        />
+
+        <InputField icon={<CalendarBlank size={20} color="#D4FF00" />} label="DATE OF BIRTH" value={form.dateOfBirth} onChangeText={(val: string) => setForm(prev => ({ ...prev, dateOfBirth: val }))} />
+
+        <Text className="text-[#8E8E93] text-[10px] font-semibold tracking-[1px] mt-6 mb-3 ml-1">PHYSICAL INFORMATION</Text>
+
         <View className="flex-row gap-x-3">
           <View className="flex-1">
-            <InputField 
-              icon={<Ruler size={20} color="#D4FF00" />} 
-              label="HEIGHT" 
-              value={form.height ? form.height.toString() : ''} 
-              onChangeText={(val: string) => setForm(prev => ({...prev, height: val}))} 
+            <InputField
+              icon={<Ruler size={20} color="#D4FF00" />}
+              label="HEIGHT"
+              value={form.height ? form.height.toString() : '-'}
+              onChangeText={(val: string) => setForm(prev => ({ ...prev, height: val }))}
               suffix="cm"
             />
-            {form.height ? (
-               <Text className="text-[#8E8E93] text-[10px] font-medium mt-1 ml-1 text-center">~ {getFeetInches(form.height.toString())}</Text>
+            {form.height && form.height !== '-' ? (
+              <Text className="text-[#8E8E93] text-[10px] font-medium mt-1 ml-1 text-center">~ {getFeetInches(form.height.toString())}</Text>
             ) : null}
           </View>
           <View className="flex-1">
-            <InputField 
-              icon={<Scales size={20} color="#D4FF00" />} 
-              label="WEIGHT" 
-              value={form.weight ? form.weight.toString() : ''} 
-              onChangeText={(val: string) => setForm(prev => ({...prev, weight: val}))} 
+            <InputField
+              icon={<Scales size={20} color="#D4FF00" />}
+              label="WEIGHT"
+              value={form.weight ? form.weight.toString() : '-'}
+              onChangeText={(val: string) => setForm(prev => ({ ...prev, weight: val }))}
               suffix="kg"
             />
-            {form.weight ? (
-               <Text className="text-[#8E8E93] text-[10px] font-medium mt-1 ml-1 text-center">~ {getLbs(form.weight.toString())}</Text>
+            {form.weight && form.weight !== '-' ? (
+              <Text className="text-[#8E8E93] text-[10px] font-medium mt-1 ml-1 text-center">~ {getLbs(form.weight.toString())}</Text>
             ) : null}
           </View>
         </View>
-        
+
         <View className="flex-row gap-x-3 mt-4">
           <View className="flex-1">
-            <InputField 
-              icon={<Target size={20} color="#D4FF00" />} 
-              label="FITNESS GOAL" 
-              value={form.fitnessGoal ? getLabel(form.fitnessGoal, FITNESS_GOAL_OPTIONS) : 'Select Goal'} 
-              onPress={() => openSelector('fitnessGoal', 'Select Fitness Goal', FITNESS_GOAL_OPTIONS)} 
+            <InputField
+              icon={<Target size={20} color="#D4FF00" />}
+              label="FITNESS GOAL"
+              value={getLabel(form.fitnessGoal, FITNESS_GOAL_OPTIONS)}
+              onPress={() => openSelector('fitnessGoal', 'Select Fitness Goal', FITNESS_GOAL_OPTIONS)}
             />
           </View>
           <View className="flex-1">
-            <InputField 
-              icon={<ChartBar size={20} color="#D4FF00" />} 
-              label="ACTIVITY LEVEL" 
-              value={form.activityLevel ? getLabel(form.activityLevel, ACTIVITY_LEVEL_OPTIONS) : 'Select Activity'} 
-              onPress={() => openSelector('activityLevel', 'Select Activity Level', ACTIVITY_LEVEL_OPTIONS)} 
+            <InputField
+              icon={<ChartBar size={20} color="#D4FF00" />}
+              label="ACTIVITY LEVEL"
+              value={getLabel(form.activityLevel, ACTIVITY_LEVEL_OPTIONS)}
+              onPress={() => openSelector('activityLevel', 'Select Activity Level', ACTIVITY_LEVEL_OPTIONS)}
             />
           </View>
         </View>
 
-        <Pressable 
-          onPress={handleSave} 
+        <Pressable
+          onPress={handleSave}
           disabled={updateMutation.isPending}
           className="bg-[#D4FF00] rounded-xl py-4 items-center justify-center mt-8 active:opacity-80"
         >
           {updateMutation.isPending ? (
             <ActivityIndicator size="small" color="#000000" />
           ) : (
-            <Text className="text-black text-base font-bold">Save Changes</Text>
+            <Text className="text-black text-base font-semibold">Save Changes</Text>
           )}
         </Pressable>
         <Pressable className="border border-[#27272A] bg-transparent rounded-xl py-4 items-center justify-center mt-3 active:opacity-50" onPress={() => router.navigate('/(customer)/profile')}>
-          <Text className="text-[#D4FF00] text-base font-bold">Cancel</Text>
+          <Text className="text-[#D4FF00] text-base font-semibold">Cancel</Text>
         </Pressable>
       </ScrollView>
-      
-      <BottomSelector 
+
+      <BottomSelector
         visible={selectorState.visible}
         onClose={() => setSelectorState(prev => ({ ...prev, visible: false }))}
         title={selectorState.title}
@@ -387,21 +389,23 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
 
 function InputField({ icon, label, value, onChangeText, editable = true, onPress, suffix, keyboardType, maxLength }: any) {
   const Component = onPress ? Pressable : View;
+  const isDash = !value || value === '-';
   return (
-    <Component 
+    <Component
       onPress={onPress}
-      className={`bg-[#1A1A1A] rounded-2xl p-4 flex-row items-center mb-1 border border-[#27272A] ${onPress ? 'active:opacity-70' : ''}`}
+      className={`bg-[#1A1A1A] rounded-2xl p-4 flex-row items-center mb-2 border border-[#27272A] ${onPress ? 'active:opacity-70' : ''}`}
     >
       <View className="mr-4">
         {icon}
       </View>
       <View className="flex-1 justify-center">
-        <Text className="text-[#8E8E93] text-[8px] uppercase tracking-wider font-bold mb-1">{label}</Text>
+        <Text className="text-[#8E8E93] text-[8px] uppercase tracking-wider font-semibold mb-1">{label}</Text>
         {onPress ? (
-          <Text className="text-white text-[15px] font-medium p-0" numberOfLines={1}>{value}</Text>
+          <Text className="text-white text-[15px] font-medium p-0" numberOfLines={1}>{value || '-'}</Text>
         ) : (
-          <TextInput 
-            value={value} 
+          <TextInput
+            value={isDash ? '' : value}
+            placeholder={isDash ? '-' : ''}
             onChangeText={onChangeText}
             editable={editable}
             className="text-white text-[15px] font-medium p-0"
@@ -413,11 +417,11 @@ function InputField({ icon, label, value, onChangeText, editable = true, onPress
       </View>
       {!editable && !onPress && (
         <View className="bg-[#27272A] px-2 py-1 rounded">
-          <Text className="text-[#8E8E93] text-[10px] font-bold">LOCKED</Text>
+          <Text className="text-[10px] font-semibold"><LockIcon size={20} weight="fill" color='#DCDCDC' /></Text>
         </View>
       )}
-      {suffix && (
-        <Text className="text-[#8E8E93] text-sm ml-2 font-bold">{suffix}</Text>
+      {suffix && !isDash && (
+        <Text className="text-[#8E8E93] text-sm ml-2 font-semibold">{suffix}</Text>
       )}
       {onPress && (
         <CaretRight size={16} color="#8E8E93" />
@@ -433,7 +437,7 @@ function BottomSelector({ visible, onClose, options, selectedValue, onSelect, ti
         <Pressable className="bg-[#1A1A1A] rounded-t-3xl min-h-[40%] max-h-[80%] border-t border-[#27272A]">
           <View className="items-center py-3 border-b border-[#27272A]">
             <View className="w-12 h-1 bg-[#27272A] rounded-full mb-3" />
-            <Text className="text-white text-lg font-bold">{title}</Text>
+            <Text className="text-white text-lg font-semibold">{title}</Text>
           </View>
           <ScrollView className="p-4" showsVerticalScrollIndicator={false}>
             {options.map((option: any, index: number) => {
@@ -448,7 +452,7 @@ function BottomSelector({ visible, onClose, options, selectedValue, onSelect, ti
                   }}
                   className={`py-4 px-4 rounded-2xl mb-2 flex-row justify-between items-center ${isSelected ? 'bg-[#D4FF00]/10 border border-[#D4FF00]/20' : 'bg-[#27272A]'}`}
                 >
-                  <Text className={`text-base font-bold ${isSelected ? 'text-[#D4FF00]' : 'text-white'}`}>
+                  <Text className={`text-base font-semibold ${isSelected ? 'text-[#D4FF00]' : 'text-white'}`}>
                     {option.label}
                   </Text>
                   {isSelected && (

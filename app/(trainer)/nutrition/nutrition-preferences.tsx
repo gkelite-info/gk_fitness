@@ -62,8 +62,18 @@ export default function NutritionPreferences() {
     return goal.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase());
   };
 
+  const formatDietType = (type?: string) => {
+    if (!type) return 'Balanced';
+    const clean = type.toLowerCase().replace(/[^a-z]/g, '');
+    if (clean.includes('nonveg')) return 'Non-Vegetarian';
+    if (clean.includes('egg')) return 'Eggetarian';
+    if (clean.includes('vegan')) return 'Vegan';
+    if (clean.includes('veg')) return 'Vegetarian';
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
   const goalTitle = formatGoal(onboardingData?.primaryGoal || '');
-  const dietType = onboardingData?.dietType || 'Balanced';
+  const dietType = formatDietType(onboardingData?.dietType);
   const mealsPerDay = onboardingData?.mealsPerDay || 4;
   const waterGoal = onboardingData?.dailyWaterGoal || 3000;
 

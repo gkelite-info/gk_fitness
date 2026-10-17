@@ -11,12 +11,14 @@ export function useCustomerProfile(userId: string | null | undefined) {
         supabase
           .from('gym_customers')
           .select('*')
-          .eq('customerId', userId)
+          .or(`customerId.eq.${userId},userId.eq.${userId}`)
           .maybeSingle(),
         supabase
           .from('customer_onboarding')
           .select('*')
           .eq('createdBy', userId)
+          .order('createdAt', { ascending: false })
+          .limit(1)
           .maybeSingle()
       ]);
 

@@ -22,41 +22,120 @@ export interface SaveWorkoutVideoParams {
   exerciseName?: string;
 }
 
-export async function fetchWorkoutVideos(page: number = 1, limit: number = 10, workoutType: string = 'all', role: string = 'all', isStretching: string = 'all') {
+export function mapWorkoutTypeToDbEnums(workoutType?: string): string[] {
+  if (!workoutType) return [];
+  const normalized = workoutType.toLowerCase().trim();
+  if (!normalized || normalized === 'all') return [];
+
+  if (normalized === 'legs' || normalized === 'leg' || normalized === 'lower body') {
+    return ['hips', 'calves', 'legs'];
+  }
+  if (normalized === 'arms' || normalized === 'arm') {
+    return ['biceps', 'triceps', 'forearms', 'arms'];
+  }
+  if (normalized.startsWith('shoulder')) {
+    return ['shoulder'];
+  }
+  if (normalized.startsWith('tricep')) {
+    return ['triceps', 'tricep'];
+  }
+  if (normalized.startsWith('bicep')) {
+    return ['biceps'];
+  }
+  if (normalized === 'abs' || normalized === 'core') {
+    return ['abs'];
+  }
+  if (normalized === 'chest') {
+    return ['chest'];
+  }
+  if (normalized === 'back') {
+    return ['back'];
+  }
+  if (normalized === 'calves' || normalized === 'calf') {
+    return ['calves'];
+  }
+  if (normalized === 'hips' || normalized === 'hip') {
+    return ['hips'];
+  }
+  if (normalized === 'cardio') {
+    return ['cardio'];
+  }
+  if (normalized === 'forearms' || normalized === 'forearm') {
+    return ['forearms'];
+  }
+  if (normalized === 'trapezius' || normalized === 'traps') {
+    return ['trapezius'];
+  }
+
+  return [normalized];
+}
+
+export async function fetchWorkoutVideos(
+  page: number = 1,
+  limit: number = 10,
+  workoutType: string = 'all',
+  role: string = 'all',
+  isStretching: string = 'all'
+) {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
   let query = supabase
     .from('workout_videos')
     .select('*', { count: 'exact' })
-    .eq('is_deleted', false)
+    .or('is_deleted.eq.false,is_deleted.is.null')
     .order('createdAt', { ascending: false });
 
-  if (workoutType !== 'all' || role !== 'all' || isStretching !== 'all') {
-    let workoutsQuery = supabase.from('workouts').select('workoutId').eq('is_deleted', false);
-    
-    if (workoutType !== 'all') {
-      workoutsQuery = workoutsQuery.eq('workoutType', workoutType);
-    }
-    if (role !== 'all') {
-      workoutsQuery = workoutsQuery.eq('role', role);
-    }
-    if (isStretching !== 'all') {
-      if (isStretching === 'stretching') {
-        workoutsQuery = workoutsQuery.eq('isStretching', true);
-      } else {
-        workoutsQuery = workoutsQuery.or('isStretching.eq.false,isStretching.is.null');
+  const mappedTypes = mapWorkoutTypeToDbEnums(workoutType);
+  const normalizedRole = (role || 'all').toLowerCase().trim();
+  const isRoleFilterActive = normalizedRole === 'male' || normalizedRole === 'female';
+
+  if (mappedTypes.length > 0 || isRoleFilterActive || isStretching !== 'all') {
+    const buildWorkoutsQuery = (applyRole: boolean) => {
+      let q = supabase
+        .from('workouts')
+        .select('workoutId')
+        .or('is_deleted.eq.false,is_deleted.is.null');
+
+      if (mappedTypes.length === 1) {
+        q = q.eq('workoutType', mappedTypes[0]);
+      } else if (mappedTypes.length > 1) {
+        q = q.in('workoutType', mappedTypes);
       }
+
+      if (applyRole && isRoleFilterActive) {
+        q = q.eq('role', normalizedRole);
+      }
+
+      if (isStretching !== 'all') {
+        if (isStretching === 'stretching') {
+          q = q.eq('isStretching', true);
+        } else {
+          q = q.or('isStretching.eq.false,isStretching.is.null');
+        }
+      }
+
+      return q;
+    };
+
+    let { data: matchedWorkouts, error: workoutsError } = await buildWorkoutsQuery(true);
+
+    if (workoutsError) {
+      console.warn('[workoutVideoHelper] workoutsQuery error:', workoutsError);
     }
 
-    const { data: matchedWorkouts } = await workoutsQuery;
+    let workoutIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
 
-    const workoutIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
+    // Fallback 1: If role was filtered (e.g. 'female' or 'male') but no workouts were found, try matching without the role filter
+    if (workoutIds.length === 0 && isRoleFilterActive) {
+      const fallbackRes = await buildWorkoutsQuery(false);
+      workoutIds = fallbackRes.data?.map((w: any) => w.workoutId) || [];
+    }
 
     if (workoutIds.length > 0) {
       query = query.in('workoutId', workoutIds);
     } else {
-      return { data: [], total: 0 };
+      console.warn(`[workoutVideoHelper] No workouts matched for type="${workoutType}" and role="${role}".`);
     }
   }
 
@@ -68,6 +147,24 @@ export async function fetchWorkoutVideos(page: number = 1, limit: number = 10, w
     }
     console.error('[workoutVideoHelper] fetchWorkoutVideos Error:', error);
     throw error;
+  }
+
+  // Fallback 2: If on page 1 the returned data is completely empty,
+  // do a safety fallback so the user NEVER gets an empty recommended/more exercises screen!
+  if ((!data || data.length === 0) && page === 1 && workoutType !== 'all') {
+    const fallbackQuery = await supabase
+      .from('workout_videos')
+      .select('*', { count: 'exact' })
+      .or('is_deleted.eq.false,is_deleted.is.null')
+      .order('createdAt', { ascending: false })
+      .range(from, to);
+
+    if (fallbackQuery.data && fallbackQuery.data.length > 0) {
+      return {
+        data: fallbackQuery.data,
+        total: fallbackQuery.count ?? fallbackQuery.data.length,
+      };
+    }
   }
 
   return {

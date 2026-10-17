@@ -9,77 +9,98 @@ export function useUpdateCustomerProfile() {
 
   return useMutation({
     mutationFn: async ({ userId, form }: { userId: string, form: any }) => {
-      const { error: customerError } = await supabase
-        .from('gym_customers')
-        .update({
-          fullName: form.fullName,
-          phone: form.phone,
-          gender: form.gender.toLowerCase(),
-          dateOfBirth: form.dateOfBirth,
-        })
-        .eq('customerId', userId);
-
-      if (customerError) throw customerError;
+      // Update gym_customers if customer record exists
+      try {
+        await supabase
+          .from('gym_customers')
+          .update({
+            fullName: form.fullName,
+            phone: form.phone,
+            gender: form.gender ? form.gender.toLowerCase() : 'male',
+            dateOfBirth: form.dateOfBirth,
+          })
+          .or(`customerId.eq.${userId},userId.eq.${userId}`);
+      } catch (err) {
+        console.warn('[useUpdateCustomerProfile] gym_customers update non-fatal:', err);
+      }
 
       // Keep public.users in sync
-      await supabase
+      const userUpdatePayload: any = {
+        name: form.fullName,
+        phone: form.phone,
+        gender: form.gender ? (form.gender.toLowerCase() === 'other' ? 'others' : form.gender.toLowerCase()) : 'male',
+        updatedAt: new Date().toISOString(),
+      };
+      if (form.dateOfBirth) {
+        userUpdatePayload.dob = form.dateOfBirth;
+      }
+
+      const { error: userError } = await supabase
         .from('users')
-        .update({
-          name: form.fullName,
-          phone: form.phone,
-          gender: form.gender.toLowerCase() === 'other' ? 'others' : form.gender.toLowerCase(),
-          updatedAt: new Date().toISOString(),
-        })
+        .update(userUpdatePayload)
         .eq('userId', userId);
+
+      if (userError) throw userError;
 
       const { data: existingOnboarding } = await supabase
         .from('customer_onboarding')
         .select('onboardingId')
         .eq('createdBy', userId)
+        .order('createdAt', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      if (existingOnboarding) {
-        const { error: onboardingError } = await supabase
-          .from('customer_onboarding')
-          .update({
-            height: form.height.replace(/[^0-9]/g, ''),
-            weight: form.weight.replace(/[^0-9]/g, ''),
-            primaryGoal: form.fitnessGoal,
-          })
-          .eq('createdBy', userId);
+      const cleanHeight = form.height && form.height !== '-' ? form.height.toString().replace(/[^0-9.]/g, '') : null;
+      const cleanWeight = form.weight && form.weight !== '-' ? form.weight.toString().replace(/[^0-9.]/g, '') : null;
+      const cleanGoal = form.fitnessGoal && form.fitnessGoal !== '-' ? form.fitnessGoal : null;
 
-        if (onboardingError) throw onboardingError;
-      } else {
+      if (existingOnboarding) {
+        const updatePayload: any = {
+          updatedAt: new Date().toISOString(),
+        };
+        if (cleanHeight !== null) updatePayload.height = cleanHeight;
+        if (cleanWeight !== null) updatePayload.weight = cleanWeight;
+        if (cleanGoal !== null) updatePayload.primaryGoal = cleanGoal;
+
+        if (Object.keys(updatePayload).length > 1) {
+          const { error: onboardingError } = await supabase
+            .from('customer_onboarding')
+            .update(updatePayload)
+            .eq('onboardingId', existingOnboarding.onboardingId);
+
+          if (onboardingError) throw onboardingError;
+        }
+      } else if (cleanHeight || cleanWeight || cleanGoal) {
         const { data: customerData } = await supabase
           .from('gym_customers')
           .select('gymId')
-          .eq('customerId', userId)
-          .single();
+          .or(`customerId.eq.${userId},userId.eq.${userId}`)
+          .maybeSingle();
 
-        if (customerData) {
-          const { error: onboardingError } = await supabase
-            .from('customer_onboarding')
-            .insert({
-              onboardingId: Crypto.randomUUID(),
-              createdBy: userId,
-              gymId: customerData.gymId,
-              height: form.height.replace(/[^0-9]/g, ''),
-              weight: form.weight.replace(/[^0-9]/g, ''),
-              primaryGoal: form.fitnessGoal,
-              targetWeight: '0',
-              workoutLocation: '',
-              workoutDays: [],
-              preferWorkoutTime: '',
-              dietType: '',
-              mealsPerDay: 3,
-              foodAllergies: [],
-              dailyWaterGoal: '0',
-            });
-            
-          if (onboardingError) throw onboardingError;
-        }
+        const { error: onboardingError } = await supabase
+          .from('customer_onboarding')
+          .insert({
+            onboardingId: Crypto.randomUUID(),
+            createdBy: userId,
+            gymId: customerData?.gymId || null,
+            height: cleanHeight || '0',
+            weight: cleanWeight || '0',
+            primaryGoal: cleanGoal || 'stayfit',
+            targetWeight: '0',
+            workoutLocation: 'gym',
+            workoutDays: [],
+            preferWorkoutTime: 'morning',
+            dietType: 'standard',
+            mealsPerDay: 3,
+            foodAllergies: [],
+            dailyWaterGoal: '2500',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+
+        if (onboardingError) throw onboardingError;
       }
-      
+
       return true;
     },
     onSuccess: (_, variables) => {

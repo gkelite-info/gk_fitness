@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, Modal } from 'react-native';
 import { router } from 'expo-router';
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
@@ -7,15 +7,46 @@ import { SelectableCard } from '@/components/onboarding/SelectableCard';
 import { useOnboarding } from './_OnboardingContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from '@/context/UserContext';
+import { useUserById } from '@/hooks/users';
 import { useCustomerOnboardingStatus, sessionSkippedUsers } from '@/hooks/auth/useCustomerOnboardingStatus';
 
 export default function Step1() {
   const { data, updateData } = useOnboarding();
-  const { userId } = useUser();
+  const { userId, role } = useUser();
+  const { data: userRecord } = useUserById(userId);
   const [skipModalVisible, setSkipModalVisible] = useState(false);
   const [doNotAskAgain, setDoNotAskAgain] = useState(false);
 
+  const isIndividual = (role || '').trim().toLowerCase() === 'individual';
+
+  useEffect(() => {
+    if (isIndividual && userRecord) {
+      const rawGender = (userRecord.gender || '').toLowerCase();
+      const normalizedGender = rawGender === 'others' ? 'other' : rawGender;
+      updateData({
+        fullName: userRecord.name || data.fullName,
+        gender: normalizedGender || data.gender,
+        dateOfBirth: userRecord.dob || data.dateOfBirth,
+      });
+    }
+  }, [isIndividual, userRecord]);
+
+  const fullNameValue = isIndividual ? (userRecord?.name || data.fullName) : data.fullName;
+  const rawGender = isIndividual
+    ? ((userRecord?.gender || data.gender || '').toLowerCase() === 'others' ? 'other' : (userRecord?.gender || data.gender || '').toLowerCase())
+    : (data.gender || '').toLowerCase();
+  const currentGender = rawGender;
+  const dobValue = isIndividual ? (userRecord?.dob || data.dateOfBirth) : data.dateOfBirth;
+
   const handleContinue = () => {
+    // Ensure final sync before moving forward
+    if (isIndividual && userRecord) {
+      updateData({
+        fullName: fullNameValue,
+        gender: currentGender,
+        dateOfBirth: dobValue,
+      });
+    }
     router.push('/(customer)/(onboarding)/step2');
   };
 
@@ -25,11 +56,14 @@ export default function Step1() {
     return !isNaN(num) && num > 0;
   };
 
-  const isFormValid = data.fullName.length > 0 && data.gender !== '' && isValidNumber(data.height) && isValidNumber(data.weight);
+  const isFormValid = (fullNameValue.length > 0) &&
+    (currentGender !== '') &&
+    isValidNumber(data.height) &&
+    isValidNumber(data.weight);
 
   const Title = (
     <Text className="text-white text-3xl font-semibold mb-2">
-      Let's start with{'\n'}your <Text className="text-neon">basic information</Text>
+      Let's start with{'\n'}your <Text className="text-neon">Basic Information</Text>
     </Text>
   );
 
@@ -66,7 +100,7 @@ export default function Step1() {
             className="border border-gray-800 rounded-xl p-4 text-white bg-[#111] font-sans"
             placeholder="Enter your full name"
             placeholderTextColor="#666"
-            value={data.fullName}
+            value={fullNameValue}
             editable={false}
           />
         </View>
@@ -77,34 +111,34 @@ export default function Step1() {
             <SelectableCard
               className="flex-1 px-2 py-3"
               checkPosition="none"
-              selected={data.gender === 'male'}
+              selected={currentGender === 'male'}
               onPress={() => { }}
             >
               <View className="flex-row items-center justify-center gap-2">
-                <GenderMale color={data.gender === 'male' ? '#d4ff00' : '#888'} size={20} />
-                <Text className={data.gender === 'male' ? 'text-neon font-medium' : 'text-gray-400'}>Male</Text>
+                <GenderMale color={currentGender === 'male' ? '#d4ff00' : '#888'} size={20} />
+                <Text className={currentGender === 'male' ? 'text-neon font-medium' : 'text-gray-400'}>Male</Text>
               </View>
             </SelectableCard>
             <SelectableCard
               className="flex-1 px-2 py-3"
               checkPosition="none"
-              selected={data.gender === 'female'}
+              selected={currentGender === 'female'}
               onPress={() => { }}
             >
               <View className="flex-row items-center justify-center gap-2">
-                <GenderFemale color={data.gender === 'female' ? '#d4ff00' : '#888'} size={20} />
-                <Text className={data.gender === 'female' ? 'text-neon font-medium' : 'text-gray-400'}>Female</Text>
+                <GenderFemale color={currentGender === 'female' ? '#d4ff00' : '#888'} size={20} />
+                <Text className={currentGender === 'female' ? 'text-neon font-medium' : 'text-gray-400'}>Female</Text>
               </View>
             </SelectableCard>
             <SelectableCard
               className="flex-1 px-2 py-3"
               checkPosition="none"
-              selected={data.gender === 'other'}
+              selected={currentGender === 'other'}
               onPress={() => { }}
             >
               <View className="flex-row items-center justify-center gap-2">
-                <GenderIntersex color={data.gender === 'other' ? '#d4ff00' : '#888'} size={20} />
-                <Text className={data.gender === 'other' ? 'text-neon font-medium' : 'text-gray-400'}>Other</Text>
+                <GenderIntersex color={currentGender === 'other' ? '#d4ff00' : '#888'} size={20} />
+                <Text className={currentGender === 'other' ? 'text-neon font-medium' : 'text-gray-400'}>Other</Text>
               </View>
             </SelectableCard>
           </View>
@@ -118,7 +152,7 @@ export default function Step1() {
               className="flex-1 ml-3 text-white font-sans"
               placeholder="DD / MM / YYYY"
               placeholderTextColor="#666"
-              value={data.dateOfBirth}
+              value={dobValue}
               editable={false}
               keyboardType="numbers-and-punctuation"
             />

@@ -14,7 +14,6 @@ import {
   EnvelopeSimple,
   Key,
   ArrowRight,
-  // DeviceMobile,
   Eye,
   EyeSlash,
   Barbell,
@@ -47,11 +46,8 @@ export default function OtpAuthScreen() {
   const [loginMethod /* , setLoginMethod */] = useState<'email' | 'phone'>('email');
 
   const [email, setEmail] = useState('');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [name, setName] = useState('');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [phone, setPhone] = useState('');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
 
@@ -100,7 +96,6 @@ export default function OtpAuthScreen() {
             setLoading(false);
           }
         } else if (role) {
-          // Validate gym membership before auto-navigating for gym-bound roles
           const normalizedRole = role.trim().toLowerCase();
           if (normalizedRole === 'customer' || normalizedRole === 'trainer' || normalizedRole === 'owner') {
             const autoSelectedGym = await getSelectedGym();
@@ -194,16 +189,15 @@ export default function OtpAuthScreen() {
 
     try {
       if (purpose === 'login') {
-        // Clear any existing active session to prevent session leak between users
         await supabase.auth.signOut();
 
-        // 1. PRE-CHECK: Validate role by email BEFORE creating a Supabase session
         if (typeId) {
           try {
             let preIsOwner = false;
             let preIsCustomer = false;
             let preIsTrainer = false;
             let preIsGlobalTrainer = false;
+            let preIsIndividual = false;
             let preUserFound = false;
 
             const { data: uRec } = await supabase
@@ -218,6 +212,7 @@ export default function OtpAuthScreen() {
               if (uRec.role === 'customer') preIsCustomer = true;
               if (uRec.role === 'trainer') preIsTrainer = true;
               if (uRec.role === 'global_trainer') preIsGlobalTrainer = true;
+              if (uRec.role === 'individual') preIsIndividual = true;
             }
 
             const [oRes, cRes, tRes, gtRes] = await Promise.all([
@@ -235,7 +230,7 @@ export default function OtpAuthScreen() {
             if (preUserFound || preIsOwner || preIsCustomer || preIsTrainer || preIsGlobalTrainer) {
               let preRoleValid = false;
               if (typeId === 'individual') {
-                if (!preIsOwner && !preIsCustomer && !preIsTrainer && !preIsGlobalTrainer) {
+                if (preIsIndividual || (!preIsOwner && !preIsCustomer && !preIsTrainer && !preIsGlobalTrainer)) {
                   preRoleValid = true;
                 }
               } else if (typeId === 'owner') {
@@ -257,8 +252,6 @@ export default function OtpAuthScreen() {
                 return;
               }
 
-              // GYM ID MATCHING: Verify the user belongs to the selected gym
-              // We check this for ANY role they hold, to ensure they can't bypass by losing the typeId param
               const currentSelectedGym = await getSelectedGym();
               if (currentSelectedGym?.gymId) {
                 const selectedGymId = currentSelectedGym.gymId;
@@ -278,7 +271,6 @@ export default function OtpAuthScreen() {
                   if (tRes.data.gymId === selectedGymId) isAuthorizedForGym = true;
                 }
 
-                // If they don't have a gym-bound role, they are individual/global_trainer and don't need gym validation
                 if (!hasGymBoundRole) {
                   isAuthorizedForGym = true;
                 }
@@ -293,7 +285,6 @@ export default function OtpAuthScreen() {
             }
           } catch (preCheckError) {
             console.error('[SignIn] Pre-check failed:', preCheckError);
-            // Ignore pre-check failures and continue to post-check
           }
         }
 
@@ -355,12 +346,11 @@ export default function OtpAuthScreen() {
                 email: authData.user.email || targetEmail,
                 phone: userPhone,
                 address: metadata.address || address.trim() || '',
-                role: metadata.role || 'customer',
+                role: metadata.role || (typeId === 'individual' ? 'individual' : 'customer'),
               });
             } catch {
-              // Ignore profile insert errors
             }
-            fetchedRole = metadata.role || 'customer';
+            fetchedRole = metadata.role || (typeId === 'individual' ? 'individual' : 'customer');
           }
 
           try {
@@ -381,9 +371,6 @@ export default function OtpAuthScreen() {
             console.error('[SignIn] Error checking gym status:', error);
           }
 
-          // POST-AUTH GYM ID MATCHING (MANDATORY - not inside try/catch so it cannot be silently bypassed)
-          // For roles that go through find-organization (customer, trainer) and owners,
-          // verify the user's gymId matches the selected gym before allowing access
           const postSelectedGym = await getSelectedGym();
           if (postSelectedGym?.gymId) {
             const postSelectedGymId = postSelectedGym.gymId;
@@ -476,6 +463,7 @@ export default function OtpAuthScreen() {
 
         const fullPhone = '+91' + cleanedPhone;
 
+        const targetRole = typeId === 'individual' ? 'individual' : 'customer';
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: targetEmail,
           password: password,
@@ -484,7 +472,7 @@ export default function OtpAuthScreen() {
               name: name.trim(),
               phone: fullPhone,
               address: address.trim(),
-              role: 'customer',
+              role: targetRole,
             },
           },
         });
@@ -502,10 +490,9 @@ export default function OtpAuthScreen() {
               email: targetEmail,
               phone: fullPhone,
               address: address.trim(),
-              role: 'customer',
+              role: targetRole,
             });
           } catch {
-            // Ignore signup profile error
           }
         }
 

@@ -16,18 +16,17 @@ export function SharedTabBar() {
   const { role } = useUser();
   const bottomInset = insets.bottom || 0;
 
-  // Don't show on full screen modals or screens with bottom inputs
   if (
-    pathname.includes('story-viewer') || 
-    pathname.includes('create-story') || 
-    pathname.includes('/post/') || 
+    pathname.includes('story-viewer') ||
+    pathname.includes('create-story') ||
+    pathname.includes('/post/') ||
     pathname.includes('/comments')
   ) {
     return null;
   }
 
   let tabs: any[] = [];
-  if (role === 'customer') {
+  if (role === 'customer' || role === 'individual') {
     tabs = [
       { name: 'workout', label: 'Workout', icon: Barbell, path: '/(customer)/workout' },
       { name: 'progress', label: 'Progress', icon: ChartLineUp, path: '/(customer)/progress' },
@@ -85,7 +84,7 @@ export function SharedTabBar() {
         style={{ height: 58, bottom: bottomInset }}
       >
         {tabs.map((tab, index) => {
-          const isFocused = false; // Community is active, none of these are focused
+          const isFocused = false;
 
           const onPress = () => {
             router.push(tab.path);

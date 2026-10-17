@@ -333,3 +333,19 @@ export async function fetchGymCustomerById(customerId: string) {
   }
   return data;
 }
+
+export async function fetchCustomerOnboardingByUserId(userId: string) {
+  const { data, error } = await supabase
+    .from('customer_onboarding')
+    .select('*')
+    .eq('createdBy', userId)
+    .order('createdAt', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[customerHelper] fetchCustomerOnboardingByUserId Error:', error);
+    return null;
+  }
+  return data;
+}

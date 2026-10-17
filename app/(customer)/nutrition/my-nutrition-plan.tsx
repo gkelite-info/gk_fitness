@@ -57,7 +57,6 @@ export default function MyNutritionPlan() {
 
   const daysOfMonth = getDaysOfMonth();
 
-  // Helper to format "15 Jul – 13 Aug, 2024"
   const formatWeekRange = () => {
     const first = daysOfMonth[0].fullDate;
     const last = daysOfMonth[daysOfMonth.length - 1].fullDate;
@@ -65,7 +64,6 @@ export default function MyNutritionPlan() {
     return `${first.getDate()} ${monthNames[first.getMonth()]} – ${last.getDate()} ${monthNames[last.getMonth()]}, ${last.getFullYear()}`;
   };
 
-  // Helper to format "Monday, 15 July"
   const formatSelectedDate = () => {
     const selected = daysOfMonth[selectedDayIndex].fullDate;
     const fullDayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -147,13 +145,13 @@ export default function MyNutritionPlan() {
         showsVerticalScrollIndicator={false}
       >
         <View className="flex-row items-center mb-6 border-b border-[#222222]">
-          <Pressable 
+          <Pressable
             onPress={() => setActiveTab('my_plan')}
             className={`mr-6 pb-2 ${activeTab === 'my_plan' ? 'border-b-2 border-[#C4EF00]' : ''}`}
           >
             <Text className={`text-[18px] font-semibold ${activeTab === 'my_plan' ? 'text-white' : 'text-[#8E8E93]'}`}>My nutrition plan</Text>
           </Pressable>
-          <Pressable 
+          <Pressable
             onPress={() => setActiveTab('trainer_plan')}
             className={`pb-2 ${activeTab === 'trainer_plan' ? 'border-b-2 border-[#C4EF00]' : ''}`}
           >
@@ -250,7 +248,6 @@ export default function MyNutritionPlan() {
                   </View>
                 </View>
 
-                {/* Macros at bottom line */}
                 <View className="flex-row items-center gap-x-3 pt-2 border-t border-[#222222]">
                   <Text className="text-[#4ADE80] text-[11px] font-semibold">P {meal.protein || 0}g</Text>
                   <Text className="text-[#FBBF24] text-[11px] font-semibold">C {meal.carbs || 0}g</Text>
@@ -272,7 +269,6 @@ export default function MyNutritionPlan() {
         </View>
       </ScrollView>
 
-      {/* Edit Calories Modal */}
       <Modal
         visible={!!editingMeal}
         transparent
@@ -323,7 +319,6 @@ export default function MyNutritionPlan() {
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }

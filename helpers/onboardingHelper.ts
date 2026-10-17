@@ -2,6 +2,92 @@ import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
 import { OnboardingData } from '@/app/(customer)/(onboarding)/_OnboardingContext';
 
+export type CustomerPrimaryGoal =
+  | 'loseweight'
+  | 'buildmuscle'
+  | 'stayfit'
+  | 'gainweight'
+  | 'imporoveendurance';
+
+export type CustomerWorkoutLocation = 'home' | 'gym' | 'both';
+
+export type CustomerPreferWorkoutTime = 'morning' | 'afternoon' | 'evening' | 'flexible';
+
+export type CustomerDietType = 'vegetarian' | 'eggetarian' | 'nonvegetarian' | 'vegan';
+
+export interface CustomerOnboarding {
+  onboardingId: string;
+  gymId: string | null;
+  height: string;
+  weight: string;
+  primaryGoal: CustomerPrimaryGoal;
+  targetWeight: string;
+  workoutLocation: CustomerWorkoutLocation;
+  workoutDays: string[];
+  preferWorkoutTime: CustomerPreferWorkoutTime;
+  dietType: CustomerDietType;
+  mealsPerDay: number;
+  foodAllergies: string[];
+  dailyWaterGoal: string;
+  preferredCuisine: string | null;
+  calorieDistribution: string | null;
+  goalTimeframe: string | null;
+  hasMedicalConditions: boolean;
+  medicalConditions: string[];
+  medicalDisclaimerAccepted: boolean;
+  medicalDisclaimerAcceptedAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  [key: string]: any;
+}
+
+export type CustomerOnboardingUpdatePayload = Partial<
+  Omit<CustomerOnboarding, 'onboardingId' | 'createdAt'>
+> & {
+  onboardingId: string;
+  [key: string]: any;
+};
+
+export function normalizeDietType(dietType?: string): CustomerDietType {
+  if (!dietType) return 'nonvegetarian';
+  const cleaned = dietType.toLowerCase().replace(/[^a-z]/g, '');
+  if (cleaned.includes('nonveg')) return 'nonvegetarian';
+  if (cleaned.includes('egg')) return 'eggetarian';
+  if (cleaned.includes('vegan')) return 'vegan';
+  if (cleaned.includes('veg')) return 'vegetarian';
+  return 'nonvegetarian';
+}
+
+export function normalizePrimaryGoal(goal?: string): CustomerPrimaryGoal {
+  if (!goal) return 'stayfit';
+  const g = goal.toLowerCase().replace(/[^a-z]/g, '');
+  if (g.includes('lose') || g.includes('loss')) return 'loseweight';
+  if (g.includes('muscle')) return 'buildmuscle';
+  if (g.includes('gain')) return 'gainweight';
+  if (g.includes('endurance')) return 'imporoveendurance';
+  if (g.includes('stay') || g.includes('fit') || g.includes('maintain')) return 'stayfit';
+  return 'stayfit';
+}
+
+export function normalizeWorkoutLocation(loc?: string): CustomerWorkoutLocation {
+  if (!loc) return 'gym';
+  const l = loc.toLowerCase().trim();
+  if (l === 'home') return 'home';
+  if (l === 'both') return 'both';
+  return 'gym';
+}
+
+export function normalizePreferWorkoutTime(time?: string): CustomerPreferWorkoutTime {
+  if (!time) return 'morning';
+  const t = time.toLowerCase().trim();
+  if (t.includes('afternoon')) return 'afternoon';
+  if (t.includes('even')) return 'evening';
+  if (t.includes('flex')) return 'flexible';
+  return 'morning';
+}
+
 export async function saveCustomerOnboarding(
   userId: string,
   data: OnboardingData,
@@ -18,14 +104,7 @@ export async function saveCustomerOnboarding(
     allergies.push(customAllergy.trim());
   }
 
-  const goalMap: Record<string, string> = {
-    'weightloss': 'loseweight',
-    'musclegain': 'buildmuscle',
-    'maintainfitness': 'stayfit',
-    'improveendurance': 'imporoveendurance' // Matching typo in database enum
-  };
-  
-  const mappedGoal = goalMap[data.primaryGoal] || data.primaryGoal;
+  const mappedGoal = normalizePrimaryGoal(data.primaryGoal);
 
   let finalGymId = data.gymId;
   if (!finalGymId || finalGymId === '00000000-0000-0000-0000-000000000000') {
@@ -87,7 +166,7 @@ export async function saveCustomerOnboarding(
     workoutLocation: data.workoutLocation,
     workoutDays: data.workoutDays,
     preferWorkoutTime: data.preferWorkoutTime,
-    dietType: data.dietType,
+    dietType: normalizeDietType(data.dietType),
     mealsPerDay: data.mealsPerDay || 3,
     foodAllergies: allergies,
     dailyWaterGoal: String(data.dailyWaterGoal),
@@ -154,7 +233,7 @@ export async function saveCustomerOnboarding(
   return true;
 }
 
-export async function fetchCustomerOnboarding(userId: string) {
+export async function fetchCustomerOnboarding(userId: string): Promise<CustomerOnboarding | null> {
   const { data, error } = await supabase
     .from('customer_onboarding')
     .select('*')
@@ -168,26 +247,54 @@ export async function fetchCustomerOnboarding(userId: string) {
     throw error;
   }
 
-  return data;
+  return (data as CustomerOnboarding) || null;
 }
 
-export async function updateCustomerOnboarding(payload: any) {
+export async function fetchCustomerOnboardingById(onboardingId: string): Promise<CustomerOnboarding | null> {
+  const { data, error } = await supabase
+    .from('customer_onboarding')
+    .select('*')
+    .eq('onboardingId', onboardingId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[onboardingHelper] fetchCustomerOnboardingById Error:', error);
+    throw error;
+  }
+
+  return (data as CustomerOnboarding) || null;
+}
+
+export async function updateCustomerOnboarding(payload: CustomerOnboardingUpdatePayload | any): Promise<boolean> {
   if (!payload.onboardingId) {
     throw new Error('Missing onboardingId for update.');
+  }
+
+  const safePayload = { ...payload };
+  if (safePayload.dietType) {
+    safePayload.dietType = normalizeDietType(safePayload.dietType);
+  }
+  if (safePayload.primaryGoal) {
+    safePayload.primaryGoal = normalizePrimaryGoal(safePayload.primaryGoal);
+  }
+  if (safePayload.workoutLocation) {
+    safePayload.workoutLocation = normalizeWorkoutLocation(safePayload.workoutLocation);
+  }
+  if (safePayload.preferWorkoutTime) {
+    safePayload.preferWorkoutTime = normalizePreferWorkoutTime(safePayload.preferWorkoutTime);
   }
 
   let { error } = await supabase
     .from('customer_onboarding')
     .update({
-      ...payload,
+      ...safePayload,
       updatedAt: new Date().toISOString()
     })
-    .eq('onboardingId', payload.onboardingId);
+    .eq('onboardingId', safePayload.onboardingId);
 
   // Fallback if calorieDistribution column is missing in schema
   if (error && error.message.includes('calorieDistribution')) {
     console.warn("Retrying update without calorieDistribution due to schema error.");
-    const safePayload = { ...payload };
     delete safePayload.calorieDistribution;
     
     const retry = await supabase
@@ -218,7 +325,6 @@ export async function updateCustomerOnboarding(payload: any) {
   } else if (error && error.message.includes('goalTimeframe')) {
     // Fallback if only goalTimeframe is missing
     console.warn("Retrying update without goalTimeframe due to schema error.");
-    const safePayload = { ...payload };
     delete safePayload.goalTimeframe;
     
     const retry = await supabase
@@ -239,3 +345,4 @@ export async function updateCustomerOnboarding(payload: any) {
 
   return true;
 }
+

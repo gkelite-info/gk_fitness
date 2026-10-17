@@ -1,10 +1,22 @@
 import '@/global.css';
 
+import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import { LogBox, Platform, Pressable, StatusBar as RNStatusBar } from 'react-native';
+
+// Disable Reanimated strict mode to prevent warnings about reading shared values during component render
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false,
+});
+
+LogBox.ignoreLogs([
+  '[Reanimated] Reading from `value` during component render',
+]);
+
 import { ThemeProvider as NavThemeProvider } from 'expo-router';
 import * as Device from 'expo-device';
 import { Link, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, Pressable, StatusBar as RNStatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { queryClient, asyncStoragePersister } from '@/lib/react-query';

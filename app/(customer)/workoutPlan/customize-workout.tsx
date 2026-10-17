@@ -10,12 +10,15 @@ import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 import { useUser } from '@/context/UserContext';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { useUserById } from '@/hooks/users';
 
 const IMAGE_MAP: { [key: string]: any } = {
   Chest: require('../../../assets/chest-stood.png'),
   Back: require('../../../assets/back-stood.png'),
   Shoulders: require('../../../assets/shoulders-stood.png'),
   Legs: require('../../../assets/workout.png'),
+  Abs: require('../../../assets/workout_abs.jpg'),
+  Arms: require('../../../assets/dumbell.png'),
   default: require('../../../assets/barbell.png'),
 };
 
@@ -27,7 +30,9 @@ const ExerciseMediaItem = ({ videoUrl, muscleGroup, opacity = false }: { videoUr
     normalizedGroup.includes('chest') ? IMAGE_MAP.Chest :
     normalizedGroup.includes('back') ? IMAGE_MAP.Back :
     normalizedGroup.includes('shoulder') ? IMAGE_MAP.Shoulders :
-    normalizedGroup.includes('leg') ? IMAGE_MAP.Legs :
+    (normalizedGroup.includes('leg') || normalizedGroup.includes('hip') || normalizedGroup.includes('calf')) ? IMAGE_MAP.Legs :
+    (normalizedGroup.includes('ab') || normalizedGroup.includes('core')) ? IMAGE_MAP.Abs :
+    (normalizedGroup.includes('bicep') || normalizedGroup.includes('tricep') || normalizedGroup.includes('arm')) ? IMAGE_MAP.Arms :
     IMAGE_MAP.default;
 
   if (!videoUrl || hasError) {
@@ -66,9 +71,17 @@ const ExerciseMediaItem = ({ videoUrl, muscleGroup, opacity = false }: { videoUr
         style={{ width: '100%', height: '100%' }}
         resizeMode={ResizeMode.COVER}
         useNativeControls={false}
-        shouldPlay={true}
+        shouldPlay={false}
         isLooping={true}
         isMuted={true}
+        fallback={
+          <Image
+            source={exerciseImage}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        }
+        onError={() => setHasError(true)}
       />
     </View>
   );
@@ -82,17 +95,42 @@ export default function CustomizeWorkout() {
   const userContext = useUser();
   const userId = userContext.userId;
   const { data: customerProfileData } = useCustomerProfile(userId);
-  const userGender = customerProfileData?.customerData?.gender?.toLowerCase() || 'all';
+  const { data: userRecord } = useUserById(userId);
+
+  // Directly resolve gender based on user's profile
+  const userGender = useMemo<'male' | 'female'>(() => {
+    const raw = (
+      (userContext.role === 'customer' ? customerProfileData?.customerData?.gender : null) ||
+      userContext.gender ||
+      userRecord?.gender ||
+      customerProfileData?.customerData?.gender ||
+      'male'
+    ).toString().trim().toLowerCase();
+
+    return raw.includes('female') ? 'female' : 'male';
+  }, [userContext.role, userContext.gender, userRecord?.gender, customerProfileData?.customerData?.gender]);
+
+  const normalizedMuscleGroup = (muscleGroup || 'all').toLowerCase();
 
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit] = useState(20);
   const [accumulatedVideos, setAccumulatedVideos] = useState<any[]>([]);
 
-  const { data: fetchResult, isLoading: isVideosLoading, isFetching } = useWorkoutVideos(page, limit, muscleGroup, userGender);
+  const { data: fetchResult, isLoading: isVideosLoading, isFetching } = useWorkoutVideos(
+    page,
+    limit,
+    normalizedMuscleGroup,
+    userGender
+  );
 
   const total = fetchResult?.total || 0;
   const totalPages = Math.ceil(total / limit) || 1;
   const hasMore = page < totalPages;
+
+  useEffect(() => {
+    setPage(1);
+    setAccumulatedVideos([]);
+  }, [userGender, normalizedMuscleGroup]);
 
   useEffect(() => {
     if (fetchResult?.data) {
@@ -111,11 +149,13 @@ export default function CustomizeWorkout() {
   const currentPlan = planDays[currentEditingWeek]?.[day || ''];
 
   const allPresets = useMemo(() => {
+    const total = accumulatedVideos.length;
+    const recommendedCutoff = total <= 5 ? Math.max(1, Math.floor(total / 2)) : 5;
     return accumulatedVideos.map((video: any, index: number) => ({
       name: video.exerciseName || 'Unknown Exercise',
       category: 'Exercise',
       reps: '10-12 reps',
-      isRecommended: index < 5,
+      isRecommended: index < recommendedCutoff,
       videoUrl: video.videoUrl,
       workoutVideoId: video.workoutVideoId,
     }));

@@ -13,8 +13,8 @@ export async function calculateNutritionTargets(userId: string) {
   const gender: string = 'male'; 
   const age = 30;
 
-  const height = parseFloat(profile?.height) || 170; // cm
-  const weight = parseFloat(profile?.weight) || 70; // kg
+  const height = parseFloat(profile?.height || '0') || 170; // cm
+  const weight = parseFloat(profile?.weight || '0') || 70; // kg
   // Parse camelCase goals from onboarding (e.g. 'loseWeight')
   const primaryGoal = profile?.primaryGoal?.toLowerCase() || 'stayfit';
 

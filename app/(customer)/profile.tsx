@@ -20,6 +20,7 @@ import { useAssignedTrainersByCustomer } from '@/hooks/customerTrainers/useCusto
 import { queryClient } from '@/lib/react-query';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
+import { useWorkoutStreak } from '@/hooks/customerWorkouts/useWorkoutStreak';
 
 export default function ProfileScreen() {
   const userContext = useUser();
@@ -81,10 +82,23 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
 
   const displayAvatar = data.user.avatarUrl;
 
-  const displayWeight = onboardingData?.weight || data.progress.currentWeight;
-  const displayActiveSince = customerData?.createdAt
-    ? new Date(customerData.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-    : data.progress.activeSince;
+  const { data: streakData } = useWorkoutStreak();
+  const currentStreak = streakData?.currentStreak ?? 0;
+
+  const rawWeight = onboardingData?.weight;
+  const displayWeight = rawWeight
+    ? (rawWeight.toString().toLowerCase().includes('kg') ? rawWeight.toString() : `${rawWeight} kg`)
+    : '0';
+
+  const displayStreak = currentStreak > 0 ? currentStreak.toString() : '0';
+  const displayStreakSuffix = currentStreak > 0 ? 'days' : '';
+  const displayStreakSubtitle = currentStreak > 0 ? 'Days Active' : 'Streak';
+
+  const activeSinceDate = customerData?.createdAt || fallbackUser?.createdAt;
+  const displayActiveSince = activeSinceDate
+    ? new Date(activeSinceDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    : '0';
+  const displayActiveSinceSubtitle = activeSinceDate ? 'Joined' : 'Active';
 
   return (
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
@@ -129,23 +143,23 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
             icon={<Scales size={24} color="#D4FF00" />}
             title="Current Weight"
             value={displayWeight}
-            subtitle={onboardingData ? "Current" : data.progress.weightChange}
+            subtitle={rawWeight ? "Current" : "Weight"}
             subtitleColor="#D4FF00"
           />
           <ProgressCard
             icon={<Fire size={24} color="#D4FF00" />}
             title="Workout Streak"
-            value={data.progress.workoutStreak}
-            subtitle={data.progress.streakSubtitle}
+            value={displayStreak}
+            subtitle={displayStreakSubtitle}
             subtitleColor="#D4FF00"
-            valueHighlight={data.progress.workoutStreak}
-            valueSuffix={data.progress.streakSuffix}
+            valueHighlight={displayStreak}
+            valueSuffix={displayStreakSuffix}
           />
           <ProgressCard
             icon={<CalendarBlank size={24} color="#D4FF00" />}
             title="Active Since"
             value={displayActiveSince}
-            subtitle={onboardingData ? "Joined" : data.progress.activeSinceSubtitle}
+            subtitle={displayActiveSinceSubtitle}
             subtitleColor="#D4FF00"
           />
         </View>

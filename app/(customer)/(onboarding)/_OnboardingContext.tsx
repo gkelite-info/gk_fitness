@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '@/lib/supabase';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useUser } from '@/context/UserContext';
+import { useUserById } from '@/hooks/users';
 import { toast } from '@/lib/toast';
 
 export type OnboardingData = {
@@ -57,52 +58,85 @@ const OnboardingContext = createContext<OnboardingContextType>({
 });
 
 export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
-  const { userId } = useUser();
+  const { userId, role } = useUser();
   const [data, setData] = useState<OnboardingData>(initialData);
   const [loading, setLoading] = useState(true);
 
-  const { data: profile, isLoading } = useCustomerProfile(userId);
+  const { data: profile, isLoading: isProfileLoading } = useCustomerProfile(userId);
+  const { data: userRecord, isLoading: isUserLoading } = useUserById(userId);
 
   useEffect(() => {
-      setData((prev) => {
-        const newData = {
-          ...prev,
-          fullName: profile?.customerData?.fullName || '',
-          gender: profile?.customerData?.gender || '',
-          dateOfBirth: profile?.customerData?.dateOfBirth || '',
-          gymId: profile?.customerData?.gymId || '',
-        };
+    setData((prev) => {
+      const isIndividual = (role || '').trim().toLowerCase() === 'individual';
 
-        if (profile?.onboardingData) {
-          const ob = profile.onboardingData;
-          newData.height = ob.height || '';
-          newData.weight = ob.weight || '';
-          
-          const reverseGoalMap: Record<string, string> = {
-            'loseweight': 'weightloss',
-            'buildmuscle': 'musclegain',
-            'stayfit': 'maintainfitness',
-            'imporoveendurance': 'improveendurance'
-          };
-          newData.primaryGoal = reverseGoalMap[ob.primaryGoal] || ob.primaryGoal || '';
-          
-          newData.targetWeight = ob.targetWeight || '';
-          newData.workoutLocation = ob.workoutLocation || '';
-          newData.workoutDays = ob.workoutDays || [];
-          newData.preferWorkoutTime = ob.preferWorkoutTime || '';
-          newData.dietType = ob.dietType || '';
-          newData.mealsPerDay = ob.mealsPerDay || null;
-          newData.foodAllergies = ob.foodAllergies || [];
-          newData.dailyWaterGoal = ob.dailyWaterGoal ? parseFloat(ob.dailyWaterGoal) : 3.0;
-          newData.preferredCuisine = ob.preferredCuisine || '';
-          newData.calorieDistribution = ob.calorieDistribution || '';
-          newData.goalTimeframe = ob.goalTimeframe || '';
-        }
+      let fullName = '';
+      let gender = '';
+      let dateOfBirth = '';
+
+      if (isIndividual) {
+        fullName = userRecord?.name || '';
+        const rawGender = (userRecord?.gender || '').toLowerCase();
+        gender = rawGender === 'others' ? 'other' : rawGender;
+        dateOfBirth = userRecord?.dob || '';
+      } else {
+        fullName = profile?.customerData?.fullName || '';
+        const rawGender = (profile?.customerData?.gender || '').toLowerCase();
+        gender = rawGender === 'others' ? 'other' : rawGender;
+        const rawDob = profile?.customerData?.dateOfBirth;
+        dateOfBirth = rawDob ? (rawDob.includes('T') ? rawDob.split('T')[0] : rawDob) : '';
+      }
+
+      // Graceful fallback if target source is missing but secondary has it
+      if (!fullName) {
+        fullName = isIndividual ? (profile?.customerData?.fullName || '') : (userRecord?.name || '');
+      }
+      if (!gender) {
+        const fallbackGender = (isIndividual ? profile?.customerData?.gender : userRecord?.gender) || '';
+        gender = fallbackGender.toLowerCase() === 'others' ? 'other' : fallbackGender.toLowerCase();
+      }
+      if (!dateOfBirth) {
+        const fallbackDob = isIndividual ? profile?.customerData?.dateOfBirth : userRecord?.dob;
+        dateOfBirth = fallbackDob ? (fallbackDob.includes('T') ? fallbackDob.split('T')[0] : fallbackDob) : '';
+      }
+
+      const newData = {
+        ...prev,
+        fullName: fullName || prev.fullName,
+        gender: gender || prev.gender,
+        dateOfBirth: dateOfBirth || prev.dateOfBirth,
+        gymId: profile?.customerData?.gymId || prev.gymId || '',
+      };
+
+      if (profile?.onboardingData) {
+        const ob = profile.onboardingData;
+        newData.height = ob.height || '';
+        newData.weight = ob.weight || '';
         
-        return newData;
-      });
-    setLoading(isLoading);
-  }, [profile, isLoading]);
+        const reverseGoalMap: Record<string, string> = {
+          'loseweight': 'weightloss',
+          'buildmuscle': 'musclegain',
+          'stayfit': 'maintainfitness',
+          'imporoveendurance': 'improveendurance'
+        };
+        newData.primaryGoal = reverseGoalMap[ob.primaryGoal] || ob.primaryGoal || '';
+        
+        newData.targetWeight = ob.targetWeight || '';
+        newData.workoutLocation = ob.workoutLocation || '';
+        newData.workoutDays = ob.workoutDays || [];
+        newData.preferWorkoutTime = ob.preferWorkoutTime || '';
+        newData.dietType = ob.dietType || '';
+        newData.mealsPerDay = ob.mealsPerDay || null;
+        newData.foodAllergies = ob.foodAllergies || [];
+        newData.dailyWaterGoal = ob.dailyWaterGoal ? parseFloat(ob.dailyWaterGoal) : 3.0;
+        newData.preferredCuisine = ob.preferredCuisine || '';
+        newData.calorieDistribution = ob.calorieDistribution || '';
+        newData.goalTimeframe = ob.goalTimeframe || '';
+      }
+      
+      return newData;
+    });
+    setLoading(isProfileLoading || (role === 'individual' && isUserLoading));
+  }, [profile, isProfileLoading, userRecord, isUserLoading, role]);
 
   const updateData = (updates: Partial<OnboardingData>) => {
     setData((prev) => ({ ...prev, ...updates }));

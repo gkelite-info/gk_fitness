@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Pressable, Image, ActivityIndicator, TextInput, Keyboard, Alert } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, ScrollView, Pressable, Image, ActivityIndicator, TextInput } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,7 @@ import { useUpdateGymDetails, useUpdateGymLogo } from '@/hooks/gyms/useUpdateGym
 import { ActionSheetModal } from '@/components/community/ActionSheetModal';
 import * as ImagePicker from 'expo-image-picker';
 import {
-  CaretLeft, CaretRight, Info, Camera,
+  CaretLeft, Info, Camera,
   MapPin, Phone, Envelope,
   Buildings, Barbell
 } from 'phosphor-react-native';
@@ -20,7 +20,7 @@ export default function GymEditProfileScreen() {
   const insets = useSafeAreaInsets();
   const { gymId } = useUser();
   const { data: gym, isLoading } = useGym(gymId ?? null);
-  
+
   const [form, setForm] = useState({
     gymName: '',
     gymEmail: '',
@@ -31,10 +31,10 @@ export default function GymEditProfileScreen() {
     pinCode: '',
     website: ''
   });
-  
+
   const updateDetailsMutation = useUpdateGymDetails();
   const updateLogoMutation = useUpdateGymLogo();
-  
+
   const [photoOptionsVisible, setPhotoOptionsVisible] = useState(false);
 
   useEffect(() => {
@@ -58,11 +58,11 @@ export default function GymEditProfileScreen() {
       toast.error('Gym Name is required.');
       return;
     }
-    
+
     if (form.phone) {
       const cleanPhone = form.phone.replace(/[^\d+]/g, '');
       const numberPart = cleanPhone.startsWith('+91') ? cleanPhone.slice(3) : cleanPhone.startsWith('+') ? cleanPhone.slice(1) : cleanPhone;
-      
+
       if (numberPart.length > 0 && numberPart.length !== 10) {
         toast.error('Phone number must be exactly 10 digits.');
         return;
@@ -70,11 +70,11 @@ export default function GymEditProfileScreen() {
     }
 
     updateDetailsMutation.mutate(
-      { 
+      {
         ...gym,
-        gymId, 
-        ...form, 
-        createdBy: gym?.createdBy || '' 
+        gymId,
+        ...form,
+        createdBy: gym?.createdBy || ''
       } as any,
       {
         onSuccess: () => {
@@ -99,7 +99,7 @@ export default function GymEditProfileScreen() {
       }
 
       if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'We need permission to access your camera or gallery to update the gym logo.');
+        toast.error('Camera or gallery permission is required.');
         setPhotoOptionsVisible(false);
         return;
       }
@@ -125,14 +125,14 @@ export default function GymEditProfileScreen() {
           { gymId, imageUri: result.assets[0].uri },
           {
             onSuccess: () => toast.success('Gym logo updated!'),
-            onError: (err: any) => Alert.alert('Upload Failed', err.message)
+            onError: (err: any) => toast.error(err.message || 'Logo upload failed.')
           }
         );
       }
     } catch (error: any) {
       setPhotoOptionsVisible(false);
       console.error("ImagePicker Error:", error);
-      Alert.alert('Error', error.message || 'An unexpected error occurred while opening the image picker.');
+      toast.error(error.message || 'An unexpected error occurred while opening the image picker.');
     }
   };
 
@@ -166,19 +166,17 @@ export default function GymEditProfileScreen() {
 
   return (
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
-      {/* Header */}
       <View className="flex-row items-center px-4 py-3 border-b border-[#1A1A1A]">
         <Pressable onPress={() => router.navigate('/(owner)/profile' as any)} className="p-2">
           <CaretLeft size={24} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="flex-1 text-center text-white text-lg font-bold">Gym Profile</Text>
+        <Text className="flex-1 text-center text-white text-lg font-semibold">Gym Profile</Text>
         <Pressable className="p-2">
           <Info size={24} color="#D4FF00" weight="regular" />
         </Pressable>
       </View>
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        {/* Profile Picture Section */}
         <View className="items-center mt-6 mb-8">
           <Pressable onPress={() => setPhotoOptionsVisible(true)} className="relative active:opacity-80">
             <View className="w-28 h-28 rounded-full border-[3px] border-[#C4EF00] bg-[#1A1A1A] items-center justify-center overflow-hidden">
@@ -194,77 +192,75 @@ export default function GymEditProfileScreen() {
               <Camera size={16} color="#000000" weight="bold" />
             </View>
           </Pressable>
-          <Text className="text-white text-[16px] font-bold mt-4">{gym?.gymName || 'Update Logo'}</Text>
+          <Text className="text-white text-[16px] font-semibold mt-4">{gym?.gymName || 'Update Logo'}</Text>
           <Text className="text-[#A1A1AA] text-sm mt-1">{gym?.city ? `${gym.city}, ${gym.state}` : 'Add location'}</Text>
         </View>
 
-        {/* Form Fields */}
         <View className="px-5">
-          <InputField 
+          <InputField
             icon={<Buildings size={20} color="#71717A" weight="fill" />}
-            label="Gym Name" 
-            value={form.gymName} 
-            onChangeText={(t: string) => setForm(prev => ({ ...prev, gymName: t }))} 
+            label="Gym Name"
+            value={form.gymName}
+            onChangeText={(t: string) => setForm(prev => ({ ...prev, gymName: t }))}
           />
-          <InputField 
+          <InputField
             icon={<Envelope size={20} color="#71717A" weight="fill" />}
-            label="Email Address" 
-            value={form.gymEmail} 
-            onChangeText={(t: string) => setForm(prev => ({ ...prev, gymEmail: t }))} 
+            label="Email Address"
+            value={form.gymEmail}
+            onChangeText={(t: string) => setForm(prev => ({ ...prev, gymEmail: t }))}
             keyboardType="email-address"
             editable={false}
           />
-          <InputField 
+          <InputField
             icon={<Phone size={20} color="#71717A" weight="fill" />}
-            label="Phone Number" 
-            value={form.phone} 
-            onChangeText={(t: string) => setForm(prev => ({ ...prev, phone: t }))} 
+            label="Phone Number"
+            value={form.phone}
+            onChangeText={(t: string) => setForm(prev => ({ ...prev, phone: t }))}
             keyboardType="phone-pad"
           />
-          
+
           <View className="mt-4 mb-2">
-            <Text className="text-white text-lg font-bold mb-4">Location Details</Text>
+            <Text className="text-white text-lg font-semibold mb-4">Location Details</Text>
           </View>
 
-          <InputField 
+          <InputField
             icon={<MapPin size={20} color="#71717A" weight="fill" />}
-            label="Address" 
-            value={form.address} 
-            onChangeText={(t: string) => setForm(prev => ({ ...prev, address: t }))} 
+            label="Address"
+            value={form.address}
+            onChangeText={(t: string) => setForm(prev => ({ ...prev, address: t }))}
           />
 
           <View className="flex-row justify-between">
             <View className="flex-1 mr-2">
-              <InputField 
+              <InputField
                 icon={null}
-                label="City" 
-                value={form.city} 
-                onChangeText={(t: string) => setForm(prev => ({ ...prev, city: t }))} 
+                label="City"
+                value={form.city}
+                onChangeText={(t: string) => setForm(prev => ({ ...prev, city: t }))}
               />
             </View>
             <View className="flex-1 ml-2">
-              <InputField 
+              <InputField
                 icon={null}
-                label="State" 
-                value={form.state} 
-                onChangeText={(t: string) => setForm(prev => ({ ...prev, state: t }))} 
+                label="State"
+                value={form.state}
+                onChangeText={(t: string) => setForm(prev => ({ ...prev, state: t }))}
               />
             </View>
           </View>
-          
-          <InputField 
+
+          <InputField
             icon={null}
-            label="PIN Code" 
-            value={form.pinCode} 
-            onChangeText={(t: string) => setForm(prev => ({ ...prev, pinCode: t }))} 
+            label="PIN Code"
+            value={form.pinCode}
+            onChangeText={(t: string) => setForm(prev => ({ ...prev, pinCode: t }))}
             keyboardType="number-pad"
           />
         </View>
       </ScrollView>
 
-      {/* Save Button */}
       <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#0F0F0F] border-t border-[#1A1A1A]" style={{ paddingBottom: Math.max(insets.bottom, 20) }}>
-        <Pressable 
+        <Pressable
           className="bg-[#C4EF00] h-14 rounded-full items-center justify-center flex-row shadow-sm active:opacity-80"
           onPress={handleSave}
           disabled={updateDetailsMutation.isPending}
@@ -272,14 +268,13 @@ export default function GymEditProfileScreen() {
           {updateDetailsMutation.isPending ? (
             <ActivityIndicator color="#000000" />
           ) : (
-            <Text className="text-black text-[16px] font-bold tracking-wide">Save Changes</Text>
+            <Text className="text-black text-[16px] font-semibold tracking-wide">Save Changes</Text>
           )}
         </Pressable>
       </View>
 
-      {/* Photo Picker Bottom Sheet */}
-      <ActionSheetModal 
-        visible={photoOptionsVisible} 
+      <ActionSheetModal
+        visible={photoOptionsVisible}
         onClose={() => setPhotoOptionsVisible(false)}
         title="Update Gym Logo"
         options={[
@@ -293,7 +288,6 @@ export default function GymEditProfileScreen() {
           }
         ]}
       />
-
     </View>
   );
 }

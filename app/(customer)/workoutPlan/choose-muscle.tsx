@@ -6,6 +6,7 @@ import { ArrowLeft, Check } from 'phosphor-react-native';
 import { useWorkoutPlan } from './_layout';
 import { useUser } from '@/context/UserContext';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { useUserById } from '@/hooks/users';
 import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 
 const DEFAULT_MUSCLE_GROUPS = [
@@ -25,7 +26,17 @@ export default function ChooseMuscleGroup() {
   const userContext = useUser();
   const userId = userContext.userId;
   const { data: customerProfileData } = useCustomerProfile(userId);
-  const userGender = customerProfileData?.customerData?.gender?.toLowerCase() || 'all';
+  const { data: userRecord } = useUserById(userId);
+
+  const rawGender = (
+    (userContext.role === 'customer' ? customerProfileData?.customerData?.gender : null) ||
+    userContext.gender ||
+    userRecord?.gender ||
+    customerProfileData?.customerData?.gender ||
+    'male'
+  ).toString().trim().toLowerCase();
+
+  const userGender = rawGender.includes('female') ? 'female' : 'male';
 
   const { data: workouts, isLoading } = useWorkouts(userGender);
 
@@ -77,6 +88,8 @@ export default function ChooseMuscleGroup() {
     return acc;
   }, [] as Array<{ id: string, workoutId: string, title: string, subtitle: string }>) || [];
 
+  const muscleGroupsToDisplay = dynamicMuscleGroups.length > 0 ? dynamicMuscleGroups : DEFAULT_MUSCLE_GROUPS;
+
   return (
     <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
       <View className="flex-row items-center mb-6">
@@ -96,11 +109,11 @@ export default function ChooseMuscleGroup() {
           Select the muscle group you want to train on {day}.
         </Text>
 
-        {isLoading ? (
+        {isLoading && dynamicMuscleGroups.length === 0 ? (
           <ActivityIndicator size="large" color="#C4EF00" className="mt-10" />
         ) : (
           <View className="flex-row flex-wrap justify-between w-full">
-            {dynamicMuscleGroups.map((item: any) => {
+            {muscleGroupsToDisplay.map((item: any) => {
               const isSelected = selectedType === item.id;
               return (
                 <Pressable

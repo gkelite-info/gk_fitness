@@ -13,6 +13,8 @@ const IMAGE_MAP: { [key: string]: any } = {
   Back: require('../../../assets/back-stood.png'),
   Shoulders: require('../../../assets/shoulders-stood.png'),
   Legs: require('../../../assets/workout.png'),
+  Abs: require('../../../assets/workout_abs.jpg'),
+  Arms: require('../../../assets/dumbell.png'),
   default: require('../../../assets/barbell.png'),
 };
 
@@ -32,7 +34,9 @@ const ExerciseMediaItem = ({
     normalizedGroup.includes('chest') ? IMAGE_MAP.Chest :
     normalizedGroup.includes('back') ? IMAGE_MAP.Back :
     normalizedGroup.includes('shoulder') ? IMAGE_MAP.Shoulders :
-    normalizedGroup.includes('leg') ? IMAGE_MAP.Legs :
+    (normalizedGroup.includes('leg') || normalizedGroup.includes('hip') || normalizedGroup.includes('calf')) ? IMAGE_MAP.Legs :
+    (normalizedGroup.includes('ab') || normalizedGroup.includes('core')) ? IMAGE_MAP.Abs :
+    (normalizedGroup.includes('bicep') || normalizedGroup.includes('tricep') || normalizedGroup.includes('arm')) ? IMAGE_MAP.Arms :
     IMAGE_MAP.default;
 
   if (!videoUrl || hasError) {
@@ -71,9 +75,17 @@ const ExerciseMediaItem = ({
         style={{ width: '100%', height: '100%' }}
         resizeMode={ResizeMode.COVER}
         useNativeControls={false}
-        shouldPlay={true}
+        shouldPlay={false}
         isLooping={true}
         isMuted={true}
+        fallback={
+          <Image
+            source={exerciseImage}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        }
+        onError={() => setHasError(true)}
       />
     </View>
   );

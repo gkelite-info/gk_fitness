@@ -16,10 +16,13 @@ export async function fetchWorkouts(role?: string) {
   let query = supabase
     .from('workouts')
     .select('*')
-    .eq('is_deleted', false);
+    .or('is_deleted.eq.false,is_deleted.is.null');
 
   if (role && role !== 'all') {
-    query = query.eq('role', role);
+    const normalizedRole = role.toLowerCase().trim();
+    if (normalizedRole === 'male' || normalizedRole === 'female') {
+      query = query.eq('role', normalizedRole);
+    }
   }
 
   const { data, error } = await query;

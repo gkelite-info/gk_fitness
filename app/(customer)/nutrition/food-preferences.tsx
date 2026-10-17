@@ -28,7 +28,7 @@ export default function FoodPreferences() {
     router.back();
   };
 
-  const [selectedDiet, setSelectedDiet] = useState('Non-Vegetarian');
+  const [selectedDiet, setSelectedDiet] = useState('nonvegetarian');
   const [selectedMeals, setSelectedMeals] = useState('4 Meals');
   const [selectedCuisine, setSelectedCuisine] = useState('No Preference');
   const [calorieSpread, setCalorieSpread] = useState<Record<string, string>>({
@@ -55,7 +55,14 @@ export default function FoodPreferences() {
         if (data) {
           setOnboardingFullData(data);
           setOnboardingId(data.onboardingId || null);
-          if (data.dietType) setSelectedDiet(data.dietType);
+          if (data.dietType) {
+            const clean = data.dietType.toLowerCase().replace(/[^a-z]/g, '');
+            if (clean.includes('nonveg')) setSelectedDiet('nonvegetarian');
+            else if (clean.includes('egg')) setSelectedDiet('eggetarian');
+            else if (clean.includes('vegan')) setSelectedDiet('vegan');
+            else if (clean.includes('veg')) setSelectedDiet('vegetarian');
+            else setSelectedDiet('nonvegetarian');
+          }
           if (data.mealsPerDay) setSelectedMeals(`${data.mealsPerDay} Meals`);
           if (data.foodAllergies) setAllergies(data.foodAllergies);
           if (data.preferredCuisine) setSelectedCuisine(data.preferredCuisine);
@@ -76,10 +83,10 @@ export default function FoodPreferences() {
   }, [userId]);
 
   const diets = [
-    { name: 'Vegetarian', icon: Leaf },
-    { name: 'Vegan', icon: Plant },
-    { name: 'Eggetarian', icon: Egg },
-    { name: 'Non-Vegetarian', icon: FishSimple },
+    { id: 'vegetarian', name: 'Vegetarian', icon: Leaf },
+    { id: 'vegan', name: 'Vegan', icon: Plant },
+    { id: 'eggetarian', name: 'Eggetarian', icon: Egg },
+    { id: 'nonvegetarian', name: 'Non-Vegetarian', icon: FishSimple },
   ];
 
   const mealOptions = ['3 Meals', '4 Meals', '5 Meals', '6 Meals'];
@@ -218,11 +225,11 @@ export default function FoodPreferences() {
           <View className="flex-row justify-between">
             {diets.map((diet, index) => {
               const Icon = diet.icon;
-              const isSelected = selectedDiet === diet.name;
+              const isSelected = selectedDiet === diet.id || selectedDiet === diet.name;
               return (
                 <Pressable
                   key={index}
-                  onPress={() => setSelectedDiet(diet.name)}
+                  onPress={() => setSelectedDiet(diet.id)}
                   className={`w-[23%] aspect-[3/4] rounded-2xl items-center justify-center border ${isSelected ? 'border-[#C4EF00] bg-[#1A2E00]' : 'border-[#2A2A2A] bg-transparent'} relative`}
                 >
                   <Icon size={24} color={isSelected ? "#C4EF00" : "#8E8E93"} weight={isSelected ? "fill" : "regular"} style={{ marginBottom: 8 }} />
@@ -388,7 +395,7 @@ export default function FoodPreferences() {
           </View>
         </View>
 
-        <View className="absolute bottom-[90px] left-0 right-0 p-5 bg-[#0A0A0A]/95 pb-5">
+        <View className="py-5 bg-[#0A0A0A]/95 pb-5">
           <Pressable
             onPress={handleContinue}
             disabled={saving}

@@ -37,7 +37,7 @@ import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
 
 
 export default function CustomerHome() {
-  const { name, userId } = useUser();
+  const { name, userId, role } = useUser();
   const firstName = name?.split(' ')[0] || 'Customer';
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
@@ -313,33 +313,35 @@ export default function CustomerHome() {
         )}
       </View>
 
-      <Pressable
-        onPress={() => router.push('/(customer)/explore-gyms' as any)}
-        className="w-full rounded-3xl overflow-hidden mb-4 border border-[#222222] bg-[#0A0D08] relative active:opacity-95"
-      >
-        <Image
-          source={require('@/assets/explore_gym.png')}
-          className="absolute inset-0 w-full h-full"
-          resizeMode="cover"
-        />
+      {role === 'individual' && (
+        <Pressable
+          onPress={() => router.push('/(customer)/explore-gyms' as any)}
+          className="w-full rounded-3xl overflow-hidden mb-4 border border-[#222222] bg-[#0A0D08] relative active:opacity-95"
+        >
+          <Image
+            source={require('@/assets/explore_gym.png')}
+            className="absolute inset-0 w-full h-full"
+            resizeMode="cover"
+          />
 
-        <View className="p-5 z-10 w-[70%]">
-          <Text className="text-[#CCFF00] text-[10px] font-semibold tracking-widest uppercase mb-1">
-            EXPLORE NEARBY GYMS
-          </Text>
-          <Text className="text-white text-2xl font-semibold leading-tight mb-1">
-            Find a gym that{'\n'}fits you.
-          </Text>
-          <Text className="text-[#888888] text-xs font-medium mb-3.5">
-            12 gyms near you
-          </Text>
+          <View className="p-5 z-10 w-[70%]">
+            <Text className="text-[#CCFF00] text-[10px] font-semibold tracking-widest uppercase mb-1">
+              EXPLORE NEARBY GYMS
+            </Text>
+            <Text className="text-white text-2xl font-semibold leading-tight mb-1">
+              Find a gym that{'\n'}fits you.
+            </Text>
+            <Text className="text-[#888888] text-xs font-medium mb-3.5">
+              12 gyms near you
+            </Text>
 
-          <View className="bg-[#CCFF00] self-start py-2.5 px-4 rounded-xl flex-row items-center gap-1.5 shadow-sm">
-            <Text className="text-black text-xs font-semibold">Explore Gyms</Text>
-            <ArrowRight size={14} color="#000000" weight="bold" />
+            <View className="bg-[#CCFF00] self-start py-2.5 px-4 rounded-xl flex-row items-center gap-1.5 shadow-sm">
+              <Text className="text-black text-xs font-semibold">Explore Gyms</Text>
+              <ArrowRight size={14} color="#000000" weight="bold" />
+            </View>
           </View>
-        </View>
-      </Pressable>
+        </Pressable>
+      )}
 
       <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 relative overflow-hidden flex-row items-center justify-between">
         <View className="flex-1 z-10 pr-2">

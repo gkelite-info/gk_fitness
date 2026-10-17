@@ -38,6 +38,7 @@ export interface CreateUserParams {
   email: string;
   phone: string;
   gender?: string | null;
+  dob?: string | null;
   address?: string;
   country?: string | null;
   state?: string | null;
@@ -52,6 +53,7 @@ export async function createUser(userData: CreateUserParams) {
     email: userData.email,
     phone: userData.phone,
     gender: userData.gender ? (userData.gender.toLowerCase() === 'other' ? 'others' : userData.gender.toLowerCase()) : 'male',
+    dob: userData.dob || null,
     address: userData.address || null,
     country: userData.country || null,
     state: userData.state || null,
@@ -89,6 +91,7 @@ export async function updateUser(userId: string, userData: Partial<CreateUserPar
   if (userData.name) updateData.name = userData.name;
   if (userData.phone) updateData.phone = userData.phone;
   if (userData.gender !== undefined) updateData.gender = userData.gender ? (userData.gender.toLowerCase() === 'other' ? 'others' : userData.gender.toLowerCase()) : 'male';
+  if (userData.dob !== undefined) updateData.dob = userData.dob;
   if (userData.address !== undefined) updateData.address = userData.address;
   if (userData.country !== undefined) updateData.country = userData.country;
   if (userData.state !== undefined) updateData.state = userData.state;

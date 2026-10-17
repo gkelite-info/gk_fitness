@@ -14,6 +14,7 @@ export interface UserAttributes {
   state?: string | null;
   city?: string | null;
   pincode?: number | null;
+  dob?: string | null;
   gender?: string | null;
   role?: UserRole;
   status?: UserStatus;
@@ -29,6 +30,7 @@ export interface SaveUserParams {
   email: string;
   phone: string;
   gender?: string | null;
+  dob?: string | null;
   address?: string | null;
   country?: string | null;
   state?: string | null;
@@ -119,6 +121,7 @@ export async function saveUser(userData: SaveUserParams) {
         state: userData.state,
         city: userData.city,
         pincode: userData.pincode,
+        ...(userData.dob !== undefined ? { dob: userData.dob } : {}),
         ...(userData.gender !== undefined ? { gender: userData.gender ? (userData.gender.toLowerCase() === 'other' ? 'others' : userData.gender.toLowerCase()) : 'male' } : {}),
         role: userData.role,
         status: userData.status,
@@ -144,6 +147,7 @@ export async function saveUser(userData: SaveUserParams) {
           email: userData.email,
           phone: userData.phone,
           gender: userData.gender ? (userData.gender.toLowerCase() === 'other' ? 'others' : userData.gender.toLowerCase()) : 'male',
+          dob: userData.dob || null,
           address: userData.address || null,
           country: userData.country || null,
           state: userData.state || null,

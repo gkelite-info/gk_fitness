@@ -9,10 +9,15 @@ import {
   SaveSubscriptionParams,
 } from "@/helpers/superadmin/subscriptions/subscriptions";
 
-export function useSubscriptions(createdBy?: string, planFor?: string) {
+export function useSubscriptions(
+  createdBy?: string,
+  planFor?: string,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: ["subscriptions", createdBy, planFor],
     queryFn: () => fetchSubscriptions(createdBy, planFor),
+    ...options,
   });
 }
 

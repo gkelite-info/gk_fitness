@@ -47,6 +47,79 @@ export function formatToPgDate(dateStr?: string): string {
   return new Date().toISOString().split('T')[0];
 }
 
+export function formatToDDMMYYYY(rawDate?: string | Date | null): string {
+  if (!rawDate) return '';
+  const str = String(rawDate).trim();
+  if (!str || str === '-') return '';
+
+  // If already DD-MM-YYYY
+  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+    return str;
+  }
+
+  // If YYYY-MM-DD or ISO string like 2001-08-25T00:00:00
+  const ymdMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (ymdMatch) {
+    const year = ymdMatch[1];
+    const month = ymdMatch[2].padStart(2, '0');
+    const day = ymdMatch[3].padStart(2, '0');
+    return `${day}-${month}-${year}`;
+  }
+
+  // If DD/MM/YYYY or DD.MM.YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${day}-${month}-${year}`;
+  }
+
+  // Fallback to JS Date parsing
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  return str;
+}
+
+export function ddmmyyyyToPgDate(dateStr?: string | null): string | null {
+  if (!dateStr || !dateStr.trim() || dateStr === '-') return null;
+  const clean = dateStr.trim();
+
+  // If DD-MM-YYYY
+  const dmyMatch = clean.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  // If YYYY-MM-DD
+  const ymdMatch = clean.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (ymdMatch) {
+    const year = ymdMatch[1];
+    const month = ymdMatch[2].padStart(2, '0');
+    const day = ymdMatch[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  const d = new Date(clean);
+  if (!isNaN(d.getTime())) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  return clean;
+}
+
 import { getOwnerGymId } from '@/helpers/trainers/trainerHelper';
 
 export async function saveGymCustomer(params: SaveGymCustomerParams) {

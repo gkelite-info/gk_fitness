@@ -86,9 +86,7 @@ export default function PreviewProgressPhotoModal() {
   return (
     <View className="flex-1 bg-[#09090B] pt-8 px-5">
 
-      {/* Header */}
       <View className="flex-row justify-between items-center mb-6">
-        {/* Placeholder for centering */}
         <View className="w-8 h-8" />
         <Text className="text-white text-xl font-semibold tracking-tight">Preview Progress Photo</Text>
         <Pressable
@@ -100,8 +98,6 @@ export default function PreviewProgressPhotoModal() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-
-        {/* Image Preview */}
         <Pressable
           onPress={showImageOptions}
           className="w-full h-64 bg-[#1C1C1E] rounded-3xl overflow-hidden mb-6 border border-[#2A2A2D]/50 items-center justify-center active:opacity-80"
@@ -120,7 +116,6 @@ export default function PreviewProgressPhotoModal() {
           )}
         </Pressable>
 
-        {/* Date Selector */}
         <Pressable className="bg-[#1C1C1E] rounded-2xl p-5 flex-row items-center justify-between mb-8 border border-[#2A2A2D]/50 active:opacity-80">
           <View className="flex-row items-center gap-4">
             <CalendarBlank size={20} color="#8E8E93" weight="regular" />
@@ -132,7 +127,6 @@ export default function PreviewProgressPhotoModal() {
           </View>
         </Pressable>
 
-        {/* Progress Day Selection */}
         <Text className="text-white text-[17px] font-semibold mb-1">Progress Day</Text>
         <Text className="text-[#8E8E93] text-[13px] mb-4">Track your journey by selecting the day number.</Text>
 
@@ -163,7 +157,6 @@ export default function PreviewProgressPhotoModal() {
           })}
         </ScrollView>
 
-        {/* Action Buttons */}
         <View className="gap-3">
           <Pressable
             className={`rounded-2xl py-4 items-center justify-center active:opacity-80 shadow-lg ${isPending ? 'bg-[#D4FF00]/50' : 'bg-[#D4FF00]'}`}
@@ -183,7 +176,6 @@ export default function PreviewProgressPhotoModal() {
             <Text className="text-white text-[17px] font-semibold">Cancel</Text>
           </Pressable>
         </View>
-
       </ScrollView>
     </View>
   );

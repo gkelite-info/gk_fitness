@@ -29,13 +29,22 @@ export default function BookTrainerScreen() {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  const { userId } = useUser();
+  const { userId, role } = useUser();
+  const isIndividual = role === 'individual';
   const { data: profile, isLoading: isProfileLoading } = useCustomerProfile(userId || undefined);
 
-  const gymId = profile?.customerData?.gymId;
+  const gymId = isIndividual ? null : profile?.customerData?.gymId;
+  const shouldFetchGlobal = isIndividual || !gymId;
 
-  const { data: gymTrainers, isLoading: isGymTrainersLoading } = useGymTrainers(gymId, !!gymId && !isProfileLoading, debouncedSearchQuery);
-  const { data: globalTrainers, isLoading: isGlobalTrainersLoading } = useGlobalTrainers(!gymId && !isProfileLoading, debouncedSearchQuery);
+  const { data: gymTrainers, isLoading: isGymTrainersLoading } = useGymTrainers(
+    gymId,
+    !shouldFetchGlobal && !!gymId && !isProfileLoading,
+    debouncedSearchQuery
+  );
+  const { data: globalTrainers, isLoading: isGlobalTrainersLoading } = useGlobalTrainers(
+    shouldFetchGlobal && !isProfileLoading,
+    debouncedSearchQuery
+  );
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -50,17 +59,21 @@ export default function BookTrainerScreen() {
     setRefreshing(false);
   };
 
-  const trainers = gymId ? (gymTrainers || []) : (globalTrainers || []);
-  const isLoading = isProfileLoading || (gymId ? isGymTrainersLoading : isGlobalTrainersLoading);
+  const trainers = shouldFetchGlobal ? (globalTrainers || []) : (gymTrainers || []);
+  const isLoading = isProfileLoading || (shouldFetchGlobal ? isGlobalTrainersLoading : isGymTrainersLoading);
 
   const filteredTrainers = trainers;
 
   const handleBack = () => {
-    router.push('/(customer)/profile');
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.push('/(customer)/profile');
+    }
   };
 
   return (
-    <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-[#0F0F0F] pt-2">
       <View className="flex-row items-center px-4 py-3">
         <Pressable onPress={handleBack} className="p-2">
           <CaretLeft size={24} color="#FFFFFF" weight="bold" />
@@ -128,8 +141,8 @@ export default function BookTrainerScreen() {
                 className="bg-[#1A1A1A] rounded-2xl p-3 flex-row border border-[#27272A]"
               >
                 <View className="w-[120px] h-[150px] relative rounded-xl overflow-hidden mr-3">
-                  <StaticAvatar 
-                    uri={trainer.users?.profilePhoto || trainer.profilePhoto} 
+                  <StaticAvatar
+                    uri={trainer.users?.profilePhoto || trainer.profilePhoto}
                     name={trainer.fullName}
                     gender={trainer.gender}
                     size={80}
@@ -172,7 +185,7 @@ export default function BookTrainerScreen() {
                   </View>
 
                   <View className="flex-row items-end justify-between mt-2">
-                    <Pressable 
+                    <Pressable
                       className="flex-row items-center border border-[#445000] rounded-full px-3 py-1.5"
                       onPress={() => (router as any).push({
                         pathname: `/(customer)/trainer/${trainer.gymTrainerId || trainer.globalTrainerId}`,

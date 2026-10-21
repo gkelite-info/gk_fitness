@@ -144,6 +144,7 @@ export default function CreateGlobalTrainerScreen() {
       }
 
       await saveGlobalTrainer({
+        userId: authUserId,
         fullName: fullName.trim(),
         dateOfBirth: dateOfBirth.trim(),
         gender: gender as 'male' | 'female' | 'others',

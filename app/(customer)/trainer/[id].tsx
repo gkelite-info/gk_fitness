@@ -3,13 +3,18 @@ import { View, ScrollView, Pressable, Image, Modal, ActivityIndicator } from 're
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CaretLeft, CheckCircle, Star, Users, Medal, Tag, ArrowRight, CaretDown } from 'phosphor-react-native';
+import { CaretLeft, CheckCircle, Star, Users, Medal, Tag, ArrowRight, CaretDown, Record } from 'phosphor-react-native';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { useGymTrainerById } from '@/hooks/trainers/useGymTrainers';
 import { useGlobalTrainer } from '@/hooks/globalTrainers/useGlobalTrainer';
 import { useUser } from '@/context/UserContext';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useAssignedTrainersByCustomer, useAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
+import {
+  useAssignedGlobalTrainersByUser,
+  useIndividualCustomerTrainers,
+} from '@/hooks/individual/customer-trainer/individualCustomerTrainer';
+import { usePersonalTrainerRequestsByUser } from '@/hooks/personalTrainerRequests/usePersonalTrainerRequests';
 
 export default function TrainerProfileScreen() {
   const { id, trainerData, from } = useLocalSearchParams<{ id: string, trainerData?: string, from?: string }>();
@@ -31,17 +36,56 @@ export default function TrainerProfileScreen() {
 
   const trainer = parsedTrainer || fetchedTrainer;
 
-  const { userId } = useUser();
+  const { userId, role } = useUser();
   const { data: customerProfile } = useCustomerProfile(userId || undefined);
+  const gymId = customerProfile?.customerData?.gymId;
+  const isIndividual = role === 'individual' || (!gymId && !!userId);
   const customerId = customerProfile?.customerData?.customerId || userId;
   const { data: assignedTrainers } = useAssignedTrainersByCustomer(customerId, userId);
 
   const gymTrainerId = trainer?.gymTrainerId || id;
+  const globalTrainerId = trainer?.globalTrainerId || id;
   const { data: assignedCustomers } = useAssignedCustomersByTrainer(gymTrainerId);
 
-  const isCurrentlyAssigned = assignedTrainers?.some(
+  const { data: individualClients } = useIndividualCustomerTrainers(
+    {
+      globalTrainerId: globalTrainerId || id,
+      status: 'approved',
+      isActive: true,
+      includeDeleted: false,
+    },
+    { enabled: isIndividual && !!(globalTrainerId || id) }
+  );
+  const individualClientsCount = individualClients?.length ?? 0;
+
+  const { data: individualTrainers } = useAssignedGlobalTrainersByUser(userId || undefined);
+  const pendingIndividual = individualTrainers?.find(
+    (t: any) => t.status === 'pending' || (t.status == null && t.isActive !== false)
+  );
+  const activeIndividualTrainer = individualTrainers?.find(
+    (t: any) => t.isActive !== false && t.status === 'approved'
+  );
+
+  const { data: gymTrainerRequests } = usePersonalTrainerRequestsByUser(userId || undefined);
+  const pendingGym = gymTrainerRequests?.find(
+    (r: any) => r.applicationStatus === 'submitted' || r.applicationStatus === 'pending'
+  );
+
+  const isCurrentlyAssignedGym = assignedTrainers?.some(
     (a: any) => (a.gymTrainerId === gymTrainerId) && (a.isActive !== false)
   );
+  const isCurrentlyAssignedIndividual = !!activeIndividualTrainer && (
+    activeIndividualTrainer.globalTrainerId === globalTrainerId ||
+    activeIndividualTrainer.globalTrainerId === id
+  );
+
+  const isCurrentlyAssigned = isCurrentlyAssignedGym || isCurrentlyAssignedIndividual;
+
+  const hasLiveRequest = !!pendingIndividual || !!pendingGym;
+
+  const isThisTrainerRequested =
+    (pendingIndividual && (pendingIndividual.globalTrainerId === globalTrainerId || pendingIndividual.globalTrainerId === id)) ||
+    (pendingGym && (pendingGym.gymTrainerId === gymTrainerId || pendingGym.gymTrainerId === id));
 
   const [modalVisible, setModalVisible] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
@@ -79,12 +123,13 @@ export default function TrainerProfileScreen() {
   }
 
   const profilePhotoUrl =
-    trainer.users?.profilePhoto ||
-    trainer.users?.profilePicture ||
-    trainer.users?.profilePic ||
+    trainer.profilePic ||
     trainer.profilePhoto ||
-    trainer.profilePicture ||
-    trainer.profilePic;
+    trainer.users?.profilePic ||
+    trainer.users?.profilePhoto ||
+    trainer.user?.profilePic ||
+    trainer.user?.profilePhoto ||
+    trainer.profilePicture;
 
   const fullName = trainer.fullName || 'Unknown Trainer';
   const firstName = fullName.split(' ')[0];
@@ -93,9 +138,11 @@ export default function TrainerProfileScreen() {
   const reviews = trainer.reviews || 0;
   const experience = trainer.experienceYears ?? trainer.experience ?? 0;
 
-  const clientsCount = (assignedCustomers && assignedCustomers.length > 0)
-    ? assignedCustomers.length
-    : (isCurrentlyAssigned ? 1 : (trainer.clients || 1));
+  const clientsCount = isIndividual
+    ? individualClientsCount
+    : (assignedCustomers && assignedCustomers.length > 0)
+      ? assignedCustomers.length
+      : (isCurrentlyAssigned ? 1 : (trainer.clients || 1));
 
   const bio = trainer.bio || trainer.about || `Passionate about helping people become the best version of themselves. Specializes in ${trainer.specialization || 'fitness'} with a focus on technique, consistency and long-term results.`;
   const expertise = Array.isArray(trainer.expertise)
@@ -173,7 +220,7 @@ export default function TrainerProfileScreen() {
             {isVerified && <CheckCircle size={18} color="#1DA1F2" weight="fill" />}
           </View>
 
-          <Text className="text-[#D4FF00] text-sm font-semibold mb-2">{trainer.specialization || 'Fitness Coach'}</Text>
+          <Text className="text-[#D4FF00] text-sm font-semibold mb-2 capitalize px-5">{trainer.specialization || 'Unknown'}</Text>
         </View>
 
         <View className="flex-row mx-4 mb-3 bg-[#1A1A1A] rounded-2xl p-4 border border-[#27272A] justify-between">
@@ -185,7 +232,9 @@ export default function TrainerProfileScreen() {
           <View className="w-[1px] h-full bg-[#27272A]" />
           <View className="items-center flex-1">
             <Users size={24} color="#5E5CE6" weight="regular" style={{ marginBottom: 8 }} />
-            <Text className="text-white font-semibold">{clientsCount > 0 ? `${clientsCount}+` : 'Certified'}</Text>
+            <Text className="text-white font-semibold">
+              {isIndividual ? clientsCount : (clientsCount > 0 ? `${clientsCount}+` : 'Certified')}
+            </Text>
             <Text className="text-[#8E8E93] text-[10px] mt-1">CLIENTS</Text>
           </View>
           <View className="w-[1px] h-full bg-[#27272A]" />
@@ -202,13 +251,31 @@ export default function TrainerProfileScreen() {
               <CheckCircle size={20} color="#D4FF00" weight="fill" />
               <Text className="text-[#D4FF00] text-base font-semibold ml-2">Currently Assigned Trainer</Text>
             </View>
+          ) : isThisTrainerRequested ? (
+            <Pressable
+              onPress={() => router.push('/(customer)/trainer/book-trainer')}
+              className="bg-[#3E3218] border border-[#FF9F0A] py-4 rounded-full flex-row justify-center items-center active:opacity-80"
+            >
+              <Record size={18} color="#FF9F0A" weight="fill" />
+              <Text className="text-[#FF9F0A] text-base font-semibold ml-2">Request Pending Review</Text>
+            </Pressable>
+          ) : hasLiveRequest ? (
+            <Pressable
+              onPress={() => router.push('/(customer)/trainer/book-trainer')}
+              className="bg-[#1C180E] border border-[#FF9F0A]/40 py-4 rounded-full flex-row justify-center items-center active:opacity-80"
+            >
+              <Record size={16} color="#FF9F0A" weight="fill" />
+              <Text className="text-[#FF9F0A] text-sm font-semibold ml-2">
+                Trainer Request Already Active
+              </Text>
+            </Pressable>
           ) : (
             <Pressable
               onPress={() => {
                 router.push({
                   pathname: '/(customer)/trainer/trainer-request',
                   params: {
-                    id: gymTrainerId,
+                    id: gymTrainerId || globalTrainerId || id,
                     trainerName: fullName,
                     specializations: JSON.stringify(expertise)
                   }

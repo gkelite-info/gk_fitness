@@ -12,12 +12,36 @@ import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useGymTimings } from '@/hooks/gymTimings/useGymTimings';
 import { useSavePersonalTrainerRequest } from '@/hooks/personalTrainerRequests/useSavePersonalTrainerRequest';
 import { usePersonalTrainerRequestsByUser } from '@/hooks/personalTrainerRequests/usePersonalTrainerRequests';
+import {
+  useAssignedGlobalTrainersByUser,
+  useSaveIndividualCustomerTrainer,
+  useDeleteIndividualCustomerTrainer,
+  SaveIndividualCustomerTrainerParams,
+} from '@/hooks/individual/customer-trainer/individualCustomerTrainer';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
+import { useQueryClient } from '@tanstack/react-query';
+import ConfirmModal from '@/components/ConfirmModal';
+import { useGlobalTrainer } from '@/hooks/globalTrainers/useGlobalTrainer';
+import { useGymTrainerById } from '@/hooks/trainers/useGymTrainers';
 
 export default function TrainerRequestScreen() {
-  const { id, trainerName, specializations } = useLocalSearchParams<{ id?: string, trainerName?: string, specializations?: string }>();
+  const { id, trainerName, specializations, trainerData } = useLocalSearchParams<{
+    id?: string;
+    trainerName?: string;
+    specializations?: string;
+    trainerData?: string;
+  }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  const parsedTrainer = React.useMemo(() => {
+    if (!trainerData) return null;
+    try {
+      return JSON.parse(trainerData);
+    } catch {
+      return null;
+    }
+  }, [trainerData]);
 
   const {
     trainer, status, simulationTimeLeft, startApprovalSimulation, cancelTrainerRequest
@@ -26,34 +50,100 @@ export default function TrainerRequestScreen() {
   const [step, setStep] = useState<'form' | 'pending'>('form');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const queryClient = useQueryClient();
 
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [selectedTime, setSelectedTime] = useState<string>('');
 
-  const { userId } = useUser();
+  const { userId, role } = useUser();
   const { data: profile } = useCustomerProfile(userId || undefined);
   const gymId = profile?.customerData?.gymId;
+  const isIndividual = role === 'individual' || (!gymId && !!userId);
+
   const { data: gymTimings, isLoading: isGymTimingsLoading } = useGymTimings(gymId);
 
-  const { data: trainerRequests } = usePersonalTrainerRequestsByUser(userId || undefined);
+  const { data: trainerRequests } = usePersonalTrainerRequestsByUser(isIndividual ? undefined : (userId || undefined));
   const activeRequest = trainerRequests?.[0];
 
+  const {
+    data: individualAssignments,
+    isLoading: isIndividualAssignmentsLoading,
+  } = useAssignedGlobalTrainersByUser(isIndividual && userId ? userId : undefined);
+  const activeIndividualAssignment = individualAssignments?.find(t => t.isActive !== false) || individualAssignments?.[0];
+
+  const targetTrainerId =
+    id ||
+    activeIndividualAssignment?.globalTrainerId ||
+    activeRequest?.gymTrainerId ||
+    parsedTrainer?.globalTrainerId ||
+    parsedTrainer?.gymTrainerId ||
+    parsedTrainer?.id;
+
+  const { data: globalTrainerDetails } = useGlobalTrainer(
+    isIndividual && targetTrainerId ? (targetTrainerId as string) : undefined
+  );
+  const { data: gymTrainerResult } = useGymTrainerById(
+    !isIndividual && targetTrainerId ? (targetTrainerId as string) : undefined
+  );
+  const gymTrainer = gymTrainerResult?.trainer;
+
   useEffect(() => {
-    if (activeRequest?.applicationStatus === 'submitted' && step === 'form') {
+    console.log('[TrainerRequest] Component State & User Details:', {
+      userId,
+      role,
+      isIndividual,
+      gymId,
+      paramId: id,
+      paramTrainerName: trainerName,
+      step,
+      gymRequestsCount: trainerRequests?.length,
+      activeGymRequestStatus: activeRequest?.applicationStatus,
+      individualAssignmentsCount: individualAssignments?.length,
+      activeIndividualAssignmentId: activeIndividualAssignment?.individualCustomerTrainerId,
+      activeIndividualTrainer: activeIndividualAssignment?.globalTrainer?.fullName,
+      activeIndividualIsActive: activeIndividualAssignment?.isActive,
+    });
+  }, [userId, role, isIndividual, gymId, id, trainerName, step, trainerRequests, activeRequest, individualAssignments, activeIndividualAssignment]);
+
+  useEffect(() => {
+    if (!isIndividual && activeRequest?.applicationStatus === 'submitted' && step === 'form') {
+      console.log('[TrainerRequest] Active gym request status is submitted. Switching to pending view.');
       setStep('pending');
     }
-  }, [activeRequest]);
+  }, [activeRequest, isIndividual, step]);
 
   useEffect(() => {
-    if (activeRequest?.applicationStatus === 'approved') {
+    if (!isIndividual && activeRequest?.applicationStatus === 'approved') {
+      console.log('[TrainerRequest] Active gym request status is approved. Redirecting to my-trainer.');
       router.replace('/(customer)/my-trainer');
     }
-  }, [activeRequest]);
+  }, [activeRequest, isIndividual]);
+
+  useEffect(() => {
+    if (isIndividual && activeIndividualAssignment?.status === 'approved') {
+      console.log('[TrainerRequest] Active individual request status is approved. Redirecting to my-trainer.');
+      router.replace('/(customer)/my-trainer');
+    }
+  }, [activeIndividualAssignment, isIndividual]);
+
+  useEffect(() => {
+    if (isIndividual && (activeIndividualAssignment?.status === 'pending' || activeIndividualAssignment?.isActive) && !id && step === 'form') {
+      console.log('[TrainerRequest] Individual user already has a pending/active trainer assignment with no new trainer ID specified. Switching to pending view.');
+      setStep('pending');
+    }
+  }, [isIndividual, activeIndividualAssignment, id, step]);
 
   const dateOptions: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
-  const requestedDate = new Date().toLocaleDateString('en-GB', dateOptions);
+  const requestedDate = isIndividual && activeIndividualAssignment?.assignedOn
+    ? new Date(activeIndividualAssignment.assignedOn).toLocaleDateString('en-GB', dateOptions)
+    : (isIndividual && activeIndividualAssignment?.createdAt
+      ? new Date(activeIndividualAssignment.createdAt).toLocaleDateString('en-GB', dateOptions)
+      : (activeRequest?.createdAt
+        ? new Date(activeRequest.createdAt).toLocaleDateString('en-GB', dateOptions)
+        : new Date().toLocaleDateString('en-GB', dateOptions)));
 
   const handleBack = () => {
+    console.log('[TrainerRequest] handleBack pressed. Router canGoBack:', router.canGoBack());
     if (router.canGoBack()) {
       router.back();
     } else {
@@ -61,36 +151,117 @@ export default function TrainerRequestScreen() {
     }
   };
 
-  const handleConfirmCancel = () => {
-    setShowCancelModal(false);
+  // Mutations
+  const { mutateAsync: saveTrainerRequest, isPending: isSavingGymRequest } = useSavePersonalTrainerRequest();
+  const { mutateAsync: saveIndividualCustomerTrainerMutation, isPending: isSavingIndividual } = useSaveIndividualCustomerTrainer();
+  const { mutateAsync: deleteIndividualCustomerTrainerMutation, isPending: isDeletingIndividual } = useDeleteIndividualCustomerTrainer();
+
+  const isSaving = isIndividual ? isSavingIndividual : isSavingGymRequest;
+
+  const handleConfirmCancel = async () => {
+    console.log('[TrainerRequest] handleConfirmCancel pressed. isIndividual:', isIndividual);
+
+    try {
+      if (isIndividual && activeIndividualAssignment?.individualCustomerTrainerId) {
+        console.log('[TrainerRequest] Calling deleteIndividualCustomerTrainer for ID:', activeIndividualAssignment.individualCustomerTrainerId);
+        const delRes = await deleteIndividualCustomerTrainerMutation(activeIndividualAssignment.individualCustomerTrainerId);
+        console.log('[TrainerRequest] deleteIndividualCustomerTrainer SUCCESS (is_deleted=true, isActive=false, deletedAt=now):', delRes);
+      }
+    } catch (error: any) {
+      console.error('[TrainerRequest] deleteIndividualCustomerTrainer ERROR caught while deleting:', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        error,
+      });
+    } finally {
+      setShowCancelModal(false);
+    }
+
     cancelTrainerRequest();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
+      queryClient.invalidateQueries({ queryKey: ['personalTrainerRequests'] }),
+      queryClient.invalidateQueries({ queryKey: ['individualCustomerTrainers'] }),
+      queryClient.invalidateQueries({ queryKey: ['customerProfile'] }),
+      queryClient.invalidateQueries({ queryKey: ['assignedTrainers'] }),
+    ]);
     router.replace('/(customer)/profile');
   };
 
-  const { mutateAsync: saveTrainerRequest, isPending: isSavingRequest } = useSavePersonalTrainerRequest();
-
   const confirmAndSend = async () => {
     const anyTrainer = trainer as any;
-    const targetTrainerId = id || anyTrainer.gymTrainerId || anyTrainer.globalTrainerId || anyTrainer.id;
+    const targetTrainerId = id || anyTrainer.globalTrainerId || anyTrainer.gymTrainerId || anyTrainer.id;
 
-    if (userId && targetTrainerId) {
+    console.log('[TrainerRequest] confirmAndSend initiated:', {
+      userId,
+      targetTrainerId,
+      isIndividual,
+      selectedDays,
+      selectedTime,
+    });
+
+    if (!userId || !targetTrainerId) {
+      console.warn('[TrainerRequest] Missing required credentials. userId:', userId, 'targetTrainerId:', targetTrainerId);
+      setShowConfirmModal(false);
+      return;
+    }
+
+    if (isIndividual) {
+      const payload: SaveIndividualCustomerTrainerParams = {
+        userId,
+        globalTrainerId: targetTrainerId as string,
+        weekDays: selectedDays,
+        timings: selectedTime,
+        assignedOn: null,
+        assignedBy: null,
+        status: 'pending',
+        isActive: true,
+      };
+
+      console.log('[TrainerRequest] Executing saveIndividualCustomerTrainer with payload:', payload);
+
+      try {
+        const response = await saveIndividualCustomerTrainerMutation(payload);
+        console.log('[TrainerRequest] saveIndividualCustomerTrainer SUCCESS! Response:', response);
+      } catch (error: any) {
+        console.error('[TrainerRequest] saveIndividualCustomerTrainer ERROR caught while saving data:', {
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          error,
+        });
+      }
+    } else {
       const payload = {
         requestedBy: userId,
         gymTrainerId: targetTrainerId as string,
         preferredWorkoutDays: selectedDays,
-        preferredWorkoutTime: selectedTime
+        preferredWorkoutTime: selectedTime,
       };
+
+      console.log('[TrainerRequest] Executing saveTrainerRequest (Gym) with payload:', payload);
 
       try {
         const response = await saveTrainerRequest(payload);
-      } catch (error) {
-        console.error('[TrainerRequest] saveTrainerRequest ERROR caught:', error);
+        console.log('[TrainerRequest] saveTrainerRequest (Gym) SUCCESS! Response:', response);
+      } catch (error: any) {
+        console.error('[TrainerRequest] saveTrainerRequest ERROR caught while saving data:', {
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          error,
+        });
       }
-    } else {
-      console.warn('[TrainerRequest] Missing userId or targetTrainerId. userId:', userId, 'targetTrainerId:', targetTrainerId);
     }
 
     setShowConfirmModal(false);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
+      queryClient.invalidateQueries({ queryKey: ['personalTrainerRequests'] }),
+      queryClient.invalidateQueries({ queryKey: ['customerProfile'] }),
+      queryClient.invalidateQueries({ queryKey: ['assignedTrainers'] }),
+    ]);
     setStep('pending');
   };
 
@@ -167,14 +338,71 @@ export default function TrainerRequestScreen() {
 
   const availableTimings = getAvailableTimings();
 
-  const nameToDisplay = activeRequest?.gymTrainer?.fullName || trainerName || trainer.name || 'Trainer';
-  const trainerImage = activeRequest
-    ? (activeRequest.gymTrainer?.user?.profilePhoto || activeRequest.gymTrainer?.profilePic || null)
-    : trainer?.image;
+  const nameToDisplay = isIndividual
+    ? (
+        activeIndividualAssignment?.globalTrainer?.fullName ||
+        globalTrainerDetails?.fullName ||
+        trainerName ||
+        parsedTrainer?.fullName ||
+        parsedTrainer?.name ||
+        'Trainer'
+      )
+    : (
+        activeRequest?.gymTrainer?.fullName ||
+        gymTrainer?.fullName ||
+        trainerName ||
+        parsedTrainer?.fullName ||
+        parsedTrainer?.name ||
+        'Trainer'
+      );
 
-  const rawStatus = activeRequest?.applicationStatus || 'pending';
+  const rawTrainerPic = isIndividual
+    ? (
+        activeIndividualAssignment?.globalTrainer?.profilePic ||
+        activeIndividualAssignment?.globalTrainer?.profilePhoto ||
+        activeIndividualAssignment?.globalTrainer?.users?.profilePic ||
+        activeIndividualAssignment?.globalTrainer?.users?.profilePhoto ||
+        activeIndividualAssignment?.globalTrainer?.user?.profilePic ||
+        activeIndividualAssignment?.globalTrainer?.user?.profilePhoto ||
+        globalTrainerDetails?.profilePic ||
+        globalTrainerDetails?.profilePhoto ||
+        globalTrainerDetails?.users?.profilePic ||
+        globalTrainerDetails?.users?.profilePhoto ||
+        parsedTrainer?.profilePic ||
+        parsedTrainer?.profilePhoto ||
+        parsedTrainer?.users?.profilePic ||
+        parsedTrainer?.users?.profilePhoto ||
+        null
+      )
+    : (
+        activeRequest?.gymTrainer?.user?.profilePhoto ||
+        activeRequest?.gymTrainer?.profilePic ||
+        activeRequest?.gymTrainer?.profilePhoto ||
+        gymTrainer?.profilePic ||
+        gymTrainer?.profilePhoto ||
+        gymTrainer?.user?.profilePhoto ||
+        gymTrainer?.user?.profilePic ||
+        parsedTrainer?.profilePic ||
+        parsedTrainer?.profilePhoto ||
+        null
+      );
+
+  const trainerProfilePic =
+    rawTrainerPic &&
+    typeof rawTrainerPic === 'string' &&
+    rawTrainerPic.trim() !== '' &&
+    rawTrainerPic !== 'null' &&
+    rawTrainerPic !== 'undefined' &&
+    !rawTrainerPic.includes('unsplash.com') &&
+    !rawTrainerPic.includes('pravatar.cc')
+      ? rawTrainerPic.trim()
+      : null;
+
+  const rawStatus = isIndividual
+    ? (activeIndividualAssignment?.status || (activeIndividualAssignment?.isActive ? 'approved' : 'pending'))
+    : (activeRequest?.applicationStatus || 'pending');
   const displayStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
-  const statusTitle = rawStatus === 'approved' ? 'Approved' : 'Pending Review';
+  const statusTitle = (rawStatus === 'approved' || rawStatus === 'active') ? 'Approved' : (rawStatus === 'rejected' ? 'Rejected' : 'Pending Review');
 
   let parsedSpecializations: string[] = [];
   try {
@@ -209,7 +437,7 @@ export default function TrainerRequestScreen() {
             {parsedSpecializations.map((spec, index) => (
               <View key={index} className="flex-row items-center bg-[#1A1A1A] border border-[#27272A] rounded-xl px-4 py-3">
                 {getIconForSpecialization(spec)}
-                <Text className="text-white text-sm font-semibold">{spec}</Text>
+                <Text className="text-white text-sm font-semibold capitalize px-1">{spec}</Text>
               </View>
             ))}
           </View>
@@ -275,7 +503,7 @@ export default function TrainerRequestScreen() {
             )}
           </View>
 
-          <View className="mt-8 mb-4">
+          <View className="p-4 px-0 bg-[#0F0F0F]/95 border-t border-[#1A1A1A]" style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
             <Pressable
               onPress={() => {
                 if (selectedDays.length > 0 && selectedTime) {
@@ -289,20 +517,6 @@ export default function TrainerRequestScreen() {
             </Pressable>
           </View>
         </ScrollView>
-
-        <View className="absolute bottom-0 left-0 right-0 p-4 bg-[#0F0F0F]/95 border-t border-[#1A1A1A]">
-          <Pressable
-            onPress={() => {
-              if (selectedDays.length > 0 && selectedTime) {
-                setShowConfirmModal(true);
-              }
-            }}
-            className={`flex-row justify-center items-center py-4 rounded-2xl ${selectedDays.length > 0 && selectedTime ? 'bg-[#CCFF00]' : 'bg-[#1A1A1A]'}`}
-          >
-            <PaperPlaneRight size={20} color={selectedDays.length > 0 && selectedTime ? "#000000" : "#6C6C70"} weight="fill" />
-            <Text className={`font-semibold text-base ml-2 ${selectedDays.length > 0 && selectedTime ? 'text-black' : 'text-[#6C6C70]'}`}>Send Request</Text>
-          </Pressable>
-        </View>
 
         <Modal
           animationType="fade"
@@ -335,19 +549,27 @@ export default function TrainerRequestScreen() {
                   <CalendarBlank size={16} color="#CCFF00" weight="bold" style={{ marginRight: 8 }} />
                   <Text className="text-white font-semibold text-sm">Your Preferred Schedule</Text>
                 </View>
-                <View className="flex-row justify-between mb-3">
-                  <View className="flex-row items-center">
+                <View className="flex-row items-start justify-between mb-3">
+                  <View className="flex-row items-center mr-3 mt-1">
                     <CalendarBlank size={14} color="#8E8E93" style={{ marginRight: 6 }} />
                     <Text className="text-[#8E8E93] text-xs">Preferred Days</Text>
                   </View>
-                  <Text className="text-[#CCFF00] font-semibold text-xs">{selectedDays.join(' • ')}</Text>
+                  <View className="flex-1 flex-row flex-wrap justify-end gap-1.5">
+                    {selectedDays.map((day) => (
+                      <View key={day} className="bg-[#242A10] border border-[#3E4C14] rounded-md px-2 py-0.5">
+                        <Text className="text-[#CCFF00] font-semibold text-xs">{day}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
-                <View className="flex-row justify-between">
+                <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center">
                     <Clock size={14} color="#8E8E93" style={{ marginRight: 6 }} />
                     <Text className="text-[#8E8E93] text-xs">Preferred Time</Text>
                   </View>
-                  <Text className="text-[#CCFF00] font-semibold text-xs">{selectedTime}</Text>
+                  <View className="bg-[#242A10] border border-[#3E4C14] rounded-md px-2.5 py-0.5">
+                    <Text className="text-[#CCFF00] font-semibold text-xs">{selectedTime}</Text>
+                  </View>
                 </View>
               </View>
 
@@ -360,14 +582,14 @@ export default function TrainerRequestScreen() {
 
               <Pressable
                 onPress={confirmAndSend}
-                disabled={isSavingRequest}
-                className={`w-full py-4 rounded-2xl items-center flex-row justify-center mb-3 active:opacity-80 ${isSavingRequest ? 'bg-[#CCFF00]/50' : 'bg-[#CCFF00]'}`}
+                disabled={isSaving}
+                className={`w-full py-4 rounded-2xl items-center flex-row justify-center mb-3 active:opacity-80 ${isSaving ? 'bg-[#CCFF00]/50' : 'bg-[#CCFF00]'}`}
               >
                 <View className="mr-2">
                   <PaperPlaneRight size={18} color="#000000" weight="bold" />
                 </View>
                 <Text className="text-black font-semibold text-base">
-                  {isSavingRequest ? "Sending..." : "Send Request"}
+                  {isSaving ? "Sending..." : "Send Request"}
                 </Text>
               </Pressable>
 
@@ -377,7 +599,6 @@ export default function TrainerRequestScreen() {
               >
                 <Text className="text-white font-semibold text-base">Cancel</Text>
               </Pressable>
-
             </View>
           </View>
         </Modal>
@@ -386,7 +607,7 @@ export default function TrainerRequestScreen() {
   }
 
   return (
-    <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-[#0F0F0F] pt-2">
       <View className="flex-row items-center px-4 py-3 border-b border-[#1A1A1A]">
         <Pressable onPress={handleBack} className="p-2 -ml-2 active:opacity-70">
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
@@ -428,7 +649,19 @@ export default function TrainerRequestScreen() {
               <Text className="text-[#8E8E93] text-[10px] font-semibold mb-0.5 tracking-[1px] uppercase">Trainer</Text>
               <Text className="text-white text-sm font-semibold">{nameToDisplay}</Text>
             </View>
-            <StaticAvatar uri={trainerImage} name={nameToDisplay} className="w-10 h-10 rounded-full border border-[#27272A]" size={20} />
+            {trainerProfilePic ? (
+              <View className="w-10 h-10 rounded-full overflow-hidden border border-[#27272A] bg-[#27272A]">
+                <Image
+                  source={{ uri: trainerProfilePic }}
+                  className="w-full h-full"
+                  resizeMode="cover"
+                />
+              </View>
+            ) : (
+              <View className="w-10 h-10 rounded-full bg-[#27272A] border border-[#3A3A3C] items-center justify-center">
+                <User size={20} color="#8E8E93" weight="regular" />
+              </View>
+            )}
           </View>
 
           <View className="flex-row items-center p-4">
@@ -480,46 +713,23 @@ export default function TrainerRequestScreen() {
         </Pressable>
       </View>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <ConfirmModal
         visible={showCancelModal}
-        onRequestClose={() => setShowCancelModal(false)}
-      >
-        <View className="flex-1 bg-black/85 justify-center items-center p-6">
-          <View className="bg-[#18181B] w-full max-w-[340px] rounded-3xl p-6 items-center border border-[#27272A] shadow-2xl">
-
-            <View className="w-16 h-16 rounded-full bg-[#2A0F0F] items-center justify-center mb-4 border border-[#551818]">
-              <Warning size={34} color="#FF3B30" weight="fill" />
-            </View>
-
-            <Text className="text-white text-xl font-semibold text-center mb-2">
-              Withdraw Booking Request?
-            </Text>
-
-            <Text className="text-[#A1A1AA] text-sm text-center leading-5 mb-7 px-2">
-              Are you sure you want to cancel your pending personal training request with <Text className="text-white font-semibold">{trainer.name}</Text>?
-            </Text>
-
-            <Pressable
-              onPress={handleConfirmCancel}
-              className="bg-[#D32F2F] w-full py-4 rounded-2xl items-center flex-row justify-center mb-3 active:opacity-80"
-            >
-              <View className="mr-2">
-                <Trash size={18} color="#FFFFFF" weight="bold" />
-              </View>
-              <Text className="text-white font-semibold text-base">Yes, Cancel Request</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => setShowCancelModal(false)}
-              className="bg-[#27272A] w-full py-4 rounded-2xl items-center active:opacity-70"
-            >
-              <Text className="text-gray-200 font-semibold text-base">Keep Request & Wait</Text>
-            </Pressable>
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={handleConfirmCancel}
+        title="Withdraw Booking Request?"
+        description={`Are you sure you want to cancel your pending personal training request with ${nameToDisplay}?`}
+        confirmText="Yes, Cancel Request"
+        cancelText="Keep Request & Wait"
+        confirmButtonColor="bg-red-600"
+        confirmTextColor="text-white"
+        isLoading={isDeletingIndividual}
+        icon={
+          <View className="w-16 h-16 rounded-full bg-[#2A0F0F] items-center justify-center border border-[#551818]">
+            <Warning size={32} color="#FF3B30" weight="fill" />
           </View>
-        </View>
-      </Modal>
+        }
+      />
     </View>
   );
 }

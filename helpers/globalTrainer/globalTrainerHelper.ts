@@ -3,6 +3,7 @@ import * as Crypto from 'expo-crypto';
 
 export interface GlobalTrainerAttributes {
   globalTrainerId?: string;
+  userId?: string | null;
   fullName: string;
   dateOfBirth: string;
   gender: 'male' | 'female' | 'others';
@@ -25,10 +26,20 @@ export interface GlobalTrainerAttributes {
   createdAt?: string | Date;
   updatedAt?: string | Date;
   deletedAt?: string | Date | null;
+  profilePic?: string | null;
+  profilePhoto?: string | null;
+  users?: {
+    profilePhoto?: string | null;
+    profilePic?: string | null;
+    status?: string | null;
+    createdAt?: string | Date | null;
+  } | null;
+  user?: any;
 }
 
 export interface SaveGlobalTrainerParams {
   globalTrainerId?: string;
+  userId?: string | null;
   fullName: string;
   dateOfBirth: string;
   gender: 'male' | 'female' | 'others';
@@ -49,16 +60,30 @@ export interface SaveGlobalTrainerParams {
   isActive?: boolean;
 }
 
+export const GLOBAL_TRAINER_SELECT = `
+  *,
+  users:users!global_trainers_userId_fkey!inner (
+    userId,
+    name,
+    email,
+    phone,
+    profilePhoto,
+    profilePic:profilePhoto,
+    status,
+    createdAt
+  )
+`;
+
 export async function fetchGlobalTrainers(searchQuery?: string) {
   let query = supabase
     .from('global_trainers')
-    .select('*')
+    .select(GLOBAL_TRAINER_SELECT)
     .eq('is_deleted', false)
     .order('createdAt', { ascending: false });
 
   if (searchQuery && searchQuery.trim()) {
     const q = searchQuery.trim();
-    query = query.or(`fullName.ilike.%${q}%`);
+    query = query.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
   }
 
   const { data, error } = await query;
@@ -68,7 +93,11 @@ export async function fetchGlobalTrainers(searchQuery?: string) {
     throw error;
   }
 
-  return data ?? [];
+  return (data as any[])?.map((trainer: any) => ({
+    ...trainer,
+    profilePic: trainer.users?.profilePic || trainer.users?.profilePhoto || trainer.profilePhoto || null,
+    profilePhoto: trainer.users?.profilePhoto || trainer.users?.profilePic || trainer.profilePhoto || null,
+  })) ?? [];
 }
 
 export async function fetchGlobalTrainersPaginated(
@@ -80,7 +109,7 @@ export async function fetchGlobalTrainersPaginated(
 ) {
   let query = supabase
     .from('global_trainers')
-    .select('*', { count: 'exact' })
+    .select(GLOBAL_TRAINER_SELECT, { count: 'exact' })
     .eq('is_deleted', false);
 
   if (statusFilter && statusFilter !== 'all') {
@@ -105,13 +134,19 @@ export async function fetchGlobalTrainersPaginated(
     throw error;
   }
 
-  return { data: data ?? [], total: count ?? 0 };
+  const mappedData = (data as any[])?.map((trainer: any) => ({
+    ...trainer,
+    profilePic: trainer.users?.profilePic || trainer.users?.profilePhoto || trainer.profilePhoto || null,
+    profilePhoto: trainer.users?.profilePhoto || trainer.users?.profilePic || trainer.profilePhoto || null,
+  })) ?? [];
+
+  return { data: mappedData, total: count ?? 0 };
 }
 
 export async function fetchGlobalTrainerById(globalTrainerId: string) {
   const { data, error } = await supabase
     .from('global_trainers')
-    .select('*')
+    .select(GLOBAL_TRAINER_SELECT)
     .eq('globalTrainerId', globalTrainerId)
     .eq('is_deleted', false)
     .maybeSingle();
@@ -121,36 +156,70 @@ export async function fetchGlobalTrainerById(globalTrainerId: string) {
     throw error;
   }
 
-  return data;
+  if (!data) return null;
+
+  return {
+    ...data,
+    profilePic: (data as any).users?.profilePic || (data as any).users?.profilePhoto || (data as any).profilePhoto || null,
+    profilePhoto: (data as any).users?.profilePhoto || (data as any).users?.profilePic || (data as any).profilePhoto || null,
+  };
+}
+
+export async function fetchGlobalTrainerByUserId(userId: string) {
+  const { data, error } = await supabase
+    .from('global_trainers')
+    .select(GLOBAL_TRAINER_SELECT)
+    .eq('userId', userId)
+    .eq('is_deleted', false)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[globalTrainerHelper] fetchGlobalTrainerByUserId Error:', error);
+    throw error;
+  }
+
+  if (!data) return null;
+
+  return {
+    ...data,
+    profilePic: (data as any).users?.profilePic || (data as any).users?.profilePhoto || (data as any).profilePhoto || null,
+    profilePhoto: (data as any).users?.profilePhoto || (data as any).users?.profilePic || (data as any).profilePhoto || null,
+  };
 }
 
 export async function saveGlobalTrainer(trainerData: SaveGlobalTrainerParams) {
   const now = new Date().toISOString();
 
   if (trainerData.globalTrainerId) {
+    const updatePayload: any = {
+      fullName: trainerData.fullName,
+      dateOfBirth: trainerData.dateOfBirth,
+      gender: trainerData.gender,
+      mobile: trainerData.mobile,
+      alternateMobile: trainerData.alternateMobile,
+      email: trainerData.email,
+      specialization: trainerData.specialization,
+      experience: trainerData.experience,
+      joiningDate: trainerData.joiningDate,
+      qualification: trainerData.qualification,
+      bio: trainerData.bio,
+      languagesSpoken: trainerData.languagesSpoken,
+      address: trainerData.address,
+      country: trainerData.country,
+      state: trainerData.state,
+      city: trainerData.city,
+      pincode: trainerData.pincode,
+      isActive: trainerData.isActive ?? true,
+      updatedAt: now,
+    };
+
+    if (trainerData.userId !== undefined) {
+      updatePayload.userId = trainerData.userId;
+    }
+
     const { data, error } = await supabase
       .from('global_trainers')
-      .update({
-        fullName: trainerData.fullName,
-        dateOfBirth: trainerData.dateOfBirth,
-        gender: trainerData.gender,
-        mobile: trainerData.mobile,
-        alternateMobile: trainerData.alternateMobile,
-        email: trainerData.email,
-        specialization: trainerData.specialization,
-        experience: trainerData.experience,
-        joiningDate: trainerData.joiningDate,
-        qualification: trainerData.qualification,
-        bio: trainerData.bio,
-        languagesSpoken: trainerData.languagesSpoken,
-        address: trainerData.address,
-        country: trainerData.country,
-        state: trainerData.state,
-        city: trainerData.city,
-        pincode: trainerData.pincode,
-        isActive: trainerData.isActive ?? true,
-        updatedAt: now,
-      })
+      .update(updatePayload)
       .eq('globalTrainerId', trainerData.globalTrainerId)
       .select();
 
@@ -162,34 +231,35 @@ export async function saveGlobalTrainer(trainerData: SaveGlobalTrainerParams) {
     return data ? data[0] : null;
   } else {
     const generatedId = trainerData.globalTrainerId || Crypto.randomUUID();
+    const insertPayload: any = {
+      globalTrainerId: generatedId,
+      userId: trainerData.userId || null,
+      fullName: trainerData.fullName,
+      dateOfBirth: trainerData.dateOfBirth,
+      gender: trainerData.gender,
+      mobile: trainerData.mobile,
+      alternateMobile: trainerData.alternateMobile || null,
+      email: trainerData.email,
+      specialization: trainerData.specialization,
+      experience: trainerData.experience,
+      joiningDate: trainerData.joiningDate,
+      qualification: trainerData.qualification,
+      bio: trainerData.bio || null,
+      languagesSpoken: trainerData.languagesSpoken,
+      address: trainerData.address,
+      country: trainerData.country,
+      state: trainerData.state,
+      city: trainerData.city,
+      pincode: trainerData.pincode,
+      isActive: trainerData.isActive ?? true,
+      is_deleted: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
     const { data, error } = await supabase
       .from('global_trainers')
-      .insert([
-        {
-          globalTrainerId: generatedId,
-          fullName: trainerData.fullName,
-          dateOfBirth: trainerData.dateOfBirth,
-          gender: trainerData.gender,
-          mobile: trainerData.mobile,
-          alternateMobile: trainerData.alternateMobile || null,
-          email: trainerData.email,
-          specialization: trainerData.specialization,
-          experience: trainerData.experience,
-          joiningDate: trainerData.joiningDate,
-          qualification: trainerData.qualification,
-          bio: trainerData.bio || null,
-          languagesSpoken: trainerData.languagesSpoken,
-          address: trainerData.address,
-          country: trainerData.country,
-          state: trainerData.state,
-          city: trainerData.city,
-          pincode: trainerData.pincode,
-          isActive: trainerData.isActive ?? true,
-          is_deleted: false,
-          createdAt: now,
-          updatedAt: now,
-        },
-      ])
+      .insert([insertPayload])
       .select();
 
     if (error) {

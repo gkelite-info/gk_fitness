@@ -17,6 +17,7 @@ import { toast } from '@/lib/toast';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { usePersonalTrainerRequestsByUser } from '@/hooks/personalTrainerRequests/usePersonalTrainerRequests';
 import { useAssignedTrainersByCustomer } from '@/hooks/customerTrainers/useCustomerTrainers';
+import { useAssignedGlobalTrainersByUser } from '@/hooks/individual/customer-trainer/individualCustomerTrainer';
 import { queryClient } from '@/lib/react-query';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
@@ -49,9 +50,34 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
   const assignedTrainer = activeAssignment?.trainer;
   const hasAssignedTrainer = !!activeAssignment;
 
+  const { data: individualTrainers } = useAssignedGlobalTrainersByUser(userId || undefined);
+  const activeIndividualAssignment = individualTrainers?.find((t: any) => t.isActive !== false) || individualTrainers?.[0];
+  const pendingIndividual = individualTrainers?.find(
+    (t: any) => t.status === 'pending' || (t.status == null && t.isActive !== false)
+  );
+  const hasApprovedIndividualTrainer = activeIndividualAssignment?.status === 'approved';
+
   const activeRequest = trainerRequests?.[0];
   const realStatus = activeRequest ? activeRequest.applicationStatus : 'none';
-  const trainerDisplayName = assignedTrainer?.fullName || activeRequest?.gymTrainer?.name || trainer.name;
+
+  const hasApprovedTrainer = hasAssignedTrainer || realStatus === 'approved' || hasApprovedIndividualTrainer;
+  const hasPendingRequest = realStatus === 'submitted' || realStatus === 'pending' || !!pendingIndividual;
+
+  const trainerDisplayName =
+    assignedTrainer?.fullName ||
+    activeIndividualAssignment?.globalTrainer?.fullName ||
+    pendingIndividual?.globalTrainer?.fullName ||
+    activeRequest?.gymTrainer?.name ||
+    trainer.name;
+
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] });
+      queryClient.invalidateQueries({ queryKey: ['personalTrainerRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['assignedTrainers'] });
+      queryClient.invalidateQueries({ queryKey: ['customerProfile'] });
+    }, [])
+  );
 
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -178,7 +204,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
           )}
           <MenuItem icon={<User size={20} color="#D4FF00" />} title="Personal Information" subtitle="Update your personal details" onPress={() => router.push('/(customer)/edit-profile')} />
           <MenuItem icon={<Target size={20} color="#D4FF00" />} title="Goals & Preferences" subtitle="Manage your fitness goals and preferences" onPress={() => router.push('/(customer)/goals-preferences')} />
-          {hasAssignedTrainer || realStatus === 'approved' ? (
+          {hasApprovedTrainer ? (
             <MenuItem
               icon={<User size={20} color="#000000" weight="bold" />}
               title="My Trainer"
@@ -186,13 +212,13 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
               iconContainerStyle="bg-[#D4FF00]"
               onPress={() => router.push('/(customer)/my-trainer')}
             />
-          ) : realStatus === 'submitted' ? (
+          ) : hasPendingRequest ? (
             <MenuItem
               icon={<BookOpen size={20} color="#000000" weight="bold" />}
-              title="Trainer Request"
-              subtitle="Request pending gym approval"
+              title="Book Trainer"
+              subtitle={`Request pending with ${trainerDisplayName}`}
               iconContainerStyle="bg-[#FF9F0A]"
-              onPress={() => router.push('/(customer)/trainer/trainer-request')}
+              onPress={() => router.push('/(customer)/trainer/book-trainer')}
             />
           ) : (
             <MenuItem

@@ -16,6 +16,10 @@ import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/custom
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 import { fetchGymCustomerMembershipPlans, toggleGymCustomerMembershipPlanActiveStatus } from '@/helpers/gymCustomerMembershipPlans/gymCustomerMembershipPlans';
+import {
+  useIndividualCustomerPlans,
+  useToggleIndividualCustomerPlanActiveStatus,
+} from '@/hooks/individual/membership/individualCustomerPlan';
 import { syncMembershipRenewalReminders, syncPTSessionReminders } from '@/lib/services/notificationService';
 import {
   Star,
@@ -57,6 +61,16 @@ export default function CustomerHome() {
   const todayDuration = dashboardData?.todayWorkout?.duration?.toString() || '0';
   const todayExercisesCount = dashboardData?.todayWorkout?.exercisesCount?.toString() || '0';
 
+  const isIndividual = role === 'individual';
+  const {
+    data: individualCustomerPlans,
+    isLoading: isIndivCustomerPlansLoading,
+    refetch: refetchIndivCustomerPlans,
+  } = useIndividualCustomerPlans(isIndividual && userId ? userId : undefined, undefined, {
+    enabled: isIndividual && !!userId,
+  });
+  const { mutateAsync: toggleIndivPlanActiveStatus } = useToggleIndividualCustomerPlanActiveStatus();
+
   const [planName, setPlanName] = useState<string>('MEMBER');
   const [daysLeft, setDaysLeft] = useState<number | string>('--');
   const [progressPercentage, setProgressPercentage] = useState<number>(0);
@@ -83,45 +97,99 @@ export default function CustomerHome() {
     try {
       syncMembershipRenewalReminders(userId).catch(console.error);
       syncPTSessionReminders(userId).catch(console.error);
-      const plans = await fetchGymCustomerMembershipPlans(undefined, userId);
-      const activePlan = plans.find((p: any) => p.is_Active && p.endDate);
-      if (activePlan) {
-        const end = new Date(activePlan.endDate);
-        const now = new Date();
-        const diffTime = end.getTime() - now.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const currentDaysLeft = diffDays > 0 ? diffDays : 0;
 
-        if (diffDays <= 0) {
-          await toggleGymCustomerMembershipPlanActiveStatus(activePlan.GymCustomerMembershipPlanId, true);
+      if (isIndividual) {
+        const queryRes = await refetchIndivCustomerPlans();
+        const indivPlans = queryRes.data || individualCustomerPlans || [];
+        const activePlan = indivPlans.find((p: any) => p.isActive && p.endDate) || (indivPlans.length > 0 && indivPlans[0].isActive ? indivPlans[0] : null);
+
+        if (activePlan && activePlan.endDate) {
+          const end = new Date(activePlan.endDate);
+          const now = new Date();
+          const diffTime = end.getTime() - now.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const currentDaysLeft = diffDays > 0 ? diffDays : 0;
+
+          if (diffDays <= 0) {
+            if (activePlan.individualCustomerPlanId && activePlan.isActive) {
+              await toggleIndivPlanActiveStatus({
+                individualCustomerPlanId: activePlan.individualCustomerPlanId,
+                currentStatus: true,
+              });
+            }
+            setDaysLeft(0);
+            setProgressPercentage(0);
+            setPlanName((activePlan.subscription?.planName || 'EXPIRED').toUpperCase());
+            return;
+          }
+
+          setDaysLeft(currentDaysLeft);
+
+          let percentage = 0;
+          if (activePlan.startDate) {
+            const start = new Date(activePlan.startDate);
+            const totalTime = end.getTime() - start.getTime();
+            const totalDays = Math.ceil(totalTime / (1000 * 60 * 60 * 24));
+            if (totalDays > 0) {
+              percentage = (currentDaysLeft / totalDays) * 100;
+              percentage = Math.min(Math.max(percentage, 0), 100);
+            }
+          }
+          setProgressPercentage(percentage);
+
+          const planTitle = activePlan.subscription?.planName || 'INDIVIDUAL PLAN';
+          setPlanName(planTitle.toUpperCase());
+        } else {
           setDaysLeft(0);
           setProgressPercentage(0);
-          setPlanName('EXPIRED');
-          return;
+          const latestPlan = indivPlans.length > 0 ? indivPlans[0] : null;
+          setPlanName(latestPlan?.subscription?.planName ? `${latestPlan.subscription.planName.toUpperCase()} (EXPIRED)` : 'NO ACTIVE PLAN');
         }
+      } else {
+        const plans = await fetchGymCustomerMembershipPlans(undefined, userId);
+        const activePlan = plans.find((p: any) => p.is_Active && p.endDate);
+        if (activePlan) {
+          const end = new Date(activePlan.endDate);
+          const now = new Date();
+          const diffTime = end.getTime() - now.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const currentDaysLeft = diffDays > 0 ? diffDays : 0;
 
-        setDaysLeft(currentDaysLeft);
-
-        let percentage = 0;
-        if (activePlan.startDate) {
-          const start = new Date(activePlan.startDate);
-          const totalTime = end.getTime() - start.getTime();
-          const totalDays = Math.ceil(totalTime / (1000 * 60 * 60 * 24));
-          if (totalDays > 0) {
-            percentage = (currentDaysLeft / totalDays) * 100;
-            percentage = Math.min(Math.max(percentage, 0), 100);
+          if (diffDays <= 0) {
+            await toggleGymCustomerMembershipPlanActiveStatus(activePlan.GymCustomerMembershipPlanId, true);
+            setDaysLeft(0);
+            setProgressPercentage(0);
+            setPlanName('EXPIRED');
+            return;
           }
-        }
-        setProgressPercentage(percentage);
 
-        const { data: planDetails } = await supabase
-          .from('gym_membership_plans')
-          .select('planName')
-          .eq('planId', activePlan.planId)
-          .maybeSingle();
+          setDaysLeft(currentDaysLeft);
 
-        if (planDetails?.planName) {
-          setPlanName(planDetails.planName.toUpperCase());
+          let percentage = 0;
+          if (activePlan.startDate) {
+            const start = new Date(activePlan.startDate);
+            const totalTime = end.getTime() - start.getTime();
+            const totalDays = Math.ceil(totalTime / (1000 * 60 * 60 * 24));
+            if (totalDays > 0) {
+              percentage = (currentDaysLeft / totalDays) * 100;
+              percentage = Math.min(Math.max(percentage, 0), 100);
+            }
+          }
+          setProgressPercentage(percentage);
+
+          const { data: planDetails } = await supabase
+            .from('gym_membership_plans')
+            .select('planName')
+            .eq('planId', activePlan.planId)
+            .maybeSingle();
+
+          if (planDetails?.planName) {
+            setPlanName(planDetails.planName.toUpperCase());
+          }
+        } else {
+          setDaysLeft(0);
+          setProgressPercentage(0);
+          setPlanName('NO PLAN');
         }
       }
     } catch (err) {
@@ -129,7 +197,55 @@ export default function CustomerHome() {
     } finally {
       setIsLoadingMembership(false);
     }
-  }, [userId]);
+  }, [userId, isIndividual, refetchIndivCustomerPlans, individualCustomerPlans, toggleIndivPlanActiveStatus]);
+
+  useEffect(() => {
+    if (!isIndividual || !individualCustomerPlans) return;
+    const activePlan = individualCustomerPlans.find((p: any) => p.isActive && p.endDate) || (individualCustomerPlans.length > 0 && individualCustomerPlans[0].isActive ? individualCustomerPlans[0] : null);
+
+    if (activePlan && activePlan.endDate) {
+      const end = new Date(activePlan.endDate);
+      const now = new Date();
+      const diffTime = end.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const currentDaysLeft = diffDays > 0 ? diffDays : 0;
+
+      if (diffDays <= 0) {
+        setDaysLeft(0);
+        setProgressPercentage(0);
+        setPlanName((activePlan.subscription?.planName || 'EXPIRED').toUpperCase());
+        if (activePlan.individualCustomerPlanId && activePlan.isActive) {
+          toggleIndivPlanActiveStatus({
+            individualCustomerPlanId: activePlan.individualCustomerPlanId,
+            currentStatus: true,
+          }).catch(console.error);
+        }
+        setIsLoadingMembership(false);
+        return;
+      }
+
+      setDaysLeft(currentDaysLeft);
+
+      let percentage = 0;
+      if (activePlan.startDate) {
+        const start = new Date(activePlan.startDate);
+        const totalTime = end.getTime() - start.getTime();
+        const totalDays = Math.ceil(totalTime / (1000 * 60 * 60 * 24));
+        if (totalDays > 0) {
+          percentage = (currentDaysLeft / totalDays) * 100;
+          percentage = Math.min(Math.max(percentage, 0), 100);
+        }
+      }
+      setProgressPercentage(percentage);
+      setPlanName((activePlan.subscription?.planName || 'INDIVIDUAL PLAN').toUpperCase());
+    } else {
+      setDaysLeft(0);
+      setProgressPercentage(0);
+      const latestPlan = individualCustomerPlans.length > 0 ? individualCustomerPlans[0] : null;
+      setPlanName(latestPlan?.subscription?.planName ? `${latestPlan.subscription.planName.toUpperCase()} (EXPIRED)` : 'NO ACTIVE PLAN');
+    }
+    setIsLoadingMembership(false);
+  }, [isIndividual, individualCustomerPlans, toggleIndivPlanActiveStatus]);
 
   const today = getLocalDateString(new Date());
   const { steps, calories, syncSteps } = usePedometer();
@@ -155,6 +271,7 @@ export default function CustomerHome() {
         refetchTrainerDash(),
         refetchOnboarding(),
         refetchStats(),
+        isIndividual ? refetchIndivCustomerPlans() : Promise.resolve(),
         fetchMembershipInfo(),
         refetchWeeklyStats(),
         syncSteps?.(),
@@ -164,7 +281,9 @@ export default function CustomerHome() {
     } finally {
       setRefreshing(false);
     }
-  }, [refetchCustomerDash, refetchTrainerDash, refetchOnboarding, refetchStats, fetchMembershipInfo, refetchWeeklyStats, syncSteps]);
+  }, [refetchCustomerDash, refetchTrainerDash, refetchOnboarding, refetchStats, isIndividual, refetchIndivCustomerPlans, fetchMembershipInfo, refetchWeeklyStats, syncSteps]);
+
+  const isMembershipLoading = isIndividual ? (isIndivCustomerPlansLoading || isLoadingMembership) : isLoadingMembership;
 
   const waterGoal = stats?.waterGoalML || 2500;
   const waterTotal = stats?.totalWaterML || 0;
@@ -246,7 +365,7 @@ export default function CustomerHome() {
               {planName}
             </Text>
           </View>
-          {isLoadingMembership ? (
+          {isMembershipLoading ? (
             <ActivityIndicator size="small" color="#D7FF00" className="self-start mt-2" />
           ) : typeof daysLeft === 'number' && daysLeft > 0 ? (
             <>
@@ -287,7 +406,7 @@ export default function CustomerHome() {
           )}
         </View>
 
-        {typeof daysLeft === 'number' && daysLeft > 0 && (
+        {typeof daysLeft === 'number' && daysLeft > 0 && !isIndividual && (
           <>
             <View className="w-[1px] h-20 bg-[#262626] mx-2" />
 

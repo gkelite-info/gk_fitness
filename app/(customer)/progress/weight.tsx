@@ -23,7 +23,7 @@ export default function WeightTrackingScreen() {
 
   // Simple rising bezier curve mock path
   const curvePath = `M 0 ${chartHeight * 0.8} Q ${chartWidth * 0.3} ${chartHeight * 0.7} ${chartWidth * 0.6} ${chartHeight * 0.5} T ${chartWidth} ${chartHeight * 0.3}`;
-  
+
   // Fill path extends the curve down to the bottom
   const fillPath = `${curvePath} L ${chartWidth} ${chartHeight} L 0 ${chartHeight} Z`;
 
@@ -37,7 +37,7 @@ export default function WeightTrackingScreen() {
 
   const { summary, measurementHistory } = progressData;
   const recentWeights = measurementHistory.filter(m => m.weight !== undefined && m.weight !== null);
-  
+
   let diffFromLastWeek = 0;
   const lastWeekDate = new Date();
   lastWeekDate.setDate(lastWeekDate.getDate() - 7);
@@ -58,20 +58,20 @@ export default function WeightTrackingScreen() {
 
   return (
     <View className="flex-1 bg-[#09090B]">
-      <ScrollView 
+      <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
       >
         <View className="px-5 pt-6 pb-4">
           <View className="flex-row items-center mb-1">
-            <Pressable 
+            <Pressable
               className="mr-3 p-1 -ml-1 active:opacity-70"
               onPress={() => router.back()}
             >
               <CaretLeft size={28} color="#FFFFFF" weight="bold" />
             </Pressable>
-            <Text className="text-white text-[32px] font-bold tracking-tight">Weight Tracking</Text>
+            <Text className="text-white text-[32px] font-semibold tracking-tight">Weight Tracking</Text>
           </View>
           <Text className="text-[#8E8E93] text-[15px] mb-8 ml-10">
             Track your progress over time.
@@ -79,9 +79,9 @@ export default function WeightTrackingScreen() {
 
           {/* Current Weight Card */}
           <View className="bg-[#1C1C1E] rounded-3xl p-6 mb-4 border border-[#2A2A2D]/50 items-center">
-            <Text className="text-[#8E8E93] text-[11px] font-bold tracking-[1.5px] mb-2 uppercase">Current Weight</Text>
+            <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] mb-2 uppercase">Current Weight</Text>
             <View className="flex-row items-baseline gap-1.5 mb-3">
-              <Text className="text-white text-[40px] font-bold tracking-tight">{summary.currentWeight.toFixed(1)}</Text>
+              <Text className="text-white text-[40px] font-semibold tracking-tight">{summary.currentWeight.toFixed(1)}</Text>
               <Text className="text-[#8E8E93] text-xl font-medium">kg</Text>
             </View>
             <Text className={`${isReduction ? 'text-[#D4FF00]' : 'text-[#8E8E93]'} text-[13px] font-medium`}>
@@ -92,10 +92,10 @@ export default function WeightTrackingScreen() {
           {/* Weight Trend Chart */}
           <View className="bg-[#1C1C1E] rounded-3xl p-6 mb-4 border border-[#2A2A2D]/50">
             <View className="flex-row justify-between mb-8">
-              <Text className="text-[#8E8E93] text-[11px] font-bold tracking-[1.5px] uppercase">Weight Trend</Text>
-              <Text className="text-[#8E8E93] text-[11px] font-bold tracking-[1.5px] uppercase">6 Months</Text>
+              <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase">Weight Trend</Text>
+              <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase">6 Months</Text>
             </View>
-            
+
             <View className="h-[120px] mb-4">
               <Svg width="100%" height="100%">
                 <Defs>
@@ -110,30 +110,30 @@ export default function WeightTrackingScreen() {
                 <Path d={`M ${chartWidth} ${chartHeight * 0.3} A 4 4 0 1 1 ${chartWidth - 0.01} ${chartHeight * 0.3}`} fill="#D4FF00" />
               </Svg>
             </View>
-            
+
             <View className="flex-row justify-between">
-              <Text className="text-[#8E8E93] text-[10px] font-bold tracking-[1px] uppercase">Jan</Text>
-              <Text className="text-[#8E8E93] text-[10px] font-bold tracking-[1px] uppercase">Mar</Text>
-              <Text className="text-[#8E8E93] text-[10px] font-bold tracking-[1px] uppercase">Jun</Text>
+              <Text className="text-[#8E8E93] text-[10px] font-semibold tracking-[1px] uppercase">Jan</Text>
+              <Text className="text-[#8E8E93] text-[10px] font-semibold tracking-[1px] uppercase">Mar</Text>
+              <Text className="text-[#8E8E93] text-[10px] font-semibold tracking-[1px] uppercase">Jun</Text>
             </View>
           </View>
 
           {/* Goal Progress Card */}
           <View className="bg-[#1C1C1E] rounded-3xl p-6 mb-4 border border-[#2A2A2D]/50">
-            <Text className="text-[#8E8E93] text-[11px] font-bold tracking-[1.5px] mb-6 uppercase">Goal Progress</Text>
-            
+            <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] mb-6 uppercase">Goal Progress</Text>
+
             <View className="flex-row justify-between mb-4">
               <View>
-                <Text className="text-[#8E8E93] text-[10px] font-bold tracking-widest mb-1 uppercase">Starting</Text>
+                <Text className="text-[#8E8E93] text-[10px] font-semibold tracking-widest mb-1 uppercase">Starting</Text>
                 <View className="flex-row items-baseline gap-1">
-                  <Text className="text-white text-2xl font-bold">{summary.startingWeight.toFixed(1)}</Text>
+                  <Text className="text-white text-2xl font-semibold">{summary.startingWeight.toFixed(1)}</Text>
                   <Text className="text-[#8E8E93] text-xs font-medium">kg</Text>
                 </View>
               </View>
               <View className="items-end">
-                <Text className="text-[#8E8E93] text-[10px] font-bold tracking-widest mb-1 uppercase">Goal</Text>
+                <Text className="text-[#8E8E93] text-[10px] font-semibold tracking-widest mb-1 uppercase">Goal</Text>
                 <View className="flex-row items-baseline gap-1">
-                  <Text className="text-white text-2xl font-bold">{summary.targetWeight.toFixed(1)}</Text>
+                  <Text className="text-white text-2xl font-semibold">{summary.targetWeight.toFixed(1)}</Text>
                   <Text className="text-[#8E8E93] text-xs font-medium">kg</Text>
                 </View>
               </View>
@@ -152,19 +152,19 @@ export default function WeightTrackingScreen() {
 
           {/* Recent Logs */}
           <View className="bg-[#1C1C1E] rounded-3xl p-6 mb-8 border border-[#2A2A2D]/50">
-            <Text className="text-[#8E8E93] text-[11px] font-bold tracking-[1.5px] mb-4 uppercase">Recent Logs</Text>
-            
+            <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] mb-4 uppercase">Recent Logs</Text>
+
             {recentWeights.slice(0, 5).map((log, i) => (
               <View key={log.customerMeasurementId || i} className={`flex-row justify-between py-4 ${i !== 4 ? 'border-b border-[#2A2A2D]/50' : 'pt-4'}`}>
                 <Text className={i === 0 ? 'text-[#E5E5EA] text-[15px]' : 'text-[#8E8E93] text-[15px]'}>
                   {new Date(log.loggedAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
                 </Text>
-                <Text className={i === 0 ? 'text-white text-[17px] font-bold tracking-tight' : 'text-[#E5E5EA] text-[17px] font-bold tracking-tight'}>
+                <Text className={i === 0 ? 'text-white text-[17px] font-semibold tracking-tight' : 'text-[#E5E5EA] text-[17px] font-semibold tracking-tight'}>
                   {log.weight?.toFixed(1)} kg
                 </Text>
               </View>
             ))}
-            
+
             {recentWeights.length === 0 && (
               <Text className="text-[#8E8E93] text-[15px] italic">No weight logs yet.</Text>
             )}
@@ -174,15 +174,15 @@ export default function WeightTrackingScreen() {
       </ScrollView>
 
       {/* Floating Action Button */}
-      <View 
-        className="absolute left-0 right-0 px-5 pt-4 pb-4 bg-transparent" 
+      <View
+        className="absolute left-0 right-0 px-5 pt-4 pb-4 bg-transparent"
         style={{ bottom: 75 + insets.bottom + 10 }}
       >
-        <Pressable 
+        <Pressable
           className="bg-[#D4FF00] rounded-full py-4 items-center justify-center active:opacity-80 shadow-lg"
           onPress={() => router.push('/(customer)/progress/log-weight')}
         >
-          <Text className="text-[#09090B] text-[17px] font-bold">Log Today's Weight</Text>
+          <Text className="text-[#09090B] text-[17px] font-semibold">Log Today's Weight</Text>
         </Pressable>
       </View>
     </View>

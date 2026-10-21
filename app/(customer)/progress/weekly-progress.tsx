@@ -73,9 +73,9 @@ export default function WeeklyProgressScreen() {
             return (
               <View key={index} className="items-center" style={{ width: '13%' }}>
                 <Text className="text-white text-[7px] font-medium mb-1.5 opacity-80 text-center w-[200%]">{formatValue(val)}</Text>
-                <View 
-                  className="w-2.5 rounded-t-full rounded-b-sm mb-1.5" 
-                  style={{ height, backgroundColor: color }} 
+                <View
+                  className="w-2.5 rounded-t-full rounded-b-sm mb-1.5"
+                  style={{ height, backgroundColor: color }}
                 />
                 <Text className="text-[#8E8E93] text-[9px] font-medium">{d.day}</Text>
               </View>
@@ -90,7 +90,7 @@ export default function WeeklyProgressScreen() {
     <View className="flex-1 bg-[#0A0A0A]">
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 py-3.5 bg-[#141414] border-b border-[#222222]">
-        <Pressable 
+        <Pressable
           onPress={() => router.back()}
           className="w-10 h-10 rounded-full bg-[#1A1A1A] border border-[#2A2A2A] items-center justify-center active:opacity-80"
         >
@@ -103,8 +103,8 @@ export default function WeeklyProgressScreen() {
         <View className="w-10 h-10" />
       </View>
 
-      <ScrollView 
-        className="flex-1" 
+      <ScrollView
+        className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 + insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
@@ -120,9 +120,9 @@ export default function WeeklyProgressScreen() {
         <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-4 flex-row">
           <View className="flex-1">
             <Text className="text-white text-sm font-semibold mb-2">Calories (kcal)</Text>
-            <Text className="text-[#C4EF00] text-4xl font-bold tracking-tight">{formatNumber(totals?.calories || 0)}</Text>
+            <Text className="text-[#C4EF00] text-4xl font-semibold tracking-tight">{formatNumber(totals?.calories || 0)}</Text>
             <Text className="text-[#8E8E93] text-xs font-medium mt-1">/ {formatNumber(totals?.calorieGoal || 0)} kcal goal</Text>
-            
+
             <View className="flex-row items-center mt-4">
               {(trends?.calories || 0) >= 0 ? (
                 <CaretUp size={12} color="#C4EF00" weight="bold" />
@@ -131,19 +131,19 @@ export default function WeeklyProgressScreen() {
                   <CaretUp size={12} color="#FF3B30" weight="bold" />
                 </View>
               )}
-              <Text className={`text-xs font-bold ml-1 ${(trends?.calories || 0) >= 0 ? 'text-[#C4EF00]' : 'text-[#FF3B30]'}`}>
+              <Text className={`text-xs font-semibold ml-1 ${(trends?.calories || 0) >= 0 ? 'text-[#C4EF00]' : 'text-[#FF3B30]'}`}>
                 {Math.abs(trends?.calories || 0)}% <Text className="text-[#8E8E93] font-medium">vs Last Week</Text>
               </Text>
             </View>
           </View>
-          
+
           <View className="w-[160px]">
             {renderBarChart(
-              thisWeek, 
-              d => d.activeCalories, 
-              '#C4EF00', 
-              '2.5K', 
-              '1.5K', 
+              thisWeek,
+              d => d.activeCalories,
+              '#C4EF00',
+              '2.5K',
+              '1.5K',
               v => v > 0 ? (v / 1000).toFixed(1) + 'k' : '0'
             )}
           </View>
@@ -153,9 +153,9 @@ export default function WeeklyProgressScreen() {
         <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-4 flex-row">
           <View className="flex-1">
             <Text className="text-white text-sm font-semibold mb-2">Water Intake (L)</Text>
-            <Text className="text-white text-4xl font-bold tracking-tight">{formatL(totals?.water || 0)} L</Text>
+            <Text className="text-white text-4xl font-semibold tracking-tight">{formatL(totals?.water || 0)} L</Text>
             <Text className="text-[#8E8E93] text-xs font-medium mt-1">/ {formatL(totals?.waterGoal || 0)} L goal</Text>
-            
+
             <View className="flex-row items-center mt-4">
               {(trends?.water || 0) >= 0 ? (
                 <CaretUp size={12} color="#00DBE7" weight="bold" />
@@ -164,19 +164,19 @@ export default function WeeklyProgressScreen() {
                   <CaretUp size={12} color="#FF3B30" weight="bold" />
                 </View>
               )}
-              <Text className={`text-xs font-bold ml-1 ${(trends?.water || 0) >= 0 ? 'text-[#00DBE7]' : 'text-[#FF3B30]'}`}>
+              <Text className={`text-xs font-semibold ml-1 ${(trends?.water || 0) >= 0 ? 'text-[#00DBE7]' : 'text-[#FF3B30]'}`}>
                 {Math.abs(trends?.water || 0)}% <Text className="text-[#8E8E93] font-medium">vs Last Week</Text>
               </Text>
             </View>
           </View>
-          
+
           <View className="w-[160px]">
             {renderBarChart(
-              thisWeek, 
-              d => d.waterIntake, 
-              '#00DBE7', 
-              '4', 
-              '2', 
+              thisWeek,
+              d => d.waterIntake,
+              '#00DBE7',
+              '4',
+              '2',
               v => v > 0 ? v.toFixed(1) : '0'
             )}
           </View>
@@ -187,11 +187,11 @@ export default function WeeklyProgressScreen() {
           <View className="flex-1">
             <Text className="text-white text-sm font-semibold mb-2">Workout Streak</Text>
             <View className="flex-row items-baseline">
-              <Text className="text-white text-4xl font-bold tracking-tight">{streakData?.currentStreak || 0}</Text>
+              <Text className="text-white text-4xl font-semibold tracking-tight">{streakData?.currentStreak || 0}</Text>
               <Text className="text-white text-lg font-medium ml-1">days</Text>
             </View>
             <Text className="text-[#8E8E93] text-xs font-medium mt-1">Best: {streakData?.bestStreak || 0} days</Text>
-            
+
             <View className="flex-row items-center mt-4">
               {((streakData?.currentStreak || 0) - (streakData?.bestStreak || 0)) >= 0 ? (
                 <CaretUp size={12} color="#FB923C" weight="bold" />
@@ -200,12 +200,12 @@ export default function WeeklyProgressScreen() {
                   <CaretUp size={12} color="#FF3B30" weight="bold" />
                 </View>
               )}
-              <Text className={`text-xs font-bold ml-1 ${((streakData?.currentStreak || 0) - (streakData?.bestStreak || 0)) >= 0 ? 'text-[#FB923C]' : 'text-[#FF3B30]'}`}>
+              <Text className={`text-xs font-semibold ml-1 ${((streakData?.currentStreak || 0) - (streakData?.bestStreak || 0)) >= 0 ? 'text-[#FB923C]' : 'text-[#FF3B30]'}`}>
                 {Math.abs((streakData?.currentStreak || 0) - (streakData?.bestStreak || 0))} days <Text className="text-[#8E8E93] font-medium">vs Best</Text>
               </Text>
             </View>
           </View>
-          
+
           <View className="w-[160px] justify-end pb-1 pl-3">
             <View className="flex-row justify-between items-center mb-1.5">
               {thisWeek.map((d: any, index: number) => {
@@ -214,7 +214,7 @@ export default function WeeklyProgressScreen() {
                   <View key={index} className="items-center">
                     {isActive ? (
                       <View className="w-[18px] h-[18px] rounded-full border border-[#FB923C] items-center justify-center bg-transparent">
-                         <CheckCircle size={14} color="#FB923C" weight="regular" />
+                        <CheckCircle size={14} color="#FB923C" weight="regular" />
                       </View>
                     ) : (
                       <View className="w-[18px] h-[18px] rounded-full border border-[#333333] bg-transparent" />
@@ -235,9 +235,9 @@ export default function WeeklyProgressScreen() {
         <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-4 flex-row">
           <View className="flex-1">
             <Text className="text-white text-sm font-semibold mb-2">Steps</Text>
-            <Text className="text-white text-4xl font-bold tracking-tight">{formatNumber(totals?.steps || 0)}</Text>
+            <Text className="text-white text-4xl font-semibold tracking-tight">{formatNumber(totals?.steps || 0)}</Text>
             <Text className="text-[#8E8E93] text-xs font-medium mt-1">/ {formatNumber(totals?.stepGoal || 0)} steps goal</Text>
-            
+
             <View className="flex-row items-center mt-4">
               {(trends?.steps || 0) >= 0 ? (
                 <CaretUp size={12} color="#C4EF00" weight="bold" />
@@ -246,19 +246,19 @@ export default function WeeklyProgressScreen() {
                   <CaretUp size={12} color="#FF3B30" weight="bold" />
                 </View>
               )}
-              <Text className={`text-xs font-bold ml-1 ${(trends?.steps || 0) >= 0 ? 'text-[#C4EF00]' : 'text-[#FF3B30]'}`}>
+              <Text className={`text-xs font-semibold ml-1 ${(trends?.steps || 0) >= 0 ? 'text-[#C4EF00]' : 'text-[#FF3B30]'}`}>
                 {Math.abs(trends?.steps || 0)}% <Text className="text-[#8E8E93] font-medium">vs Last Week</Text>
               </Text>
             </View>
           </View>
-          
+
           <View className="w-[160px]">
             {renderBarChart(
-              thisWeek, 
-              d => d.steps, 
-              '#C4EF00', 
-              '20K', 
-              '10K', 
+              thisWeek,
+              d => d.steps,
+              '#C4EF00',
+              '20K',
+              '10K',
               v => v > 0 ? (v / 1000).toFixed(1) + 'K' : '0'
             )}
           </View>
@@ -269,11 +269,11 @@ export default function WeeklyProgressScreen() {
           <View className="flex-1">
             <Text className="text-white text-sm font-semibold mb-2">Workouts</Text>
             <View className="flex-row items-baseline">
-              <Text className="text-white text-4xl font-bold tracking-tight">{totals?.workouts || 0}</Text>
+              <Text className="text-white text-4xl font-semibold tracking-tight">{totals?.workouts || 0}</Text>
               <Text className="text-white text-lg font-medium ml-1">workouts</Text>
             </View>
             <Text className="text-[#8E8E93] text-xs font-medium mt-1">/ {totals?.workoutGoal || 6} workouts goal</Text>
-            
+
             <View className="flex-row items-center mt-4">
               {(trends?.workouts || 0) >= 0 ? (
                 <CaretUp size={12} color="#A78BFA" weight="bold" />
@@ -282,19 +282,19 @@ export default function WeeklyProgressScreen() {
                   <CaretUp size={12} color="#A78BFA" weight="bold" />
                 </View>
               )}
-              <Text className={`text-xs font-bold ml-1 ${(trends?.workouts || 0) >= 0 ? 'text-[#A78BFA]' : 'text-[#A78BFA]'}`}>
+              <Text className={`text-xs font-semibold ml-1 ${(trends?.workouts || 0) >= 0 ? 'text-[#A78BFA]' : 'text-[#A78BFA]'}`}>
                 {Math.abs(trends?.workouts || 0)} workout <Text className="text-[#8E8E93] font-medium">vs Last Week</Text>
               </Text>
             </View>
           </View>
-          
+
           <View className="w-[160px]">
             {renderBarChart(
-              thisWeek, 
-              d => d.activeMinutes > 0 ? 1 : 0, 
-              '#A78BFA', 
-              '2', 
-              '1', 
+              thisWeek,
+              d => d.activeMinutes > 0 ? 1 : 0,
+              '#A78BFA',
+              '2',
+              '1',
               v => v.toString()
             )}
           </View>

@@ -11,6 +11,8 @@ import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useUpdateCustomerProfile, useUpdateProfilePhoto } from '@/hooks/auth/useUpdateCustomerProfile';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ActionSheetModal } from '@/components/community/ActionSheetModal';
+import { DatePickerModal } from '@/components/DatePickerModal';
+import { formatToDDMMYYYY, ddmmyyyyToPgDate } from '@/helpers/customers/customerHelper';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -86,6 +88,7 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
   const updatePhotoMutation = useUpdateProfilePhoto();
 
   const [photoOptionsVisible, setPhotoOptionsVisible] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [selectorState, setSelectorState] = useState<{ visible: boolean, type: keyof typeof form | '', title: string, options: any[] }>({
     visible: false,
@@ -100,7 +103,7 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
       email: customerData?.email || fallbackUser?.email || '',
       phone: customerData?.phone || fallbackUser?.phone || '',
       gender: customerData?.gender || fallbackUser?.gender || '',
-      dateOfBirth: customerData?.dateOfBirth || fallbackUser?.dob || '',
+      dateOfBirth: formatToDDMMYYYY(customerData?.dateOfBirth || fallbackUser?.dob),
       height: onboardingData?.height ? onboardingData.height.toString() : '-',
       weight: onboardingData?.weight ? onboardingData.weight.toString() : '-',
       fitnessGoal: onboardingData?.primaryGoal ? onboardingData.primaryGoal.toString() : '-',
@@ -299,7 +302,15 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
           onPress={() => openSelector('gender', 'Select Gender', GENDER_OPTIONS)}
         />
 
-        <InputField icon={<CalendarBlank size={20} color="#D4FF00" />} label="DATE OF BIRTH" value={form.dateOfBirth} onChangeText={(val: string) => setForm(prev => ({ ...prev, dateOfBirth: val }))} />
+        <InputField
+          icon={<CalendarBlank size={20} color="#D4FF00" />}
+          label="DATE OF BIRTH"
+          value={form.dateOfBirth ? form.dateOfBirth : 'DD-MM-YYYY'}
+          onPress={() => {
+            Keyboard.dismiss();
+            setShowDatePicker(true);
+          }}
+        />
 
         <Text className="text-[#8E8E93] text-[10px] font-semibold tracking-[1px] mt-6 mb-3 ml-1">PHYSICAL INFORMATION</Text>
 
@@ -382,6 +393,18 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
           { label: 'Take Photo', keepOpen: true, onPress: () => handlePickImage(true) },
           { label: 'Choose from Gallery', keepOpen: true, onPress: () => handlePickImage(false) }
         ]}
+      />
+
+      <DatePickerModal
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        title="Select Date of Birth"
+        maxYear={new Date().getFullYear()}
+        minYear={1930}
+        initialDate={form.dateOfBirth ? (ddmmyyyyToPgDate(form.dateOfBirth) || '1998-01-01') : '1998-01-01'}
+        onSelectDate={(dateString: string) => {
+          setForm(prev => ({ ...prev, dateOfBirth: formatToDDMMYYYY(dateString) }));
+        }}
       />
     </View>
   );

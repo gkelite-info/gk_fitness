@@ -4,11 +4,15 @@ import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode as base64ToArrayBuffer } from 'base64-arraybuffer';
 
+import { ddmmyyyyToPgDate } from '@/helpers/customers/customerHelper';
+
 export function useUpdateCustomerProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ userId, form }: { userId: string, form: any }) => {
+      const pgDob = ddmmyyyyToPgDate(form.dateOfBirth);
+
       // Update gym_customers if customer record exists
       try {
         await supabase
@@ -17,7 +21,7 @@ export function useUpdateCustomerProfile() {
             fullName: form.fullName,
             phone: form.phone,
             gender: form.gender ? form.gender.toLowerCase() : 'male',
-            dateOfBirth: form.dateOfBirth,
+            dateOfBirth: pgDob,
           })
           .or(`customerId.eq.${userId},userId.eq.${userId}`);
       } catch (err) {
@@ -31,8 +35,8 @@ export function useUpdateCustomerProfile() {
         gender: form.gender ? (form.gender.toLowerCase() === 'other' ? 'others' : form.gender.toLowerCase()) : 'male',
         updatedAt: new Date().toISOString(),
       };
-      if (form.dateOfBirth) {
-        userUpdatePayload.dob = form.dateOfBirth;
+      if (pgDob) {
+        userUpdatePayload.dob = pgDob;
       }
 
       const { error: userError } = await supabase

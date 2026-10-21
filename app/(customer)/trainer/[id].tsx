@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeft, CheckCircle, Star, Users, Medal, Tag, ArrowRight, CaretDown } from 'phosphor-react-native';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { useGymTrainerById } from '@/hooks/trainers/useGymTrainers';
+import { useGlobalTrainer } from '@/hooks/globalTrainers/useGlobalTrainer';
 import { useUser } from '@/context/UserContext';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useAssignedTrainersByCustomer, useAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
@@ -25,7 +26,8 @@ export default function TrainerProfileScreen() {
   }, [trainerData]);
 
   const { data: gymTrainerResult, isLoading: isGymTrainerLoading } = useGymTrainerById(id);
-  const fetchedTrainer = gymTrainerResult?.trainer;
+  const { data: globalTrainerResult, isLoading: isGlobalTrainerLoading } = useGlobalTrainer(id);
+  const fetchedTrainer = gymTrainerResult?.trainer || globalTrainerResult;
 
   const trainer = parsedTrainer || fetchedTrainer;
 
@@ -56,7 +58,7 @@ export default function TrainerProfileScreen() {
     }
   };
 
-  if (isGymTrainerLoading && !trainer) {
+  if ((isGymTrainerLoading || isGlobalTrainerLoading) && !trainer) {
     return (
       <View className="flex-1 bg-[#0F0F0F] justify-center items-center" style={{ paddingTop: insets.top }}>
         <ActivityIndicator size="large" color="#D4FF00" />

@@ -39,7 +39,6 @@ export default function TrainerRequestScreen() {
   const activeRequest = trainerRequests?.[0];
 
   useEffect(() => {
-    // If they already have a pending request in the DB, jump to pending step
     if (activeRequest?.applicationStatus === 'submitted' && step === 'form') {
       setStep('pending');
     }
@@ -55,7 +54,11 @@ export default function TrainerRequestScreen() {
   const requestedDate = new Date().toLocaleDateString('en-GB', dateOptions);
 
   const handleBack = () => {
-    router.push('/(customer)/trainer/book-trainer');
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.push('/(customer)/trainer/book-trainer');
+    }
   };
 
   const handleConfirmCancel = () => {

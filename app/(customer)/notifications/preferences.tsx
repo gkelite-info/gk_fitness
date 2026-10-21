@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Pressable, Switch, ActivityIndicator, Text, Alert, Linking } from 'react-native';
+import { View, ScrollView, Pressable, Switch, ActivityIndicator, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Clock, Hourglass, ForkKnife, CalendarCheck, CalendarBlank, SunDim, Barbell, Sparkle, BellRinging, PaperPlaneTilt } from 'phosphor-react-native';
@@ -17,7 +17,6 @@ function format12Hour(hour: number = 17, minute: number = 0): string {
 
 function adjustTime(currentHour: number = 17, currentMinute: number = 0, deltaMinutes: number) {
   let total = currentHour * 60 + currentMinute + deltaMinutes;
-  // Limit between 05:00 AM (300 mins) and 11:00 PM (1380 mins)
   if (total < 300) total = 300;
   if (total > 1380) total = 1380;
   return {
@@ -48,6 +47,14 @@ export default function NotificationsPreferencesScreen() {
     updatePreference.mutate({ [id]: !currentValue });
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.push('/(customer)/profile');
+    }
+  };
+
   const [testingLocal, setTestingLocal] = React.useState(false);
   const [testingPush, setTestingPush] = React.useState(false);
 
@@ -63,16 +70,9 @@ export default function NotificationsPreferencesScreen() {
       console.warn('[Notifications] Test local error:', err);
       const msg = err?.message || 'Failed to trigger local notification';
       if (msg.includes('PERMISSION_BLOCKED') || msg.toLowerCase().includes('permission')) {
-        Alert.alert(
-          'Notification Permission Needed',
-          'Notification permissions are currently disabled in your device settings. Would you like to open App Settings to enable them?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() },
-          ]
-        );
+        toast.error('Notification permissions disabled. Please enable in Settings.');
       } else {
-        Alert.alert('Notification Diagnostic Error', msg);
+        toast.error(msg);
       }
     } finally {
       setTestingLocal(false);
@@ -88,32 +88,17 @@ export default function NotificationsPreferencesScreen() {
       setTestingPush(true);
       const token = await registerForPushNotifications(userId);
       if (token) {
-        Alert.alert(
-          'Push Token Active ✅',
-          `Your device has registered for push notifications with token:\n\n${token}\n\nSaved to database for this user.`,
-          [{ text: 'OK' }]
-        );
-        toast.success('Push token registered!');
+        toast.success('Push token registered and active!');
       } else {
-        Alert.alert(
-          'Push Token Notice',
-          'Could not retrieve an Expo push token. On Android, make sure your development build includes Google Services.'
-        );
+        toast.error('Could not retrieve push token. Check Google Services.');
       }
     } catch (err: any) {
       console.warn('[Notifications] Test push token error:', err);
       const msg = err?.message || 'Error registering push token';
       if (msg.includes('PERMISSION_BLOCKED') || msg.toLowerCase().includes('permission')) {
-        Alert.alert(
-          'Notification Permission Needed',
-          'Notification permissions are currently disabled in your device settings. Would you like to open App Settings to enable them?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() },
-          ]
-        );
+        toast.error('Notification permissions disabled. Please enable in Settings.');
       } else {
-        Alert.alert('Push Registration Error', msg);
+        toast.error(msg);
       }
     } finally {
       setTestingPush(false);
@@ -122,9 +107,8 @@ export default function NotificationsPreferencesScreen() {
 
   return (
     <View className="flex-1 bg-[#0F0F0F]">
-      {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-white/10">
-        <Pressable onPress={() => router.back()} className="w-10 h-10 items-start justify-center">
+        <Pressable onPress={handleBack} className="w-10 h-10 items-start justify-center">
           <ArrowLeft size={22} color="#FFFFFF" />
         </Pressable>
         <Text className="text-white text-lg font-semibold">Notifications Preferences</Text>
@@ -421,8 +405,8 @@ export default function NotificationsPreferencesScreen() {
                                     workout_weekend_minute: preset.weMin,
                                   })}
                                   className={`px-3 py-2.5 rounded-xl border flex-1 min-w-[46%] ${isSelected
-                                      ? 'bg-[#D4FF00] border-[#D4FF00]'
-                                      : 'bg-[#0F0F0F] border-white/10'
+                                    ? 'bg-[#D4FF00] border-[#D4FF00]'
+                                    : 'bg-[#0F0F0F] border-white/10'
                                     }`}
                                 >
                                   <View className="flex-row justify-between items-center">

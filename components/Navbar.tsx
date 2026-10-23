@@ -41,6 +41,11 @@ export function Navbar() {
 
   // Helper to determine if current path is a sub-screen / internal page that has its own back header
   const isSubOrInternalScreen = (currentPath: string): boolean => {
+    // Superadmin Global Trainers pages should always show the navbar header
+    if (currentPath?.includes('globalTrainers') || currentPath?.includes('/dashboard/globalTrainers')) {
+      return false;
+    }
+
     // Strip route groups like /(owner), /(customer), etc.
     const normalized = (currentPath || '').replace(/\/\([^)]+\)/g, '') || '/';
 
@@ -50,7 +55,12 @@ export function Navbar() {
     }
 
     // Owner Dashboard sub-screens (e.g. /dashboard/manual-attendance, /dashboard/renewals, etc.)
-    if (normalized.startsWith('/dashboard/') && normalized !== '/dashboard' && normalized !== '/dashboard/') {
+    if (
+      !currentPath?.includes('(superadmin)') &&
+      normalized.startsWith('/dashboard/') &&
+      normalized !== '/dashboard' &&
+      normalized !== '/dashboard/'
+    ) {
       return true;
     }
 

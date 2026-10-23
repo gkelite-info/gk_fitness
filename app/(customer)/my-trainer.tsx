@@ -3,6 +3,7 @@ import { View, ScrollView, Pressable, Image, Modal, Alert, Platform, ActivityInd
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getCalendarDaysDifference } from '@/lib/dateUtils';
 import {
   CaretLeft, CaretRight, Star, ShieldCheck, Sparkle, CalendarBlank, Clock,
   XCircle, CalendarPlus, ClipboardText, ChartBar, CalendarCheck, UserCircle, Barbell, CheckCircle, Trash
@@ -203,8 +204,7 @@ export default function MyTrainerScreen() {
 
     remainingWorkingDays = Math.min(totalWorkingDays, Math.max(0, remainingWorkingDays));
 
-    const diffMs = nextRenewalDate.getTime() - now.getTime();
-    const renewalInDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+    const renewalInDays = Math.max(0, getCalendarDaysDifference(nextRenewalDate));
 
     const formattedRenewalDate = nextRenewalDate.toLocaleDateString('en-GB', {
       day: '2-digit',

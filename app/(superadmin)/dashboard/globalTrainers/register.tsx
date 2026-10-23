@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Modal, FlatList } from 'react-native';
+import { View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,14 +12,25 @@ import * as Crypto from 'expo-crypto';
 import { createUser } from '@/helpers/otpHelper';
 import { saveGlobalTrainer } from '@/helpers/globalTrainer/globalTrainerHelper';
 import { useUser } from '@/context/UserContext';
+import { useGlobalTrainer } from '@/hooks/globalTrainers/useGlobalTrainer';
+import { useUserById } from '@/hooks/users/useUsers';
+import { useSaveUser } from '@/hooks/users/useSaveUser';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function CreateGlobalTrainerScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ globalTrainerLeadId?: string }>();
+  const queryClient = useQueryClient();
+  const params = useLocalSearchParams<{ globalTrainerLeadId?: string; editTrainerId?: string }>();
+  const isEditMode = !!params.editTrainerId;
   const insets = useSafeAreaInsets();
   const { userId: currentUserId } = useUser();
 
+  const { data: trainerDetails, isLoading: isLoadingTrainer } = useGlobalTrainer(params.editTrainerId);
+  const { data: userDetails } = useUserById(trainerDetails?.userId);
+  const { mutateAsync: saveUserMutation } = useSaveUser();
+
   const [saving, setSaving] = useState(false);
+  const [hasLoadedEditData, setHasLoadedEditData] = useState(false);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -38,6 +49,7 @@ export default function CreateGlobalTrainerScreen() {
   const [stateName, setStateName] = useState('Telangana');
   const [city, setCity] = useState('');
   const [pincode, setPincode] = useState('');
+  const [price, setPrice] = useState('');
   const [password, setPassword] = useState('');
 
   const [stateModalVisible, setStateModalVisible] = useState(false);
@@ -73,6 +85,7 @@ export default function CreateGlobalTrainerScreen() {
             setStateName(leadDetails.state || 'Telangana');
             setCity(leadDetails.city || '');
             setPincode(leadDetails.pincode ? leadDetails.pincode.toString() : '');
+            setPrice((leadDetails as any).price ? (leadDetails as any).price.toString() : '');
             setPassword(leadDetails.password || '');
           }
         } catch (error) {
@@ -84,6 +97,38 @@ export default function CreateGlobalTrainerScreen() {
     };
     fetchLeadData();
   }, [params.globalTrainerLeadId]);
+
+  useEffect(() => {
+    if (isEditMode && trainerDetails && !hasLoadedEditData) {
+      setFullName(trainerDetails.fullName || userDetails?.name || '');
+      setEmail(trainerDetails.email || userDetails?.email || '');
+      setMobile(trainerDetails.mobile || userDetails?.phone || '');
+      setAlternateMobile(trainerDetails.alternateMobile || '');
+      setDateOfBirth(trainerDetails.dateOfBirth || userDetails?.dob || '');
+      setGender((trainerDetails.gender || userDetails?.gender || '') as any);
+      setSpecialization((trainerDetails.specialization || '') as any);
+      setExperience(trainerDetails.experience != null ? trainerDetails.experience.toString() : '');
+      setJoiningDate(trainerDetails.joiningDate || '');
+      setQualification(trainerDetails.qualification || '');
+      setBio(trainerDetails.bio || '');
+      setLanguagesSpoken(
+        Array.isArray(trainerDetails.languagesSpoken)
+          ? trainerDetails.languagesSpoken.join(', ')
+          : (trainerDetails.languagesSpoken || '')
+      );
+      setAddress(trainerDetails.address || userDetails?.address || '');
+      setCountry(trainerDetails.country || userDetails?.country || 'India');
+      setStateName(trainerDetails.state || userDetails?.state || 'Telangana');
+      setCity(trainerDetails.city || userDetails?.city || '');
+      setPincode(
+        trainerDetails.pincode != null
+          ? trainerDetails.pincode.toString()
+          : (userDetails?.pincode != null ? userDetails.pincode.toString() : '')
+      );
+      setPrice(trainerDetails.price != null ? trainerDetails.price.toString() : '');
+      setHasLoadedEditData(true);
+    }
+  }, [isEditMode, trainerDetails, userDetails, hasLoadedEditData]);
 
   const indianStates = State.getStatesOfCountry('IN');
 
@@ -101,10 +146,70 @@ export default function CreateGlobalTrainerScreen() {
     if (!address.trim()) return toast.error('Address is required');
     if (!stateName.trim()) return toast.error('State is required');
     if (!pincode.trim()) return toast.error('Pincode is required');
-    if (!params.globalTrainerLeadId && !password.trim()) return toast.error('Password is required');
+    if (!isEditMode && !params.globalTrainerLeadId && !password.trim()) return toast.error('Password is required');
 
     setSaving(true);
     try {
+      if (isEditMode && params.editTrainerId) {
+        const targetUserId = trainerDetails?.userId;
+        const immutableEmail = trainerDetails?.email || email.trim().toLowerCase();
+
+        // 1. Update users table if userId exists
+        if (targetUserId) {
+          await saveUserMutation({
+            userId: targetUserId,
+            name: fullName.trim(),
+            email: immutableEmail, // strictly block email modification
+            phone: mobile.trim(),
+            address: address.trim(),
+            country: country.trim(),
+            state: stateName.trim(),
+            city: city.trim(),
+            pincode: pincode.trim() ? Number(pincode) : null,
+            dob: dateOfBirth.trim() || null,
+            gender: gender ? (gender.toLowerCase() === 'other' ? 'others' : gender.toLowerCase()) : 'male',
+            role: 'globaltrainer',
+          });
+        }
+
+        // 2. Update global_trainers table
+        await saveGlobalTrainer({
+          globalTrainerId: params.editTrainerId,
+          userId: targetUserId || null,
+          fullName: fullName.trim(),
+          dateOfBirth: dateOfBirth.trim(),
+          gender: gender as 'male' | 'female' | 'others',
+          mobile: mobile.trim(),
+          alternateMobile: alternateMobile.trim() || null,
+          email: immutableEmail, // strictly block email modification
+          specialization: specialization as 'strength' | 'fatloss' | 'crossfit',
+          experience: Number(experience),
+          joiningDate: joiningDate.trim(),
+          qualification: qualification.trim(),
+          bio: bio.trim() || null,
+          languagesSpoken: languagesSpoken.split(',').map(s => s.trim()).filter(s => s),
+          address: address.trim(),
+          country: country.trim(),
+          state: stateName.trim(),
+          city: city.trim(),
+          pincode: Number(pincode),
+          price: price ? Number(price) : 0,
+        });
+
+        await queryClient.invalidateQueries({ queryKey: ['globalTrainersPaginated'] });
+        await queryClient.invalidateQueries({ queryKey: ['globalTrainers'] });
+        await queryClient.invalidateQueries({ queryKey: ['globalTrainer', params.editTrainerId] });
+        await queryClient.refetchQueries({ queryKey: ['globalTrainersPaginated'] });
+        if (targetUserId) {
+          await queryClient.invalidateQueries({ queryKey: ['user', targetUserId] });
+          await queryClient.invalidateQueries({ queryKey: ['users'] });
+        }
+
+        toast.success('Global Trainer updated successfully!');
+        router.replace('/(superadmin)/dashboard/globalTrainers' as any);
+        return;
+      }
+
       const uuid = Crypto.randomUUID();
       const tempPassword = `TK-${uuid.substring(0, 5).toUpperCase()}-${uuid.substring(9, 10).toUpperCase()}`;
       const actualPassword = params.globalTrainerLeadId ? password : (password.trim() || tempPassword);
@@ -161,6 +266,7 @@ export default function CreateGlobalTrainerScreen() {
         state: stateName.trim(),
         city: city.trim(),
         pincode: Number(pincode),
+        price: price ? Number(price) : 0,
         isActive: true,
       });
 
@@ -168,21 +274,42 @@ export default function CreateGlobalTrainerScreen() {
         await updateGlobalTrainerLeadStatus(params.globalTrainerLeadId, 'approved');
       }
 
+      await queryClient.invalidateQueries({ queryKey: ['globalTrainersPaginated'] });
+      await queryClient.invalidateQueries({ queryKey: ['globalTrainers'] });
+      await queryClient.refetchQueries({ queryKey: ['globalTrainersPaginated'] });
+
       toast.success('Global Trainer created successfully!');
       router.replace('/(superadmin)/dashboard/globalTrainers' as any);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to create global trainer.');
+      toast.error(error?.message || (isEditMode ? 'Failed to update global trainer.' : 'Failed to create global trainer.'));
     } finally {
       setSaving(false);
     }
   };
 
-  const renderInput = (label: string, value: string, onChangeText: (text: string) => void, placeholder: string, keyboardType: any = 'default', optional = false, multiline = false, isEditable = true, isSecure = false) => (
+  const renderInput = (
+    label: string,
+    value: string,
+    onChangeText: (text: string) => void,
+    placeholder: string,
+    keyboardType: any = 'default',
+    optional = false,
+    multiline = false,
+    isEditable = true,
+    isSecure = false
+  ) => (
     <View className="mb-4">
-      <Text className="text-xs text-[#888888] mb-1.5">
-        {label} {!optional && <Text className="text-red-500 text-sm">*</Text>}
-        {optional && ' (Optional)'}
-      </Text>
+      <View className="flex-row items-center justify-between mb-1.5">
+        <Text className="text-xs text-[#888888]">
+          {label} {!optional && <Text className="text-red-500 text-sm">*</Text>}
+          {optional && ' (Optional)'}
+        </Text>
+        {!isEditable && !saving && (
+          <Text className="text-[10px] text-[#888888] font-medium tracking-wide uppercase">
+            Locked / Read-only
+          </Text>
+        )}
+      </View>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -194,7 +321,7 @@ export default function CreateGlobalTrainerScreen() {
         secureTextEntry={isSecure}
         multiline={multiline}
         textAlignVertical={multiline ? 'top' : 'center'}
-        className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${multiline ? 'min-h-[100px]' : ''} ${(!saving && isEditable) ? '' : 'opacity-60'}`}
+        className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${multiline ? 'min-h-[100px]' : ''} ${(!saving && isEditable) ? '' : 'opacity-60 bg-[#141416]'}`}
         editable={!saving && isEditable}
       />
     </View>
@@ -218,8 +345,17 @@ export default function CreateGlobalTrainerScreen() {
     </View>
   );
 
+  if (isEditMode && isLoadingTrainer && !hasLoadedEditData) {
+    return (
+      <View className="flex-1 bg-[#09090B] items-center justify-center">
+        <ActivityIndicator size="large" color="#CCFF00" />
+        <Text className="text-sm text-[#888888] mt-3 font-medium">Loading trainer details...</Text>
+      </View>
+    );
+  }
+
   return (
-    <View className="flex-1 bg-[#09090B] pb-28" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-[#09090B] pb-28 pt-5">
       <View className="flex-row items-center justify-between px-4 pb-4 border-b border-[#1C1C1E]">
         <View className="flex-row items-center">
           <Pressable
@@ -229,8 +365,12 @@ export default function CreateGlobalTrainerScreen() {
             <ArrowLeft size={20} color="#FFFFFF" />
           </Pressable>
           <View>
-            <Text className="text-white text-xl font-semibold">Create Global Trainer</Text>
-            <Text className="text-[#8E8E93] text-xs mt-0.5">Add a new trainer to the system</Text>
+            <Text className="text-white text-xl font-semibold">
+              {isEditMode ? 'Edit Global Trainer' : 'Create Global Trainer'}
+            </Text>
+            <Text className="text-[#8E8E93] text-xs mt-0.5">
+              {isEditMode ? 'Update trainer details and profile' : 'Add a new trainer to the system'}
+            </Text>
           </View>
         </View>
       </View>
@@ -247,7 +387,7 @@ export default function CreateGlobalTrainerScreen() {
           {/* Section: Personal Info */}
           <Text className="text-xs font-semibold text-[#CCFF00] tracking-wider mb-3 mt-2">PERSONAL DETAILS</Text>
           {renderInput('Full Name', fullName, setFullName, 'e.g. John Doe')}
-          {renderInput('Email Address', email, setEmail, 'e.g. john@example.com', 'email-address')}
+          {renderInput('Email Address', email, setEmail, 'e.g. john@example.com', 'email-address', false, false, !isEditMode)}
 
           <View className="flex-row gap-3">
             <View className="flex-1">
@@ -286,6 +426,7 @@ export default function CreateGlobalTrainerScreen() {
           </View>
 
           {renderInput('Languages Spoken', languagesSpoken, setLanguagesSpoken, 'e.g. English, Hindi, Spanish')}
+          {renderInput('Price / Monthly Fee (₹)', price, setPrice, 'e.g. 1500', 'numeric', true)}
           {renderInput('Bio', bio, setBio, 'Tell us about the trainer...', 'default', true, true)}
 
           {/* Section: Location */}
@@ -310,7 +451,7 @@ export default function CreateGlobalTrainerScreen() {
             </View>
           </View>
 
-          {renderInput('Password', password, setPassword, 'Enter a secure password', 'default', false, false, !params.globalTrainerLeadId, true)}
+          {!isEditMode && renderInput('Password', password, setPassword, 'Enter a secure password', 'default', false, false, !params.globalTrainerLeadId, true)}
 
           <View className="absolute -bottom-3 left-0 right-0 p-4 bg-[#09090B] border-t border-[#1F293D]" style={{ paddingBottom: insets.bottom + 16 }}>
             <Pressable
@@ -319,10 +460,14 @@ export default function CreateGlobalTrainerScreen() {
               className={`h-14 rounded-xl items-center justify-center flex-row ${saving ? 'bg-[#CCFF00]/50' : 'bg-[#CCFF00] active:opacity-80'}`}
             >
               {saving ? (
-                <Text className="text-black font-semibold text-[15px]">Creating Trainer...</Text>
+                <Text className="text-black font-semibold text-[15px]">
+                  {isEditMode ? 'Updating Trainer...' : 'Creating Trainer...'}
+                </Text>
               ) : (
                 <>
-                  <Text className="text-black font-semibold text-[15px] mr-2">Create Global Trainer</Text>
+                  <Text className="text-black font-semibold text-[15px] mr-2">
+                    {isEditMode ? 'Update Global Trainer' : 'Create Global Trainer'}
+                  </Text>
                   <CheckCircle size={20} color="#000000" weight="bold" />
                 </>
               )}
@@ -375,7 +520,6 @@ export default function CreateGlobalTrainerScreen() {
         </View>
       </Modal>
 
-      {/* Gender Modal */}
       <Modal visible={genderModalVisible} animationType="slide" transparent={true}>
         <View className="flex-1 bg-black/60 justify-end">
           <View className="bg-[#121212] pb-10 rounded-t-3xl">
@@ -404,7 +548,6 @@ export default function CreateGlobalTrainerScreen() {
         </View>
       </Modal>
 
-      {/* Specialization Modal */}
       <Modal visible={specModalVisible} animationType="slide" transparent={true}>
         <View className="flex-1 bg-black/60 justify-end">
           <View className="bg-[#121212] pb-10 rounded-t-3xl">

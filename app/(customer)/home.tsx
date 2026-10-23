@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getLocalDateString } from '@/lib/dateUtils';
+import { getLocalDateString, getCalendarDaysDifference } from '@/lib/dateUtils';
 import { View, ScrollView, Image, Pressable, ActivityIndicator, BackHandler, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
@@ -104,10 +104,7 @@ export default function CustomerHome() {
         const activePlan = indivPlans.find((p: any) => p.isActive && p.endDate) || (indivPlans.length > 0 && indivPlans[0].isActive ? indivPlans[0] : null);
 
         if (activePlan && activePlan.endDate) {
-          const end = new Date(activePlan.endDate);
-          const now = new Date();
-          const diffTime = end.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const diffDays = getCalendarDaysDifference(activePlan.endDate);
           const currentDaysLeft = diffDays > 0 ? diffDays : 0;
 
           if (diffDays <= 0) {
@@ -127,9 +124,7 @@ export default function CustomerHome() {
 
           let percentage = 0;
           if (activePlan.startDate) {
-            const start = new Date(activePlan.startDate);
-            const totalTime = end.getTime() - start.getTime();
-            const totalDays = Math.ceil(totalTime / (1000 * 60 * 60 * 24));
+            const totalDays = getCalendarDaysDifference(activePlan.endDate, activePlan.startDate);
             if (totalDays > 0) {
               percentage = (currentDaysLeft / totalDays) * 100;
               percentage = Math.min(Math.max(percentage, 0), 100);
@@ -149,10 +144,7 @@ export default function CustomerHome() {
         const plans = await fetchGymCustomerMembershipPlans(undefined, userId);
         const activePlan = plans.find((p: any) => p.is_Active && p.endDate);
         if (activePlan) {
-          const end = new Date(activePlan.endDate);
-          const now = new Date();
-          const diffTime = end.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const diffDays = getCalendarDaysDifference(activePlan.endDate);
           const currentDaysLeft = diffDays > 0 ? diffDays : 0;
 
           if (diffDays <= 0) {
@@ -167,9 +159,7 @@ export default function CustomerHome() {
 
           let percentage = 0;
           if (activePlan.startDate) {
-            const start = new Date(activePlan.startDate);
-            const totalTime = end.getTime() - start.getTime();
-            const totalDays = Math.ceil(totalTime / (1000 * 60 * 60 * 24));
+            const totalDays = getCalendarDaysDifference(activePlan.endDate, activePlan.startDate);
             if (totalDays > 0) {
               percentage = (currentDaysLeft / totalDays) * 100;
               percentage = Math.min(Math.max(percentage, 0), 100);
@@ -204,10 +194,7 @@ export default function CustomerHome() {
     const activePlan = individualCustomerPlans.find((p: any) => p.isActive && p.endDate) || (individualCustomerPlans.length > 0 && individualCustomerPlans[0].isActive ? individualCustomerPlans[0] : null);
 
     if (activePlan && activePlan.endDate) {
-      const end = new Date(activePlan.endDate);
-      const now = new Date();
-      const diffTime = end.getTime() - now.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffDays = getCalendarDaysDifference(activePlan.endDate);
       const currentDaysLeft = diffDays > 0 ? diffDays : 0;
 
       if (diffDays <= 0) {
@@ -218,7 +205,7 @@ export default function CustomerHome() {
           toggleIndivPlanActiveStatus({
             individualCustomerPlanId: activePlan.individualCustomerPlanId,
             currentStatus: true,
-          }).catch(console.error);
+          }).catch(console.warn);
         }
         setIsLoadingMembership(false);
         return;
@@ -228,9 +215,7 @@ export default function CustomerHome() {
 
       let percentage = 0;
       if (activePlan.startDate) {
-        const start = new Date(activePlan.startDate);
-        const totalTime = end.getTime() - start.getTime();
-        const totalDays = Math.ceil(totalTime / (1000 * 60 * 60 * 24));
+        const totalDays = getCalendarDaysDifference(activePlan.endDate, activePlan.startDate);
         if (totalDays > 0) {
           percentage = (currentDaysLeft / totalDays) * 100;
           percentage = Math.min(Math.max(percentage, 0), 100);

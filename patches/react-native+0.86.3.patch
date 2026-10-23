@@ -1,0 +1,40 @@
+diff --git a/node_modules/react-native/Libraries/LogBox/UI/LogBoxInspectorStackFrames.js b/node_modules/react-native/Libraries/LogBox/UI/LogBoxInspectorStackFrames.js
+index 8487e6f..385ee9f 100644
+--- a/node_modules/react-native/Libraries/LogBox/UI/LogBoxInspectorStackFrames.js
++++ b/node_modules/react-native/Libraries/LogBox/UI/LogBoxInspectorStackFrames.js
+@@ -63,18 +63,22 @@ export function getCollapseMessage(
+ component LogBoxInspectorStackFrames(log: LogBoxLog, onRetry: () => void) {
+   const [collapsed, setCollapsed] = useState(() => {
+     // Only collapse frames initially if some frames are not collapsed.
+-    return log.getAvailableStack().some(({collapse}) => !collapse);
++    const stack = log?.getAvailableStack?.();
++    return Array.isArray(stack) ? stack.some(({collapse}) => !collapse) : false;
+   });
+ 
+   function getStackList() {
++    const stack = log?.getAvailableStack?.();
++    if (!Array.isArray(stack)) return [];
+     if (collapsed === true) {
+-      return log.getAvailableStack().filter(({collapse}) => !collapse);
++      return stack.filter(({collapse}) => !collapse);
+     } else {
+-      return log.getAvailableStack();
++      return stack;
+     }
+   }
+ 
+-  if (log.getAvailableStack().length === 0) {
++  const stack = log?.getAvailableStack?.();
++  if (!Array.isArray(stack) || stack.length === 0) {
+     return null;
+   }
+ 
+@@ -98,7 +102,7 @@ component LogBoxInspectorStackFrames(log: LogBoxLog, onRetry: () => void) {
+       <StackFrameList list={getStackList()} status={log.symbolicated.status} />
+       <StackFrameFooter
+         onPress={() => setCollapsed(!collapsed)}
+-        message={getCollapseMessage(log.getAvailableStack(), collapsed)}
++        message={getCollapseMessage(Array.isArray(stack) ? stack : [], collapsed)}
+       />
+     </LogBoxInspectorSection>
+   );

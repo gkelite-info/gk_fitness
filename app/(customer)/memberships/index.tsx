@@ -179,7 +179,7 @@ export default function MembershipsScreen() {
         return;
       }
 
-      const webHost = process.env.EXPO_PUBLIC_WEBSITE_URL || 'https://www.gkgymlife.com';
+      const webHost = 'https://www.gkgymlife.com';
       const baseUrl = `${webHost}/api/auth/sso`;
       const params = new URLSearchParams();
 
@@ -216,7 +216,7 @@ export default function MembershipsScreen() {
         controlsColor: '#CCFF00',
       });
     } catch (err) {
-      console.error('[Memberships] Error opening web browser:', err);
+      console.warn('[Memberships] Error opening web browser:', err);
       try {
         const fallbackUrl = Platform.OS === 'ios'
           ? 'https://www.gkgymlife.com/customer'

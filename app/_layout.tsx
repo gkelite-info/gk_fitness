@@ -4,13 +4,21 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 import { LogBox, Platform, Pressable, StatusBar as RNStatusBar } from 'react-native';
 
 // Disable Reanimated strict mode to prevent warnings about reading shared values during component render
-configureReanimatedLogger({
-  level: ReanimatedLogLevel.warn,
-  strict: false,
-});
+try {
+  configureReanimatedLogger({
+    level: ReanimatedLogLevel.warn,
+    strict: false,
+  });
+} catch {
+  // Graceful fallback for environments where Reanimated logger is unavailable
+}
 
+// Ignore intrusive LogBox popups to prevent Fabric crash cascades in Dev
+LogBox.ignoreAllLogs(true);
 LogBox.ignoreLogs([
   '[Reanimated] Reading from `value` during component render',
+  'undefined is not a function',
+  'LogBoxInspectorStackFrames',
 ]);
 
 import { ThemeProvider as NavThemeProvider } from 'expo-router';
@@ -40,13 +48,18 @@ import { UserProvider } from '@/context/UserContext';
 import { ToastProvider } from '@/components/ToastProvider';
 import { setupNotificationChannels } from '@/lib/services/notificationService';
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export {
   ErrorBoundary,
 } from 'expo-router';
 
-const isIos26 = Platform.select({ default: false, ios: Device.osVersion?.startsWith('26.') });
+const isIos26 = Boolean(
+  Platform.OS === 'ios' &&
+  Device?.osVersion &&
+  typeof Device.osVersion === 'string' &&
+  Device.osVersion.startsWith('26.')
+);
 
 export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();
@@ -61,14 +74,14 @@ export default function RootLayout() {
   useEffect(() => {
     if (error) {
       console.error('🔥 [Font Loading Error]:', error);
-      SplashScreen.hideAsync().catch(() => {});
+      SplashScreen.hideAsync().catch(() => { });
     }
   }, [error]);
 
   useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
-      setupNotificationChannels().catch(() => {});
+      SplashScreen.hideAsync().catch(() => {});
+      setupNotificationChannels().catch(() => { });
     }
   }, [loaded]);
 

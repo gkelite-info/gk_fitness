@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
 
-export type UserRole = 'customer' | 'owner' | 'superadmin' | 'trainer';
+export type UserRole = 'customer' | 'owner' | 'superadmin' | 'trainer' | 'globaltrainer' | 'individual';
 export type UserStatus = 'active' | 'inactive' | 'suspended';
 
 export interface UserAttributes {

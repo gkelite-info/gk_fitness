@@ -4,3 +4,45 @@ export function getLocalDateString(d: Date = new Date()): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * Normalizes any date string or Date object into a local Date object set strictly
+ * to midnight (00:00:00.000), ignoring any time-of-day information.
+ */
+export function parseLocalDate(dateInput?: string | Date | null): Date {
+  if (!dateInput) return new Date();
+  if (dateInput instanceof Date) {
+    return new Date(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate(), 0, 0, 0, 0);
+  }
+  if (typeof dateInput === 'string') {
+    const trimmed = dateInput.trim();
+    const match = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (match && !trimmed.includes('T')) {
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10) - 1;
+      const day = parseInt(match[3], 10);
+      return new Date(year, month, day, 0, 0, 0, 0);
+    }
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 0, 0, 0, 0);
+    }
+  }
+  return new Date();
+}
+
+/**
+ * Calculates remaining calendar days strictly by date boundaries (midnight-to-midnight).
+ * Does NOT decrement during the day based on hours/minutes passed.
+ * Decrements only when the calendar date changes at local midnight (00:00:00).
+ */
+export function getCalendarDaysDifference(
+  endDateInput?: string | Date | null,
+  fromDateInput?: string | Date | null
+): number {
+  if (!endDateInput) return 0;
+  const end = parseLocalDate(endDateInput);
+  const start = parseLocalDate(fromDateInput || new Date());
+  const diffMs = end.getTime() - start.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}

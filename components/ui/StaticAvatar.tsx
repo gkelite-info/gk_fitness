@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Image } from 'react-native';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { User } from 'phosphor-react-native';
 
 interface StaticAvatarProps {
   uri?: string | null;
@@ -41,21 +41,11 @@ export function StaticAvatar({
     );
   }
 
-  const normalizedGender = gender ? gender.trim().toLowerCase() : null;
-  const isFemale = normalizedGender === 'female' || normalizedGender === 'f';
-  const isMale = normalizedGender === 'male' || normalizedGender === 'm';
-
-  const iconSize = Math.round(size * 0.6);
+  const iconSize = Math.round(size * 0.55);
 
   return (
     <View className={`${className} bg-[#27272A] items-center justify-center overflow-hidden`}>
-      {isFemale ? (
-        <MaterialCommunityIcons name="face-woman" size={iconSize} color={iconColor} />
-      ) : isMale ? (
-        <MaterialCommunityIcons name="face-man" size={iconSize} color={iconColor} />
-      ) : (
-        <MaterialCommunityIcons name="account" size={iconSize} color={iconColor} />
-      )}
+      <User size={iconSize} color={iconColor} weight="regular" />
     </View>
   );
 }

@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Pressable, TextInput, ActivityIndicator, FlatList, Modal } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import {
   MagnifyingGlass,
-  Funnel,
   Plus,
   CaretDown,
   MapPin,
   Calendar,
   ArrowLeft,
-  ArrowsClockwise
+  ArrowsClockwise,
+  PencilSimple,
 } from 'phosphor-react-native';
 import { toggleGlobalTrainerActiveStatus } from '@/helpers/globalTrainer/globalTrainerHelper';
 import { fetchUserByEmail, toggleUserStatus } from '@/helpers/user/userHelper';
@@ -19,6 +19,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import { toast } from '@/lib/toast';
 import { useGlobalTrainersPaginated } from '@/hooks/globalTrainers/useGlobalTrainersPaginated';
 import { useQueryClient } from '@tanstack/react-query';
+import { StaticAvatar } from '@/components/ui/StaticAvatar';
 
 export default function GlobalTrainersListScreen() {
   const router = useRouter();
@@ -53,7 +54,7 @@ export default function GlobalTrainersListScreen() {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchQuery);
       setPage(1);
-    }, 1000); // 1s debounce
+    }, 600);
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
@@ -72,6 +73,14 @@ export default function GlobalTrainersListScreen() {
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / limit) || 1;
 
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ['globalTrainersPaginated'] });
+      queryClient.invalidateQueries({ queryKey: ['globalTrainers'] });
+      refetch();
+    }, [queryClient, refetch])
+  );
+
   useEffect(() => {
     if (data?.data) {
       const mapped = data.data.map((t: any) => ({
@@ -86,16 +95,20 @@ export default function GlobalTrainersListScreen() {
           month: 'short',
           year: 'numeric'
         }),
+        price: t.price ?? 0,
         status: t.isActive ? 'ACTIVE' : 'INACTIVE',
+        profilePic: t.profilePic || (Array.isArray(t.users) ? t.users[0]?.profilePic || t.users[0]?.profilePhoto : t.users?.profilePic || t.users?.profilePhoto) || null,
       }));
 
       if (page === 1) {
         setAccumulatedTrainers(mapped);
       } else {
         setAccumulatedTrainers((prev) => {
+          const mappedMap = new Map(mapped.map((item: any) => [item.id, item]));
+          const updatedPrev = prev.map((item: any) => mappedMap.get(item.id) || item);
           const prevIds = new Set(prev.map((l) => l.id));
           const newUnique = mapped.filter((l: any) => !prevIds.has(l.id));
-          return [...prev, ...newUnique];
+          return [...updatedPrev, ...newUnique];
         });
       }
     }
@@ -216,11 +229,11 @@ export default function GlobalTrainersListScreen() {
           />
         </View>
 
-        <Pressable className="bg-[#111622] border border-[#1F293D] rounded-xl px-3.5 py-2.5 flex-row items-center gap-2 active:opacity-70">
+        {/* <Pressable className="bg-[#111622] border border-[#1F293D] rounded-xl px-3.5 py-2.5 flex-row items-center gap-2 active:opacity-70">
           <Funnel size={16} color="#888888" />
           <Text className="text-white text-sm font-medium">Filter</Text>
           <CaretDown size={12} color="#888888" />
-        </Pressable>
+        </Pressable> */}
       </View>
 
       <View className="flex-row items-center justify-between gap-2 mb-4">
@@ -228,8 +241,8 @@ export default function GlobalTrainersListScreen() {
           <Pressable
             onPress={() => setSelectedFilter('all')}
             className={`px-4 py-2 rounded-full flex-row items-center justify-center ${selectedFilter === 'all'
-                ? 'bg-[#CCFF00]'
-                : 'bg-[#111622] border border-[#1F293D]'
+              ? 'bg-[#CCFF00]'
+              : 'bg-[#111622] border border-[#1F293D]'
               }`}>
             <Text
               className={`text-xs font-semibold ${selectedFilter === 'all' ? 'text-black' : 'text-white'
@@ -241,8 +254,8 @@ export default function GlobalTrainersListScreen() {
           <Pressable
             onPress={() => setSelectedFilter('active')}
             className={`px-3.5 py-2 rounded-full flex-row items-center gap-1.5 ${selectedFilter === 'active'
-                ? 'bg-[#CCFF00]'
-                : 'bg-[#111622] border border-[#1F293D]'
+              ? 'bg-[#CCFF00]'
+              : 'bg-[#111622] border border-[#1F293D]'
               }`}>
             <View className="w-2 h-2 rounded-full bg-[#22C55E]" />
             <Text
@@ -255,8 +268,8 @@ export default function GlobalTrainersListScreen() {
           <Pressable
             onPress={() => setSelectedFilter('inactive')}
             className={`px-3.5 py-2 rounded-full flex-row items-center gap-1.5 ${selectedFilter === 'inactive'
-                ? 'bg-[#CCFF00]'
-                : 'bg-[#111622] border border-[#1F293D]'
+              ? 'bg-[#CCFF00]'
+              : 'bg-[#111622] border border-[#1F293D]'
               }`}>
             <View className="w-2 h-2 rounded-full bg-[#EF4444]" />
             <Text
@@ -323,20 +336,23 @@ export default function GlobalTrainersListScreen() {
           <Pressable className="bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 mb-3">
             <View className="flex-row items-start justify-between">
               <View className="flex-row items-start gap-3 flex-1 pr-2">
-                <View className="w-14 h-14 rounded-full bg-[#111622] border border-[#1F293D] items-center justify-center">
-                  <Text className="text-[#888888] text-lg font-semibold">{trainer.name?.charAt(0).toUpperCase()}</Text>
-                </View>
+                <StaticAvatar
+                  uri={trainer.profilePic}
+                  name={trainer.name}
+                  size={56}
+                  className="w-14 h-14 rounded-full border border-[#1F293D]"
+                />
                 <View className="flex-1">
                   <Text className="text-lg font-semibold text-white leading-5">{trainer.name}</Text>
                   <Text className="text-xs text-[#BEF227] mt-0.5 capitalize">{trainer.specialization} Trainer</Text>
 
                   <View className="flex-row items-center gap-1 mt-1.5">
-                    <MapPin size={14} color="#888888" />
+                    <MapPin size={14} color="#888888" weight='fill' />
                     <Text className="text-xs text-[#888888]">{trainer.location}</Text>
                   </View>
 
                   <View className="flex-row items-center gap-1 mt-1">
-                    <Calendar size={14} color="#888888" />
+                    <Calendar size={14} color="#888888" weight='fill' />
                     <Text className="text-xs text-[#888888]">
                       Joined: {trainer.registeredDate}
                     </Text>
@@ -344,22 +360,37 @@ export default function GlobalTrainersListScreen() {
                 </View>
               </View>
 
-              <Pressable
-                onPress={() => {
-                  setSelectedTrainer(trainer);
-                  setStatusModalVisible(true);
-                }}
-                disabled={isUpdatingStatus}
-                className={`px-2.5 py-1 rounded-full flex-row items-center gap-1.5 active:opacity-70 ${trainer.status === 'ACTIVE'
+              <View className="flex-row items-center gap-2">
+                <Pressable
+                  onPress={() => {
+                    router.push({
+                      pathname: '/(superadmin)/dashboard/globalTrainers/register' as any,
+                      params: { editTrainerId: trainer.id }
+                    });
+                  }}
+                  className="w-8 h-8 rounded-full bg-[#111622] border border-[#1F293D] items-center justify-center active:opacity-70"
+                  hitSlop={6}
+                >
+                  <PencilSimple size={15} color="#CCFF00" weight="bold" />
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    setSelectedTrainer(trainer);
+                    setStatusModalVisible(true);
+                  }}
+                  disabled={isUpdatingStatus}
+                  className={`px-2.5 py-1 rounded-full flex-row items-center gap-1.5 active:opacity-70 ${trainer.status === 'ACTIVE'
                     ? 'bg-[#064E3B]/40 border border-[#059669]/30'
                     : 'bg-red-500/10 border border-red-500/20'
-                  }`}
-              >
-                <View className={`w-1.5 h-1.5 rounded-full ${trainer.status === 'ACTIVE' ? 'bg-[#10B981]' : 'bg-red-500'}`} />
-                <Text className={`text-[10px] font-semibold tracking-wider ${trainer.status === 'ACTIVE' ? 'text-[#10B981]' : 'text-red-500'}`}>
-                  {trainer.status}
-                </Text>
-              </Pressable>
+                    }`}
+                >
+                  <View className={`w-1.5 h-1.5 rounded-full ${trainer.status === 'ACTIVE' ? 'bg-[#10B981]' : 'bg-red-500'}`} />
+                  <Text className={`text-[10px] font-semibold tracking-wider ${trainer.status === 'ACTIVE' ? 'text-[#10B981]' : 'text-red-500'}`}>
+                    {trainer.status}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
 
             <View className="h-[1px] bg-[#1F293D] my-3.5" />
@@ -371,6 +402,12 @@ export default function GlobalTrainersListScreen() {
                     EXPERIENCE
                   </Text>
                   <Text className="text-white text-lg font-semibold">{trainer.experience} yrs</Text>
+                </View>
+                <View>
+                  <Text className="text-[#888888] text-[10px] font-semibold tracking-wider mb-0.5">
+                    FEE / MONTH
+                  </Text>
+                  <Text className="text-[#CCFF00] text-lg font-semibold">₹{trainer.price ?? 0}</Text>
                 </View>
               </View>
             </View>

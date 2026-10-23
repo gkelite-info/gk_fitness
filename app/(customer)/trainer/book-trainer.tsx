@@ -1,25 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Pressable, TextInput, Image, Dimensions } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, ScrollView, Pressable, TextInput, Image, Dimensions, ActivityIndicator, Platform, Alert } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  CaretLeft, ShieldCheck, MagnifyingGlass, Faders, Star, Users, Tag, CaretRight, CheckCircle
+  CaretLeft, ShieldCheck, MagnifyingGlass, Faders, Star, Users, Tag, CaretRight, CheckCircle,
+  Record, Clock, Trash, User
 } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import { useGlobalTrainers } from '@/hooks/globalTrainers/useGlobalTrainers';
-import { ActivityIndicator } from 'react-native';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useQueryClient } from '@tanstack/react-query';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
+import ConfirmModal from '@/components/ConfirmModal';
+import { supabase } from '@/lib/supabase';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import { triggerMediumHaptic } from '@/lib/haptics';
+import { useTrainerStore } from '@/constants/trainerStore';
+import {
+  useAssignedGlobalTrainersByUser,
+  useDeleteIndividualCustomerTrainer,
+} from '@/hooks/individual/customer-trainer/individualCustomerTrainer';
+import {
+  usePersonalTrainerRequestsByUser,
+} from '@/hooks/personalTrainerRequests/usePersonalTrainerRequests';
+import {
+  useDeletePersonalTrainerRequest,
+} from '@/hooks/personalTrainerRequests/useSavePersonalTrainerRequest';
 
 export default function BookTrainerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isNavigatingRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
-
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
   useEffect(() => {
@@ -31,7 +47,7 @@ export default function BookTrainerScreen() {
 
   const { userId, role } = useUser();
   const isIndividual = role === 'individual';
-  const { data: profile, isLoading: isProfileLoading } = useCustomerProfile(userId || undefined);
+  const { data: profile, isLoading: isProfileLoading, refetch: refetchProfile } = useCustomerProfile(userId || undefined);
 
   const gymId = isIndividual ? null : profile?.customerData?.gymId;
   const shouldFetchGlobal = isIndividual || !gymId;
@@ -48,13 +64,248 @@ export default function BookTrainerScreen() {
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+
+  const { cancelTrainerRequest } = useTrainerStore();
+
+  // Pending request queries - check both tables for maximum resilience
+  const { data: individualTrainers, refetch: refetchIndividualTrainers } = useAssignedGlobalTrainersByUser(
+    userId || undefined
+  );
+  const pendingIndividual = individualTrainers?.find(
+    (t: any) => t.status === 'pending' || (t.status == null && t.isActive !== false)
+  );
+
+  const { data: gymTrainerRequests, refetch: refetchGymTrainerRequests } = usePersonalTrainerRequestsByUser(
+    userId || undefined
+  );
+  const pendingGym = gymTrainerRequests?.find(
+    (r: any) => r.applicationStatus === 'submitted' || r.applicationStatus === 'pending'
+  );
+
+  const lastNavigatedAtRef = useRef<number>(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      isNavigatingRef.current = false;
+      lastNavigatedAtRef.current = 0;
+      queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] });
+      queryClient.invalidateQueries({ queryKey: ['personalTrainerRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['individualCustomerTrainers'] });
+      queryClient.invalidateQueries({ queryKey: ['globalTrainers'] });
+      queryClient.invalidateQueries({ queryKey: ['trainers'] });
+      if (typeof refetchIndividualTrainers === 'function') {
+        refetchIndividualTrainers();
+      }
+      if (typeof refetchGymTrainerRequests === 'function') {
+        refetchGymTrainerRequests();
+      }
+    }, [queryClient, refetchIndividualTrainers, refetchGymTrainerRequests])
+  );
+
+  const handleOpenTrainerProfile = useCallback((trainer: any) => {
+    const now = Date.now();
+    if (isNavigatingRef.current || (now - lastNavigatedAtRef.current < 1200)) {
+      return;
+    }
+    isNavigatingRef.current = true;
+    lastNavigatedAtRef.current = now;
+
+    const targetId = trainer.gymTrainerId || trainer.globalTrainerId || trainer.id;
+    (router as any).navigate({
+      pathname: `/(customer)/trainer/${targetId}`,
+      params: { trainerData: JSON.stringify(trainer), from: 'book-trainer' }
+    });
+
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 1200);
+  }, [router]);
+
+  const handleOpenTrainerRequest = useCallback(() => {
+    const now = Date.now();
+    if (isNavigatingRef.current || (now - lastNavigatedAtRef.current < 1200)) {
+      return;
+    }
+    isNavigatingRef.current = true;
+    lastNavigatedAtRef.current = now;
+    (router as any).navigate('/(customer)/trainer/trainer-request');
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 1200);
+  }, [router]);
+
+  const handleOpenWebCheckoutForPending = async (
+    targetTrainerId?: string,
+    targetTrainerName?: string,
+    targetAmount?: number
+  ) => {
+    triggerMediumHaptic();
+    try {
+      let session = (await supabase.auth.getSession()).data.session;
+      if (!session?.access_token || (session.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        if (refreshData?.session) session = refreshData.session;
+      }
+
+      if (!session?.access_token) {
+        Alert.alert('Login Required', 'Your session has expired. Please log in again.');
+        return;
+      }
+
+      const webHost = 'https://www.gkgymlife.com';
+      const baseUrl = `${webHost}/api/auth/sso`;
+      const params = new URLSearchParams();
+
+      params.append('returnTo', '/customer');
+      params.append('action', 'book-trainer');
+      if (targetTrainerId) params.append('trainerId', String(targetTrainerId));
+      if (targetTrainerName) params.append('trainerName', targetTrainerName);
+      if (targetAmount != null) params.append('amount', String(targetAmount));
+
+      if (userId) params.append('userId', userId);
+      if (role) params.append('role', role);
+      if (profile?.customerData?.customerId) {
+        params.append('customerId', profile.customerData.customerId);
+      }
+      const gymIdVal = profile?.customerData?.gymId || gymId;
+      if (gymIdVal) params.append('gymId', gymIdVal);
+
+      const emailVal = session.user?.email || profile?.customerData?.email;
+      const phoneVal = session.user?.phone || profile?.customerData?.phone;
+      if (emailVal) params.append('email', emailVal);
+      if (phoneVal) params.append('phone', phoneVal);
+
+      params.append('access_token', session.access_token);
+      if (session.refresh_token) {
+        params.append('refresh_token', session.refresh_token);
+      }
+
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      const targetUrl = `${baseUrl}${queryString}`;
+
+      await WebBrowser.openBrowserAsync(targetUrl, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        toolbarColor: '#0A0A0A',
+        controlsColor: '#CCFF00',
+      });
+
+      try {
+        await Promise.all([
+          typeof refetchProfile === 'function' ? refetchProfile() : Promise.resolve(),
+          typeof refetchIndividualTrainers === 'function' ? refetchIndividualTrainers() : Promise.resolve(),
+          queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
+          queryClient.invalidateQueries({ queryKey: ['individualCustomerTrainers'] }),
+          queryClient.invalidateQueries({ queryKey: ['individualCustomerPayments'] }),
+          queryClient.invalidateQueries({ queryKey: ['customerProfile'] }),
+        ]);
+      } catch (postErr) {
+        console.warn('[BookTrainer] Post-checkout refetch warning:', postErr);
+      }
+    } catch (err) {
+      console.warn('[BookTrainer] Error opening web checkout:', err);
+      try {
+        await Linking.openURL('https://www.gkgymlife.com/customer');
+      } catch {
+        Alert.alert('Error', 'Unable to open browser. Please visit https://www.gkgymlife.com/customer');
+      }
+    }
+  };
+
+  const hasPendingRequest = !!pendingIndividual || !!pendingGym;
+  const isPendingIndividual = !!pendingIndividual;
+  const pendingTrainer = isPendingIndividual
+    ? pendingIndividual?.globalTrainer
+    : pendingGym?.gymTrainer;
+
+  const pendingTrainerName =
+    pendingTrainer?.fullName ||
+    (pendingTrainer as any)?.name ||
+    'Requested Trainer';
+
+  const pendingTrainerPhoto =
+    pendingTrainer?.profilePic ||
+    pendingTrainer?.profilePhoto ||
+    pendingTrainer?.users?.profilePic ||
+    pendingTrainer?.users?.profilePhoto ||
+    pendingTrainer?.user?.profilePic ||
+    pendingTrainer?.user?.profilePhoto ||
+    (pendingTrainer as any)?.profilePicture ||
+    null;
+
+  const pendingTrainerSpecialization =
+    pendingTrainer?.specialization || 'Personal Trainer';
+
+  const pendingScheduleDays = isPendingIndividual
+    ? (Array.isArray(pendingIndividual?.weekDays) ? pendingIndividual?.weekDays?.join(', ') : pendingIndividual?.weekDays)
+    : (Array.isArray(pendingGym?.preferredWorkoutDays) ? pendingGym?.preferredWorkoutDays?.join(', ') : pendingGym?.preferredWorkoutDays);
+
+  const pendingScheduleTime = isPendingIndividual
+    ? pendingIndividual?.timings
+    : pendingGym?.preferredWorkoutTime;
+
+  const { mutateAsync: deleteIndividualCustomerTrainerMutation, isPending: isDeletingIndividual } = useDeleteIndividualCustomerTrainer();
+  const { mutateAsync: deleteGymTrainerRequestMutation, isPending: isDeletingGym } = useDeletePersonalTrainerRequest();
+  const isDeletingRequest = isDeletingIndividual || isDeletingGym;
+
+  const handleConfirmCancel = async () => {
+
+    try {
+      const targetIndividualId =
+        pendingIndividual?.individualCustomerTrainerId ||
+        (pendingIndividual as any)?.id ||
+        individualTrainers?.find((t: any) => t.is_deleted === false && (t.status === 'pending' || t.status == null))?.individualCustomerTrainerId;
+
+      if (targetIndividualId) {
+        await deleteIndividualCustomerTrainerMutation(targetIndividualId);
+      } else if (isIndividual && userId) {
+        const now = new Date().toISOString();
+        const { error } = await supabase
+          .from('individual_customer_trainers')
+          .update({
+            isActive: false,
+            is_deleted: true,
+            deletedAt: now,
+            updatedAt: now,
+          })
+          .eq('userId', userId)
+          .eq('is_deleted', false);
+
+        if (error) {
+          console.error('[BookTrainer] Fallback soft delete error:', error);
+        } else {
+        }
+      } else if (pendingGym?.personalTrainerRequestId) {
+        await deleteGymTrainerRequestMutation({
+          id: pendingGym.personalTrainerRequestId,
+          userId: userId || undefined,
+          trainerId: pendingGym.gymTrainerId,
+        });
+      }
+    } catch (err: any) {
+      console.error('[BookTrainer] Error deleting trainer request:', err);
+    } finally {
+      setShowCancelModal(false);
+    }
+
+    cancelTrainerRequest();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
+      queryClient.invalidateQueries({ queryKey: ['personalTrainerRequests'] }),
+      queryClient.invalidateQueries({ queryKey: ['individualCustomerTrainers'] }),
+      queryClient.invalidateQueries({ queryKey: ['customerProfile'] }),
+      queryClient.invalidateQueries({ queryKey: ['assignedTrainers'] }),
+    ]);
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] }),
       queryClient.invalidateQueries({ queryKey: ['trainers'] }),
-      queryClient.invalidateQueries({ queryKey: ['globalTrainers'] })
+      queryClient.invalidateQueries({ queryKey: ['globalTrainers'] }),
+      queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
+      queryClient.invalidateQueries({ queryKey: ['personalTrainerRequests'] }),
     ]);
     setRefreshing(false);
   };
@@ -86,6 +337,103 @@ export default function BookTrainerScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {hasPendingRequest && (
+          <View className="bg-[#18181A] rounded-3xl p-5 border border-[#3E3218] mb-6 shadow-2xl">
+            <View className="flex-row items-center justify-between mb-3.5">
+              <View className="flex-row items-center">
+                <Record size={16} color="#FF9F0A" weight="fill" style={{ marginRight: 6 }} />
+                <Text className="text-[#FF9F0A] text-xs font-semibold uppercase tracking-wider">
+                  Request Pending
+                </Text>
+              </View>
+              <View className="border border-[#FF9F0A] rounded-full px-2.5 py-0.5">
+                <Text className="text-[#FF9F0A] text-[10px] font-semibold">Under Review</Text>
+              </View>
+            </View>
+
+            <View className="flex-row items-center mb-4">
+              <View className="w-14 h-14 rounded-2xl overflow-hidden border border-[#27272A] mr-3.5 bg-[#27272A]">
+                <StaticAvatar
+                  uri={pendingTrainerPhoto}
+                  name={pendingTrainerName}
+                  gender={pendingTrainer?.gender}
+                  size={56}
+                  className="w-full h-full"
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-white text-base font-semibold" numberOfLines={1}>{pendingTrainerName}</Text>
+                <Text className="text-[#CCFF00] text-xs font-semibold capitalize mt-0.5">{pendingTrainerSpecialization}</Text>
+                {(pendingScheduleDays || pendingScheduleTime) && (
+                  <View className="flex-row items-center mt-1">
+                    <Clock size={12} color="#8E8E93" style={{ marginRight: 4 }} />
+                    <Text className="text-[#8E8E93] text-[11px]" numberOfLines={1}>
+                      {[pendingScheduleDays, pendingScheduleTime].filter(Boolean).join(' • ')}
+                    </Text>
+                  </View>
+                )}
+                {pendingTrainer?.price != null && Platform.OS !== 'ios' && (
+                  <View className="flex-row items-center mt-1">
+                    <View className="bg-[#1C2307] border border-[#3E4C14] px-2 py-0.5 rounded-md flex-row items-center">
+                      <Tag size={10} color="#CCFF00" weight="bold" style={{ marginRight: 4 }} />
+                      <Text className="text-[#CCFF00] text-[11px] font-semibold">
+                        ₹{pendingTrainer.price}
+                      </Text>
+                      <Text className="text-[#8E8E93] text-[10px] ml-0.5">Trainer Fee</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <Text className="text-[#A1A1AA] text-xs leading-5 mb-4">
+              Your request has been sent to {pendingTrainerName}. They will review your schedule and respond soon.
+            </Text>
+
+            {/* Direct action button to manage/activate on web */}
+            {isIndividual && (
+              <View className="mb-3">
+                <Pressable
+                  onPress={() => handleOpenWebCheckoutForPending(
+                    pendingIndividual?.globalTrainerId || pendingGym?.gymTrainerId || (pendingTrainer as any)?.globalTrainerId || (pendingTrainer as any)?.id,
+                    pendingTrainerName,
+                    pendingTrainer?.price
+                  )}
+                  className="bg-[#CCFF00] py-3.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-80"
+                >
+                  <Text className="text-black text-xs font-semibold tracking-wide mr-1 uppercase">
+                    {Platform.OS === 'ios' ? 'MANAGE TRAINING PLAN' : 'ACTIVATE TRAINING PLAN'}
+                  </Text>
+                  <CaretRight size={14} color="#000000" weight="bold" />
+                </Pressable>
+
+                {Platform.OS === 'ios' && (
+                  <Text className="text-[#8E8E93] text-[10px] text-center mt-1.5 leading-4">
+                    Manage your trainer plan and coach assignment securely on our web portal.
+                  </Text>
+                )}
+              </View>
+            )}
+
+            <View className="flex-row gap-3 pt-3 border-t border-[#27272A]">
+              <Pressable
+                onPress={handleOpenTrainerRequest}
+                className="flex-1 bg-[#27272A] py-3 rounded-xl items-center justify-center active:opacity-75"
+              >
+                <Text className="text-white text-xs font-semibold">View Details</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setShowCancelModal(true)}
+                className="flex-1 bg-[#220B0B] border border-[#551818] py-3 rounded-xl items-center justify-center flex-row active:opacity-75"
+              >
+                <Trash size={14} color="#FF3B30" weight="bold" style={{ marginRight: 6 }} />
+                <Text className="text-[#FF3B30] text-xs font-semibold">Cancel Request</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         <Text className="text-[#A1A1AA] text-sm text-center mt-2 mb-6 px-4 leading-relaxed">
           Choose a trainer that matches your goals and start your transformation journey.
         </Text>
@@ -100,13 +448,6 @@ export default function BookTrainerScreen() {
               Verified professionals. Personalized{'\n'}guidance. Faster results.
             </Text>
           </View>
-          {/* <View className="items-center justify-center ml-2">
-            <View className="flex-row">
-              <Image source={{ uri: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&auto=format&fit=crop&q=80' }} className="w-6 h-6 rounded-full border border-[#1A1A1A]" />
-              <Image source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' }} className="w-6 h-6 rounded-full border border-[#1A1A1A] -ml-2" />
-            </View>
-            <Text className="text-[#8E8E93] text-[10px] mt-1">25+ Certified</Text>
-          </View> */}
         </View>
 
         <View className="flex-row mb-6 gap-3">
@@ -131,79 +472,136 @@ export default function BookTrainerScreen() {
               <ActivityIndicator color="#D4FF00" size="large" />
             </View>
           ) : filteredTrainers.length > 0 ? (
-            filteredTrainers.map((trainer: any) => (
-              <Pressable
-                key={trainer.gymTrainerId || trainer.globalTrainerId}
-                onPress={() => (router as any).push({
-                  pathname: `/(customer)/trainer/${trainer.gymTrainerId || trainer.globalTrainerId}`,
-                  params: { trainerData: JSON.stringify(trainer) }
-                })}
-                className="bg-[#1A1A1A] rounded-2xl p-3 flex-row border border-[#27272A]"
-              >
-                <View className="w-[120px] h-[150px] relative rounded-xl overflow-hidden mr-3">
-                  <StaticAvatar
-                    uri={trainer.users?.profilePhoto || trainer.profilePhoto}
-                    name={trainer.fullName}
-                    gender={trainer.gender}
-                    size={80}
-                    className="w-full h-full"
-                  />
+            filteredTrainers.map((trainer: any) => {
+              const trainerId = trainer.gymTrainerId || trainer.globalTrainerId || trainer.id;
+              const isThisTrainerRequested =
+                (pendingIndividual && (pendingIndividual.globalTrainerId === trainerId || (pendingTrainer as any)?.globalTrainerId === trainerId)) ||
+                (pendingGym && (pendingGym.gymTrainerId === trainerId || (pendingTrainer as any)?.gymTrainerId === trainerId));
+              const displayClientsCount = trainer.clients || trainer.clientCount || 0;
 
-                  <View className="absolute inset-0 bg-black/20" />
+              const trainerUri =
+                trainer.profilePic ||
+                trainer.profilePhoto ||
+                trainer.users?.profilePic ||
+                trainer.users?.profilePhoto ||
+                trainer.user?.profilePic ||
+                trainer.user?.profilePhoto ||
+                trainer.profilePicture ||
+                null;
 
-                  {trainer.isTopRated && (
-                    <View className="absolute top-2 left-2 bg-black/80 border border-[#D4FF00] rounded px-1.5 py-0.5 flex-row items-center">
-                      <Star size={8} color="#D4FF00" weight="fill" />
-                      <Text className="text-[#D4FF00] text-[8px] font-semibold ml-1">TOP RATED</Text>
+              return (
+                <Pressable
+                  key={trainerId}
+                  onPress={() => handleOpenTrainerProfile(trainer)}
+                  className="bg-[#1A1A1A] rounded-2xl p-3 flex-row border border-[#27272A] active:opacity-90"
+                >
+                  <View className="w-[120px] h-[150px] relative rounded-xl overflow-hidden mr-3">
+                    <StaticAvatar
+                      uri={trainerUri}
+                      name={trainer.fullName}
+                      gender={trainer.gender}
+                      size={80}
+                      className="w-full h-full"
+                    />
+
+                    <View className="absolute inset-0 bg-black/20" />
+
+                    {isThisTrainerRequested ? (
+                      <View className="absolute top-2 left-2 bg-[#FF9F0A] rounded px-1.5 py-0.5">
+                        <Text className="text-black text-[8px] font-semibold">REQUESTED</Text>
+                      </View>
+                    ) : trainer.isTopRated ? (
+                      <View className="absolute top-2 left-2 bg-black/80 border border-[#D4FF00] rounded px-1.5 py-0.5 flex-row items-center">
+                        <Star size={8} color="#D4FF00" weight="fill" />
+                        <Text className="text-[#D4FF00] text-[8px] font-semibold ml-1">TOP RATED</Text>
+                      </View>
+                    ) : null}
+
+                    <View className="absolute bottom-2 left-2 bg-black/80 rounded px-1.5 py-0.5">
+                      <Text className="text-white text-[9px] font-semibold">{(trainer.experienceYears ?? trainer.experience) || 0} Years</Text>
                     </View>
-                  )}
-
-                  <View className="absolute bottom-2 left-2 bg-black/80 rounded px-1.5 py-0.5">
-                    <Text className="text-white text-[9px] font-semibold">{(trainer.experienceYears ?? trainer.experience) || 0} Years</Text>
                   </View>
-                </View>
 
-                <View className="flex-1 justify-between py-1">
-                  <View>
-                    <View className="flex-row items-center mb-1">
-                      <Text className="text-white text-base font-semibold mr-1">{trainer.fullName}</Text>
-                      {trainer.isVerified && (
-                        <CheckCircle size={16} color="#D4FF00" weight="fill" />
+                  <View className="flex-1 justify-between py-1">
+                    <View>
+                      <View className="flex-row items-center mb-1">
+                        <Text className="text-white text-base font-semibold mr-1">{trainer.fullName}</Text>
+                        {trainer.isVerified && (
+                          <CheckCircle size={16} color="#D4FF00" weight="fill" />
+                        )}
+                      </View>
+
+                      <Text className="text-[#D4FF00] text-xs font-semibold mb-3 capitalize">{trainer.specialization}</Text>
+
+                      <View className="flex-row items-center mb-1.5">
+                        <Star size={12} color="#D4FF00" weight="fill" />
+                        <Text className="text-white text-xs font-semibold ml-1">{trainer.rating || '0'}</Text>
+                        <Text className="text-[#8E8E93] text-[10px] ml-1">({trainer.reviews || 0} Reviews)</Text>
+                        <Text className="text-[#8E8E93] text-xs mx-2">•</Text>
+                        <Users size={12} color="#8E8E93" weight="regular" />
+                        <Text className="text-[#8E8E93] text-[10px] ml-1">{displayClientsCount || 0} Clients</Text>
+                      </View>
+
+                      {trainer.price != null && Platform.OS !== 'ios' && (
+                        <View className="flex-row items-center mt-1">
+                          <View className="bg-[#1C2307] border border-[#3E4C14] px-2 py-0.5 rounded-md flex-row items-center">
+                            <Tag size={10} color="#CCFF00" weight="bold" style={{ marginRight: 4 }} />
+                            <Text className="text-[#CCFF00] text-[11px] font-semibold">
+                              ₹{trainer.price}
+                            </Text>
+                            <Text className="text-[#8E8E93] text-[10px] ml-0.5">/mo</Text>
+                          </View>
+                        </View>
                       )}
                     </View>
 
-                    <Text className="text-[#D4FF00] text-xs font-semibold mb-3">{trainer.specialization}</Text>
-
-                    <View className="flex-row items-center mb-1.5">
-                      <Star size={12} color="#D4FF00" weight="fill" />
-                      <Text className="text-white text-xs font-semibold ml-1">{trainer.rating || '4.5'}</Text>
-                      <Text className="text-[#8E8E93] text-[10px] ml-1">({trainer.reviews || 0} Reviews)</Text>
-                      <Text className="text-[#8E8E93] text-xs mx-2">•</Text>
-                      <Users size={12} color="#8E8E93" weight="regular" />
-                      <Text className="text-[#8E8E93] text-[10px] ml-1">{trainer.clients || 0} Clients</Text>
+                    <View className="flex-row items-end justify-between mt-2">
+                      {isThisTrainerRequested ? (
+                        <Pressable
+                          className="flex-row items-center bg-[#3E3218] border border-[#FF9F0A] rounded-full px-3 py-1.5 active:opacity-80"
+                          onPress={(e) => {
+                            e?.stopPropagation?.();
+                            handleOpenTrainerRequest();
+                          }}
+                        >
+                          <Text className="text-[#FF9F0A] text-[10px] font-semibold mr-1">
+                            {isIndividual ? (Platform.OS === 'ios' ? 'Manage Plan' : 'Under Review') : 'Pending Review'}
+                          </Text>
+                          <CaretRight size={10} color="#FF9F0A" weight="bold" />
+                        </Pressable>
+                      ) : (
+                        <View
+                          pointerEvents="none"
+                          className="flex-row items-center border border-[#445000] rounded-full px-3 py-1.5"
+                        >
+                          <Text className="text-[#D4FF00] text-[10px] font-semibold mr-1">View Profile</Text>
+                          <CaretRight size={10} color="#D4FF00" weight="bold" />
+                        </View>
+                      )}
                     </View>
                   </View>
-
-                  <View className="flex-row items-end justify-between mt-2">
-                    <Pressable
-                      className="flex-row items-center border border-[#445000] rounded-full px-3 py-1.5"
-                      onPress={() => (router as any).push({
-                        pathname: `/(customer)/trainer/${trainer.gymTrainerId || trainer.globalTrainerId}`,
-                        params: { trainerData: JSON.stringify(trainer) }
-                      })}
-                    >
-                      <Text className="text-[#D4FF00] text-[10px] font-semibold mr-1">View Profile</Text>
-                      <CaretRight size={10} color="#D4FF00" weight="bold" />
-                    </Pressable>
-                  </View>
-                </View>
-              </Pressable>
-            ))
+                </Pressable>
+              );
+            })
           ) : (
             <Text className="text-[#A1A1AA] text-center mt-10">No trainers found.</Text>
           )}
         </View>
       </ScrollView>
+
+      {/* Confirmation Modal to cancel pending request */}
+      <ConfirmModal
+        visible={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={handleConfirmCancel}
+        title="Withdraw Booking Request?"
+        description={`Are you sure you want to cancel your personal training request with ${pendingTrainerName}?`}
+        confirmText="Yes, Cancel Request"
+        cancelText="Keep Request & Wait"
+        confirmButtonColor="bg-red-600"
+        confirmTextColor="text-white"
+        isLoading={isDeletingRequest}
+      />
     </View>
   );
 }

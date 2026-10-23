@@ -3,6 +3,7 @@ import { View, Pressable, Dimensions, ActivityIndicator, FlatList, Platform } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
+import { getCalendarDaysDifference } from '@/lib/dateUtils';
 import { useUser } from '@/context/UserContext';
 import { useGymCustomerMembershipPlans } from '@/hooks/gymCustomerMembershipPlans/useGymCustomerMembershipPlans';
 import { useMembershipPlans } from '@/hooks/membership/useMembershipPlans';
@@ -63,12 +64,11 @@ export default function MembershipDetailsScreen() {
 
   let remainingDays = 0;
   if (currentPlan?.endDate) {
-    const diffTime = new Date(currentPlan.endDate).getTime() - new Date().getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = getCalendarDaysDifference(currentPlan.endDate);
     remainingDays = diffDays > 0 ? diffDays : 0;
   }
 
-  const isExpired = currentPlan?.endDate ? new Date(currentPlan.endDate) < new Date() : false;
+  const isExpired = remainingDays <= 0;
   const statusLabel = isExpired ? 'EXPIRED' : (currentPlan?.is_Active ? 'ACTIVE' : 'INACTIVE');
   const statusColor = isExpired ? '#EF4444' : (currentPlan?.is_Active ? '#22C55E' : '#9CA3AF');
   const statusBg = isExpired ? 'bg-[#EF4444]/10' : (currentPlan?.is_Active ? 'bg-[#22C55E]/10' : 'bg-[#9CA3AF]/10');

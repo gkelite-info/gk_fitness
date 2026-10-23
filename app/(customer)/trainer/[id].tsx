@@ -1,20 +1,27 @@
-import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, Image, Modal, ActivityIndicator } from 'react-native';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
+import { View, ScrollView, Pressable, Image, Modal, ActivityIndicator, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CaretLeft, CheckCircle, Star, Users, Medal, Tag, ArrowRight, CaretDown } from 'phosphor-react-native';
+import { CaretLeft, CaretRight, CheckCircle, Star, Users, Medal, Tag, ArrowRight, CaretDown, Record } from 'phosphor-react-native';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { useGymTrainerById } from '@/hooks/trainers/useGymTrainers';
 import { useGlobalTrainer } from '@/hooks/globalTrainers/useGlobalTrainer';
 import { useUser } from '@/context/UserContext';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useAssignedTrainersByCustomer, useAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
+import {
+  useAssignedGlobalTrainersByUser,
+  useIndividualCustomerTrainers,
+} from '@/hooks/individual/customer-trainer/individualCustomerTrainer';
+import { usePersonalTrainerRequestsByUser } from '@/hooks/personalTrainerRequests/usePersonalTrainerRequests';
 
 export default function TrainerProfileScreen() {
   const { id, trainerData, from } = useLocalSearchParams<{ id: string, trainerData?: string, from?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isBackNavigatingRef = useRef(false);
+  const isNavigatingRef = useRef(false);
 
   const parsedTrainer = useMemo(() => {
     if (!trainerData) return null;
@@ -31,32 +38,82 @@ export default function TrainerProfileScreen() {
 
   const trainer = parsedTrainer || fetchedTrainer;
 
-  const { userId } = useUser();
+  const { userId, role } = useUser();
   const { data: customerProfile } = useCustomerProfile(userId || undefined);
+  const gymId = customerProfile?.customerData?.gymId;
+  const isIndividual = role === 'individual' || (!gymId && !!userId);
   const customerId = customerProfile?.customerData?.customerId || userId;
   const { data: assignedTrainers } = useAssignedTrainersByCustomer(customerId, userId);
 
   const gymTrainerId = trainer?.gymTrainerId || id;
+  const globalTrainerId = trainer?.globalTrainerId || id;
   const { data: assignedCustomers } = useAssignedCustomersByTrainer(gymTrainerId);
 
-  const isCurrentlyAssigned = assignedTrainers?.some(
+  const { data: individualClients } = useIndividualCustomerTrainers(
+    {
+      globalTrainerId: globalTrainerId || id,
+      status: 'approved',
+      isActive: true,
+      includeDeleted: false,
+    },
+    { enabled: isIndividual && !!(globalTrainerId || id) }
+  );
+  const individualClientsCount = individualClients?.length ?? 0;
+
+  const { data: individualTrainers } = useAssignedGlobalTrainersByUser(userId || undefined);
+  const pendingIndividual = individualTrainers?.find(
+    (t: any) => t.status === 'pending' || (t.status == null && t.isActive !== false)
+  );
+  const activeIndividualTrainer = individualTrainers?.find(
+    (t: any) => t.isActive !== false && t.status === 'approved'
+  );
+
+  const { data: gymTrainerRequests } = usePersonalTrainerRequestsByUser(userId || undefined);
+  const pendingGym = gymTrainerRequests?.find(
+    (r: any) => r.applicationStatus === 'submitted' || r.applicationStatus === 'pending'
+  );
+
+  const isCurrentlyAssignedGym = assignedTrainers?.some(
     (a: any) => (a.gymTrainerId === gymTrainerId) && (a.isActive !== false)
   );
+  const isCurrentlyAssignedIndividual = !!activeIndividualTrainer && (
+    activeIndividualTrainer.globalTrainerId === globalTrainerId ||
+    activeIndividualTrainer.globalTrainerId === id
+  );
+
+  const isCurrentlyAssigned = isCurrentlyAssignedGym || isCurrentlyAssignedIndividual;
+
+  const hasLiveRequest = !!pendingIndividual || !!pendingGym;
+
+  const isThisTrainerRequested =
+    (pendingIndividual && (pendingIndividual.globalTrainerId === globalTrainerId || pendingIndividual.globalTrainerId === id)) ||
+    (pendingGym && (pendingGym.gymTrainerId === gymTrainerId || pendingGym.gymTrainerId === id));
 
   const [modalVisible, setModalVisible] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
+    if (isBackNavigatingRef.current) return;
+    isBackNavigatingRef.current = true;
+
     if (from === 'my-trainer') {
       router.replace('/(customer)/my-trainer');
-      return;
-    }
-    if (router.canGoBack()) {
-      router.back();
     } else {
-      router.replace('/(customer)/my-trainer');
+      try {
+        (router as any).navigate('/(customer)/trainer/book-trainer');
+      } catch {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/(customer)/trainer/book-trainer');
+        }
+      }
     }
-  };
+
+    setTimeout(() => {
+      isBackNavigatingRef.current = false;
+    }, 800);
+  }, [from, router]);
 
   if ((isGymTrainerLoading || isGlobalTrainerLoading) && !trainer) {
     return (
@@ -93,9 +150,11 @@ export default function TrainerProfileScreen() {
   const reviews = trainer.reviews || 0;
   const experience = trainer.experienceYears ?? trainer.experience ?? 0;
 
-  const clientsCount = (assignedCustomers && assignedCustomers.length > 0)
-    ? assignedCustomers.length
-    : (isCurrentlyAssigned ? 1 : (trainer.clients || 1));
+  const clientsCount = isIndividual
+    ? individualClientsCount
+    : (assignedCustomers && assignedCustomers.length > 0)
+      ? assignedCustomers.length
+      : (isCurrentlyAssigned ? 1 : (trainer.clients || 1));
 
   const bio = trainer.bio || trainer.about || `Passionate about helping people become the best version of themselves. Specializes in ${trainer.specialization || 'fitness'} with a focus on technique, consistency and long-term results.`;
   const expertise = Array.isArray(trainer.expertise)
@@ -185,7 +244,9 @@ export default function TrainerProfileScreen() {
           <View className="w-[1px] h-full bg-[#27272A]" />
           <View className="items-center flex-1">
             <Users size={24} color="#5E5CE6" weight="regular" style={{ marginBottom: 8 }} />
-            <Text className="text-white font-semibold">{clientsCount > 0 ? `${clientsCount}+` : 'Certified'}</Text>
+            <Text className="text-white font-semibold">
+              {isIndividual ? clientsCount : (clientsCount > 0 ? `${clientsCount}+` : 'Certified')}
+            </Text>
             <Text className="text-[#8E8E93] text-[10px] mt-1">CLIENTS</Text>
           </View>
           <View className="w-[1px] h-full bg-[#27272A]" />
@@ -196,28 +257,94 @@ export default function TrainerProfileScreen() {
           </View>
         </View>
 
+        {trainer.price != null && Platform.OS !== 'ios' && (
+          <View className="mx-4 mb-3 bg-[#14180A] rounded-2xl p-4 border border-[#3E4C14] flex-row items-center justify-between">
+            <View className="flex-row items-center flex-1 mr-3">
+              <View className="w-10 h-10 rounded-xl bg-[#1C2307] items-center justify-center mr-3 border border-[#445000]">
+                <Tag size={20} color="#CCFF00" weight="fill" />
+              </View>
+              <View>
+                <Text className="text-[#8E8E93] text-[10px] uppercase font-semibold tracking-wider">
+                  Personal Training Fee
+                </Text>
+                <Text className="text-white text-xs mt-0.5">
+                  1-on-1 Guidance & Custom Routines
+                </Text>
+              </View>
+            </View>
+            <View className="items-end">
+              <View className="flex-row items-baseline">
+                <Text className="text-[#CCFF00] text-xl font-semibold">₹{trainer.price}</Text>
+                <Text className="text-[#8E8E93] text-xs ml-1">/mo</Text>
+              </View>
+              <Text className="text-[#8E8E93] text-[10px]">Monthly Subscription</Text>
+            </View>
+          </View>
+        )}
+
         <View className="p-4 bg-[#0F0F0F]/90 border-t border-[#1A1A1A]">
           {isCurrentlyAssigned ? (
             <View className="bg-[#1C2307] border border-[#D4FF00] py-4 rounded-full flex-row justify-center items-center">
               <CheckCircle size={20} color="#D4FF00" weight="fill" />
               <Text className="text-[#D4FF00] text-base font-semibold ml-2">Currently Assigned Trainer</Text>
             </View>
+          ) : isThisTrainerRequested ? (
+            <Pressable
+              onPress={() => {
+                if (isNavigatingRef.current) return;
+                isNavigatingRef.current = true;
+                (router as any).navigate('/(customer)/trainer/book-trainer');
+                setTimeout(() => { isNavigatingRef.current = false; }, 800);
+              }}
+              className="bg-[#3E3218] border border-[#FF9F0A] py-4 rounded-full flex-row justify-center items-center active:opacity-80"
+            >
+              <Record size={18} color="#FF9F0A" weight="fill" />
+              <Text className="text-[#FF9F0A] text-base font-semibold ml-2">
+                {isIndividual ? (Platform.OS === 'ios' ? 'Manage Training Plan' : 'Review & Activate Plan') : 'Request Pending Review'}
+              </Text>
+              <CaretRight size={16} color="#FF9F0A" weight="bold" style={{ marginLeft: 6 }} />
+            </Pressable>
+          ) : hasLiveRequest ? (
+            <Pressable
+              onPress={() => {
+                if (isNavigatingRef.current) return;
+                isNavigatingRef.current = true;
+                (router as any).navigate('/(customer)/trainer/book-trainer');
+                setTimeout(() => { isNavigatingRef.current = false; }, 800);
+              }}
+              className="bg-[#1C180E] border border-[#FF9F0A]/40 py-4 rounded-full flex-row justify-center items-center active:opacity-80"
+            >
+              <Record size={16} color="#FF9F0A" weight="fill" />
+              <Text className="text-[#FF9F0A] text-sm font-semibold ml-2">
+                Trainer Request Already Active
+              </Text>
+            </Pressable>
           ) : (
             <Pressable
               onPress={() => {
-                router.push({
+                if (isNavigatingRef.current) return;
+                isNavigatingRef.current = true;
+                const targetTrainerId = gymTrainerId || globalTrainerId || id;
+                (router as any).navigate({
                   pathname: '/(customer)/trainer/trainer-request',
                   params: {
-                    id: gymTrainerId,
+                    id: targetTrainerId,
                     trainerName: fullName,
-                    specializations: JSON.stringify(expertise)
+                    specializations: JSON.stringify(expertise),
+                    trainerPrice: trainer.price != null ? String(trainer.price) : undefined,
+                    trainerData: JSON.stringify(trainer),
                   }
                 });
+                setTimeout(() => { isNavigatingRef.current = false; }, 1000);
               }}
               className="bg-[#CCFF00] py-4 rounded-full flex-row justify-center items-center shadow-lg active:opacity-80"
               style={{ shadowColor: '#CCFF00', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 }}
             >
-              <Text className="text-black text-base font-semibold mr-2">Choose {fullName} as My Trainer</Text>
+              <Text className="text-black text-base font-semibold mr-2">
+                {Platform.OS === 'ios'
+                  ? `Choose ${fullName} as My Trainer`
+                  : `Choose ${fullName} as My Trainer ${trainer.price != null ? `• ₹${trainer.price}` : ''}`}
+              </Text>
               <ArrowRight size={18} color="#000000" weight="bold" />
             </Pressable>
           )}

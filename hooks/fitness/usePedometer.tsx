@@ -5,13 +5,14 @@ import { supabaseFitnessService } from '@/lib/services/supabaseFitnessService';
 import { Pedometer } from 'expo-sensors';
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  initialize,
-  requestPermission,
-  aggregateRecord,
-  getSdkStatus,
-  SdkAvailabilityStatus,
-} from 'react-native-health-connect';
+let HealthConnect: any = null;
+if (Platform.OS === 'android') {
+  try {
+    HealthConnect = require('react-native-health-connect');
+  } catch {
+    // Health Connect unavailable or in Expo Go
+  }
+}
 
 interface PedometerContextValue {
   isAvailable: boolean;
@@ -70,6 +71,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
   // step data here 24/7, even when our app is killed.
   // ──────────────────────────────────────────────────────────
   const getHealthConnectSteps = async (): Promise<number> => {
+    if (Platform.OS !== 'android' || !HealthConnect?.aggregateRecord) return 0;
     try {
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
@@ -77,7 +79,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
       // aggregateRecord is the correct function name in react-native-health-connect
       // The return type for Steps is { COUNT_TOTAL: number, dataOrigins: string[] }
-      const result = await aggregateRecord({
+      const result = await HealthConnect.aggregateRecord({
         recordType: 'Steps',
         timeRangeFilter: {
           operator: 'between',
@@ -86,7 +88,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
         },
       });
 
-      return result.COUNT_TOTAL ?? 0;
+      return result?.COUNT_TOTAL ?? 0;
     } catch (e) {
       console.warn('[Pedometer] Health Connect aggregateRecord failed:', e);
       return 0;
@@ -157,25 +159,27 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
     const subscribe = async () => {
       try {
-        if (Platform.OS === 'android') {
+        if (Platform.OS === 'android' && HealthConnect) {
           // ── Step 1: Check if Health Connect SDK is available ──
           let hcAvailable = false;
           try {
-            const status = await getSdkStatus();
-            hcAvailable = status === SdkAvailabilityStatus.SDK_AVAILABLE;
-            if (isMounted) {
-              setDebugInfo(`HC SDK Status: ${status === SdkAvailabilityStatus.SDK_AVAILABLE ? 'Available' : 'Unavailable'}`);
+            if (HealthConnect.getSdkStatus) {
+              const status = await HealthConnect.getSdkStatus();
+              hcAvailable = status === HealthConnect.SdkAvailabilityStatus?.SDK_AVAILABLE || status === 3;
+              if (isMounted) {
+                setDebugInfo(`HC SDK Status: ${hcAvailable ? 'Available' : 'Unavailable'}`);
+              }
             }
           } catch {
             // getSdkStatus may throw in Expo Go
           }
 
           // ── Step 2: Initialize Health Connect if available ──
-          if (hcAvailable) {
+          if (hcAvailable && HealthConnect.initialize) {
             try {
-              const isInitialized = await initialize();
-              if (isInitialized) {
-                await requestPermission([
+              const isInitialized = await HealthConnect.initialize();
+              if (isInitialized && HealthConnect.requestPermission) {
+                await HealthConnect.requestPermission([
                   { accessType: 'read', recordType: 'Steps' },
                 ]);
                 hcReadyRef.current = true;

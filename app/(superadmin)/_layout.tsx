@@ -43,6 +43,6 @@ export default function SuperAdminLayout() {
           headerShown: false,
         }}
       />
-      </Tabs>
+    </Tabs>
   );
 }

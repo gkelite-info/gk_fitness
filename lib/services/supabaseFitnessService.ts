@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { getLocalDateString } from '@/lib/dateUtils';
 import * as Crypto from 'expo-crypto';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DailyFitnessStats, FitnessRepository, WaterLogEntry } from './fitness.types';
 
 const DEFAULT_WATER_GOAL = 2500; // 2.5L in ML
@@ -20,13 +21,23 @@ async function getOrCreateDailySummary(userId: string, date: string) {
 
   if (data) return data;
 
+  // Retrieve user custom step goal if cached, otherwise fallback to default
+  let userStepGoal = DEFAULT_STEP_GOAL;
+  try {
+    const cachedGoal = await AsyncStorage.getItem(`@gk_step_goal_${userId}`);
+    if (cachedGoal) {
+      const parsed = parseInt(cachedGoal, 10);
+      if (!isNaN(parsed) && parsed > 0) userStepGoal = parsed;
+    }
+  } catch {}
+
   // Create new summary
   const newSummary = {
     summaryId: Crypto.randomUUID(),
     userId,
     date,
     steps: 0,
-    stepGoal: DEFAULT_STEP_GOAL,
+    stepGoal: userStepGoal,
     activeCalories: 0,
     calorieGoal: DEFAULT_CALORIE_GOAL,
     restingCalories: DEFAULT_RESTING_CALORIES,
@@ -62,16 +73,54 @@ async function getOrCreateDailySummary(userId: string, date: string) {
 
 export const supabaseFitnessService: FitnessRepository = {
   getDailyStats: async (userId: string, date: string): Promise<DailyFitnessStats> => {
-    const summary = await getOrCreateDailySummary(userId, date);
-    return {
-      date: summary.date,
-      steps: summary.steps || 0,
-      calories: summary.activeCalories || 0,
-      waterGoalML: (summary.waterGoal || 2.5) * 1000,
-    };
+    try {
+      const summary = await getOrCreateDailySummary(userId, date);
+      let steps = summary.steps || 0;
+      let calories = summary.activeCalories || 0;
+
+      // Check local cache in case steps were updated offline or pending debounce
+      try {
+        const cached = await AsyncStorage.getItem(`@gk_steps_${userId}_${date}`);
+        if (cached) {
+          const parsed = parseInt(cached, 10);
+          if (!isNaN(parsed) && parsed > steps) {
+            steps = parsed;
+            calories = Math.max(calories, Math.round(parsed * 0.04));
+          }
+        }
+      } catch {}
+
+      return {
+        date: summary.date,
+        steps,
+        calories,
+        waterGoalML: (summary.waterGoal || 2.5) * 1000,
+        stepGoal: summary.stepGoal || DEFAULT_STEP_GOAL,
+      };
+    } catch (err) {
+      console.warn('[supabaseFitnessService] getDailyStats fallback to local cache:', err);
+      let cachedSteps = 0;
+      try {
+        const cached = await AsyncStorage.getItem(`@gk_steps_${userId}_${date}`);
+        if (cached) cachedSteps = parseInt(cached, 10) || 0;
+      } catch {}
+
+      return {
+        date,
+        steps: cachedSteps,
+        calories: Math.round(cachedSteps * 0.04),
+        waterGoalML: DEFAULT_WATER_GOAL,
+        stepGoal: DEFAULT_STEP_GOAL,
+      };
+    }
   },
 
   updateSteps: async (userId: string, date: string, steps: number, calories: number): Promise<void> => {
+    // Cache locally immediately
+    try {
+      await AsyncStorage.setItem(`@gk_steps_${userId}_${date}`, steps.toString());
+    } catch {}
+
     const summary = await getOrCreateDailySummary(userId, date);
     const newSteps = Math.max(summary.steps || 0, steps);
     const newCalories = Math.max(summary.activeCalories || 0, calories);
@@ -80,6 +129,50 @@ export const supabaseFitnessService: FitnessRepository = {
       .update({
         steps: newSteps,
         activeCalories: newCalories,
+        updatedAt: new Date().toISOString(),
+      })
+      .eq('summaryId', summary.summaryId);
+
+    if (error) throw error;
+  },
+
+  getStepGoal: async (userId: string): Promise<number> => {
+    try {
+      const cached = await AsyncStorage.getItem(`@gk_step_goal_${userId}`);
+      if (cached) {
+        const parsed = parseInt(cached, 10);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    } catch {}
+
+    const { data, error } = await supabase
+      .from('daily_health_summaries')
+      .select('stepGoal')
+      .eq('userId', userId)
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!error && data && data.stepGoal) {
+      try {
+        await AsyncStorage.setItem(`@gk_step_goal_${userId}`, data.stepGoal.toString());
+      } catch {}
+      return data.stepGoal;
+    }
+    return DEFAULT_STEP_GOAL;
+  },
+
+  setStepGoal: async (userId: string, goal: number): Promise<void> => {
+    try {
+      await AsyncStorage.setItem(`@gk_step_goal_${userId}`, goal.toString());
+    } catch {}
+
+    const today = getLocalDateString(new Date());
+    const summary = await getOrCreateDailySummary(userId, today);
+    const { error } = await supabase
+      .from('daily_health_summaries')
+      .update({
+        stepGoal: goal,
         updatedAt: new Date().toISOString(),
       })
       .eq('summaryId', summary.summaryId);

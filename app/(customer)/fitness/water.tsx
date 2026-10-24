@@ -47,7 +47,7 @@ const QUICK_PRESETS = [
 ];
 
 const GOAL_PRESETS_ML = [2000, 2500, 3000, 3500, 4000];
-const REMINDER_INTERVALS = [1, 2, 3, 4];
+const REMINDER_INTERVALS = [0.5, 1, 2, 3, 4];
 
 export default function WaterScreen() {
   const router = useRouter();
@@ -323,7 +323,7 @@ export default function WaterScreen() {
               {isReminderOn ? 'On' : 'Off'}
             </Text>
             <Text className="text-[#C084FC] text-[10px] font-semibold mt-0.5 text-center">
-              {isReminderOn ? `Every ${reminderInterval} hrs` : 'Disabled'}
+              {isReminderOn ? (reminderInterval === 0.5 ? 'Every 30 mins' : `Every ${reminderInterval} hrs`) : 'Disabled'}
             </Text>
           </Pressable>
         </View>
@@ -646,29 +646,34 @@ export default function WaterScreen() {
               <>
                 {/* Interval Selection */}
                 <Text className="text-[#8E8E93] text-xs font-semibold mb-2">REMIND FREQUENCY</Text>
-                <View className="flex-row gap-2 mb-5">
-                  {REMINDER_INTERVALS.map((hrs) => (
-                    <Pressable
-                      key={hrs}
-                      onPress={() => {
-                        triggerLightHaptic();
-                        setTempInterval(hrs);
-                      }}
-                      className={`flex-1 py-3 rounded-xl border items-center ${
-                        tempInterval === hrs
-                          ? 'bg-[#C084FC]/20 border-[#C084FC]'
-                          : 'bg-[#1A1A1A] border-[#2A2A2A]'
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs font-bold ${
-                          tempInterval === hrs ? 'text-[#C084FC]' : 'text-white'
+                <View className="flex-row gap-1.5 mb-5">
+                  {REMINDER_INTERVALS.map((hrs) => {
+                    const isSelected = tempInterval === hrs;
+                    return (
+                      <Pressable
+                        key={hrs}
+                        onPress={() => {
+                          triggerLightHaptic();
+                          setTempInterval(hrs);
+                        }}
+                        className={`flex-1 py-3 px-1 rounded-xl border items-center justify-center ${
+                          isSelected
+                            ? 'bg-[#C084FC]/20 border-[#C084FC]'
+                            : 'bg-[#1A1A1A] border-[#2A2A2A]'
                         }`}
                       >
-                        Every {hrs}h
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <Text
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          className={`text-[11px] font-bold text-center ${
+                            isSelected ? 'text-[#C084FC]' : 'text-white'
+                          }`}
+                        >
+                          {hrs === 0.5 ? '30 min' : `${hrs} hr`}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
 
                 {/* Active Hours Summary */}

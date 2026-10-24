@@ -3,6 +3,7 @@ export interface DailyFitnessStats {
   steps: number;
   calories: number;
   waterGoalML: number;
+  stepGoal?: number;
 }
 
 export interface WaterLogEntry {
@@ -16,6 +17,8 @@ export interface FitnessRepository {
   // Steps & Calories
   getDailyStats(userId: string, date: string): Promise<DailyFitnessStats>;
   updateSteps(userId: string, date: string, steps: number, calories: number): Promise<void>;
+  getStepGoal(userId: string): Promise<number>;
+  setStepGoal(userId: string, goal: number): Promise<void>;
   
   // Water
   getWaterGoal(userId: string): Promise<number>;

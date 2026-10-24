@@ -12,7 +12,7 @@ import { Text } from '@/components/nativewindui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, MapPin } from 'phosphor-react-native';
 import * as WebBrowser from 'expo-web-browser';
-import * as Speech from 'expo-speech';
+import * as Speech from '@/lib/speech/safeSpeech';
 import { useLiveGeofencing } from '@/hooks/geofence/useLiveGeofencing';
 import { calculateHaversineDistance, formatDistance } from '@/helpers/geofence/geofenceAlgorithm';
 import {

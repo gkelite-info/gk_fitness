@@ -24,6 +24,10 @@ export type OnboardingData = {
   preferredCuisine?: string;
   calorieDistribution?: string;
   goalTimeframe?: string;
+  hasMedicalConditions?: boolean;
+  medicalConditions?: string[];
+  medicalDisclaimerAccepted?: boolean;
+  medicalDisclaimerAcceptedAt?: string;
 };
 
 type OnboardingContextType = {
@@ -49,6 +53,10 @@ const initialData: OnboardingData = {
   foodAllergies: [],
   dailyWaterGoal: 3.0,
   goalTimeframe: '',
+  hasMedicalConditions: false,
+  medicalConditions: [],
+  medicalDisclaimerAccepted: false,
+  medicalDisclaimerAcceptedAt: undefined,
 };
 
 const OnboardingContext = createContext<OnboardingContextType>({
@@ -111,15 +119,15 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         const ob = profile.onboardingData;
         newData.height = ob.height || '';
         newData.weight = ob.weight || '';
-        
+
         const reverseGoalMap: Record<string, string> = {
           'loseweight': 'weightloss',
           'buildmuscle': 'musclegain',
           'stayfit': 'maintainfitness',
-          'imporoveendurance': 'improveendurance'
+          'imporoveendurance': 'improveendurance',
         };
         newData.primaryGoal = reverseGoalMap[ob.primaryGoal] || ob.primaryGoal || '';
-        
+
         newData.targetWeight = ob.targetWeight || '';
         newData.workoutLocation = ob.workoutLocation || '';
         newData.workoutDays = ob.workoutDays || [];
@@ -131,8 +139,12 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         newData.preferredCuisine = ob.preferredCuisine || '';
         newData.calorieDistribution = ob.calorieDistribution || '';
         newData.goalTimeframe = ob.goalTimeframe || '';
+        newData.hasMedicalConditions = ob.hasMedicalConditions ?? false;
+        newData.medicalConditions = ob.medicalConditions || [];
+        newData.medicalDisclaimerAccepted = ob.medicalDisclaimerAccepted ?? false;
+        newData.medicalDisclaimerAcceptedAt = ob.medicalDisclaimerAcceptedAt || undefined;
       }
-      
+
       return newData;
     });
     setLoading(isProfileLoading || (role === 'individual' && isUserLoading));

@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, Pressable, Switch, ActivityIndicator, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Clock, Hourglass, ForkKnife, CalendarCheck, CalendarBlank, SunDim, Barbell, Sparkle, BellRinging, PaperPlaneTilt } from 'phosphor-react-native';
 import { useNotificationPreferences, NotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES } from '@/hooks/notifications/useNotificationPreferences';
 import { useUser } from '@/context/UserContext';
-import { sendTestLocalNotification, registerForPushNotifications } from '@/lib/services/notificationService';
 import { toast } from '@/lib/toast';
+import { sendTestLocalNotification, registerForPushNotifications } from '@/lib/services/notificationService';
 
 function format12Hour(hour: number = 17, minute: number = 0): string {
   const period = hour >= 12 ? 'PM' : 'AM';
@@ -55,17 +55,17 @@ export default function NotificationsPreferencesScreen() {
     }
   };
 
-  const [testingLocal, setTestingLocal] = React.useState(false);
-  const [testingPush, setTestingPush] = React.useState(false);
+  const [testingLocal, setTestingLocal] = useState(false);
+  const [testingPush, setTestingPush] = useState(false);
 
   const handleTestLocal = async () => {
+    setTestingLocal(true);
     try {
-      setTestingLocal(true);
       await sendTestLocalNotification(
-        '⚡ GK Fitness Test',
-        'Local notifications and channels are working properly!'
+        '⚡ GK Fitness Notification Test',
+        'Your notification preferences are active and working smoothly!'
       );
-      toast.success('Local notification sent!');
+      toast.success('Test notification delivered!');
     } catch (err: any) {
       console.warn('[Notifications] Test local error:', err);
       const msg = err?.message || 'Failed to trigger local notification';
@@ -126,71 +126,55 @@ export default function NotificationsPreferencesScreen() {
           <View className="gap-y-2">
             {PREFERENCE_MAPPING.map((pref) => {
               const currentPrefs = preferences || DEFAULT_NOTIFICATION_PREFERENCES;
-              const currentValue = currentPrefs[pref.id];
+              const currentValue = !!currentPrefs[pref.id];
+
               return (
-                <View key={pref.id} className="mb-8">
+                <View key={pref.id} className="bg-[#141414] rounded-2xl p-4 border border-white/5">
                   <View className="flex-row justify-between items-center">
-                    <Text className="text-white text-base font-semibold">{pref.label}</Text>
+                    <Text className="text-white font-medium text-base">{pref.label}</Text>
                     <Switch
-                      trackColor={{ false: "#555555", true: "#D4FF00" }}
-                      thumbColor={"#FFFFFF"}
-                      ios_backgroundColor="#555555"
-                      onValueChange={() => toggleSwitch(pref.id, currentValue as boolean)}
-                      value={currentValue as boolean}
-                      style={{ transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }] }}
+                      value={currentValue}
+                      onValueChange={() => toggleSwitch(pref.id, currentValue)}
+                      trackColor={{ false: '#262626', true: '#D4FF00' }}
+                      thumbColor="#FFFFFF"
                     />
                   </View>
 
-                  {/* Custom Water Hydration Settings */}
+                  {/* Water Reminders Custom Schedule Settings */}
                   {pref.id === 'water_reminders' && currentValue && (
                     <View className="mt-4 bg-[#1A1A1A] rounded-xl p-4 border border-white/5">
-
-                      {/* Mode Selector */}
-                      <View className="flex-row bg-[#0F0F0F] rounded-lg p-1 mb-2">
-                        <Pressable
-                          onPress={() => updatePreference.mutate({ water_mode: 'default' })}
-                          className={`flex-1 py-2 items-center justify-center rounded-md ${currentPrefs.water_mode !== 'custom' ? 'bg-[#2A2A2A]' : ''}`}
-                        >
-                          <Text className={`font-semibold ${currentPrefs.water_mode !== 'custom' ? 'text-[#D4FF00]' : 'text-gray-400'}`}>Default</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => updatePreference.mutate({ water_mode: 'custom' })}
-                          className={`flex-1 py-2 items-center justify-center rounded-md ${currentPrefs.water_mode === 'custom' ? 'bg-[#2A2A2A]' : ''}`}
-                        >
-                          <Text className={`font-semibold ${currentPrefs.water_mode === 'custom' ? 'text-[#D4FF00]' : 'text-gray-400'}`}>Custom</Text>
-                        </Pressable>
+                      {/* Quiet Hours Switch */}
+                      <View className="flex-row justify-between items-center mb-3">
+                        <View className="flex-row items-center gap-x-2">
+                          <Clock size={16} color="#A3A3A3" />
+                          <Text className="text-gray-300 text-sm">Quiet Hours (Sleep)</Text>
+                        </View>
+                        <Switch
+                          value={currentPrefs.water_quiet_hours_enabled ?? true}
+                          onValueChange={(val) => updatePreference.mutate({ water_quiet_hours_enabled: val })}
+                          trackColor={{ false: '#262626', true: '#D4FF00' }}
+                          thumbColor="#FFFFFF"
+                        />
                       </View>
 
-                      {currentPrefs.water_mode !== 'custom' && (
-                        <Text className="text-gray-400 text-xs text-center mt-2">
-                          Reminds you every 2 hours from 8:00 AM to 8:00 PM.
-                        </Text>
-                      )}
-
-                      {currentPrefs.water_mode === 'custom' && (
-                        <View className="mt-4">
-                          <Text className="text-[#D4FF00] font-semibold text-xs uppercase tracking-widest mb-4">
-                            Custom Schedule
-                          </Text>
-
-                          {/* Start Time */}
-                          <View className="flex-row justify-between items-center mb-4">
-                            <View className="flex-row items-center gap-x-2">
-                              <Clock size={16} color="#A3A3A3" />
-                              <Text className="text-gray-400">Start Time</Text>
-                            </View>
+                      {/* Time Range Pickers */}
+                      {(currentPrefs.water_quiet_hours_enabled ?? true) && (
+                        <View className="gap-y-3 pt-2 border-t border-white/5">
+                          {/* Start Time (Wake up) */}
+                          <View className="flex-row justify-between items-center">
+                            <Text className="text-gray-400 text-sm">Start Reminders</Text>
                             <View className="flex-row items-center gap-x-3">
                               <Pressable
-                                onPress={() => updatePreference.mutate({ water_start_hour: Math.max(4, (currentPrefs.water_start_hour || 8) - 1) })}
+                                onPress={() => updatePreference.mutate({ water_start_hour: Math.max(5, (currentPrefs.water_start_hour || 8) - 1) })}
                                 className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center"
                               >
                                 <Text className="text-white font-semibold">-</Text>
                               </Pressable>
-                              <Text className="text-white font-semibold w-12 text-center">
-                                {currentPrefs.water_start_hour || 8}:00
+                              <Text className="text-[#D4FF00] font-semibold w-16 text-center">
+                                {format12Hour(currentPrefs.water_start_hour || 8, 0)}
                               </Text>
                               <Pressable
-                                onPress={() => updatePreference.mutate({ water_start_hour: Math.min((currentPrefs.water_end_hour || 20) - 1, (currentPrefs.water_start_hour || 8) + 1) })}
+                                onPress={() => updatePreference.mutate({ water_start_hour: Math.min((currentPrefs.water_end_hour || 22) - 1, (currentPrefs.water_start_hour || 8) + 1) })}
                                 className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center"
                               >
                                 <Text className="text-white font-semibold">+</Text>
@@ -198,24 +182,21 @@ export default function NotificationsPreferencesScreen() {
                             </View>
                           </View>
 
-                          {/* End Time */}
-                          <View className="flex-row justify-between items-center mb-4">
-                            <View className="flex-row items-center gap-x-2">
-                              <Clock size={16} color="#A3A3A3" />
-                              <Text className="text-gray-400">End Time</Text>
-                            </View>
+                          {/* End Time (Wind down) */}
+                          <View className="flex-row justify-between items-center">
+                            <Text className="text-gray-400 text-sm">Stop Reminders</Text>
                             <View className="flex-row items-center gap-x-3">
                               <Pressable
-                                onPress={() => updatePreference.mutate({ water_end_hour: Math.max((currentPrefs.water_start_hour || 8) + 1, (currentPrefs.water_end_hour || 20) - 1) })}
+                                onPress={() => updatePreference.mutate({ water_end_hour: Math.max((currentPrefs.water_start_hour || 8) + 1, (currentPrefs.water_end_hour || 22) - 1) })}
                                 className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center"
                               >
                                 <Text className="text-white font-semibold">-</Text>
                               </Pressable>
-                              <Text className="text-white font-semibold w-12 text-center">
-                                {currentPrefs.water_end_hour || 20}:00
+                              <Text className="text-[#D4FF00] font-semibold w-16 text-center">
+                                {format12Hour(currentPrefs.water_end_hour || 22, 0)}
                               </Text>
                               <Pressable
-                                onPress={() => updatePreference.mutate({ water_end_hour: Math.min(23, (currentPrefs.water_end_hour || 20) + 1) })}
+                                onPress={() => updatePreference.mutate({ water_end_hour: Math.min(23, (currentPrefs.water_end_hour || 22) + 1) })}
                                 className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center"
                               >
                                 <Text className="text-white font-semibold">+</Text>
@@ -231,19 +212,37 @@ export default function NotificationsPreferencesScreen() {
                             </View>
                             <View className="flex-row items-center gap-x-3">
                               <Pressable
-                                onPress={() => updatePreference.mutate({ water_interval_hours: Math.max(1, (currentPrefs.water_interval_hours || 2) - 1) })}
-                                className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center"
+                                onPress={() => {
+                                  const current = currentPrefs.water_interval_hours ?? 2;
+                                  const steps = [0.5, 1, 2, 3, 4, 5, 6];
+                                  const idx = steps.indexOf(current);
+                                  const nextVal = idx > 0 ? steps[idx - 1] : 0.5;
+                                  updatePreference.mutate({ water_interval_hours: nextVal });
+                                }}
+                                disabled={(currentPrefs.water_interval_hours ?? 2) <= 0.5}
+                                className={`w-8 h-8 rounded-full items-center justify-center ${
+                                  (currentPrefs.water_interval_hours ?? 2) <= 0.5 ? 'bg-[#2A2A2A]/40' : 'bg-[#2A2A2A]'
+                                }`}
                               >
-                                <Text className="text-white font-semibold">-</Text>
+                                <Text className={`font-bold ${(currentPrefs.water_interval_hours ?? 2) <= 0.5 ? 'text-white/30' : 'text-white'}`}>-</Text>
                               </Pressable>
-                              <Text className="text-[#D4FF00] font-semibold w-12 text-center">
-                                {currentPrefs.water_interval_hours || 2} hr
+                              <Text className="text-[#D4FF00] font-bold min-w-[54px] text-center">
+                                {currentPrefs.water_interval_hours === 0.5 ? '30 min' : `${currentPrefs.water_interval_hours || 2} hr`}
                               </Text>
                               <Pressable
-                                onPress={() => updatePreference.mutate({ water_interval_hours: Math.min(6, (currentPrefs.water_interval_hours || 2) + 1) })}
-                                className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center"
+                                onPress={() => {
+                                  const current = currentPrefs.water_interval_hours ?? 2;
+                                  const steps = [0.5, 1, 2, 3, 4, 5, 6];
+                                  const idx = steps.indexOf(current);
+                                  const nextVal = idx !== -1 && idx < steps.length - 1 ? steps[idx + 1] : Math.min(6, current + 1);
+                                  updatePreference.mutate({ water_interval_hours: nextVal });
+                                }}
+                                disabled={(currentPrefs.water_interval_hours ?? 2) >= 6}
+                                className={`w-8 h-8 rounded-full items-center justify-center ${
+                                  (currentPrefs.water_interval_hours ?? 2) >= 6 ? 'bg-[#2A2A2A]/40' : 'bg-[#2A2A2A]'
+                                }`}
                               >
-                                <Text className="text-white font-semibold">+</Text>
+                                <Text className={`font-bold ${(currentPrefs.water_interval_hours ?? 2) >= 6 ? 'text-white/30' : 'text-white'}`}>+</Text>
                               </Pressable>
                             </View>
                           </View>
@@ -577,6 +576,7 @@ export default function NotificationsPreferencesScreen() {
             </View>
           </View>
         </View>
+
       </ScrollView>
     </View>
   );

@@ -6,9 +6,11 @@ const STORAGE_KEYS = {
   DAILY_STATS: '@fitness_daily_stats_',
   WATER_GOAL: '@fitness_water_goal_',
   WATER_LOGS: '@fitness_water_logs_',
+  STEP_GOAL: '@fitness_step_goal_',
 };
 
 const DEFAULT_WATER_GOAL = 2500; // 2.5L
+const DEFAULT_STEP_GOAL = 10000;
 
 export const localFitnessService: FitnessRepository = {
   getDailyStats: async (userId: string, date: string): Promise<DailyFitnessStats> => {
@@ -16,7 +18,11 @@ export const localFitnessService: FitnessRepository = {
     try {
       const data = await AsyncStorage.getItem(key);
       if (data) {
-        return JSON.parse(data);
+        const parsed = JSON.parse(data);
+        return {
+          ...parsed,
+          stepGoal: parsed.stepGoal || DEFAULT_STEP_GOAL,
+        };
       }
       // Return defaults if none exist
       return {
@@ -24,6 +30,7 @@ export const localFitnessService: FitnessRepository = {
         steps: 0,
         calories: 0,
         waterGoalML: DEFAULT_WATER_GOAL,
+        stepGoal: DEFAULT_STEP_GOAL,
       };
     } catch (e) {
       console.error('Error fetching daily stats', e);
@@ -39,6 +46,30 @@ export const localFitnessService: FitnessRepository = {
       await AsyncStorage.setItem(key, JSON.stringify(updated));
     } catch (e) {
       console.error('Error updating steps', e);
+      throw e;
+    }
+  },
+
+  getStepGoal: async (userId: string): Promise<number> => {
+    const key = `${STORAGE_KEYS.STEP_GOAL}${userId}`;
+    try {
+      const data = await AsyncStorage.getItem(key);
+      if (data) {
+        return parseInt(data, 10);
+      }
+      return DEFAULT_STEP_GOAL;
+    } catch (e) {
+      console.error('Error fetching step goal', e);
+      return DEFAULT_STEP_GOAL;
+    }
+  },
+
+  setStepGoal: async (userId: string, goal: number): Promise<void> => {
+    const key = `${STORAGE_KEYS.STEP_GOAL}${userId}`;
+    try {
+      await AsyncStorage.setItem(key, goal.toString());
+    } catch (e) {
+      console.error('Error setting step goal', e);
       throw e;
     }
   },

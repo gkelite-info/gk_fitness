@@ -24,13 +24,14 @@ import {
   Building,
   CaretLeft,
   Info,
+  WarningCircle,
 } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
-import { navigateBasedOnRole, createUser } from '@/helpers/otpHelper';
+import { navigateBasedOnRole, createUser, isAllowedForOwnerLogin } from '@/helpers/otpHelper';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
-import { getSelectedGym, SelectedGym, clearSelectedGym } from '@/helpers/tenantHelper';
+import { getSelectedGym, SelectedGym, clearSelectedGym, verifyUserGymMembership } from '@/helpers/tenantHelper';
 import * as Crypto from 'expo-crypto';
 import { fetchGymLeadByIdentifier } from '@/helpers/gymLeads/gymLeadsHelper';
 import { fetchUserAndRoleProfile } from '@/helpers/user/userProfileHelper';
@@ -52,6 +53,7 @@ export default function OtpAuthScreen() {
   const [password, setPassword] = useState('');
 
   const [loading, setLoading] = useState(false);
+  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   // const [phoneStep, setPhoneStep] = useState<'request' | 'verify'>('request');
@@ -103,26 +105,11 @@ export default function OtpAuthScreen() {
               const { data: { session } } = await supabase.auth.getSession();
               const autoUserId = session?.user?.id;
               if (autoUserId) {
-                let isAuthorizedForGym = false;
-
-                try {
-                  const [oRes, cRes, tRes] = await Promise.all([
-                    supabase.from('gym_owners').select('gymId').eq('userId', autoUserId).eq('is_deleted', false).maybeSingle(),
-                    supabase.from('gym_customers').select('gymId').eq('userId', autoUserId).eq('is_deleted', false).maybeSingle(),
-                    supabase.from('gym_trainers').select('gymId').eq('userId', autoUserId).eq('is_deleted', false).maybeSingle(),
-                  ]);
-
-                  if (oRes.data?.gymId === autoSelectedGym.gymId) isAuthorizedForGym = true;
-                  if (cRes.data?.gymId === autoSelectedGym.gymId) isAuthorizedForGym = true;
-                  if (tRes.data?.gymId === autoSelectedGym.gymId) isAuthorizedForGym = true;
-                } catch (error) {
-                  console.error('[SignIn] Auto-nav check error:', error);
-                }
-
-                if (!isAuthorizedForGym) {
+                const gymAuth = await verifyUserGymMembership(autoUserId, session?.user?.email, autoSelectedGym.gymId);
+                if (!gymAuth.isAuthorized) {
                   await supabase.auth.signOut();
                   if (isMounted.current) {
-                    toast.error('Invalid credentials or check gym');
+                    toast.error('This account belongs to another gym. Please select your registered gym.');
                     setLoading(false);
                   }
                   return;
@@ -141,6 +128,7 @@ export default function OtpAuthScreen() {
 
   const handleAuth = async () => {
     isManualLoginRef.current = true;
+    setAuthErrorMessage(null);
     /*
     if (loginMethod === 'phone') {
       if (!phone.trim()) {
@@ -191,101 +179,129 @@ export default function OtpAuthScreen() {
       if (purpose === 'login') {
         await supabase.auth.signOut();
 
-        if (typeId) {
-          try {
+        // 1. PRE-CHECK: Validate role & gym boundary BEFORE creating a Supabase session
+        const currentSelectedGym = await getSelectedGym();
+        const selectedGymId = currentSelectedGym?.gymId;
+
+        try {
+          const { data: uRec } = await supabase
+            .from('users')
+            .select('userId, role')
+            .ilike('email', targetEmail)
+            .maybeSingle();
+
+          const preUserId = uRec?.userId;
+          const preRole = uRec?.role;
+          const normalizedPreRole = (preRole || '').trim().toLowerCase();
+          const isSuperAdmin = normalizedPreRole === 'superadmin';
+
+          // Pure global roles are never gym-restricted
+          const isGlobalRole = isSuperAdmin || normalizedPreRole === 'global_trainer';
+
+          if (selectedGymId && !isGlobalRole) {
+            const custOr = [`email.ilike.${targetEmail}`];
+            if (preUserId) {
+              custOr.push(`userId.eq.${preUserId}`, `customerId.eq.${preUserId}`);
+            }
+            const trainerOr = [`email.ilike.${targetEmail}`];
+            if (preUserId) {
+              trainerOr.push(`userId.eq.${preUserId}`);
+            }
+            const ownerOr = [`ownerEmail.ilike.${targetEmail}`];
+            if (preUserId) {
+              ownerOr.push(`userId.eq.${preUserId}`, `createdBy.eq.${preUserId}`);
+            }
+
+            const [cRes, tRes, oRes] = await Promise.all([
+              supabase.from('gym_customers').select('customerId, gymId, is_deleted').or(custOr.join(',')).eq('is_deleted', false),
+              supabase.from('gym_trainers').select('gymTrainerId, gymId, is_deleted').or(trainerOr.join(',')).eq('is_deleted', false),
+              supabase.from('gym_owners').select('gymOwnerId, gymId, is_deleted').or(ownerOr.join(',')).eq('is_deleted', false),
+            ]);
+
+            const cRows = cRes.data || [];
+            const tRows = tRes.data || [];
+            const oRows = oRes.data || [];
+
+            const userGymIds = new Set<string>();
+            cRows.forEach((r: any) => r.gymId && userGymIds.add(r.gymId));
+            tRows.forEach((r: any) => r.gymId && userGymIds.add(r.gymId));
+            oRows.forEach((r: any) => r.gymId && userGymIds.add(r.gymId));
+
+            // If user has records in gym tables, but NONE match the currently selected gym:
+            if (userGymIds.size > 0 && !userGymIds.has(selectedGymId)) {
+              console.warn(`[SignIn Pre-check] Gym boundary blocked. User belongs to gym(s) ${Array.from(userGymIds).join(', ')}, but selected ${selectedGymId}`);
+              const errText = 'This account belongs to another gym. Please select your registered gym to sign in.';
+              setAuthErrorMessage(errText);
+              setLoading(false);
+              isManualLoginRef.current = false;
+              return;
+            }
+
+            // If role is known to be customer/trainer/owner, ensure it matches this gym
+            if (['customer', 'trainer', 'owner'].includes(normalizedPreRole)) {
+              if (userGymIds.size > 0 && !userGymIds.has(selectedGymId)) {
+                const errText = 'This account belongs to another gym. Please select your registered gym to sign in.';
+                setAuthErrorMessage(errText);
+                setLoading(false);
+                isManualLoginRef.current = false;
+                return;
+              }
+            }
+          }
+
+          if (typeId) {
             let preIsOwner = false;
             let preIsCustomer = false;
             let preIsTrainer = false;
             let preIsGlobalTrainer = false;
             let preIsIndividual = false;
-            let preUserFound = false;
 
-            const { data: uRec } = await supabase
-              .from('users')
-              .select('userId, role')
-              .eq('email', targetEmail)
-              .maybeSingle();
+            if (normalizedPreRole === 'owner') preIsOwner = true;
+            if (normalizedPreRole === 'customer') preIsCustomer = true;
+            if (normalizedPreRole === 'trainer') preIsTrainer = true;
+            if (normalizedPreRole === 'global_trainer') preIsGlobalTrainer = true;
+            if (normalizedPreRole === 'individual') preIsIndividual = true;
 
-            if (uRec) {
-              preUserFound = true;
-              if (uRec.role === 'owner') preIsOwner = true;
-              if (uRec.role === 'customer') preIsCustomer = true;
-              if (uRec.role === 'trainer') preIsTrainer = true;
-              if (uRec.role === 'global_trainer') preIsGlobalTrainer = true;
-              if (uRec.role === 'individual') preIsIndividual = true;
-            }
-
-            const [oRes, cRes, tRes, gtRes] = await Promise.all([
-              supabase.from('gym_owners').select('gymOwnerId, gymId, is_deleted').eq('ownerEmail', targetEmail).maybeSingle(),
-              supabase.from('gym_customers').select('customerId, gymId, is_deleted').eq('email', targetEmail).maybeSingle(),
-              supabase.from('gym_trainers').select('gymTrainerId, gymId, is_deleted').eq('email', targetEmail).maybeSingle(),
-              supabase.from('global_trainers').select('globalTrainerId, is_deleted').eq('email', targetEmail).maybeSingle(),
+            const [oCheck, cCheck, tCheck, gtCheck] = await Promise.all([
+              supabase.from('gym_owners').select('gymOwnerId').ilike('ownerEmail', targetEmail).eq('is_deleted', false).limit(1),
+              supabase.from('gym_customers').select('customerId').ilike('email', targetEmail).eq('is_deleted', false).limit(1),
+              supabase.from('gym_trainers').select('gymTrainerId').ilike('email', targetEmail).eq('is_deleted', false).limit(1),
+              supabase.from('global_trainers').select('globalTrainerId').ilike('email', targetEmail).eq('is_deleted', false).limit(1),
             ]);
 
-            if (oRes.data && oRes.data.is_deleted !== true) preIsOwner = true;
-            if (cRes.data && cRes.data.is_deleted !== true) preIsCustomer = true;
-            if (tRes.data && tRes.data.is_deleted !== true) preIsTrainer = true;
-            if (gtRes.data && gtRes.data.is_deleted !== true) preIsGlobalTrainer = true;
+            if (oCheck.data && oCheck.data.length > 0) preIsOwner = true;
+            if (cCheck.data && cCheck.data.length > 0) preIsCustomer = true;
+            if (tCheck.data && tCheck.data.length > 0) preIsTrainer = true;
+            if (gtCheck.data && gtCheck.data.length > 0) preIsGlobalTrainer = true;
 
-            if (preUserFound || preIsOwner || preIsCustomer || preIsTrainer || preIsGlobalTrainer) {
-              let preRoleValid = false;
-              if (typeId === 'individual') {
-                if (preIsIndividual || (!preIsOwner && !preIsCustomer && !preIsTrainer && !preIsGlobalTrainer)) {
-                  preRoleValid = true;
-                }
-              } else if (typeId === 'owner') {
-                if (preIsOwner) preRoleValid = true;
-              } else if (typeId === 'customer') {
-                if (preIsCustomer) preRoleValid = true;
-              } else if (typeId === 'gym_trainer') {
-                if (preIsTrainer) preRoleValid = true;
-              } else if (typeId === 'global_trainer') {
-                if (preIsGlobalTrainer) preRoleValid = true;
-              } else {
+            let preRoleValid = false;
+            if (typeId === 'individual') {
+              if (preIsIndividual || (!preIsOwner && !preIsCustomer && !preIsTrainer && !preIsGlobalTrainer)) {
                 preRoleValid = true;
               }
-
-              if (!preRoleValid) {
-                toast.error('Invalid credentials or check role');
-                setLoading(false);
-                isManualLoginRef.current = false;
-                return;
-              }
-
-              const currentSelectedGym = await getSelectedGym();
-              if (currentSelectedGym?.gymId) {
-                const selectedGymId = currentSelectedGym.gymId;
-                let isAuthorizedForGym = false;
-                let hasGymBoundRole = false;
-
-                if (oRes.data && oRes.data.is_deleted !== true) {
-                  hasGymBoundRole = true;
-                  if (oRes.data.gymId === selectedGymId) isAuthorizedForGym = true;
-                }
-                if (cRes.data && cRes.data.is_deleted !== true) {
-                  hasGymBoundRole = true;
-                  if (cRes.data.gymId === selectedGymId) isAuthorizedForGym = true;
-                }
-                if (tRes.data && tRes.data.is_deleted !== true) {
-                  hasGymBoundRole = true;
-                  if (tRes.data.gymId === selectedGymId) isAuthorizedForGym = true;
-                }
-
-                if (!hasGymBoundRole) {
-                  isAuthorizedForGym = true;
-                }
-
-                if (!isAuthorizedForGym) {
-                  toast.error('Invalid credentials or check gym');
-                  setLoading(false);
-                  isManualLoginRef.current = false;
-                  return;
-                }
-              }
+            } else if (typeId === 'owner') {
+              // Allow gym owners AND superadmins in gym owner login
+              if (preIsOwner || isSuperAdmin) preRoleValid = true;
+            } else if (typeId === 'customer') {
+              if (preIsCustomer) preRoleValid = true;
+            } else if (typeId === 'gym_trainer') {
+              if (preIsTrainer) preRoleValid = true;
+            } else if (typeId === 'global_trainer') {
+              if (preIsGlobalTrainer) preRoleValid = true;
+            } else {
+              preRoleValid = true;
             }
-          } catch (preCheckError) {
-            console.error('[SignIn] Pre-check failed:', preCheckError);
+
+            if (!preRoleValid && (uRec || preIsOwner || preIsCustomer || preIsTrainer || preIsGlobalTrainer || preIsIndividual)) {
+              const errText = 'Invalid credentials or check role';
+              setAuthErrorMessage(errText);
+              setLoading(false);
+              isManualLoginRef.current = false;
+              return;
+            }
           }
+        } catch (preCheckError) {
+          console.error('[SignIn] Pre-check failed:', preCheckError);
         }
 
         let authData: any = null;
@@ -319,7 +335,10 @@ export default function OtpAuthScreen() {
         if (authError) {
           console.error(authError.message || 'Unable to sign in.');
           if (isMounted.current) {
-            toast.error('Invalid credentials or check role');
+            const errText = authError.message?.toLowerCase().includes('invalid login credentials')
+              ? 'Invalid email or password. Please check your credentials.'
+              : 'Invalid credentials or check role';
+            setAuthErrorMessage(errText);
             setLoading(false);
           }
           isManualLoginRef.current = false;
@@ -371,46 +390,21 @@ export default function OtpAuthScreen() {
             console.error('[SignIn] Error checking gym status:', error);
           }
 
+          // POST-AUTH GYM MEMBERSHIP VERIFICATION (MANDATORY & BULLETPROOF)
           const postSelectedGym = await getSelectedGym();
           if (postSelectedGym?.gymId) {
-            const postSelectedGymId = postSelectedGym.gymId;
-            let gymCheckFailed = false;
-            let isAuthorizedForGym = false;
-            let hasGymBoundRole = false;
-
-            try {
-              const [oRes, cRes, tRes] = await Promise.all([
-                supabase.from('gym_owners').select('gymId').eq('userId', userId).eq('is_deleted', false).maybeSingle(),
-                supabase.from('gym_customers').select('gymId').eq('userId', userId).eq('is_deleted', false).maybeSingle(),
-                supabase.from('gym_trainers').select('gymId').eq('userId', userId).eq('is_deleted', false).maybeSingle(),
-              ]);
-
-              if (oRes.data) {
-                hasGymBoundRole = true;
-                if (oRes.data.gymId === postSelectedGymId) isAuthorizedForGym = true;
-              }
-              if (cRes.data) {
-                hasGymBoundRole = true;
-                if (cRes.data.gymId === postSelectedGymId) isAuthorizedForGym = true;
-              }
-              if (tRes.data) {
-                hasGymBoundRole = true;
-                if (tRes.data.gymId === postSelectedGymId) isAuthorizedForGym = true;
-              }
-
-            } catch (gymCheckError) {
-              console.error('[SignIn] Gym ID check query failed:', gymCheckError);
-              gymCheckFailed = true;
-            }
-
-            if (!hasGymBoundRole) {
-              isAuthorizedForGym = true;
-            }
-
-            if (gymCheckFailed || !isAuthorizedForGym) {
+            const gymAuth = await verifyUserGymMembership(userId, targetEmail, postSelectedGym.gymId);
+            if (!gymAuth.isAuthorized) {
+              console.warn(`[SignIn] Access denied for user ${targetEmail} in gym ${postSelectedGym.gymId}. Reason: ${gymAuth.reason}`);
               await supabase.auth.signOut();
               if (isMounted.current) {
-                toast.error('Invalid credentials or check gym');
+                let errText = 'Invalid credentials or check gym';
+                if (gymAuth.reason === 'DIFFERENT_GYM') {
+                  errText = 'This account belongs to another gym. Please select your registered gym to sign in.';
+                } else if (gymAuth.reason === 'NO_MEMBERSHIP_FOUND') {
+                  errText = 'No membership found for this gym. Please check your credentials or select your registered gym.';
+                }
+                setAuthErrorMessage(errText);
                 setLoading(false);
               }
               isManualLoginRef.current = false;
@@ -784,7 +778,10 @@ export default function OtpAuthScreen() {
                 <EnvelopeSimple size={18} color="#6B6B6B" />
                 <TextInput autoCorrect={false} spellCheck={false}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (authErrorMessage) setAuthErrorMessage(null);
+                  }}
                   placeholder="Email Address"
                   placeholderTextColor="#6B6B6B"
                   keyboardType="email-address"
@@ -794,46 +791,15 @@ export default function OtpAuthScreen() {
               </View>
             )}
 
-            {/* {(purpose === 'login' && loginMethod === 'phone' && phoneStep === 'request') && (
-              <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                <DeviceMobile size={18} color="#6B6B6B" />
-                <TextInput autoCorrect={false} spellCheck={false}
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="Phone Number"
-                  placeholderTextColor="#6B6B6B"
-                  keyboardType="phone-pad"
-                  className="flex-1 text-white text-[14px] p-0 font-medium"
-                />
-              </View>
-            )}
-
-            {(purpose === 'login' && loginMethod === 'phone' && phoneStep === 'verify') && (
-              <View className="gap-3">
-                <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                  <Key size={18} color="#6B6B6B" />
-                  <TextInput autoCorrect={false} spellCheck={false}
-                    value={otpCode}
-                    onChangeText={setOtpCode}
-                    placeholder="Enter 6-digit OTP"
-                    placeholderTextColor="#6B6B6B"
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    className="flex-1 text-white text-[14px] p-0 font-medium"
-                  />
-                </View>
-                <Pressable onPress={() => setPhoneStep('request')} className="self-end">
-                  <Text className="text-[#D4FF00] text-xs font-medium">Change Phone Number</Text>
-                </Pressable>
-              </View>
-            )} */}
-
             {loginMethod === 'email' && (
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <Key size={18} color="#6B6B6B" />
                 <TextInput autoCorrect={false} spellCheck={false}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (authErrorMessage) setAuthErrorMessage(null);
+                  }}
                   placeholder="Password"
                   placeholderTextColor="#6B6B6B"
                   secureTextEntry={!showPassword}
@@ -850,6 +816,15 @@ export default function OtpAuthScreen() {
               </View>
             )}
           </View>
+
+          {authErrorMessage && (
+            <View className="bg-red-500/10 border border-red-500/30 rounded-xl p-3.5 mb-3 flex-row items-center gap-3">
+              <WarningCircle size={20} color="#EF4444" weight="fill" />
+              <Text className="text-[#FF6B6B] text-xs font-medium flex-1 leading-5">
+                {authErrorMessage}
+              </Text>
+            </View>
+          )}
 
           {/* {purpose === 'login' && loginMethod === 'email' && (
             <Pressable onPress={() => router.push('/auth/forgot-password')} className="self-end mb-6">

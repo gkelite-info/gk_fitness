@@ -107,20 +107,26 @@ export async function saveCustomerOnboarding(
   const mappedGoal = normalizePrimaryGoal(data.primaryGoal);
 
   let finalGymId = data.gymId;
-  if (!finalGymId || finalGymId === '00000000-0000-0000-0000-000000000000') {
-    const { data: fallbackGym } = await supabase.from('gyms').select('gymId').limit(1).single();
-    finalGymId = fallbackGym?.gymId || '00000000-0000-0000-0000-000000000000';
-  }
 
   // Ensure user exists in gym_customers to satisfy foreign key constraints
   const { data: existingCustomer } = await supabase
     .from('gym_customers')
-    .select('customerId')
-    .eq('customerId', userId)
+    .select('customerId, gymId')
+    .or(`customerId.eq.${userId},userId.eq.${userId}`)
+    .eq('is_deleted', false)
+    .order('createdAt', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
+  if (existingCustomer?.gymId) {
+    finalGymId = existingCustomer.gymId;
+  } else if (!finalGymId || finalGymId === '00000000-0000-0000-0000-000000000000') {
+    const { data: fallbackGym } = await supabase.from('gyms').select('gymId').limit(1).single();
+    finalGymId = fallbackGym?.gymId || '00000000-0000-0000-0000-000000000000';
+  }
+
   if (!existingCustomer) {
-    const { data: userRecord } = await supabase.from('users').select('*').eq('userId', userId).single();
+    const { data: userRecord } = await supabase.from('users').select('*').eq('userId', userId).maybeSingle();
     if (userRecord) {
       await supabase.from('gym_customers').insert({
         customerId: userId,
@@ -147,7 +153,7 @@ export async function saveCustomerOnboarding(
       fullName: data.fullName,
       gender: data.gender || 'other',
       dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString() : new Date().toISOString(),
-    }).eq('customerId', userId);
+    }).eq('customerId', existingCustomer.customerId);
 
     if (data.gender) {
       await supabase.from('users').update({
@@ -173,6 +179,10 @@ export async function saveCustomerOnboarding(
     preferredCuisine: data.preferredCuisine || 'No Preference',
     calorieDistribution: data.calorieDistribution || 'Balanced',
     goalTimeframe: data.goalTimeframe || '12 weeks',
+    hasMedicalConditions: data.hasMedicalConditions ?? false,
+    medicalConditions: data.medicalConditions || [],
+    medicalDisclaimerAccepted: data.medicalDisclaimerAccepted ?? false,
+    medicalDisclaimerAcceptedAt: data.medicalDisclaimerAcceptedAt || null,
     createdBy: userId,
     updatedAt: now,
   };
@@ -185,43 +195,48 @@ export async function saveCustomerOnboarding(
     .limit(1)
     .maybeSingle();
 
-  let error;
-  if (existing?.onboardingId) {
-    const { error: updateError } = await supabase
-      .from('customer_onboarding')
-      .update(payload)
-      .eq('onboardingId', existing.onboardingId);
-    error = updateError;
-  } else {
-    const insertPayload = {
-      ...payload,
-      onboardingId: Crypto.randomUUID(),
-      createdAt: now,
-    };
-    const { error: insertError } = await supabase
-      .from('customer_onboarding')
-      .insert([insertPayload]);
-    error = insertError;
-  }
+  let workingPayload: any = { ...payload };
+  const potentialMissingCols = [
+    'hasMedicalConditions',
+    'medicalConditions',
+    'medicalDisclaimerAccepted',
+    'medicalDisclaimerAcceptedAt',
+    'calorieDistribution',
+    'goalTimeframe',
+  ];
 
-  // Fallback if goalTimeframe column is missing in schema
-  if (error && error.message.includes('goalTimeframe')) {
-    console.warn("Retrying without goalTimeframe due to schema error.");
-    const safePayload = { ...payload };
-    delete (safePayload as any).goalTimeframe;
-    
+  let error: any = null;
+  let attempt = 0;
+  const maxAttempts = potentialMissingCols.length + 1;
+
+  while (attempt < maxAttempts) {
+    attempt++;
     if (existing?.onboardingId) {
-      const { error: retryError } = await supabase
+      const res = await supabase
         .from('customer_onboarding')
-        .update(safePayload)
+        .update(workingPayload)
         .eq('onboardingId', existing.onboardingId);
-      error = retryError;
+      error = res.error;
     } else {
-      const safeInsertPayload = { ...safePayload, onboardingId: Crypto.randomUUID(), createdAt: now };
-      const { error: retryError } = await supabase
+      const insertPayload = {
+        ...workingPayload,
+        onboardingId: Crypto.randomUUID(),
+        createdAt: now,
+      };
+      const res = await supabase
         .from('customer_onboarding')
-        .insert([safeInsertPayload]);
-      error = retryError;
+        .insert([insertPayload]);
+      error = res.error;
+    }
+
+    if (!error) break;
+
+    const colToStrip = potentialMissingCols.find(col => error?.message?.includes(col));
+    if (colToStrip && colToStrip in workingPayload) {
+      console.warn(`[onboardingHelper] Retrying save without ${colToStrip} due to schema mismatch.`);
+      delete workingPayload[colToStrip];
+    } else {
+      break;
     }
   }
 
@@ -284,58 +299,41 @@ export async function updateCustomerOnboarding(payload: CustomerOnboardingUpdate
     safePayload.preferWorkoutTime = normalizePreferWorkoutTime(safePayload.preferWorkoutTime);
   }
 
-  let { error } = await supabase
-    .from('customer_onboarding')
-    .update({
-      ...safePayload,
-      updatedAt: new Date().toISOString()
-    })
-    .eq('onboardingId', safePayload.onboardingId);
+  let workingPayload: any = {
+    ...safePayload,
+    updatedAt: new Date().toISOString()
+  };
 
-  // Fallback if calorieDistribution column is missing in schema
-  if (error && error.message.includes('calorieDistribution')) {
-    console.warn("Retrying update without calorieDistribution due to schema error.");
-    delete safePayload.calorieDistribution;
-    
-    const retry = await supabase
+  const potentialMissingCols = [
+    'hasMedicalConditions',
+    'medicalConditions',
+    'medicalDisclaimerAccepted',
+    'medicalDisclaimerAcceptedAt',
+    'calorieDistribution',
+    'goalTimeframe',
+  ];
+
+  let error: any = null;
+  let attempt = 0;
+  const maxAttempts = potentialMissingCols.length + 1;
+
+  while (attempt < maxAttempts) {
+    attempt++;
+    const res = await supabase
       .from('customer_onboarding')
-      .update({
-        ...safePayload,
-        updatedAt: new Date().toISOString()
-      })
-      .eq('onboardingId', safePayload.onboardingId);
-      
-    error = retry.error;
-    
-    // Nested fallback if goalTimeframe is also missing
-    if (error && error.message.includes('goalTimeframe')) {
-      console.warn("Retrying update without goalTimeframe due to schema error.");
-      delete safePayload.goalTimeframe;
-      
-      const retry2 = await supabase
-        .from('customer_onboarding')
-        .update({
-          ...safePayload,
-          updatedAt: new Date().toISOString()
-        })
-        .eq('onboardingId', safePayload.onboardingId);
-        
-      error = retry2.error;
+      .update(workingPayload)
+      .eq('onboardingId', payload.onboardingId);
+    error = res.error;
+
+    if (!error) break;
+
+    const colToStrip = potentialMissingCols.find(col => error?.message?.includes(col));
+    if (colToStrip && colToStrip in workingPayload) {
+      console.warn(`[onboardingHelper] Retrying update without ${colToStrip} due to missing column in DB schema.`);
+      delete workingPayload[colToStrip];
+    } else {
+      break;
     }
-  } else if (error && error.message.includes('goalTimeframe')) {
-    // Fallback if only goalTimeframe is missing
-    console.warn("Retrying update without goalTimeframe due to schema error.");
-    delete safePayload.goalTimeframe;
-    
-    const retry = await supabase
-      .from('customer_onboarding')
-      .update({
-        ...safePayload,
-        updatedAt: new Date().toISOString()
-      })
-      .eq('onboardingId', safePayload.onboardingId);
-      
-    error = retry.error;
   }
 
   if (error) {

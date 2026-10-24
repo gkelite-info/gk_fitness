@@ -2,7 +2,7 @@ import React from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
-import { CaretLeft, User, Target, Leaf, ForkKnife, Flame, Globe, Bell, Prohibit, PintGlass as Glass, MagicWand, Lock, CaretRight } from 'phosphor-react-native';
+import { CaretLeft, User, Target, Leaf, ForkKnife, Flame, Globe, Bell, Prohibit, PintGlass as Glass, MagicWand, Lock, CaretRight, FirstAid } from 'phosphor-react-native';
 import { useCustomerMealPlan } from '@/hooks/customerMealPlans/useCustomerMealPlan';
 import { useOnboarding } from '../(onboarding)/_OnboardingContext';
 import { useUser } from '@/context/UserContext';
@@ -55,6 +55,8 @@ export default function NutritionPreferences() {
   const mealsPerDay = onboardingData?.mealsPerDay || 4;
   const waterGoal = onboardingData?.dailyWaterGoal || 3000;
   const allergies = onboardingData?.foodAllergies || [];
+  const medicalConditions = onboardingData?.medicalConditions || [];
+  const hasMedical = onboardingData?.hasMedicalConditions;
 
   return (
     <View className="flex-1 bg-[#0A0A0A] pb-28">
@@ -193,6 +195,30 @@ export default function NutritionPreferences() {
                 </View>
               )) : (
                 <Text className="text-[#8E8E93] text-[10px] font-semibold mr-2">None</Text>
+              )}
+              <CaretRight size={14} color="#555555" />
+            </View>
+          </Pressable>
+
+          <Pressable onPress={() => router.push('/(customer)/nutrition/food-preferences')} className="bg-[#141414] border border-[#222222] rounded-[16px] p-4 flex-row items-center active:opacity-80">
+            <View className="w-10 h-10 rounded-full bg-[#1A1A1A] items-center justify-center mr-4">
+              <FirstAid size={20} color="#C4EF00" weight="fill" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-white text-sm font-semibold mb-1">Medical Conditions</Text>
+              <Text className="text-[#8E8E93] text-[10px]">Pre-existing health conditions</Text>
+            </View>
+            <View className="flex-row items-center flex-wrap max-w-[150px] justify-end">
+              {medicalConditions.length > 0 ? (
+                medicalConditions.slice(0, 2).map((condition, index) => (
+                  <View key={index} className="border border-[#C4EF00]/50 rounded-full px-2 py-0.5 mr-1 mb-1">
+                    <Text className="text-[#C4EF00] text-[8px] font-semibold">{condition.toUpperCase()}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text className="text-[#8E8E93] text-[10px] font-semibold mr-2">
+                  {hasMedical === false ? 'None' : 'Not Set'}
+                </Text>
               )}
               <CaretRight size={14} color="#555555" />
             </View>

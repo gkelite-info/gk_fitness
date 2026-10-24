@@ -2,25 +2,58 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useUser } from '@/context/UserContext';
-import { getSelectedGym } from '@/helpers/tenantHelper';
+import { getSelectedGym, verifyUserGymMembership, clearSelectedGym } from '@/helpers/tenantHelper';
+import { supabase } from '@/lib/supabase';
 
 export default function Index() {
-  const { role, loading } = useUser();
+  const { role, loading, userId, email } = useUser();
   const [checkingGym, setCheckingGym] = useState(true);
   const [hasSelectedGym, setHasSelectedGym] = useState(false);
+  const [tenantAuthorized, setTenantAuthorized] = useState(true);
 
   useEffect(() => {
-    if (!loading && !role) {
-      const checkGym = async () => {
+    let isMounted = true;
+
+    async function checkAuthAndGym() {
+      if (loading) return;
+
+      if (!role) {
         const gym = await getSelectedGym();
-        setHasSelectedGym(!!gym);
-        setCheckingGym(false);
-      };
-      checkGym();
-    } else if (!loading && role) {
-      setCheckingGym(false);
+        if (isMounted) {
+          setHasSelectedGym(!!gym);
+          setCheckingGym(false);
+        }
+      } else {
+        const normalizedRole = role.trim().toLowerCase();
+        if (['customer', 'trainer', 'owner'].includes(normalizedRole)) {
+          const gym = await getSelectedGym();
+          if (gym?.gymId && userId) {
+            const authResult = await verifyUserGymMembership(userId, email, gym.gymId);
+            if (!authResult.isAuthorized) {
+              console.warn('[Index] Mismatched/stale session detected. Signing out.');
+              await supabase.auth.signOut();
+              await clearSelectedGym();
+              if (isMounted) {
+                setTenantAuthorized(false);
+                setHasSelectedGym(false);
+                setCheckingGym(false);
+              }
+              return;
+            }
+          }
+        }
+        if (isMounted) {
+          setCheckingGym(false);
+        }
+      }
     }
-  }, [loading, role]);
+
+    checkAuthAndGym();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loading, role, userId, email]);
 
   if (loading || checkingGym) {
     return (
@@ -30,7 +63,7 @@ export default function Index() {
     );
   }
 
-  if (role) {
+  if (role && tenantAuthorized) {
     const normalizedRole = role.trim().toLowerCase();
     if (normalizedRole === 'superadmin') {
       return <Redirect href="/(superadmin)/dashboard" />;

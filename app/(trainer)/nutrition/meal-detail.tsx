@@ -4,7 +4,7 @@ import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, CaretDown, Sun, Check } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
-import { fetchGlobalMeals, fetchMealIngredients } from '@/helpers/globalMeals/globalMeals';
+import { fetchGlobalMeals, fetchMealIngredients, getRecipeImageUrl } from '@/helpers/globalMeals/globalMeals';
 import { saveMealPlanDayMeal } from '@/helpers/customerMealPlans/mealPlanDayMeals';
 import { useUser } from '@/context/UserContext';
 import { fetchCustomerOnboarding } from '@/helpers/onboardingHelper';
@@ -109,7 +109,7 @@ export default function MealDetail() {
         showsVerticalScrollIndicator={false}
       >
         <ImageBackground
-          source={{ uri: meal.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600&auto=format&fit=crop' }}
+          source={{ uri: getRecipeImageUrl(meal.imageUrl || meal.image, meal.mealType) }}
           className="w-full h-80 justify-between pb-4"
           resizeMode="cover"
         >
@@ -226,7 +226,7 @@ export default function MealDetail() {
                     </View>
                   </View>
                   <View className="w-24 h-24 rounded-2xl overflow-hidden bg-[#1A1A1A] ml-2">
-                    <Image source={{ uri: alt.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600&auto=format&fit=crop' }} className="w-full h-full" resizeMode="cover" />
+                    <Image source={{ uri: getRecipeImageUrl(alt.imageUrl, alt.mealType) }} className="w-full h-full" resizeMode="cover" />
                   </View>
 
                 </Pressable>

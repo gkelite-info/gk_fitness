@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Pressable, Modal, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, Modal, ActivityIndicator, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CaretLeft, Sun, Star, Check } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
-import { fetchGlobalMeals, fetchMealIngredients } from '@/helpers/globalMeals/globalMeals';
+import { fetchGlobalMeals, fetchMealIngredients, getRecipeImageUrl } from '@/helpers/globalMeals/globalMeals';
 import { saveMealPlanDayMeal } from '@/helpers/customerMealPlans/mealPlanDayMeals';
 import { useUser } from '@/context/UserContext';
 import { fetchCustomerOnboarding } from '@/helpers/onboardingHelper';
@@ -112,6 +112,7 @@ export default function SwapMeal() {
         protein: selectedMealData.scaledProtein,
         carbs: selectedMealData.scaledCarbs,
         fat: selectedMealData.scaledFat,
+        fiber: selectedMealData.scaledFiber || 0,
         order: currentMeal.order,
         image: selectedMealData.imageUrl,
         globalMealId: selectedMealData.globalMealId,
@@ -158,18 +159,18 @@ export default function SwapMeal() {
       >
         <Text className="text-white text-base font-semibold mb-4">Current Meal</Text>
 
-        <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-8 flex-row">
-          <View className="flex-1 pr-4">
+        <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-8 flex-row items-center">
+          <View className="flex-1 pr-3">
             <View className="flex-row items-center mb-1">
               <Sun size={14} color="#C4EF00" weight="fill" style={{ marginRight: 6 }} />
               <Text className="text-[#C4EF00] text-[10px] font-semibold tracking-widest">{currentMeal?.mealType?.toUpperCase()}</Text>
             </View>
-            <Text className="text-white text-base font-semibold mb-2">{currentMeal?.mealName}</Text>
-            <Text className="text-[#8E8E93] text-[11px] leading-4 mb-4">
+            <Text className="text-white text-base font-semibold mb-1">{currentMeal?.mealName}</Text>
+            <Text className="text-[#8E8E93] text-[11px] leading-4 mb-3" numberOfLines={2}>
               {currentMeal?.description}
             </Text>
 
-            <View className="flex-row items-center gap-x-4">
+            <View className="flex-row items-center gap-x-3">
               <Text className="text-white text-[11px] font-semibold"><Text className="text-[#4ADE80]">P</Text> {currentMeal?.protein}g</Text>
               <View className="w-[1px] h-3 bg-[#333333]" />
               <Text className="text-white text-[11px] font-semibold"><Text className="text-[#FBBF24]">C</Text> {currentMeal?.carbs}g</Text>
@@ -178,9 +179,12 @@ export default function SwapMeal() {
             </View>
           </View>
 
-          <View className="bg-[#0A0A0A] border border-[#222222] rounded-[16px] w-[50px] h-[50px] items-center justify-center">
-            <Text className="text-white text-sm font-semibold mb-0.5">{currentMeal?.calories}</Text>
-            <Text className="text-[#8E8E93] text-[8px] uppercase tracking-wider">Kcal</Text>
+          <View className="w-16 h-16 rounded-[16px] overflow-hidden bg-[#1A1A1A] border border-[#222222]">
+            <Image
+              source={{ uri: getRecipeImageUrl(currentMeal?.imageUrl || currentMeal?.image, currentMeal?.mealType) }}
+              className="w-full h-full"
+              resizeMode="cover"
+            />
           </View>
         </View>
 
@@ -199,25 +203,25 @@ export default function SwapMeal() {
                 }}
                 className={`bg-[#141414] border rounded-[24px] p-5 flex-row ${isSelected ? 'border-[#C4EF00]' : 'border-[#222222]'}`}
               >
-                <View className="flex-1 pr-4">
+                <View className="flex-1 pr-3">
                   {isBestMatch && (
                     <View className="bg-[#1A2E00] self-start px-2 py-1 rounded mb-2 flex-row items-center">
                       <Star size={10} color="#C4EF00" weight="fill" style={{ marginRight: 4 }} />
                       <Text className="text-[#C4EF00] text-[9px] font-semibold">BEST MATCH</Text>
                     </View>
                   )}
-                  <Text className="text-white text-base font-semibold mb-2 mt-1">{alt.mealName}</Text>
-                  <Text className="text-[#8E8E93] text-[11px] leading-4 mb-4">
+                  <Text className="text-white text-base font-semibold mb-1 mt-1">{alt.mealName}</Text>
+                  <Text className="text-[#8E8E93] text-[11px] leading-4 mb-3" numberOfLines={2}>
                     {alt.description}
                   </Text>
 
                   <View className="flex-row items-center">
-                    <View className="mr-4">
+                    <View className="mr-3">
                       <Text className="text-white text-[12px] font-semibold mb-0.5">{alt.scaledCalories}</Text>
                       <Text className="text-[#8E8E93] text-[8px] uppercase tracking-wider">Kcal</Text>
                     </View>
-                    <View className="w-[1px] h-6 bg-[#333333] mr-4" />
-                    <View className="flex-row items-center gap-x-3">
+                    <View className="w-[1px] h-5 bg-[#333333] mr-3" />
+                    <View className="flex-row items-center gap-x-2.5">
                       <Text className="text-white text-[10px] font-semibold"><Text className="text-[#4ADE80]">P</Text> {alt.scaledProtein}g</Text>
                       <Text className="text-white text-[10px] font-semibold"><Text className="text-[#FBBF24]">C</Text> {alt.scaledCarbs}g</Text>
                       <Text className="text-white text-[10px] font-semibold"><Text className="text-[#A78BFA]">F</Text> {alt.scaledFat}g</Text>
@@ -225,7 +229,15 @@ export default function SwapMeal() {
                   </View>
                 </View>
 
-                <View className="justify-center pl-2">
+                <View className="w-16 h-16 rounded-[14px] overflow-hidden bg-[#1A1A1A] self-center mr-2 border border-[#222222]">
+                  <Image
+                    source={{ uri: getRecipeImageUrl(alt.imageUrl, alt.mealType) }}
+                    className="w-full h-full"
+                    resizeMode="cover"
+                  />
+                </View>
+
+                <View className="justify-center pl-1">
                   <View className={`border rounded-full px-3 py-1.5 ${isSelected ? 'bg-[#C4EF00] border-[#C4EF00]' : 'border-[#444444] bg-transparent'}`}>
                     <Text className={`text-[11px] font-semibold ${isSelected ? 'text-black' : 'text-[#8E8E93]'}`}>Replace</Text>
                   </View>

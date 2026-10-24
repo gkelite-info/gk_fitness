@@ -27,7 +27,7 @@ import {
   ArrowsClockwise,
   Buildings,
 } from 'phosphor-react-native';
-import * as Location from 'expo-location';
+import * as Location from '@/lib/location/safeLocation';
 import { useGyms } from '@/hooks/gyms/useGyms';
 import { useUser } from '@/context/UserContext';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';

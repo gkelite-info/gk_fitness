@@ -14,6 +14,7 @@ export interface GeneratedMealPlan {
       protein: number;
       carbs: number;
       fat: number;
+      fiber?: number;
       order: number;
       globalMealId?: string;
       ingredientsJson?: any;
@@ -90,6 +91,47 @@ export async function generateAlgorithmicPlan(userId: string): Promise<Generated
      };
   }
 
+  // 1b. Medical-Condition Adaptive Macro Ratios
+  let proteinRatio = 0.30;
+  let carbRatio = 0.45;
+  let fatRatio = 0.25;
+
+  const rawConditions = profile.medicalConditions || [];
+  const userConditions = (Array.isArray(rawConditions) ? rawConditions : []).map((c: any) => String(c).toLowerCase());
+  const hasCond = (kw: string) => userConditions.some((c: string) => c.includes(kw));
+
+  if (hasCond('diabet') || hasCond('insulin') || hasCond('prediabet') || hasCond('pcos') || hasCond('pcod')) {
+    // Low-GI, moderate complex carbs, enhanced protein & healthy fats
+    proteinRatio = 0.35;
+    carbRatio = 0.35;
+    fatRatio = 0.30;
+  } else if (hasCond('kidney') || hasCond('ckd')) {
+    // Moderate protein to reduce renal burden
+    proteinRatio = 0.20;
+    carbRatio = 0.52;
+    fatRatio = 0.28;
+  } else if (hasCond('gout') || hasCond('uric acid')) {
+    // Moderate protein, plant-focused, lower purine
+    proteinRatio = 0.22;
+    carbRatio = 0.53;
+    fatRatio = 0.25;
+  } else if (hasCond('fatty liver') || hasCond('nafld') || hasCond('hepatic')) {
+    // Reduced simple sugars, high lean protein, healthy unsaturated fats
+    proteinRatio = 0.33;
+    carbRatio = 0.37;
+    fatRatio = 0.30;
+  } else if (hasCond('reflux') || hasCond('gerd')) {
+    // Clean, lower fat to minimize acid regurgitation
+    proteinRatio = 0.30;
+    carbRatio = 0.48;
+    fatRatio = 0.22;
+  } else if (hasCond('cholesterol') || hasCond('heart') || hasCond('cardio') || hasCond('hypertension')) {
+    // Heart-healthy, lower saturated fat
+    proteinRatio = 0.32;
+    carbRatio = 0.43;
+    fatRatio = 0.25;
+  }
+
   // 2. Fetch and filter Global Meals
   const allMeals = await fetchGlobalMeals();
   const userDiet = (profile.dietType || 'non-vegetarian').toLowerCase().replace(/[^a-z]/g, '');
@@ -142,9 +184,10 @@ export async function generateAlgorithmicPlan(userId: string): Promise<Generated
              mealName: 'Placeholder Meal',
              description: `DEBUG: Total=${allMeals.length}, Eligible=${eligibleMeals.length}, Diet=${userDiet}. Pool for ${t} empty. 1st meal diets: ${allMeals[0]?.dietTypes ? JSON.stringify(allMeals[0].dietTypes) : 'null'}`,
              calories: Math.round(targetCalories),
-             protein: Math.round((targetCalories * 0.30) / 4),
-             carbs: Math.round((targetCalories * 0.45) / 4),
-             fat: Math.round((targetCalories * 0.25) / 9),
+             protein: Math.round((targetCalories * proteinRatio) / 4),
+             carbs: Math.round((targetCalories * carbRatio) / 4),
+             fat: Math.round((targetCalories * fatRatio) / 9),
+             fiber: Math.round(((targetCalories * carbRatio) / 4) * 0.15),
              order: order++,
           });
           continue;
@@ -181,9 +224,10 @@ export async function generateAlgorithmicPlan(userId: string): Promise<Generated
          mealName: selectedMeal.mealName,
          description: selectedMeal.description,
          calories: selectedMeal.calories ? Math.round(selectedMeal.calories * scalar) : Math.round(targetCalories),
-         protein: selectedMeal.protein ? Math.round(selectedMeal.protein * scalar) : Math.round((targetCalories * 0.30) / 4),
-         carbs: selectedMeal.carbs ? Math.round(selectedMeal.carbs * scalar) : Math.round((targetCalories * 0.45) / 4),
-         fat: selectedMeal.fat ? Math.round(selectedMeal.fat * scalar) : Math.round((targetCalories * 0.25) / 9),
+         protein: selectedMeal.protein ? Math.round(selectedMeal.protein * scalar) : Math.round((targetCalories * proteinRatio) / 4),
+         carbs: selectedMeal.carbs ? Math.round(selectedMeal.carbs * scalar) : Math.round((targetCalories * carbRatio) / 4),
+         fat: selectedMeal.fat ? Math.round(selectedMeal.fat * scalar) : Math.round((targetCalories * fatRatio) / 9),
+         fiber: selectedMeal.fiber ? Math.round(selectedMeal.fiber * scalar) : Math.round((selectedMeal.carbs || 30) * 0.15),
          order: order++,
          globalMealId: selectedMeal.globalMealId,
          ingredientsJson: scaledIngredients,
@@ -206,6 +250,16 @@ export function getEligibleMealsForUser(allMeals: GlobalMeal[], profile: any): G
   const userDiet = (profile.dietType || 'non-vegetarian').toLowerCase().replace(/[^a-z]/g, '');
   const userAllergies = (profile.foodAllergies || []).map((a: string) => a.toLowerCase().replace(/[^a-z]/g, ''));
   const userCuisine = (profile.preferredCuisine || 'no preference').toLowerCase().replace(/[^a-z]/g, '');
+
+  const rawConditions = profile.medicalConditions || [];
+  const userConditions = (Array.isArray(rawConditions) ? rawConditions : []).map((c: any) => String(c).toLowerCase());
+  const hasCond = (kw: string) => userConditions.some((c: string) => c.includes(kw));
+
+  // If user has Celiac Disease or gluten sensitivity, automatically safeguard against gluten & wheat allergens
+  if (hasCond('celiac') || hasCond('gluten')) {
+    if (!userAllergies.includes('gluten')) userAllergies.push('gluten');
+    if (!userAllergies.includes('wheat')) userAllergies.push('wheat');
+  }
 
   const dietAllowedList: Record<string, string[]> = {
     'vegan': ['vegan'],
@@ -240,11 +294,75 @@ export function getEligibleMealsForUser(allMeals: GlobalMeal[], profile: any): G
         if (allergens.includes(allergy)) return false;
       }
     }
+
+    // 2b. Medical Contraindication Check (Strict Exclusion)
+    if (userConditions.length > 0 && meal.contraindications && meal.contraindications.length > 0) {
+      let rawContra: any = meal.contraindications;
+      if (typeof rawContra === 'string') {
+        try { rawContra = JSON.parse(rawContra); } catch (e) { rawContra = [rawContra]; }
+      }
+      const contraList = Array.isArray(rawContra) ? rawContra.map((c: any) => String(c).toLowerCase()) : [];
+      for (const contra of contraList) {
+        if (userConditions.some((uc: string) => uc.includes(contra) || contra.includes(uc))) {
+          return false; // Exclude recipe strictly if contraindicated
+        }
+      }
+    }
     
     return true;
   });
 
-  // 3. Soft Cuisine Filter
+  // 3. Medical Condition Soft Prioritization
+  if (userConditions.length > 0) {
+    const medicalPreferred = eligibleMeals.filter(meal => {
+      // 3a. Explicit suitableFor database tag match
+      if (meal.suitableFor && meal.suitableFor.length > 0) {
+        let rawSuitable: any = meal.suitableFor;
+        if (typeof rawSuitable === 'string') {
+          try { rawSuitable = JSON.parse(rawSuitable); } catch (e) { rawSuitable = [rawSuitable]; }
+        }
+        const suitableList = Array.isArray(rawSuitable) ? rawSuitable.map((s: any) => String(s).toLowerCase()) : [];
+        if (suitableList.some((st: string) => userConditions.some((uc: string) => uc.includes(st) || st.includes(uc)))) {
+          return true;
+        }
+      }
+
+      // 3b. Keyword fallback in description and dietTypes
+      const desc = (meal.description || '').toLowerCase();
+      let rawDiets: any = meal.dietTypes || [];
+      if (typeof rawDiets === 'string') {
+        try { rawDiets = JSON.parse(rawDiets); } catch (e) { rawDiets = [rawDiets]; }
+      }
+      const dietsStr = Array.isArray(rawDiets) ? rawDiets.join(' ').toLowerCase() : '';
+
+      if (hasCond('diabet') || hasCond('insulin')) {
+        if (desc.includes('sugar-free') || desc.includes('low-gi') || dietsStr.includes('diabetic')) return true;
+      }
+      if (hasCond('hypertension') || hasCond('blood pressure')) {
+        if (desc.includes('low sodium') || dietsStr.includes('low-sodium')) return true;
+      }
+      if (hasCond('heart') || hasCond('cardio') || hasCond('cholesterol')) {
+        if (desc.includes('heart') || desc.includes('low fat') || dietsStr.includes('heart-healthy')) return true;
+      }
+      if (hasCond('fatty liver') || hasCond('nafld')) {
+        if (desc.includes('lean') || desc.includes('low sugar') || dietsStr.includes('liver-friendly')) return true;
+      }
+      if (hasCond('gout') || hasCond('uric acid')) {
+        if (desc.includes('low purine') || dietsStr.includes('low-purine') || desc.includes('plant-based')) return true;
+      }
+      if (hasCond('reflux') || hasCond('gerd')) {
+        if (desc.includes('mild') || desc.includes('non-acidic') || desc.includes('low acid')) return true;
+      }
+      return false;
+    });
+
+    if (medicalPreferred.length >= 3) {
+      const remaining = eligibleMeals.filter(m => !medicalPreferred.includes(m));
+      eligibleMeals = [...medicalPreferred, ...remaining];
+    }
+  }
+
+  // 4. Soft Cuisine Filter
   if (userCuisine !== 'nopreference') {
     const cuisineMeals = eligibleMeals.filter(meal => {
       let rawCuisines: any = meal.cuisines || [];

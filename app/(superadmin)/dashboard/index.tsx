@@ -19,6 +19,7 @@ import {
   Globe,
   Barbell,
   CurrencyInr,
+  CookingPot,
 } from 'phosphor-react-native';
 import { useGyms } from '@/hooks/gyms/useGyms';
 import { useUsers } from '@/hooks/users/useUsers';
@@ -35,6 +36,7 @@ const QUICK_ACTIONS_DATA = [
   { id: 'register-gym', icon: Buildings, label: 'Register\nNew Gym' },
   { id: 'create-global-trainer', icon: UserPlus, label: 'Create Global\nTrainer' },
   { id: 'create-workouts', icon: Barbell, label: 'Create\nWorkouts' },
+  { id: 'manage-recipes', icon: CookingPot, label: 'Manage\nRecipes' },
   { id: 'support-requests', icon: Headphones, label: 'Support\nRequests' },
 ];
 
@@ -122,6 +124,8 @@ export default function DashboardScreen() {
       router.push('/(superadmin)/dashboard/globalTrainers' as any);
     } else if (id === 'create-workouts') {
       router.push('/(superadmin)/dashboard/workouts' as any);
+    } else if (id === 'manage-recipes') {
+      router.push('/(superadmin)/dashboard/recipes' as any);
     }
   };
 

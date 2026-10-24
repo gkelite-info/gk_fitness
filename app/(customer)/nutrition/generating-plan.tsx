@@ -74,11 +74,13 @@ export default function GeneratingPlan() {
                                 protein: meal.protein,
                                 carbs: meal.carbs,
                                 fat: meal.fat,
+                                fiber: meal.fiber || 0,
                                 order: meal.order,
                                 globalMealId: meal.globalMealId,
                                 ingredientsJson: meal.ingredientsJson,
                                 recipeInstructions: meal.recipeInstructions,
                                 imageUrl: meal.imageUrl,
+                                image: meal.imageUrl,
                                 prepTimeMinutes: meal.prepTimeMinutes,
                             });
                         }

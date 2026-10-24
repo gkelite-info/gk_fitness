@@ -4,8 +4,9 @@ import { Text } from '@/components/nativewindui/Text';
 import { router, Stack } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { User, Buildings, Barbell, Globe, ShieldCheck, CaretRight } from 'phosphor-react-native';
-import { clearSelectedGym } from '@/helpers/tenantHelper';
+import { clearSelectedGym, getSelectedGym, verifyUserGymMembership } from '@/helpers/tenantHelper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '@/lib/supabase';
 
 import { useUser } from '@/context/UserContext';
 import { navigateBasedOnRole } from '@/helpers/otpHelper';
@@ -20,16 +21,42 @@ const ACCOUNT_TYPES = [
 
 export default function AccountTypeScreen() {
   const insets = useSafeAreaInsets();
-  const { role, loading } = useUser();
+  const { role, loading, userId, email } = useUser();
 
   useFocusEffect(
     useCallback(() => {
-      if (!loading && role) {
-        navigateBasedOnRole(role);
-      } else {
-        clearSelectedGym();
+      let isCancelled = false;
+
+      async function checkSessionAndNavigate() {
+        if (!loading && role) {
+          const normalizedRole = role.trim().toLowerCase();
+          if (['customer', 'trainer', 'owner'].includes(normalizedRole)) {
+            const selectedGym = await getSelectedGym();
+            if (selectedGym?.gymId && userId) {
+              const authResult = await verifyUserGymMembership(userId, email, selectedGym.gymId);
+              if (!authResult.isAuthorized) {
+                console.warn('[AccountTypeScreen] Mismatched session detected. Signing out.');
+                await supabase.auth.signOut();
+                await clearSelectedGym();
+                return;
+              }
+            }
+          }
+
+          if (!isCancelled) {
+            navigateBasedOnRole(role);
+          }
+        } else {
+          clearSelectedGym();
+        }
       }
-    }, [role, loading])
+
+      checkSessionAndNavigate();
+
+      return () => {
+        isCancelled = true;
+      };
+    }, [role, loading, userId, email])
   );
 
   const handleSelect = (typeId: string) => {

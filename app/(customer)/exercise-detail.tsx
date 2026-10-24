@@ -24,6 +24,7 @@ import { useSaveSetLog } from '@/hooks/customerWorkouts/useSaveSetLog';
 import { useLastSessionWeights, useWorkoutSetLogs } from '@/hooks/customerWorkouts/useWorkoutSetLogs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
+import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { SetRow, WorkoutSetRow, SetType } from '@/components/workout/SetRow';
 import { RestTimerWidget } from '@/components/workout/RestTimerWidget';
 import { ExerciseInfoSheet } from '@/components/workout/ExerciseInfoSheet';
@@ -53,7 +54,10 @@ function buildInitialSets(
 export default function ExerciseDetail() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ dayId: string; exerciseIndex: string }>();
-  const { userId } = useUser();
+  const userContext = useUser();
+  const userId = userContext.userId;
+  const { data: customerProfileData } = useCustomerProfile(userId);
+  const userGender = customerProfileData?.customerData?.gender?.toLowerCase() || userContext.gender?.toLowerCase() || 'male';
 
   const initialIndex = parseInt(params.exerciseIndex || '0');
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -70,7 +74,7 @@ export default function ExerciseDetail() {
   const [isFinishing, setIsFinishing] = useState(false);
 
   const { data: dayData, isLoading: isLoadingDay } = useWorkoutPlanDayById(params.dayId);
-  const { data: eData, isLoading: isLoadingExercises } = useWorkoutPlanDayExercises(params.dayId);
+  const { data: eData, isLoading: isLoadingExercises } = useWorkoutPlanDayExercises(params.dayId, userGender);
 
   const exercises = React.useMemo(() => {
     return eData ? [...eData].sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : [];
@@ -181,6 +185,7 @@ export default function ExerciseDetail() {
       if (updated.isCompleted && currentExercise) {
         startRestTimerRef.current?.();
 
+        // Save to customer_workout_set_logs
         try {
           await saveSetLog({
             dayExerciseId: currentExercise.dayExerciseId,
@@ -283,7 +288,18 @@ export default function ExerciseDetail() {
     if (!currentExercise) return null;
     let rawUrl = currentExercise.videoUrl;
     if (!rawUrl && currentExercise.workout_videos) {
-      const wv = Array.isArray(currentExercise.workout_videos) ? currentExercise.workout_videos[0] : currentExercise.workout_videos;
+      let wv = null;
+      if (Array.isArray(currentExercise.workout_videos)) {
+        wv = currentExercise.workout_videos.find((v: any) => v.gender?.toLowerCase() === userGender || v.workouts?.role?.toLowerCase() === userGender);
+        if (!wv) {
+          wv = currentExercise.workout_videos.find((v: any) => !v.gender || v.gender?.toLowerCase() === 'all' || v.gender === '');
+        }
+        if (!wv && currentExercise.workout_videos.length > 0) {
+          wv = currentExercise.workout_videos[0];
+        }
+      } else {
+        wv = currentExercise.workout_videos;
+      }
       if (wv?.videoUrl) rawUrl = wv.videoUrl;
     }
     if (!rawUrl) {
@@ -312,7 +328,7 @@ export default function ExerciseDetail() {
       return url;
     }
     return supabase.storage.from('workout-videos').getPublicUrl(url).data.publicUrl;
-  }, [currentExercise]);
+  }, [currentExercise, userGender]);
 
   const player = useVideoPlayer(localVideoSource, (p) => {
     p.loop = true;
@@ -578,7 +594,7 @@ export default function ExerciseDetail() {
         visible={showCompleteModal}
         onClose={() => {
           setShowCompleteModal(false);
-          router.push({ pathname: '/(customer)/workout-session', params: { dayId: params.dayId } });
+          router.push('/(customer)/workout');
         }}
         workoutTitle={dayData?.workoutType || 'Workout Session'}
         totalExercises={total}

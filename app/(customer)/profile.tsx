@@ -21,6 +21,7 @@ import { queryClient } from '@/lib/react-query';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { useWorkoutStreak } from '@/hooks/customerWorkouts/useWorkoutStreak';
+import { unregisterPushToken } from '@/lib/services/notificationService';
 
 export default function ProfileScreen() {
   const userContext = useUser();
@@ -60,6 +61,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
+      await unregisterPushToken(userId ?? undefined).catch(() => {});
       const { error } = await supabase.auth.signOut();
       if (error) {
         Alert.alert('Sign Out Error', error.message);

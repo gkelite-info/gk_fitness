@@ -30,17 +30,20 @@ const PedometerContext = createContext<PedometerContextValue>({
   syncSteps: async () => {},
 });
 
+const getStepsCacheKey = (userId: string, date: string) => `@gk_steps_${userId}_${date}`;
+
 export function PedometerProvider({ children }: { children: React.ReactNode }) {
   const [isAvailable, setIsAvailable] = useState<boolean>(false);
   const [steps, setSteps] = useState(0);
   const [debugInfo, setDebugInfo] = useState('');
   const { userId } = useUser();
   const hcReadyRef = useRef(false);
+  const lastWatchStepsRef = useRef(0);
 
   // ──────────────────────────────────────────────────────────
-  // Initialize steps from Supabase daily summary for today
-  // Ensures steps are not 0 before sensor query completes or
-  // if sensor is unavailable on this device (e.g. simulator).
+  // Initialize steps:
+  // 1. Immediately read from AsyncStorage local cache for instant UI rendering
+  // 2. Query Supabase daily summary for today and take Math.max
   // ──────────────────────────────────────────────────────────
   useEffect(() => {
     let isCurrent = true;
@@ -49,9 +52,26 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
     const loadInitialStats = async () => {
       try {
         const today = getLocalDateString(new Date());
+
+        // Fast local cache restoration
+        try {
+          const cached = await AsyncStorage.getItem(getStepsCacheKey(userId, today));
+          if (cached) {
+            const parsed = parseInt(cached, 10);
+            if (!isNaN(parsed) && parsed > 0 && isCurrent) {
+              setSteps(prev => Math.max(prev, parsed));
+            }
+          }
+        } catch {}
+
+        // Supabase DB fetch
         const summary = await supabaseFitnessService.getDailyStats(userId, today);
         if (isCurrent && summary && typeof summary.steps === 'number' && summary.steps > 0) {
-          setSteps(prev => Math.max(prev, summary.steps));
+          setSteps(prev => {
+            const best = Math.max(prev, summary.steps);
+            AsyncStorage.setItem(getStepsCacheKey(userId, today), best.toString()).catch(() => {});
+            return best;
+          });
         }
       } catch (e) {
         // Silently continue if initial DB fetch fails
@@ -66,9 +86,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
   // ──────────────────────────────────────────────────────────
   // Android: Read steps from Health Connect using aggregate()
-  // This is the INDUSTRY STANDARD approach. Health Connect is
-  // a system-level store — the OS hardware sensor hub writes
-  // step data here 24/7, even when our app is killed.
+  // Health Connect is a system-level store written 24/7.
   // ──────────────────────────────────────────────────────────
   const getHealthConnectSteps = async (): Promise<number> => {
     if (Platform.OS !== 'android' || !HealthConnect?.aggregateRecord) return 0;
@@ -77,8 +95,6 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
       startOfDay.setHours(0, 0, 0, 0);
       const now = new Date();
 
-      // aggregateRecord is the correct function name in react-native-health-connect
-      // The return type for Steps is { COUNT_TOTAL: number, dataOrigins: string[] }
       const result = await HealthConnect.aggregateRecord({
         recordType: 'Steps',
         timeRangeFilter: {
@@ -90,68 +106,85 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
       return result?.COUNT_TOTAL ?? 0;
     } catch (e) {
-      console.warn('[Pedometer] Health Connect aggregateRecord failed:', e);
       return 0;
     }
   };
 
   // ──────────────────────────────────────────────────────────
-  // Fallback: expo-sensors hardware step counter
-  // Works while app is in foreground. Less reliable for
-  // background/killed state but still useful as a fallback.
-  // ──────────────────────────────────────────────────────────
-  const getHardwareSteps = async (): Promise<number> => {
-    try {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      const now = new Date();
-      const result = await Pedometer.getStepCountAsync(startOfDay, now);
-      return result?.steps || 0;
-    } catch {
-      return 0;
-    }
-  };
-
-  // ──────────────────────────────────────────────────────────
-  // Main sync function — runs on mount, on app foreground,
-  // and periodically. Takes the BEST value from all sources.
+  // Main sync function — runs on mount, foreground, & refresh.
   // ──────────────────────────────────────────────────────────
   const syncSteps = useCallback(async (isMounted: boolean = true) => {
     try {
+      const today = getLocalDateString(new Date());
+
       if (Platform.OS === 'ios') {
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
         const now = new Date();
-        const result = await Pedometer.getStepCountAsync(startOfDay, now);
-        if (isMounted && result && typeof result.steps === 'number' && result.steps > 0) {
-          setSteps(prev => Math.max(prev, result.steps));
-          setDebugInfo(`iOS Steps: ${result.steps}`);
+        let coremotionSteps = 0;
+
+        try {
+          const result = await Pedometer.getStepCountAsync(startOfDay, now);
+          if (result && typeof result.steps === 'number') {
+            coremotionSteps = result.steps;
+          }
+        } catch (cmErr: any) {
+          console.warn('[Pedometer] iOS getStepCountAsync error:', cmErr);
+        }
+
+        let cachedSteps = 0;
+        if (userId) {
+          try {
+            const cached = await AsyncStorage.getItem(getStepsCacheKey(userId, today));
+            if (cached) cachedSteps = parseInt(cached, 10) || 0;
+          } catch {}
+        }
+
+        const bestSteps = Math.max(coremotionSteps, cachedSteps);
+        if (isMounted && bestSteps > 0) {
+          setSteps(prev => {
+            const best = Math.max(prev, bestSteps);
+            if (userId) {
+              AsyncStorage.setItem(getStepsCacheKey(userId, today), best.toString()).catch(() => {});
+            }
+            return best;
+          });
+          setDebugInfo(`iOS CoreMotion: ${coremotionSteps}, Using: ${bestSteps}`);
         }
       } else if (Platform.OS === 'android') {
         let hcSteps = 0;
-        let hwSteps = 0;
 
         // Primary: Health Connect aggregate (works after app kill)
         if (hcReadyRef.current) {
           hcSteps = await getHealthConnectSteps();
         }
 
-        // Fallback: Hardware sensor (works while app is alive)
-        hwSteps = await getHardwareSteps();
+        let cachedSteps = 0;
+        if (userId) {
+          try {
+            const cached = await AsyncStorage.getItem(getStepsCacheKey(userId, today));
+            if (cached) cachedSteps = parseInt(cached, 10) || 0;
+          } catch {}
+        }
 
-        const bestSteps = Math.max(hcSteps, hwSteps);
+        const bestSteps = Math.max(hcSteps, cachedSteps);
         if (isMounted && bestSteps > 0) {
-          setSteps(prev => Math.max(prev, bestSteps));
-          setDebugInfo(`HC: ${hcSteps}, HW: ${hwSteps}, Using: ${bestSteps}`);
+          setSteps(prev => {
+            const best = Math.max(prev, bestSteps);
+            if (userId) {
+              AsyncStorage.setItem(getStepsCacheKey(userId, today), best.toString()).catch(() => {});
+            }
+            return best;
+          });
+          setDebugInfo(`HC: ${hcSteps}, Cached: ${cachedSteps}, Using: ${bestSteps}`);
         }
       }
     } catch (e: any) {
       if (isMounted) {
         setDebugInfo(prev => `${prev} | Sync error: ${e?.message || 'unknown'}`);
       }
-      console.warn('[Pedometer] syncSteps failed:', e);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     let subscription: Pedometer.Subscription | null = null;
@@ -209,27 +242,43 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
           // ── Step 4: Initial sync ──
           await syncSteps(isMounted);
 
-          // ── Step 5: Watch for live step events while app is open ──
+          // ── Step 5: Live hardware step watcher on Android ──
+          // watchStepCount provides result.steps (steps since subscription).
+          // We compute the incremental delta and add it to our accumulated daily total.
           if (hwAvailable) {
-            subscription = Pedometer.watchStepCount(() => {
-              syncSteps(isMounted);
+            lastWatchStepsRef.current = 0;
+            subscription = Pedometer.watchStepCount((result) => {
+              if (result && typeof result.steps === 'number') {
+                const currentWatchSteps = result.steps;
+                const delta = Math.max(0, currentWatchSteps - lastWatchStepsRef.current);
+                lastWatchStepsRef.current = currentWatchSteps;
+
+                if (delta > 0 && isMounted) {
+                  setSteps(prev => {
+                    const next = prev + delta;
+                    if (userId) {
+                      const today = getLocalDateString(new Date());
+                      AsyncStorage.setItem(getStepsCacheKey(userId, today), next.toString()).catch(() => {});
+                    }
+                    return next;
+                  });
+                }
+              }
             });
           }
         } else if (Platform.OS === 'ios') {
-          // iOS: Request motion permission & query CoreMotion / Health
-          setDebugInfo('Checking iOS sensor & permissions...');
+          // iOS: Native Apple CoreMotion / Health tracking
+          // CMPedometer runs 24/7 at the OS coprocessor level, tracking steps
+          // even when GK Fitness is closed or killed.
+          setDebugInfo('Initializing iOS CoreMotion...');
 
           try {
-            const perm = await Pedometer.requestPermissionsAsync();
-            if (isMounted) {
-              setDebugInfo(`Permission: ${perm?.status || 'granted'}`);
-            }
+            await Pedometer.requestPermissionsAsync();
           } catch (permErr: any) {
             console.warn('[Pedometer] iOS requestPermissionsAsync error:', permErr);
           }
 
           const available = await Pedometer.isAvailableAsync();
-
           if (isMounted) {
             setIsAvailable(available);
             setDebugInfo(prev => prev + ` | Sensor Available: ${available}`);
@@ -237,10 +286,27 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
           if (!available) return;
 
+          // Initial sync from CoreMotion (picks up background steps taken while killed/closed)
           await syncSteps(isMounted);
 
           // Watch for live step updates while app is open
-          subscription = Pedometer.watchStepCount(() => {
+          subscription = Pedometer.watchStepCount((result) => {
+            if (result && typeof result.steps === 'number' && result.steps > 0) {
+              const currentWatchSteps = result.steps;
+              const delta = Math.max(0, currentWatchSteps - lastWatchStepsRef.current);
+              lastWatchStepsRef.current = currentWatchSteps;
+
+              if (delta > 0 && isMounted) {
+                setSteps(prev => {
+                  const next = prev + delta;
+                  if (userId) {
+                    const today = getLocalDateString(new Date());
+                    AsyncStorage.setItem(getStepsCacheKey(userId, today), next.toString()).catch(() => {});
+                  }
+                  return next;
+                });
+              }
+            }
             syncSteps(isMounted);
           });
         }
@@ -252,12 +318,10 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
     subscribe();
 
-    // Re-sync steps every time the app comes back to foreground
-    // This is the KEY recovery mechanism — when the user reopens the
-    // app after it was killed, this queries Health Connect for all
-    // steps taken while the app was dead.
+    // Re-sync steps when app returns to foreground (recovers steps taken while killed/closed)
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
+        lastWatchStepsRef.current = 0;
         syncSteps(isMounted);
       }
     };
@@ -276,7 +340,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
       appStateSub.remove();
       clearInterval(interval);
     };
-  }, [syncSteps]);
+  }, [syncSteps, userId]);
 
   const calories = Math.round(steps * 0.04);
 

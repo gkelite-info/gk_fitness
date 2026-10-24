@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchCustomerOnboarding } from '@/helpers/onboardingHelper';
+import { getLocalDateString } from '@/lib/dateUtils';
 
 export interface DailySummary {
   date: string;
@@ -47,8 +48,8 @@ export function useWeeklyStats(userId: string | null) {
         .from('daily_health_summaries')
         .select('*')
         .eq('userId', userId)
-        .gte('date', startOfLastWeek.toISOString().split('T')[0])
-        .lte('date', endOfThisWeek.toISOString().split('T')[0]);
+        .gte('date', getLocalDateString(startOfLastWeek))
+        .lte('date', getLocalDateString(endOfThisWeek));
 
       if (error) {
         console.error('Error fetching weekly stats:', error);
@@ -67,16 +68,19 @@ export function useWeeklyStats(userId: string | null) {
 
       const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       
+      const latestSummaryWithGoal = summaries.slice().reverse().find(s => s.stepGoal);
+      const userStepGoal = latestSummaryWithGoal?.stepGoal || 10000;
+
       // Initialize empty days
       for (let i = 0; i < 7; i++) {
         const dThis = new Date(startOfThisWeek);
         dThis.setDate(dThis.getDate() + i);
-        const dateStrThis = dThis.toISOString().split('T')[0];
+        const dateStrThis = getLocalDateString(dThis);
         
         thisWeekData[dateStrThis] = {
           date: dateStrThis,
           steps: 0,
-          stepGoal: 10000,
+          stepGoal: userStepGoal,
           activeCalories: 0,
           calorieGoal: profile?.targetCalories || 1800,
           waterIntake: 0,
@@ -87,12 +91,12 @@ export function useWeeklyStats(userId: string | null) {
 
         const dLast = new Date(startOfLastWeek);
         dLast.setDate(dLast.getDate() + i);
-        const dateStrLast = dLast.toISOString().split('T')[0];
+        const dateStrLast = getLocalDateString(dLast);
 
         lastWeekData[dateStrLast] = {
           date: dateStrLast,
           steps: 0,
-          stepGoal: 10000,
+          stepGoal: userStepGoal,
           activeCalories: 0,
           calorieGoal: profile?.targetCalories || 1800,
           waterIntake: 0,

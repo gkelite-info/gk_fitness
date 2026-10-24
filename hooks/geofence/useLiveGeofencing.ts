@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, Platform } from 'react-native';
-import * as Location from 'expo-location';
+import * as Location from '@/lib/location/safeLocation';
 import {
   Coordinates,
   GeofenceCircle,

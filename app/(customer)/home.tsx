@@ -20,7 +20,7 @@ import {
   useIndividualCustomerPlans,
   useToggleIndividualCustomerPlanActiveStatus,
 } from '@/hooks/individual/membership/individualCustomerPlan';
-import { syncMembershipRenewalReminders, syncPTSessionReminders } from '@/lib/services/notificationService';
+import { syncAllLocalReminders } from '@/lib/services/notificationService';
 import {
   Star,
   QrCode,
@@ -95,8 +95,7 @@ export default function CustomerHome() {
     if (!userId) return;
     setIsLoadingMembership(true);
     try {
-      syncMembershipRenewalReminders(userId).catch(console.error);
-      syncPTSessionReminders(userId).catch(console.error);
+      syncAllLocalReminders(userId).catch(console.error);
 
       if (isIndividual) {
         const queryRes = await refetchIndivCustomerPlans();
@@ -238,6 +237,7 @@ export default function CustomerHome() {
 
   const displaySteps = Math.max(steps, stats?.steps || 0);
   const displayCalories = Math.max(calories, stats?.calories || 0, Math.round(displaySteps * 0.04));
+  const stepGoal = stats?.stepGoal || 10000;
 
   useFocusEffect(
     React.useCallback(() => {
@@ -537,15 +537,20 @@ export default function CustomerHome() {
         </Pressable>
 
         <Pressable onPress={() => router.push('/(customer)/fitness/steps')} className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4 active:opacity-80">
-          <View className="w-8 h-8 rounded-full bg-[#C3F400]/10 items-center justify-center mb-2">
-            <Footprints size={20} color="#C3F400" weight="fill" />
+          <View className="flex-row items-center justify-between mb-2">
+            <View className="w-8 h-8 rounded-full bg-[#C3F400]/10 items-center justify-center">
+              <Footprints size={20} color="#C3F400" weight="fill" />
+            </View>
+            <Text className="text-[#8E8E93] text-[10px] font-semibold bg-[#1C1C1E] px-2 py-0.5 rounded-full">
+              /{stepGoal >= 1000 ? `${(stepGoal / 1000).toFixed(stepGoal % 1000 === 0 ? 0 : 1)}k` : stepGoal}
+            </Text>
           </View>
           <Text className="text-white text-3xl font-semibold mt-1">{displaySteps.toLocaleString()}</Text>
           <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
             STEPS
           </Text>
           <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
-            <View className="h-full bg-[#C3F400] rounded-full" style={{ width: `${Math.min((displaySteps / 10000) * 100, 100)}%` }} />
+            <View className="h-full bg-[#C3F400] rounded-full" style={{ width: `${Math.min((displaySteps / stepGoal) * 100, 100)}%` }} />
           </View>
         </Pressable>
 

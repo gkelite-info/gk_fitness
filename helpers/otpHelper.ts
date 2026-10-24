@@ -124,7 +124,7 @@ export async function getUserRole(userId: string, email?: string): Promise<strin
     const res = await supabase
       .from('users')
       .select('role')
-      .eq('email', email)
+      .ilike('email', email.trim())
       .maybeSingle();
     data = res.data;
   }
@@ -136,6 +136,10 @@ export async function getUserRole(userId: string, email?: string): Promise<strin
   return data?.role || 'superadmin';
 }
 
+export function isAllowedForOwnerLogin(role: string | null): boolean {
+  const normalizedRole = role?.trim().toLowerCase();
+  return normalizedRole === 'owner' || normalizedRole === 'superadmin';
+}
 
 export function navigateBasedOnRole(role: string | null) {
   const normalizedRole = role?.trim().toLowerCase();

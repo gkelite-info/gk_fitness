@@ -44,10 +44,20 @@ async function getUserGender(): Promise<string> {
       const { data: cust } = await supabase
         .from('gym_customers')
         .select('gender')
-        .eq('customerId', user.id)
+        .or(`customerId.eq.${user.id},userId.eq.${user.id}`)
         .maybeSingle();
       if (cust?.gender) {
         cachedGender = cust.gender.toLowerCase();
+        return cachedGender as string;
+      }
+
+      const { data: u } = await supabase
+        .from('users')
+        .select('gender')
+        .eq('userId', user.id)
+        .maybeSingle();
+      if (u?.gender) {
+        cachedGender = u.gender.toLowerCase();
         return cachedGender as string;
       }
     }

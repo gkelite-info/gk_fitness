@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import React, { useEffect } from 'react';
 import { 
   scheduleWaterReminders, 
   cancelWaterReminders,
@@ -13,7 +14,11 @@ import {
   syncMembershipRenewalReminders,
   cancelMembershipRenewalReminders,
   syncPTSessionReminders,
-  cancelPTSessionReminders
+  cancelPTSessionReminders,
+  syncWorkoutReminders,
+  syncMealReminders,
+  syncWaterReminders,
+  syncAllLocalReminders
 } from '@/lib/services/notificationService';
 
 export interface NotificationPreferences {
@@ -28,6 +33,7 @@ export interface NotificationPreferences {
   water_start_hour: number;
   water_end_hour: number;
   water_interval_hours: number;
+  water_quiet_hours_enabled?: boolean;
   meal_reminders: boolean;
   membership_renewal: boolean;
   pt_session_reminders: boolean;
@@ -49,6 +55,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   water_start_hour: 8,
   water_end_hour: 20,
   water_interval_hours: 2,
+  water_quiet_hours_enabled: true,
   meal_reminders: true,
   membership_renewal: true,
   pt_session_reminders: true,
@@ -199,6 +206,12 @@ export function useNotificationPreferences(userId: string | undefined) {
     placeholderData: DEFAULT_NOTIFICATION_PREFERENCES,
     staleTime: 1000 * 60 * 5, // 5 minutes fresh in cache
   });
+
+  useEffect(() => {
+    if (userId) {
+      syncAllLocalReminders(userId).catch(console.error);
+    }
+  }, [userId]);
 
   const updatePreference = useMutation({
     mutationFn: async (updates: Partial<NotificationPreferences>) => {

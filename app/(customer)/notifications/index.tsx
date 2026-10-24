@@ -20,6 +20,8 @@ import { useNotifications } from '@/hooks/notifications/useNotifications';
 import { useUser } from '@/context/UserContext';
 import { formatDistanceToNow } from 'date-fns';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
+import { clearAppBadge } from '@/lib/services/notificationService';
+import { useEffect } from 'react';
 
 type FilterType = 'all' | 'community' | 'gym';
 
@@ -29,6 +31,10 @@ export default function NotificationsScreen() {
   const { userId } = useUser();
   const { data: notifications = [], isLoading, markRead, markAllRead, deleteRead } = useNotifications(userId ?? undefined);
   const [filter, setFilter] = useState<FilterType>('all');
+
+  useEffect(() => {
+    clearAppBadge().catch(() => {});
+  }, []);
 
   const filteredNotifications = useMemo(() => {
     if (filter === 'community') {
@@ -151,7 +157,13 @@ export default function NotificationsScreen() {
             {filter === 'all' ? 'All Activity' : filter === 'community' ? 'Community Interactions' : 'Gym Notifications'}
           </Text>
           {notifications.some(n => !n.is_read) && (
-            <Pressable onPress={() => markAllRead.mutate()} className="flex-row items-center">
+            <Pressable 
+              onPress={() => {
+                markAllRead.mutate();
+                clearAppBadge().catch(() => {});
+              }} 
+              className="flex-row items-center"
+            >
               <Checks size={15} color="#D4FF00" />
               <Text className="text-[#D4FF00] text-xs font-semibold ml-1">Mark all read</Text>
             </Pressable>

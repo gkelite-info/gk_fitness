@@ -1,5 +1,6 @@
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { isRunningInExpoGo } from 'expo';
@@ -11,6 +12,7 @@ const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 let Notifications: any = null;
+let cachedExpoPushToken: string | null = null;
 
 // Remote push notifications were removed from Expo Go on Android with SDK 53+.
 // Importing expo-notifications in Expo Go on Android triggers a fatal error during module evaluation.
@@ -64,9 +66,19 @@ export async function setupNotificationChannels(): Promise<void> {
       );
     } catch (e: any) {
       console.warn('[notificationService] Failed to create notification channels:', e?.message || e);
+      channelsSetupPromise = null;
     }
   })();
   return channelsSetupPromise;
+}
+
+export async function clearAppBadge(): Promise<void> {
+  if (isExpoGo || !Notifications?.setBadgeCountAsync) return;
+  try {
+    await Notifications.setBadgeCountAsync(0);
+  } catch (err) {
+    console.warn('[notificationService] Failed to clear badge count:', err);
+  }
 }
 
 if (!isExpoGo) {
@@ -121,11 +133,8 @@ export async function registerForPushNotifications(userId: string): Promise<stri
       finalStatus = requested?.status;
 
       if (finalStatus !== 'granted') {
-        const canAskAgain = requested?.canAskAgain ?? existingStatus?.canAskAgain;
-        if (canAskAgain === false || finalStatus === 'denied') {
-          throw new Error('PERMISSION_BLOCKED: Notifications are disabled in your system settings. Please enable them in App Info -> Notifications.');
-        }
-        throw new Error(`Notification permission not granted (Status: ${finalStatus}).`);
+        console.warn(`[notificationService] Push notification permission not granted (Status: ${finalStatus}).`);
+        return null;
       }
     }
 
@@ -160,9 +169,24 @@ export async function registerForPushNotifications(userId: string): Promise<stri
     }
 
     console.log('[notificationService] Registered Expo Push Token successfully:', expoPushToken);
+    cachedExpoPushToken = expoPushToken;
 
-    // Save token to Supabase
-    const { error } = await supabase.from('user_push_tokens').upsert(
+    // Purge any stale tokens for this physical device associated with other users.
+    // If User B previously logged in on this phone and now User A logs in,
+    // this ensures User B is disassociated from this device token, preventing
+    // cross-user push notification leaks on shared / test devices.
+    try {
+      await supabase
+        .from('user_push_tokens')
+        .delete()
+        .eq('expoPushToken', expoPushToken)
+        .neq('userId', userId);
+    } catch (cleanErr: any) {
+      console.warn('[notificationService] Failed to clean stale device push tokens:', cleanErr?.message || cleanErr);
+    }
+
+    // Save token to Supabase with resilient conflict fallback
+    const { error: upsertErr } = await supabase.from('user_push_tokens').upsert(
       {
         userpushTokenId: Crypto.randomUUID(),
         userId: userId,
@@ -175,14 +199,86 @@ export async function registerForPushNotifications(userId: string): Promise<stri
       { onConflict: 'userId,expoPushToken' }
     );
 
-    if (error) {
-      console.error('[notificationService] Error saving push token to Supabase:', error);
+    if (upsertErr) {
+      console.warn('[notificationService] Upsert onConflict error, attempting query-and-save fallback:', upsertErr.message);
+      const { data: existing } = await supabase
+        .from('user_push_tokens')
+        .select('userpushTokenId')
+        .eq('userId', userId)
+        .eq('expoPushToken', expoPushToken)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('user_push_tokens')
+          .update({
+            deviceName: Device.deviceName || 'Unknown Device',
+            platform: Platform.OS,
+            updatedAt: new Date().toISOString()
+          })
+          .eq('userpushTokenId', existing.userpushTokenId);
+      } else {
+        await supabase
+          .from('user_push_tokens')
+          .insert({
+            userpushTokenId: Crypto.randomUUID(),
+            userId: userId,
+            expoPushToken: expoPushToken,
+            platform: Platform.OS,
+            deviceName: Device.deviceName || 'Unknown Device',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+      }
     }
 
     return expoPushToken;
   } catch (error: any) {
     console.error('[notificationService] Error fetching Expo Push Token:', error?.message || error);
-    throw error;
+    return null;
+  }
+}
+
+/**
+ * Unregisters the current device's push token from Supabase for the specified user (or this device).
+ * Called on user logout to prevent subsequent notifications from reaching this device.
+ */
+export async function unregisterPushToken(userId?: string): Promise<void> {
+  if (isExpoGo || !Notifications) return;
+
+  try {
+    let token = cachedExpoPushToken;
+    if (!token) {
+      const projectId =
+        process.env.EXPO_PUBLIC_EAS_PROJECT_ID ||
+        Constants?.expoConfig?.extra?.eas?.projectId ||
+        Constants?.easConfig?.projectId ||
+        '99fd4ec8-3138-4950-8a93-2f09dd96dbfc';
+      if (projectId) {
+        const tokenData = await withTimeout(
+          Notifications.getExpoPushTokenAsync({ projectId }),
+          4000,
+          'fetching token for unregister'
+        );
+        token = tokenData?.data || null;
+      }
+    }
+
+    if (token) {
+      let query = supabase.from('user_push_tokens').delete().eq('expoPushToken', token);
+      if (userId) {
+        query = query.eq('userId', userId);
+      }
+      const { error } = await query;
+      if (error) {
+        console.warn('[notificationService] Error unregistering push token on logout:', error.message);
+      } else {
+        console.log('[notificationService] Successfully unregistered push token on logout:', token);
+      }
+    }
+    cachedExpoPushToken = null;
+  } catch (err: any) {
+    console.warn('[notificationService] Failed to unregister push token:', err?.message || err);
   }
 }
 
@@ -276,6 +372,10 @@ export async function cancelWaterReminders() {
   try {
     for (let h = 0; h < 24; h++) {
       await Notifications.cancelScheduledNotificationAsync(`water_reminder_hour_${h}`).catch(() => { });
+      await Notifications.cancelScheduledNotificationAsync(`water_reminder_${h}_0`).catch(() => { });
+      await Notifications.cancelScheduledNotificationAsync(`water_reminder_${h}_15`).catch(() => { });
+      await Notifications.cancelScheduledNotificationAsync(`water_reminder_${h}_30`).catch(() => { });
+      await Notifications.cancelScheduledNotificationAsync(`water_reminder_${h}_45`).catch(() => { });
     }
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     for (const notification of scheduled) {
@@ -291,44 +391,144 @@ export async function cancelWaterReminders() {
   }
 }
 
+function getWaterReminderMessage(hour: number, minute: number, isFirst: boolean, isLast: boolean): { title: string; body: string } {
+  // First reminder of the day (if scheduled in early morning)
+  if (isFirst && hour <= 9) {
+    return {
+      title: '💧 Morning Hydration',
+      body: 'Start your day right! Drink a refreshing glass of water to wake up your body.',
+    };
+  }
+
+  // Last reminder of the day (evening wind-down)
+  if (isLast || hour >= 21) {
+    return {
+      title: '💧 Evening Hydration',
+      body: 'One last light glass of water before winding down for a restful night.',
+    };
+  }
+
+  // Morning window: 4 AM - 11:59 AM
+  if (hour < 12) {
+    const morningPool = [
+      { title: '💧 Morning Hydration', body: 'Stay fresh and energized. Time for a glass of water!' },
+      { title: '💧 Hydration Check', body: 'Keep your morning momentum going with a quick water break.' },
+      { title: '💧 Drink Water', body: 'A quick sip to keep you focused and hydrated this morning.' },
+      { title: '💧 Water Break', body: 'Hydration powers your morning. Grab a glass of water!' },
+    ];
+    const index = (hour * 2 + (minute >= 30 ? 1 : 0)) % morningPool.length;
+    return morningPool[index];
+  }
+
+  // Mid-day / Lunch window: 12 PM - 1:59 PM
+  if (hour < 14) {
+    const middayPool = [
+      { title: '💧 Mid-day Refresh', body: 'Keep your energy high. Grab a glass of water with your lunch!' },
+      { title: '💧 Hydration Check', body: 'Halfway through the day! Remember to drink some water.' },
+      { title: '💧 Water Break', body: 'Replenish and recharge. Time for a mid-day water break.' },
+    ];
+    const index = (hour * 2 + (minute >= 30 ? 1 : 0)) % middayPool.length;
+    return middayPool[index];
+  }
+
+  // Afternoon window: 2 PM - 4:59 PM (14:00 - 16:59)
+  if (hour < 17) {
+    const afternoonPool = [
+      { title: '💧 Afternoon Hydration', body: 'Beat the afternoon slump! Stay focused and grab a glass of water.' },
+      { title: '💧 Water Break', body: 'Time for a refreshing water break to power through the afternoon.' },
+      { title: '💧 Stay Hydrated', body: 'Keep your hydration on track as you work through the day.' },
+      { title: '💧 Hydration Check', body: 'A quick glass of water to keep your body feeling great.' },
+    ];
+    const index = (hour * 2 + (minute >= 30 ? 1 : 0)) % afternoonPool.length;
+    return afternoonPool[index];
+  }
+
+  // Evening window: 5 PM - 8:59 PM (17:00 - 20:59)
+  const eveningPool = [
+    { title: '💧 Evening Hydration', body: 'Unwind and rehydrate after your daily activities.' },
+    { title: '💧 Hydration Check', body: 'Almost hit your daily goal? Keep drinking water this evening!' },
+    { title: '💧 Water Break', body: 'Support your workout recovery with a refreshing glass of water.' },
+    { title: '💧 Stay Hydrated', body: 'Finish strong today. Drink a glass of water!' },
+  ];
+  const index = (hour * 2 + (minute >= 30 ? 1 : 0)) % eveningPool.length;
+  return eveningPool[index];
+}
+
 export async function scheduleWaterReminders(startHour = 8, endHour = 20, interval = 2) {
   if (!Notifications) return;
   await cancelWaterReminders();
 
-  const reminderHours = [];
-  for (let h = startHour; h <= endHour; h += interval) {
-    reminderHours.push(h);
+  const reminderSlots: { hour: number; minute: number }[] = [];
+  const stepMinutes = Math.max(15, Math.round(interval * 60));
+  const startTotalMinutes = startHour * 60;
+  const endTotalMinutes = endHour * 60;
+
+  for (let m = startTotalMinutes; m <= endTotalMinutes; m += stepMinutes) {
+    const hour = Math.floor(m / 60);
+    const minute = m % 60;
+    reminderSlots.push({ hour, minute });
   }
 
-  const messages = [
-    { title: '💧 Morning Hydration', body: 'Start your day right! Drink a glass of water.' },
-    { title: '💧 Hydration Check', body: 'Time for a quick water break.' },
-    { title: '💧 Mid-day Refresh', body: 'Keep your energy up. Drink some water!' },
-    { title: '💧 Afternoon Hydration', body: 'Stay focused and hydrated. Grab a glass!' },
-    { title: '💧 Water Break', body: 'Almost through the day. Keep drinking water.' },
-    { title: '💧 Evening Hydration', body: 'Unwind and rehydrate.' },
-    { title: '💧 Final Hydration', body: 'One last small glass before winding down for the night.' },
-  ];
+  if (reminderSlots.length === 0) return;
 
-  for (let i = 0; i < reminderHours.length; i++) {
-    const hour = reminderHours[i];
-    const message = messages[i % messages.length];
+  for (let i = 0; i < reminderSlots.length; i++) {
+    const { hour, minute } = reminderSlots[i];
+    const isFirst = i === 0;
+    const isLast = i === reminderSlots.length - 1;
+    const message = getWaterReminderMessage(hour, minute, isFirst, isLast);
 
     await Notifications.scheduleNotificationAsync({
-      identifier: `water_reminder_hour_${hour}`,
+      identifier: `water_reminder_${hour}_${minute}`,
       content: {
         title: message.title,
         body: message.body,
         sound: true,
         channelId: 'reminders',
-        data: { type: 'water_reminder', hour },
+        data: { type: 'water_reminder', hour, minute },
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour,
-        minute: 0,
+        minute,
+        channelId: 'reminders',
       },
     });
+  }
+}
+
+export async function syncWaterReminders(userId: string) {
+  if (!Notifications || !userId) return;
+  try {
+    const storageKey = `@gk_notification_preferences_${userId}`;
+    let localPrefs: any = {};
+    try {
+      const stored = await AsyncStorage.getItem(storageKey);
+      if (stored) localPrefs = JSON.parse(stored);
+    } catch { }
+
+    const { data: dbPref } = await supabase
+      .from('user_notification_preferences')
+      .select('*')
+      .eq('userId', userId)
+      .maybeSingle();
+
+    const isEnabled = localPrefs.water_reminders ?? dbPref?.waterReminders ?? dbPref?.water_reminders ?? true;
+    if (!isEnabled) {
+      await cancelWaterReminders();
+      return;
+    }
+
+    const mode = localPrefs.water_mode ?? dbPref?.waterMode ?? dbPref?.water_mode ?? 'default';
+    if (mode === 'custom') {
+      const startHour = localPrefs.water_start_hour ?? dbPref?.waterStartHour ?? dbPref?.water_start_hour ?? 8;
+      const endHour = localPrefs.water_end_hour ?? dbPref?.waterEndHour ?? dbPref?.water_end_hour ?? 20;
+      const interval = localPrefs.water_interval_hours ?? dbPref?.waterIntervalHours ?? dbPref?.water_interval_hours ?? 2;
+      await scheduleWaterReminders(startHour, endHour, interval);
+    } else {
+      await scheduleWaterReminders(8, 20, 2);
+    }
+  } catch (err) {
+    console.warn('[syncWaterReminders] Warning:', err);
   }
 }
 
@@ -393,10 +593,47 @@ export async function scheduleWorkoutReminders(options?: {
         weekday: day,
         hour,
         minute,
+        channelId: 'reminders',
       },
     });
   }
+}
 
+export async function syncWorkoutReminders(userId: string) {
+  if (!Notifications || !userId) return;
+  try {
+    const storageKey = `@gk_notification_preferences_${userId}`;
+    let localPrefs: any = {};
+    try {
+      const stored = await AsyncStorage.getItem(storageKey);
+      if (stored) localPrefs = JSON.parse(stored);
+    } catch { }
+
+    const { data: dbPref } = await supabase
+      .from('user_notification_preferences')
+      .select('*')
+      .eq('userId', userId)
+      .maybeSingle();
+
+    const isEnabled = localPrefs.workout_reminders ?? dbPref?.workoutReminders ?? dbPref?.workout_reminders ?? true;
+    if (!isEnabled) {
+      await cancelWorkoutReminders();
+      return;
+    }
+
+    const mode = localPrefs.workout_mode ?? dbPref?.workoutMode ?? dbPref?.workout_mode ?? 'default';
+    if (mode === 'custom') {
+      const weekdayHour = localPrefs.workout_weekday_hour ?? dbPref?.workoutWeekdayHour ?? dbPref?.workout_weekday_hour ?? 17;
+      const weekdayMinute = localPrefs.workout_weekday_minute ?? dbPref?.workoutWeekdayMinute ?? dbPref?.workout_weekday_minute ?? 0;
+      const weekendHour = localPrefs.workout_weekend_hour ?? dbPref?.workoutWeekendHour ?? dbPref?.workout_weekend_hour ?? 10;
+      const weekendMinute = localPrefs.workout_weekend_minute ?? dbPref?.workoutWeekendMinute ?? dbPref?.workout_weekend_minute ?? 30;
+      await scheduleWorkoutReminders({ weekdayHour, weekdayMinute, weekendHour, weekendMinute });
+    } else {
+      await scheduleWorkoutReminders({ weekdayHour: 17, weekdayMinute: 0, weekendHour: 10, weekendMinute: 30 });
+    }
+  } catch (err) {
+    console.warn('[syncWorkoutReminders] Warning:', err);
+  }
 }
 
 export async function cancelMealReminders() {
@@ -419,7 +656,6 @@ export async function cancelMealReminders() {
     console.warn('[cancelMealReminders] Warning:', err);
   }
 }
-
 
 export async function scheduleMealReminders(options?: {
   breakfastTime?: { hour: number; minute: number };
@@ -471,10 +707,38 @@ export async function scheduleMealReminders(options?: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour: item.hour,
         minute: item.minute,
+        channelId: 'reminders',
       },
     });
   }
+}
 
+export async function syncMealReminders(userId: string) {
+  if (!Notifications || !userId) return;
+  try {
+    const storageKey = `@gk_notification_preferences_${userId}`;
+    let localPrefs: any = {};
+    try {
+      const stored = await AsyncStorage.getItem(storageKey);
+      if (stored) localPrefs = JSON.parse(stored);
+    } catch { }
+
+    const { data: dbPref } = await supabase
+      .from('user_notification_preferences')
+      .select('*')
+      .eq('userId', userId)
+      .maybeSingle();
+
+    const isEnabled = localPrefs.meal_reminders ?? dbPref?.mealReminders ?? dbPref?.meal_reminders ?? true;
+    if (!isEnabled) {
+      await cancelMealReminders();
+      return;
+    }
+
+    await scheduleMealReminders();
+  } catch (err) {
+    console.warn('[syncMealReminders] Warning:', err);
+  }
 }
 
 
@@ -523,6 +787,7 @@ export async function schedulePTSessionReminders(sessions: any[]) {
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: twentyFourHoursBefore,
+          channelId: 'reminders',
         } as any,
       });
       scheduledCount++;
@@ -542,6 +807,7 @@ export async function schedulePTSessionReminders(sessions: any[]) {
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: oneHourBefore,
+          channelId: 'reminders',
         } as any,
       });
       scheduledCount++;
@@ -556,7 +822,7 @@ export async function syncPTSessionReminders(userId: string) {
   try {
     const { data: pref } = await supabase
       .from('user_notification_preferences')
-      .select('ptSessionReminders, pt_session_reminders')
+      .select('*')
       .eq('userId', userId)
       .maybeSingle();
 
@@ -595,7 +861,7 @@ export async function sendMilestonePushNotification(userId: string, milestoneTyp
   try {
     const { data: pref } = await supabase
       .from('user_notification_preferences')
-      .select('progressMilestones, progress_milestones')
+      .select('*')
       .eq('userId', userId)
       .maybeSingle();
 
@@ -788,7 +1054,7 @@ export async function sendGymAnnouncementPushNotification({
 
     const { data: prefs, error: prefErr } = await supabase
       .from('user_notification_preferences')
-      .select('userId, gymAnnouncements, gym_announcements')
+      .select('*')
       .in('userId', userIds);
 
     if (prefErr) {
@@ -916,7 +1182,7 @@ export async function sendCommunityPushNotification({
 
     const { data: pref, error: prefErr } = await supabase
       .from('user_notification_preferences')
-      .select('communityActivity, community_activity')
+      .select('*')
       .eq('userId', targetUserId)
       .maybeSingle();
 
@@ -1018,13 +1284,46 @@ export async function sendCommunityPushNotification({
       }
     }
 
-    const { data: tokenRecords, error: tokenErr } = await supabase
+    // 1. Collect all actor push tokens (current active device token + any stored in DB for actor)
+    // to guarantee the actor's device NEVER receives a push notification for their own action
+    const actorPushTokens = new Set<string>();
+    if (cachedExpoPushToken) {
+      actorPushTokens.add(cachedExpoPushToken);
+    }
+    try {
+      const { data: actorRecords } = await supabase
+        .rpc('get_user_push_tokens', { p_user_id: actorUserId });
+      if (actorRecords && actorRecords.length > 0) {
+        actorRecords.forEach((t: any) => {
+          const tok = t.expoPushToken || t.expopushtoken;
+          if (tok) actorPushTokens.add(tok);
+        });
+      }
+    } catch (e) {
+      console.warn('[sendCommunityPushNotification] Could not fetch actor tokens for exclusion:', e);
+    }
+
+    // 2. Fetch target user's push tokens
+    let tokenRecords: any[] = [];
+    const { data: rpcTokens, error: tokenErr } = await supabase
       .rpc('get_user_push_tokens', { p_user_id: targetUserId });
 
-    if (!tokenErr && tokenRecords && tokenRecords.length > 0) {
+    if (!tokenErr && rpcTokens) {
+      tokenRecords = rpcTokens;
+    } else {
+      // Fallback query if RPC fails or is missing
+      const { data: directTokens } = await supabase
+        .from('user_push_tokens')
+        .select('expoPushToken')
+        .eq('userId', targetUserId);
+      if (directTokens) tokenRecords = directTokens;
+    }
+
+    if (tokenRecords && tokenRecords.length > 0) {
       const validTokens = tokenRecords
         .map((t: any) => t.expoPushToken || t.expopushtoken)
-        .filter((t: any) => typeof t === 'string' && (t.startsWith('ExponentPushToken') || t.startsWith('ExpoPushToken')));
+        .filter((t: any) => typeof t === 'string' && (t.startsWith('ExponentPushToken') || t.startsWith('ExpoPushToken')))
+        .filter((t: string) => !actorPushTokens.has(t)); // ABSOLUTE SUPPRESSION: Filter out any sender device token
 
       const uniqueTokens = Array.from(new Set(validTokens));
 
@@ -1151,6 +1450,7 @@ export async function scheduleMembershipRenewalReminders(endDateInput: string | 
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: item.targetDate,
+          channelId: 'reminders',
         } as any,
       });
       scheduledCount++;
@@ -1166,7 +1466,7 @@ export async function syncMembershipRenewalReminders(userId: string) {
   try {
     const { data: pref } = await supabase
       .from('user_notification_preferences')
-      .select('membershipRenewal, membership_renewal')
+      .select('*')
       .eq('userId', userId)
       .maybeSingle();
 
@@ -1221,7 +1521,7 @@ export async function sendMembershipRenewalPushNotification(params: {
   try {
     const { data: pref } = await supabase
       .from('user_notification_preferences')
-      .select('membershipRenewal, membership_renewal')
+      .select('*')
       .eq('userId', userId)
       .maybeSingle();
 
@@ -1379,3 +1679,26 @@ export async function checkAndDispatchExpiringMembershipNotifications(gymId?: st
     return { checked: 0, sent: 0 };
   }
 }
+
+/**
+ * High-level orchestrator that synchronizes all local reminder notification schedules
+ * (Water, Workouts, Meals, Membership Renewals, PT Sessions) based on the user's
+ * active preferences and schedules across iOS and Android.
+ */
+export async function syncAllLocalReminders(userId: string): Promise<void> {
+  if (!userId || isExpoGo || !Notifications) return;
+
+  try {
+    await setupNotificationChannels();
+    await Promise.allSettled([
+      syncWaterReminders(userId),
+      syncWorkoutReminders(userId),
+      syncMealReminders(userId),
+      syncMembershipRenewalReminders(userId),
+      syncPTSessionReminders(userId),
+    ]);
+  } catch (err) {
+    console.warn('[syncAllLocalReminders] Error synchronizing local reminders:', err);
+  }
+}
+

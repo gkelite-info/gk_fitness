@@ -43,6 +43,14 @@ export default function SuperAdminLayout() {
           headerShown: false,
         }}
       />
+      <Tabs.Screen
+        name="recipes"
+        options={{
+          href: null,
+          tabBarItemStyle: { display: 'none' },
+          headerShown: false,
+        }}
+      />
     </Tabs>
   );
 }

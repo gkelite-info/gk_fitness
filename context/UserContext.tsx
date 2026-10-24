@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchUserAndRoleProfile, UserProfile } from '@/helpers/user/userProfileHelper';
+import { unregisterPushToken } from '@/lib/services/notificationService';
 
 type UserContextType = UserProfile & {
   loading: boolean;
@@ -67,6 +68,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       if (!initialCheckCompleted.current) return;
       setSession(newSession);
       if (event === 'SIGNED_OUT') {
+        unregisterPushToken().catch(() => {});
         queryClient.clear();
       }
     });

@@ -1,9 +1,67 @@
-import { Tabs } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
 import { Navbar } from '@/components/Navbar';
 import { CustomTabBar } from '@/components/CustomTabBar';
 import { PedometerProvider } from '@/hooks/fitness/usePedometer';
+import { useUser } from '@/context/UserContext';
+import { getSelectedGym, verifyUserGymMembership, clearSelectedGym } from '@/helpers/tenantHelper';
+import { supabase } from '@/lib/supabase';
+import { toast } from '@/lib/toast';
 
 export default function CustomerLayout() {
+  const { userId, email, role, gymId: userGymId, loading: userLoading } = useUser();
+  const router = useRouter();
+  const [tenantValidating, setTenantValidating] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function checkTenantBoundary() {
+      if (userLoading) return;
+
+      if (!userId || (role && role !== 'customer')) {
+        if (isMounted) setTenantValidating(false);
+        return;
+      }
+
+      try {
+        const selectedGym = await getSelectedGym();
+        if (selectedGym?.gymId && userId) {
+          const authResult = await verifyUserGymMembership(userId, email, selectedGym.gymId);
+          if (!authResult.isAuthorized) {
+            console.warn(`[CustomerLayout] Mismatch detected: user ${email} is not authorized for gym ${selectedGym.gymId}`);
+            await supabase.auth.signOut();
+            await clearSelectedGym();
+            toast.error('This account belongs to another gym. Please select your registered gym to sign in.');
+            router.replace('/auth/account-type');
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('[CustomerLayout] Tenant validation error:', err);
+      } finally {
+        if (isMounted) {
+          setTenantValidating(false);
+        }
+      }
+    }
+
+    checkTenantBoundary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, email, role, userGymId, userLoading, router]);
+
+  if (userLoading || tenantValidating) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#09090B', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#D4FF00" />
+      </View>
+    );
+  }
+
   return (
     <PedometerProvider>
       <Tabs

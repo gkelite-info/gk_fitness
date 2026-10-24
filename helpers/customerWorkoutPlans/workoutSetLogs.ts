@@ -81,45 +81,75 @@ export async function fetchLastSessionWeights(
   exerciseName: string,
   currentSessionDate: string
 ): Promise<{ setNumber: number; weight: number; reps: number }[]> {
-  // Find the most recent previous session date for this exercise
-  const { data: latestSessionData, error: latestError } = await supabase
-    .from('customer_workout_set_logs')
-    .select('sessionDate, workout_plan_day_exercises!inner(exerciseName)')
-    .eq('userId', userId)
-    .eq('workout_plan_day_exercises.exerciseName', exerciseName)
-    .lt('sessionDate', currentSessionDate)
-    .is('deletedAt', null)
-    .order('sessionDate', { ascending: false })
-    .limit(1);
+  if (!userId || !exerciseName) return [];
 
-  if (latestError) {
-    console.error('[workoutSetLogs] fetchLastSessionWeights latestSession error:', latestError);
+  try {
+    // 1. Find all dayExerciseIds matching this exerciseName across both customer and trainer plans
+    const [custRes, trainRes] = await Promise.all([
+      supabase
+        .from('workout_plan_day_exercises')
+        .select('dayExerciseId')
+        .ilike('exerciseName', exerciseName),
+      supabase
+        .from('trainer_workout_plan_day_exercises')
+        .select('dayExerciseId')
+        .ilike('exerciseName', exerciseName),
+    ]);
+
+    const matchingIds = new Set<string>();
+    custRes.data?.forEach((d: any) => matchingIds.add(d.dayExerciseId));
+    trainRes.data?.forEach((d: any) => matchingIds.add(d.dayExerciseId));
+
+    if (matchingIds.size === 0) {
+      return [];
+    }
+
+    const dayExerciseIds = Array.from(matchingIds);
+
+    // 2. Find the most recent previous session date for this user and this exercise
+    const { data: latestSessionData, error: latestError } = await supabase
+      .from('customer_workout_set_logs')
+      .select('sessionDate')
+      .eq('userId', userId)
+      .in('dayExerciseId', dayExerciseIds)
+      .lt('sessionDate', currentSessionDate)
+      .is('deletedAt', null)
+      .order('sessionDate', { ascending: false })
+      .limit(1);
+
+    if (latestError) {
+      console.error('[workoutSetLogs] fetchLastSessionWeights latestSession error:', latestError);
+      return [];
+    }
+
+    if (!latestSessionData || latestSessionData.length === 0) {
+      return []; // No previous session — don't pre-fill
+    }
+
+    const lastDate = latestSessionData[0].sessionDate;
+
+    // 3. Fetch the sets logged on that previous session date
+    const { data, error } = await supabase
+      .from('customer_workout_set_logs')
+      .select('setNumber, weight, reps')
+      .eq('userId', userId)
+      .in('dayExerciseId', dayExerciseIds)
+      .eq('sessionDate', lastDate)
+      .is('deletedAt', null)
+      .order('setNumber', { ascending: true });
+
+    if (error) {
+      console.error('[workoutSetLogs] fetchLastSessionWeights sets error:', error);
+      return [];
+    }
+
+    return (data ?? []).map((row: any) => ({
+      setNumber: row.setNumber,
+      weight: row.weight,
+      reps: row.reps,
+    }));
+  } catch (err) {
+    console.error('[workoutSetLogs] fetchLastSessionWeights unexpected error:', err);
     return [];
   }
-
-  if (!latestSessionData || latestSessionData.length === 0) {
-    return []; // No previous session — don't pre-fill
-  }
-
-  const lastDate = latestSessionData[0].sessionDate;
-
-  const { data, error } = await supabase
-    .from('customer_workout_set_logs')
-    .select('setNumber, weight, reps, workout_plan_day_exercises!inner(exerciseName)')
-    .eq('userId', userId)
-    .eq('workout_plan_day_exercises.exerciseName', exerciseName)
-    .eq('sessionDate', lastDate)
-    .is('deletedAt', null)
-    .order('setNumber', { ascending: true });
-
-  if (error) {
-    console.error('[workoutSetLogs] fetchLastSessionWeights sets error:', error);
-    return [];
-  }
-
-  return (data ?? []).map((row: any) => ({
-    setNumber: row.setNumber,
-    weight: row.weight,
-    reps: row.reps,
-  }));
 }

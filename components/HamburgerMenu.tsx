@@ -18,6 +18,7 @@ import { useUser } from '@/context/UserContext';
 import { useGym } from '@/hooks/gyms/useGym';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { triggerLightHaptic, triggerMediumHaptic, triggerWarningHaptic } from '@/lib/haptics';
+import { unregisterPushToken } from '@/lib/services/notificationService';
 import {
   House,
   Barbell,
@@ -53,6 +54,7 @@ import {
   WarningCircle,
   CheckSquare,
   LockKey,
+  CookingPot,
 } from 'phosphor-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -272,6 +274,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
     try {
       setSigningOut(true);
       triggerMediumHaptic();
+      await unregisterPushToken(userId ?? undefined).catch(() => {});
       await supabase.auth.signOut();
       setConfirmModalVisible(false);
       onClose();
@@ -356,6 +359,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
           title: 'SUPERADMIN PORTAL',
           items: [
             { name: 'Dashboard', href: '/(superadmin)/dashboard', icon: House },
+            { name: 'Recipes & Meals', href: '/(superadmin)/dashboard/recipes', icon: CookingPot },
             { name: 'Gyms Directory', href: '/(superadmin)/gyms', icon: Buildings },
             { name: 'Users Directory', href: '/(superadmin)/users', icon: Users },
             { name: 'System Settings', href: '/(superadmin)/settings', icon: ShieldCheck },

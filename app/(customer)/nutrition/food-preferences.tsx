@@ -15,10 +15,45 @@ import {
   Plant,
   Egg,
   FishSimple,
-  ChartPieSlice
+  ChartPieSlice,
+  FirstAid,
+  ShieldCheck,
+  CheckSquare,
+  Square,
+  Check,
+  Plus,
+  WarningCircle,
 } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { fetchCustomerOnboarding, updateCustomerOnboarding } from '@/helpers/onboardingHelper';
+
+const INDUSTRY_STANDARD_CONDITIONS = [
+  'Type 2 Diabetes',
+  'Prediabetes / Insulin Resistance',
+  'Hypertension (High Blood Pressure)',
+  'High Cholesterol / Dyslipidemia',
+  'Thyroid Disorder (Hypo / Hyper)',
+  'PCOS / PCOD',
+  'Cardiovascular / Heart Disease',
+  'Chronic Kidney Disease (CKD)',
+  'Celiac Disease (Gluten Intolerance)',
+  'Fatty Liver Disease (NAFLD)',
+  'Acid Reflux / GERD',
+  'IBS / Inflammatory Bowel Disease',
+  'Gout / High Uric Acid',
+  'Osteopenia / Osteoporosis',
+];
+
+const POPULAR_CONDITIONS = [
+  'Type 2 Diabetes',
+  'Hypertension (High Blood Pressure)',
+  'Thyroid Disorder (Hypo / Hyper)',
+  'PCOS / PCOD',
+  'High Cholesterol / Dyslipidemia',
+  'Fatty Liver Disease (NAFLD)',
+  'Acid Reflux / GERD',
+  'Celiac Disease (Gluten Intolerance)',
+];
 
 export default function FoodPreferences() {
   const router = useRouter();
@@ -42,12 +77,17 @@ export default function FoodPreferences() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Medical conditions states
+  const [hasMedicalConditions, setHasMedicalConditions] = useState<boolean | null>(null);
+  const [medicalConditions, setMedicalConditions] = useState<string[]>([]);
+  const [showMedicalModal, setShowMedicalModal] = useState(false);
+  const [medicalDisclaimerAccepted, setMedicalDisclaimerAccepted] = useState(false);
+
   const [onboardingId, setOnboardingId] = useState<string | null>(null);
   const [onboardingFullData, setOnboardingFullData] = useState<any>(null);
 
   // Modal states
   const [showCuisineModal, setShowCuisineModal] = useState(false);
-  const [showSpreadModal, setShowSpreadModal] = useState(false);
 
   useEffect(() => {
     if (userId) {
@@ -66,6 +106,15 @@ export default function FoodPreferences() {
           if (data.mealsPerDay) setSelectedMeals(`${data.mealsPerDay} Meals`);
           if (data.foodAllergies) setAllergies(data.foodAllergies);
           if (data.preferredCuisine) setSelectedCuisine(data.preferredCuisine);
+          if (data.hasMedicalConditions !== undefined && data.hasMedicalConditions !== null) {
+            setHasMedicalConditions(Boolean(data.hasMedicalConditions));
+          }
+          if (data.medicalConditions && Array.isArray(data.medicalConditions)) {
+            setMedicalConditions(data.medicalConditions);
+          }
+          if (data.medicalDisclaimerAccepted !== undefined && data.medicalDisclaimerAccepted !== null) {
+            setMedicalDisclaimerAccepted(Boolean(data.medicalDisclaimerAccepted));
+          }
           if (data.calorieDistribution) {
             try {
               const parsed = JSON.parse(data.calorieDistribution);
@@ -91,7 +140,6 @@ export default function FoodPreferences() {
 
   const mealOptions = ['3 Meals', '4 Meals', '5 Meals', '6 Meals'];
   const cuisines = ['No Preference', 'Indian', 'Continental', 'Mexican', 'Italian', 'Healthy'];
-
   const commonAllergies = ['Milk', 'Peanuts', 'Soy', 'Seafood', 'Gluten', 'Tree Nuts', 'Eggs'];
 
   const removeAllergy = (name: string) => {
@@ -114,8 +162,53 @@ export default function FoodPreferences() {
     }
   };
 
+  const toggleMedicalCondition = (cond: string) => {
+    if (medicalConditions.includes(cond)) {
+      setMedicalConditions(medicalConditions.filter(c => c !== cond));
+    } else {
+      setMedicalConditions([...medicalConditions, cond]);
+    }
+  };
+
+  const removeMedicalCondition = (cond: string) => {
+    setMedicalConditions(medicalConditions.filter(c => c !== cond));
+  };
+
+  const isMedicalAnswered = hasMedicalConditions !== null;
+  const isMedicalConditionsValid = hasMedicalConditions === false || (hasMedicalConditions === true && medicalConditions.length > 0);
+  const isDisclaimerAgreed = medicalDisclaimerAccepted;
+  const isFormComplete = isMedicalAnswered && isMedicalConditionsValid && isDisclaimerAgreed;
+
   const handleContinue = async () => {
     if (!userId) return;
+
+    // Validation 1: Mandatory question answered
+    if (hasMedicalConditions === null) {
+      Alert.alert(
+        'Required Field',
+        'Please indicate whether you have any pre-existing medical conditions (select Yes or No).'
+      );
+      return;
+    }
+
+    // Validation 2: If yes, at least 1 condition
+    if (hasMedicalConditions === true && medicalConditions.length === 0) {
+      Alert.alert(
+        'Medical Condition Required',
+        'You selected "Yes" for medical conditions. Please select or enter at least one condition so we can personalize your meal plan safely.'
+      );
+      return;
+    }
+
+    // Validation 3: Medical disclaimer acceptance
+    if (!medicalDisclaimerAccepted) {
+      Alert.alert(
+        'Health Disclaimer Required',
+        'Please review and check the "I Agree" box on the Health & Medical Disclaimer to proceed.'
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -125,7 +218,11 @@ export default function FoodPreferences() {
         mealsPerDay: parseInt(selectedMeals.split(' ')[0]),
         foodAllergies: allergies,
         preferredCuisine: selectedCuisine,
-        calorieDistribution: JSON.stringify(calorieSpread)
+        calorieDistribution: JSON.stringify(calorieSpread),
+        hasMedicalConditions: hasMedicalConditions,
+        medicalConditions: hasMedicalConditions ? medicalConditions : [],
+        medicalDisclaimerAccepted: medicalDisclaimerAccepted,
+        medicalDisclaimerAcceptedAt: new Date().toISOString(),
       };
 
       if (onboardingId) {
@@ -150,7 +247,7 @@ export default function FoodPreferences() {
     );
   }
 
-  // Custom Bottom Sheet style Modal
+  // Custom Bottom Sheet style Modal for Cuisine
   const renderDropdownModal = (
     visible: boolean,
     setVisible: (v: boolean) => void,
@@ -192,11 +289,62 @@ export default function FoodPreferences() {
     </Modal>
   );
 
+  // Medical conditions dropdown/sheet modal
+  const renderMedicalModal = () => (
+    <Modal visible={showMedicalModal} transparent animationType="fade">
+      <View className="flex-1 bg-black/80 justify-end">
+        <Pressable className="flex-1" onPress={() => setShowMedicalModal(false)} />
+        <View className="bg-[#141414] rounded-t-[32px] border-t border-[#2A2A2A] p-6 max-h-[80%] pb-10">
+          <View className="flex-row items-center justify-between mb-3">
+            <View>
+              <Text className="text-white text-xl font-semibold">Medical Conditions</Text>
+              <Text className="text-[#8E8E93] text-xs mt-0.5">Select all conditions that apply to you</Text>
+            </View>
+            <Pressable onPress={() => setShowMedicalModal(false)} className="w-8 h-8 rounded-full bg-[#2A2A2A] items-center justify-center">
+              <X size={16} color="#8E8E93" />
+            </Pressable>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} className="max-h-[380px] my-3">
+            {INDUSTRY_STANDARD_CONDITIONS.map((condition, idx) => {
+              const isSelected = medicalConditions.includes(condition);
+              return (
+                <Pressable
+                  key={idx}
+                  onPress={() => toggleMedicalCondition(condition)}
+                  className={`flex-row items-center justify-between py-3.5 px-3.5 rounded-xl border mb-2 ${
+                    isSelected ? 'border-[#C4EF00] bg-[#C4EF00]/10' : 'border-[#222222] bg-[#1A1A1A]'
+                  }`}
+                >
+                  <Text className={`text-sm font-medium flex-1 pr-3 ${isSelected ? 'text-[#C4EF00]' : 'text-white'}`}>
+                    {condition}
+                  </Text>
+                  {isSelected ? (
+                    <CheckCircle size={20} color="#C4EF00" weight="fill" />
+                  ) : (
+                    <View className="w-5 h-5 rounded-full border border-[#444444]" />
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <Pressable
+            onPress={() => setShowMedicalModal(false)}
+            className="bg-[#C4EF00] rounded-[18px] py-4 items-center justify-center mt-2"
+          >
+            <Text className="text-black font-semibold text-base">Done ({medicalConditions.length} selected)</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View className="flex-1 bg-[#0A0A0A] pb-28">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
         <Pressable onPress={handleBack} className="w-10 h-10 rounded-full bg-[#1A1A1A] border border-[#222222] items-center justify-center mb-6 active:opacity-80">
@@ -207,7 +355,7 @@ export default function FoodPreferences() {
         <Text className="text-[#C4EF00] text-[40px] leading-[44px] font-semibold tracking-tight mb-4">Preferences</Text>
 
         <Text className="text-[#8E8E93] text-[13px] leading-5 mb-8">
-          Help us personalize your meal plan based on your choices.
+          Help us personalize your meal plan based on your dietary choices and health profile.
         </Text>
 
         {/* Diet Preference */}
@@ -282,7 +430,7 @@ export default function FoodPreferences() {
           </View>
         </View>
 
-        {/* Calorie Spread (New) */}
+        {/* Calorie Spread */}
         <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-4">
           <View className="flex-row items-center gap-4 mb-5">
             <View className="w-10 h-10 rounded-xl bg-[#2A2A2A] items-center justify-center">
@@ -314,7 +462,7 @@ export default function FoodPreferences() {
                   >
                     {isSelected && <CheckCircle size={14} color="#C4EF00" weight="fill" />}
                   </Pressable>
-                )
+                );
               })}
             </View>
           ))}
@@ -395,24 +543,213 @@ export default function FoodPreferences() {
           </View>
         </View>
 
-        <View className="py-5 bg-[#0A0A0A]/95 pb-5">
+        {/* Medical Conditions (Mandatory Question) */}
+        <View className="bg-[#141414] border border-[#222222] rounded-[24px] p-5 mb-4">
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center gap-3.5 flex-1 pr-2">
+              <View className="w-10 h-10 rounded-xl bg-[#2A2A2A] items-center justify-center">
+                <FirstAid size={20} color="#C4EF00" weight="fill" />
+              </View>
+              <View className="flex-1">
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-white text-base font-semibold">Medical Conditions</Text>
+                  <View className="bg-[#FF9F0A]/15 border border-[#FF9F0A]/40 px-2 py-0.5 rounded-full">
+                    <Text className="text-[#FF9F0A] text-[9px] font-bold tracking-wider">MANDATORY</Text>
+                  </View>
+                </View>
+                <Text className="text-[#8E8E93] text-xs mt-0.5">Do you have any pre-existing health conditions?</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Yes / No Toggle Cards */}
+          <View className="flex-row gap-3 mb-4">
+            <Pressable
+              onPress={() => {
+                setHasMedicalConditions(false);
+                setMedicalConditions([]);
+              }}
+              className={`flex-1 py-3.5 px-4 rounded-[16px] border flex-row items-center justify-between ${
+                hasMedicalConditions === false
+                  ? 'border-[#C4EF00] bg-[#1A2E00]'
+                  : 'border-[#2A2A2A] bg-[#1A1A1A]'
+              }`}
+            >
+              <View>
+                <Text className={`text-sm font-semibold ${hasMedicalConditions === false ? 'text-[#C4EF00]' : 'text-white'}`}>
+                  No
+                </Text>
+                <Text className="text-[#8E8E93] text-[10px] mt-0.5">None diagnosed</Text>
+              </View>
+              {hasMedicalConditions === false && (
+                <CheckCircle size={18} color="#C4EF00" weight="fill" />
+              )}
+            </Pressable>
+
+            <Pressable
+              onPress={() => setHasMedicalConditions(true)}
+              className={`flex-1 py-3.5 px-4 rounded-[16px] border flex-row items-center justify-between ${
+                hasMedicalConditions === true
+                  ? 'border-[#C4EF00] bg-[#1A2E00]'
+                  : 'border-[#2A2A2A] bg-[#1A1A1A]'
+              }`}
+            >
+              <View>
+                <Text className={`text-sm font-semibold ${hasMedicalConditions === true ? 'text-[#C4EF00]' : 'text-white'}`}>
+                  Yes
+                </Text>
+                <Text className="text-[#8E8E93] text-[10px] mt-0.5">I have conditions</Text>
+              </View>
+              {hasMedicalConditions === true && (
+                <CheckCircle size={18} color="#C4EF00" weight="fill" />
+              )}
+            </Pressable>
+          </View>
+
+          {/* If Yes: show condition picker and other option */}
+          {hasMedicalConditions === true && (
+            <View className="pt-3 border-t border-[#222222]">
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-[#8E8E93] text-xs font-medium">Select all conditions that apply:</Text>
+                <Pressable
+                  onPress={() => setShowMedicalModal(true)}
+                  className="bg-[#222222] px-3 py-1.5 rounded-lg flex-row items-center gap-1.5"
+                >
+                  <Text className="text-[#C4EF00] text-[11px] font-semibold">View All ({INDUSTRY_STANDARD_CONDITIONS.length})</Text>
+                  <CaretDown size={12} color="#C4EF00" />
+                </Pressable>
+              </View>
+
+              {/* Quick Popular Condition Chips */}
+              <View className="flex-row flex-wrap gap-2 mb-4">
+                {POPULAR_CONDITIONS.map((cond, idx) => {
+                  const isSelected = medicalConditions.includes(cond);
+                  return (
+                    <Pressable
+                      key={idx}
+                      onPress={() => toggleMedicalCondition(cond)}
+                      className={`rounded-full py-2 px-3 flex-row items-center border ${
+                        isSelected ? 'border-[#C4EF00] bg-[#C4EF00]/15' : 'border-[#2A2A2A] bg-[#1A1A1A]'
+                      }`}
+                    >
+                      <Text className={`text-[11px] font-medium ${isSelected ? 'text-[#C4EF00]' : 'text-[#8E8E93]'}`}>
+                        {cond}
+                      </Text>
+                      {isSelected && <Check size={12} color="#C4EF00" weight="bold" style={{ marginLeft: 6 }} />}
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Selected conditions list display */}
+              {medicalConditions.length > 0 ? (
+                <View className="mt-2">
+                  <Text className="text-[#8E8E93] text-[11px] mb-2 font-medium">
+                    Selected Conditions ({medicalConditions.length}):
+                  </Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {medicalConditions.map((cond, idx) => (
+                      <View
+                        key={idx}
+                        className="bg-[#2A2A2A] rounded-full py-1.5 px-3 flex-row items-center border border-[#C4EF00]/50"
+                      >
+                        <Text className="text-white text-[11px] font-medium mr-2">{cond}</Text>
+                        <Pressable onPress={() => removeMedicalCondition(cond)} className="w-4 h-4 items-center justify-center">
+                          <X size={10} color="#8E8E93" />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <View className="flex-row items-center gap-1.5 mt-1 bg-[#FF9F0A]/10 p-2.5 rounded-xl border border-[#FF9F0A]/30">
+                  <WarningCircle size={14} color="#FF9F0A" />
+                  <Text className="text-[#FF9F0A] text-[11px] flex-1">
+                    Please select or add at least one condition.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Health & Nutrition Disclaimer */}
+        <View className="bg-[#141414] border border-[#FF9F0A]/35 rounded-[24px] p-5 mb-6">
+          <View className="flex-row items-center gap-3.5 mb-3">
+            <View className="w-10 h-10 rounded-xl bg-[#FF9F0A]/10 items-center justify-center">
+              <ShieldCheck size={22} color="#FF9F0A" weight="fill" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-white text-base font-semibold">Health & Medical Disclaimer</Text>
+              <Text className="text-[#8E8E93] text-[11px]">Important nutritional & safety guidance</Text>
+            </View>
+          </View>
+
+          <Text className="text-[#8E8E93] text-xs leading-5 mb-4">
+            The meal plans and dietary recommendations generated by GK Elite are based on general nutritional guidelines and self-reported inputs. They are not intended as clinical medical diagnosis, medical nutrition therapy (MNT), or a substitute for professional healthcare consultation.
+            {'\n\n'}
+            If you have chronic medical conditions (e.g. diabetes, cardiovascular disease, kidney conditions) or take prescription medications, always consult your physician or registered dietitian before adopting any new nutritional regimen.
+          </Text>
+
+          {/* I Agree Checkbox */}
+          <Pressable
+            onPress={() => setMedicalDisclaimerAccepted(!medicalDisclaimerAccepted)}
+            className={`flex-row items-center p-3.5 rounded-[16px] border ${
+              medicalDisclaimerAccepted
+                ? 'border-[#C4EF00] bg-[#C4EF00]/10'
+                : 'border-[#2A2A2A] bg-[#1A1A1A]'
+            }`}
+          >
+            {medicalDisclaimerAccepted ? (
+              <CheckSquare size={22} color="#C4EF00" weight="fill" />
+            ) : (
+              <Square size={22} color="#8E8E93" />
+            )}
+            <Text className={`text-xs font-semibold ml-3 flex-1 leading-5 ${
+              medicalDisclaimerAccepted ? 'text-white' : 'text-[#8E8E93]'
+            }`}>
+              I have read, understand, and agree to the health & medical disclaimer.
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Continue Button & Dynamic UX hint */}
+        <View className="mb-10">
           <Pressable
             onPress={handleContinue}
             disabled={saving}
-            className="bg-[#C4EF00] rounded-[20px] py-4 flex-row items-center justify-center active:opacity-90">
+            className={`rounded-[20px] py-4 flex-row items-center justify-center active:opacity-90 ${
+              isFormComplete ? 'bg-[#C4EF00]' : 'bg-[#C4EF00]/40'
+            }`}
+          >
             {saving ? (
               <ActivityIndicator color="#000000" />
             ) : (
               <>
-                <Text className="text-black font-semibold text-lg mr-2">Continue</Text>
+                <Text className={`font-semibold text-lg mr-2 ${isFormComplete ? 'text-black' : 'text-black/70'}`}>
+                  Continue
+                </Text>
                 <CaretRight size={18} color="#000000" weight="bold" />
               </>
             )}
           </Pressable>
+
+          {!isFormComplete && (
+            <Text className="text-[#8E8E93] text-[11px] text-center mt-2.5">
+              {hasMedicalConditions === null
+                ? '• Please answer the mandatory medical condition question (Yes / No)'
+                : hasMedicalConditions === true && medicalConditions.length === 0
+                ? '• Please select or add at least one medical condition'
+                : !medicalDisclaimerAccepted
+                ? '• Please check "I agree" on the health disclaimer'
+                : ''}
+            </Text>
+          )}
         </View>
       </ScrollView>
 
       {renderDropdownModal(showCuisineModal, setShowCuisineModal, "Preferred Cuisine", cuisines, selectedCuisine, setSelectedCuisine)}
+      {renderMedicalModal()}
     </View>
   );
 }

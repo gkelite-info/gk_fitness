@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, Modal, TextInput, ActivityIndicator, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { CaretLeft, CaretRight, Gear, Sun, Coffee, Moon, Fire, Leaf, PencilSimple, Check } from 'phosphor-react-native';
@@ -8,6 +8,7 @@ import { useTrainerMealPlan } from '@/hooks/trainerMealPlans/useTrainerMealPlan'
 import { useUser } from '@/context/UserContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { saveMealPlanDayMeal } from '@/helpers/customerMealPlans/mealPlanDayMeals';
+import { getRecipeImageUrl } from '@/helpers/globalMeals/globalMeals';
 
 export default function MyNutritionPlan() {
   const router = useRouter();
@@ -210,6 +211,7 @@ export default function MyNutritionPlan() {
             const Icon = getIconForMealType(meal.mealType);
             const mealId = activeTab === 'my_plan' ? (meal as any).customerMealPlanDayMealId : (meal as any).trainerMealPlanDayMealId;
             const isTrainerPlan = activeTab === 'trainer_plan';
+            const resolvedImgUri = getRecipeImageUrl(meal.imageUrl || (meal as any).image, meal.mealType);
             return (
               <Pressable
                 key={mealId}
@@ -217,21 +219,19 @@ export default function MyNutritionPlan() {
                 className="bg-[#141414] border border-[#222222] rounded-[24px] p-4 flex-col"
               >
                 <View className="flex-row justify-between items-start mb-3">
-                  <View className="flex-1 pr-2">
+                  <View className="flex-1 pr-3">
                     <View className="flex-row items-center mb-1">
                       <Icon size={16} color="#C4EF00" weight="regular" style={{ marginRight: 6 }} />
                       <Text className="text-[#C4EF00] text-[10px] font-semibold tracking-widest">{meal.mealType?.toUpperCase()}</Text>
                     </View>
-                    <Text className="text-white text-base font-semibold mb-2 leading-5 pr-2">{meal.mealName}</Text>
-                    <View className="flex-row items-start">
+                    <Text className="text-white text-base font-semibold mb-1 leading-5 pr-2">{meal.mealName}</Text>
+                    <View className="flex-row items-start mb-2">
                       <Leaf size={12} color="#4ADE80" weight="fill" style={{ marginRight: 4, marginTop: 2 }} />
-                      <Text className="text-[#8E8E93] text-[11px] leading-4 flex-1 pr-4">{meal.description || 'No description available'}</Text>
+                      <Text className="text-[#8E8E93] text-[11px] leading-4 flex-1 pr-2" numberOfLines={2}>{meal.description || 'Nutrient-rich fitness recipe'}</Text>
                     </View>
-                  </View>
-
-                  <View className="items-end">
-                    <View className="flex-row items-center mb-1">
-                      <Text className="text-white text-[24px] font-semibold leading-7 mr-1">{meal.calories || 0}</Text>
+                    <View className="flex-row items-center">
+                      <Text className="text-white text-[18px] font-bold mr-1">{meal.calories || 0}</Text>
+                      <Text className="text-[#8E8E93] text-[10px] mr-2">kcal</Text>
                       {activeTab === 'my_plan' && (
                         <Pressable
                           onPress={() => {
@@ -240,15 +240,23 @@ export default function MyNutritionPlan() {
                           }}
                           className="p-1 -mr-1"
                         >
-                          <PencilSimple size={16} color="#8E8E93" weight="bold" />
+                          <PencilSimple size={14} color="#8E8E93" weight="bold" />
                         </Pressable>
                       )}
                     </View>
-                    <Text className="text-[#8E8E93] text-[9px] mr-5">kcal</Text>
+                  </View>
+
+                  <View className="w-20 h-20 rounded-[18px] overflow-hidden bg-[#1A1A1A] border border-[#222222]">
+                    <Image
+                      source={{ uri: resolvedImgUri }}
+                      className="w-full h-full"
+                      resizeMode="cover"
+                    />
                   </View>
                 </View>
 
-                <View className="flex-row items-center gap-x-3 pt-2 border-t border-[#222222]">
+                {/* Macros at bottom line */}
+                <View className="flex-row items-center gap-x-3 pt-2.5 border-t border-[#222222]">
                   <Text className="text-[#4ADE80] text-[11px] font-semibold">P {meal.protein || 0}g</Text>
                   <Text className="text-[#FBBF24] text-[11px] font-semibold">C {meal.carbs || 0}g</Text>
                   <Text className="text-[#A78BFA] text-[11px] font-semibold">F {meal.fat || 0}g</Text>

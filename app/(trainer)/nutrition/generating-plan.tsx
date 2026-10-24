@@ -79,6 +79,7 @@ export default function GeneratingPlan() {
                                 protein: meal.protein,
                                 carbs: meal.carbs,
                                 fat: meal.fat,
+                                fiber: meal.fiber || 0,
                                 order: meal.order,
                                 globalMealId: meal.globalMealId,
                                 ingredientsJson: meal.ingredientsJson,

@@ -4,7 +4,7 @@ import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, CaretDown, Check } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
-import { fetchGlobalMeals, fetchMealIngredients } from '@/helpers/globalMeals/globalMeals';
+import { fetchGlobalMeals, fetchMealIngredients, getRecipeImageUrl } from '@/helpers/globalMeals/globalMeals';
 import { saveMealPlanDayMeal } from '@/helpers/customerMealPlans/mealPlanDayMeals';
 
 export default function AlternativeMealDetail() {
@@ -98,6 +98,7 @@ export default function AlternativeMealDetail() {
         protein: altMeal.scaledProtein,
         carbs: altMeal.scaledCarbs,
         fat: altMeal.scaledFat,
+        fiber: altMeal.scaledFiber || 0,
         order: originalSlot.order,
         image: altMeal.imageUrl,
         globalMealId: altMeal.globalMealId,
@@ -132,7 +133,7 @@ export default function AlternativeMealDetail() {
         showsVerticalScrollIndicator={false}
       >
         <ImageBackground
-          source={{ uri: altMeal.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600&auto=format&fit=crop' }}
+          source={{ uri: getRecipeImageUrl(altMeal.imageUrl, altMeal.mealType) }}
           className="w-full h-80 justify-between pb-4"
           resizeMode="cover"
         >

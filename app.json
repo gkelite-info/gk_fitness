@@ -2,8 +2,8 @@
   "expo": {
     "name": "GK-Gymlife",
     "slug": "gk-fitness",
-    "owner": "gk-elite-info",
-    "version": "1.0.2",
+    "owner": "ashishgkelite",
+    "version": "1.0.4",
     "scheme": "gk-fitness",
     "platforms": [
       "ios",
@@ -31,6 +31,7 @@
         "expo-camera",
         {
           "cameraPermission": "Allow GK Fitness to access your camera to scan QR codes for gym attendance.",
+          "microphonePermission": false,
           "recordAudioAndroid": false
         }
       ],
@@ -43,6 +44,12 @@
       "expo-status-bar",
       "expo-web-browser",
       "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow GK Fitness to use your location to find nearby gyms and calculate distance."
+        }
+      ],
       [
         "expo-build-properties",
         {
@@ -57,6 +64,12 @@
         }
       ],
       "react-native-health-connect",
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "GK Fitness needs access to your device motion data to accurately track your daily step count and calculate calories burned during your active workout sessions."
+        }
+      ],
       "expo-sharing",
       [
         "expo-notifications",
@@ -65,7 +78,7 @@
           "color": "#CCF200",
           "defaultChannel": "default",
           "enableBackgroundRemoteNotifications": true,
-          "mode": "development"
+          "mode": "production"
         }
       ]
     ],
@@ -82,9 +95,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vamshi0111.gkfitness",
-      "buildNumber": "19",
+      "buildNumber": "20",
       "entitlements": {
-        "aps-environment": "development"
+        "aps-environment": "production"
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -102,7 +115,7 @@
       }
     },
     "android": {
-      "versionCode": 23,
+      "versionCode": 24,
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -130,14 +143,14 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5d58a773-7b20-402a-b488-fd27bccbc462"
+        "projectId": "99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/5d58a773-7b20-402a-b488-fd27bccbc462"
+      "url": "https://u.expo.dev/99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
     }
   }
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, Image, Pressable, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { ArrowRight, CaretRight, Clock, HandWaving, Check, Bell, Lightning, Calendar, CheckCircle, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass, CalendarPlus, Sparkle, XCircle, CaretLeft, X, ArrowsClockwise } from 'phosphor-react-native';
+import { ArrowRight, CaretRight, Clock, HandWaving, Check, Bell, Lightning, Calendar, CheckCircle, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass, CalendarPlus, Sparkle, XCircle, CaretLeft, X, ArrowsClockwise, Robot } from 'phosphor-react-native';
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from '@/components/ui/Video';
 import { useNavigation, router } from 'expo-router';
@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
+import { CustomWorkoutBuilder } from '@/components/workout/CustomWorkoutBuilder';
 const getWorkoutImage = (type: string | undefined | null) => {
   if (!type) return require('../../assets/workout.png');
   const lower = type.toLowerCase();
@@ -33,7 +34,7 @@ const getWorkoutImage = (type: string | undefined | null) => {
 
 export default function CustomerWorkout() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
-  const [planTab, setPlanTab] = useState<'customer' | 'trainer'>('customer');
+  const [planTab, setPlanTab] = useState<'customer' | 'trainer' | 'custom'>('customer');
   const navigation = useNavigation();
   const { name, userId } = useUser();
   const queryClient = useQueryClient();
@@ -122,32 +123,41 @@ export default function CustomerWorkout() {
         <View className="w-full mt-2 flex-row items-center bg-[#111111] p-1 rounded-2xl border border-[#27272A]">
           <Pressable
             onPress={() => setPlanTab('customer')}
-            className={`flex-1 py-2.5 rounded-xl items-center justify-center flex-row gap-2 ${planTab === 'customer' ? 'bg-[#C4EF00]' : 'bg-transparent'}`}
+            className={`flex-1 py-2 rounded-xl items-center justify-center flex-row gap-1 ${planTab === 'customer' ? 'bg-[#C4EF00]' : 'bg-transparent'}`}
           >
-            <Text className={`text-xs font-semibold ${planTab === 'customer' ? 'text-black' : 'text-[#8E8E8E]'}`}>
-              Customer Plan
+            <Text className={`text-[11px] font-semibold ${planTab === 'customer' ? 'text-black' : 'text-[#8E8E8E]'}`}>
+              My Plan
             </Text>
           </Pressable>
 
           <Pressable
             onPress={() => setPlanTab('trainer')}
-            className={`flex-1 py-2.5 rounded-xl items-center justify-center flex-row gap-2 ${planTab === 'trainer' ? 'bg-[#C4EF00]' : 'bg-transparent'}`}
+            className={`flex-1 py-2 rounded-xl items-center justify-center flex-row gap-1 ${planTab === 'trainer' ? 'bg-[#C4EF00]' : 'bg-transparent'}`}
           >
-            <Text className={`text-xs font-semibold ${planTab === 'trainer' ? 'text-black' : 'text-[#8E8E8E]'}`}>
-              Trainer Plan
+            <Text className={`text-[11px] font-semibold ${planTab === 'trainer' ? 'text-black' : 'text-[#8E8E8E]'}`}>
+              Trainer
             </Text>
             {hasTrainerPlan && (
-              <View className={`w-2 h-2 rounded-full ${planTab === 'trainer' ? 'bg-black' : 'bg-[#C4EF00]'}`} />
+              <View className={`w-1.5 h-1.5 rounded-full ${planTab === 'trainer' ? 'bg-black' : 'bg-[#C4EF00]'}`} />
             )}
+          </Pressable>
+
+          <Pressable
+            onPress={() => setPlanTab('custom')}
+            className={`flex-1 py-2 rounded-xl items-center justify-center flex-row gap-1 ${planTab === 'custom' ? 'bg-[#C4EF00]' : 'bg-transparent'}`}
+          >
+            <Text className={`text-[11px] font-semibold ${planTab === 'custom' ? 'text-black' : 'text-[#8E8E8E]'}`}>
+              Builder
+            </Text>
           </Pressable>
         </View>
 
-        {/* {activeTab === 'Muscle Group' ? (
-          <MuscleGroupView />
-        ) : activeTab === 'Equipment' ? (
-          <EquipmentView />
-        ) : !activeTab ? ( */}
-        {activeTab === 'Full Body Workout' || activeTab === 'Upper Body Workout' || activeTab === 'Lower Body Workout' || activeTab === 'Abs Workout' ? (
+        {/* Custom Workout Builder tab */}
+        {planTab === 'custom' ? (
+          <View className="w-full mt-4">
+            <CustomWorkoutBuilder />
+          </View>
+        ) : activeTab === 'Full Body Workout' || activeTab === 'Upper Body Workout' || activeTab === 'Lower Body Workout' || activeTab === 'Abs Workout' ? (
           <View className="w-full mt-2">
             <Pressable onPress={() => setActiveTab(null)} className="flex-row items-center gap-2 mb-2 active:opacity-70">
               <CaretLeft size={20} color="white" weight="bold" />

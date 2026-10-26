@@ -7,6 +7,7 @@ import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/react-query';
 import { useGymTrainerById } from '@/hooks/trainers/useGymTrainers';
+import { useGlobalTrainer } from '@/hooks/globalTrainers/useGlobalTrainer';
 import {
   Star,
   Bell,
@@ -50,11 +51,14 @@ const MenuItem = ({ icon, title, subtitle, onPress, isDanger = false }: any) => 
 export default function TrainerProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { trainerId, profilePhoto } = useUser();
+  const { trainerId, globalTrainerId, profilePhoto, name, role } = useUser();
   const [modalVisible, setModalVisible] = useState(false);
 
-  const { data: trainerData } = useGymTrainerById(trainerId ?? undefined);
-  const trainer = trainerData?.trainer;
+  const isGlobalTrainer = (role || '').toLowerCase().replace(/[\s_-]/g, '') === 'globaltrainer';
+  const { data: trainerData } = useGymTrainerById(!isGlobalTrainer ? (trainerId ?? undefined) : undefined);
+  const { data: globalTrainerData } = useGlobalTrainer(globalTrainerId || (isGlobalTrainer ? trainerId : undefined));
+
+  const trainer = isGlobalTrainer ? globalTrainerData : (trainerData?.trainer || globalTrainerData);
 
   const handleSignOut = async () => {
     try {
@@ -123,9 +127,9 @@ export default function TrainerProfileScreen() {
             </View>
 
             <View className="ml-4 pt-1 flex-1">
-              <Text className="text-white text-xl font-semibold mb-1">{trainer?.fullName || 'Trainer'}</Text>
+              <Text className="text-white text-xl font-semibold mb-1">{trainer?.fullName || name || 'Trainer'}</Text>
               <View className="bg-[#1A2D22] self-start px-2.5 py-1 rounded-md">
-                <Text className="text-[#C4EF18] text-[10px] font-medium">{trainer?.specialization || 'Global Trainer'}</Text>
+                <Text className="text-[#C4EF18] text-[10px] font-medium">{trainer?.specialization || (isGlobalTrainer ? 'Global Trainer' : 'Fitness Trainer')}</Text>
               </View>
             </View>
           </View>
@@ -137,14 +141,14 @@ export default function TrainerProfileScreen() {
             </View>
             <View className="flex-row items-center">
               <MapPin size={14} color="#A1A1AA" weight="fill" style={{ marginRight: 6 }} />
-              <Text className="text-[#A1A1AA] text-xs">Mumbai, India</Text>
+              <Text className="text-[#A1A1AA] text-xs">{(trainer as any)?.city || 'Global'}</Text>
             </View>
           </View>
 
           <View className="flex-row items-center justify-between px-1">
             <View className="flex-row items-center">
               <Barbell size={14} color="#A1A1AA" weight="fill" style={{ marginRight: 6 }} />
-              <Text className="text-[#A1A1AA] text-xs">{trainer?.experienceYears || 0}+ Years Experience</Text>
+              <Text className="text-[#A1A1AA] text-xs">{trainer?.experienceYears || (trainer as any)?.experience || 0}+ Years Experience</Text>
             </View>
             <View className="flex-row items-center">
               <User size={14} color="#A1A1AA" style={{ marginRight: 6 }} />

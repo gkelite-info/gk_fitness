@@ -11,6 +11,7 @@ import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { router, useFocusEffect } from 'expo-router';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import {
   Users,
   CheckCircle,
@@ -43,14 +44,78 @@ const OVERVIEW_ITEMS = [
 ];
 
 const QUICK_ACTIONS = [
-  { id: 'enquiries', icon: PhoneCall, label: 'Enquiries' },
-  { id: 'add-member', icon: UserPlus, label: 'Add Member' },
-  { id: 'membership-expiry', icon: CalendarCheck, label: 'Renewals' },
-  { id: 'record-payment', icon: Wallet, label: 'Record Payment' },
-  { id: 'manage-inventory', icon: Package, label: 'Manage Inventory' },
-  { id: 'manual-attendance', icon: CheckSquare, label: 'Manual Attendance' },
-  { id: 'create-announcement', icon: Megaphone, label: 'Announcements' },
-  { id: 'manage-biometric', icon: Fingerprint, label: 'Biometric' },
+  {
+    id: 'add-member',
+    icon: UserPlus,
+    label: 'Add Member',
+    color: '#22C55E',
+    border: 'rgba(34, 197, 94, 0.22)',
+    bg: 'rgba(34, 197, 94, 0.12)',
+    iconBorder: 'rgba(34, 197, 94, 0.35)',
+  },
+  {
+    id: 'record-payment',
+    icon: Wallet,
+    label: 'Record Payment',
+    color: '#A855F7',
+    border: 'rgba(168, 85, 247, 0.22)',
+    bg: 'rgba(168, 85, 247, 0.12)',
+    iconBorder: 'rgba(168, 85, 247, 0.35)',
+  },
+  {
+    id: 'enquiries',
+    icon: PhoneCall,
+    label: 'Enquiries',
+    color: '#06B6D4',
+    border: 'rgba(6, 182, 212, 0.22)',
+    bg: 'rgba(6, 182, 212, 0.12)',
+    iconBorder: 'rgba(6, 182, 212, 0.35)',
+  },
+  {
+    id: 'manage-inventory',
+    icon: Package,
+    label: 'Manage Inventory',
+    color: '#F97316',
+    border: 'rgba(249, 115, 22, 0.22)',
+    bg: 'rgba(249, 115, 22, 0.12)',
+    iconBorder: 'rgba(249, 115, 22, 0.35)',
+  },
+  {
+    id: 'membership-expiry',
+    icon: CalendarCheck,
+    label: 'Renewals',
+    color: '#EAB308',
+    border: 'rgba(234, 179, 8, 0.22)',
+    bg: 'rgba(234, 179, 8, 0.12)',
+    iconBorder: 'rgba(234, 179, 8, 0.35)',
+  },
+  {
+    id: 'manage-biometric',
+    icon: Fingerprint,
+    label: 'Biometric',
+    color: '#F43F5E',
+    border: 'rgba(244, 63, 94, 0.22)',
+    bg: 'rgba(244, 63, 94, 0.12)',
+    iconBorder: 'rgba(244, 63, 94, 0.35)',
+  },
+  {
+    id: 'manual-attendance',
+    icon: CheckSquare,
+    label: 'Manual Attendance',
+    color: '#6366F1',
+    border: 'rgba(99, 102, 241, 0.22)',
+    bg: 'rgba(99, 102, 241, 0.12)',
+    iconBorder: 'rgba(99, 102, 241, 0.35)',
+  },
+  {
+    id: 'create-announcement',
+    icon: Megaphone,
+    label: 'Announcements',
+    color: '#FB7185',
+    border: 'rgba(251, 113, 133, 0.22)',
+    bg: 'rgba(251, 113, 133, 0.12)',
+    iconBorder: 'rgba(251, 113, 133, 0.35)',
+  },
 ];
 
 const OPERATIONS = [
@@ -154,20 +219,20 @@ export default function OwnerDashboardScreen() {
       bg: '#2B0E10',
       title: `${expiringCount} Customership${expiringCount === 1 ? '' : 's'} expiring tomorrow`,
     },
-    {
-      id: 'leave',
-      icon: UserMinus,
-      iconColor: '#888888',
-      bg: '#242424',
-      title: 'Trainer leave pending approval',
-    },
-    {
-      id: 'ticket',
-      icon: EnvelopeSimple,
-      iconColor: '#CCF200',
-      bg: '#242810',
-      title: 'New support ticket received',
-    },
+    // {
+    //   id: 'leave',
+    //   icon: UserMinus,
+    //   iconColor: '#888888',
+    //   bg: '#242424',
+    //   title: 'Trainer leave pending approval',
+    // },
+    // {
+    //   id: 'ticket',
+    //   icon: EnvelopeSimple,
+    //   iconColor: '#CCF200',
+    //   bg: '#242810',
+    //   title: 'New support ticket received',
+    // },
   ];
 
   const activePtSessionsCount = gymCustomerTrainers?.filter((ct: any) => ct.isActive).length || 0;
@@ -226,7 +291,6 @@ export default function OwnerDashboardScreen() {
     const currentMonthIndex = now.getMonth();
     const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-    // Only show months up to and including the current month
     const monthsToShow = monthNames.slice(0, currentMonthIndex + 1);
 
     const monthlyRev: Record<string, number> = {};
@@ -408,12 +472,62 @@ export default function OwnerDashboardScreen() {
                   router.push('/(owner)/dashboard/biometric' as any);
                 }
               }}
-              className="w-[48.5%] bg-[#0F0F0F] border border-[#1F293D] rounded-2xl p-4 items-center justify-center active:opacity-80 min-h-[120px]">
-              <View
-                className="w-12 h-12 rounded-full items-center justify-center mb-3"
-                style={{ backgroundColor: '#373F0E' }}>
-                <IconComp size={22} color="#CCF200" weight="bold" />
+              style={{
+                backgroundColor: '#0F1015',
+                borderColor: action.border,
+                borderWidth: 1,
+                borderRadius: 20,
+                shadowColor: action.color,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.16,
+                shadowRadius: 10,
+                elevation: 2,
+              }}
+              className="w-[48.5%] p-4 items-center justify-center active:opacity-80 min-h-[124px]">
+              <View className="relative items-center justify-center mb-3">
+                {/* Background Ambient Glow */}
+                <Svg
+                  width={96}
+                  height={96}
+                  viewBox="0 0 96 96"
+                  pointerEvents="none"
+                  style={{ position: 'absolute' }}>
+                  <Defs>
+                    <RadialGradient
+                      id={`glow-${action.id}`}
+                      cx="50%"
+                      cy="50%"
+                      rx="50%"
+                      ry="50%">
+                      <Stop offset="0%" stopColor={action.color} stopOpacity="0.5" />
+                      <Stop offset="45%" stopColor={action.color} stopOpacity="0.22" />
+                      <Stop offset="80%" stopColor={action.color} stopOpacity="0.05" />
+                      <Stop offset="100%" stopColor={action.color} stopOpacity="0" />
+                    </RadialGradient>
+                  </Defs>
+                  <Rect width={96} height={96} fill={`url(#glow-${action.id})`} />
+                </Svg>
+
+                {/* Squircle Icon Container */}
+                <View
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 16,
+                    backgroundColor: action.bg,
+                    borderColor: action.iconBorder,
+                    borderWidth: 1.2,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    shadowColor: action.color,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.6,
+                    shadowRadius: 12,
+                  }}>
+                  <IconComp size={24} color={action.color} weight="regular" />
+                </View>
               </View>
+
               <Text className="text-sm font-semibold text-white text-center">
                 {action.label}
               </Text>

@@ -26,7 +26,9 @@ export function SharedTabBar() {
   }
 
   let tabs: any[] = [];
-  if (role === 'customer' || role === 'individual') {
+  const normalizedRole = (role || '').trim().toLowerCase().replace(/[\s_-]/g, '');
+
+  if (normalizedRole === 'customer' || normalizedRole === 'individual') {
     tabs = [
       { name: 'workout', label: 'Workout', icon: Barbell, path: '/(customer)/workout' },
       { name: 'progress', label: 'Progress', icon: ChartLineUp, path: '/(customer)/progress' },
@@ -34,7 +36,7 @@ export function SharedTabBar() {
       { name: 'explore', label: 'Explore', icon: Binoculars, path: '/(customer)/explore' },
       { name: 'profile', label: 'Profile', icon: User, path: '/(customer)/profile' }
     ];
-  } else if (role === 'owner') {
+  } else if (normalizedRole === 'owner') {
     tabs = [
       { name: 'users', label: 'Users', icon: Users, path: '/(owner)/users' },
       { name: 'finance', label: 'Finance', icon: CurrencyDollar, path: '/(owner)/finance' },
@@ -42,7 +44,7 @@ export function SharedTabBar() {
       { name: 'explore', label: 'Explore', icon: Binoculars, path: '/(owner)/explore' },
       { name: 'profile', label: 'Profile', icon: User, path: '/(owner)/profile' }
     ];
-  } else if (role === 'doctor') {
+  } else if (normalizedRole === 'doctor') {
     tabs = [
       { name: 'patients', label: 'Patients', icon: ClipboardText, path: '/(doctor)/patients' },
       { name: 'messages', label: 'Messages', icon: ChatCircle, path: '/(doctor)/messages' },
@@ -50,7 +52,7 @@ export function SharedTabBar() {
       { name: 'explore', label: 'Explore', icon: Binoculars, path: '/(doctor)/explore' },
       { name: 'profile', label: 'Profile', icon: User, path: '/(doctor)/profile' }
     ];
-  } else if (role === 'superadmin') {
+  } else if (normalizedRole === 'superadmin') {
     tabs = [
       { name: 'gyms', label: 'Gyms', icon: Buildings, path: '/(superadmin)/dashboard' },
       { name: 'finance', label: 'Finance', icon: CurrencyDollar, path: '/(superadmin)/dashboard' },
@@ -58,11 +60,11 @@ export function SharedTabBar() {
       { name: 'support', label: 'Support', icon: Headphones, path: '/(superadmin)/dashboard' },
       { name: 'profile', label: 'Profile', icon: User, path: '/(superadmin)/dashboard' }
     ];
-  } else if (role === 'trainer') {
+  } else if (normalizedRole === 'trainer' || normalizedRole === 'globaltrainer') {
     tabs = [
-      { name: 'clients', label: 'Clients', icon: Users, path: '/(trainer)/clients' },
-      { name: 'schedule', label: 'Schedule', icon: Calendar, path: '/(trainer)/schedule' },
-      { name: 'dashboard', label: 'Dashboard', icon: House, path: '/(trainer)/dashboard', isCenter: true },
+      { name: 'customer', label: 'Customers', icon: Users, path: '/(trainer)/customer' },
+      { name: 'plans', label: 'Plans', icon: Barbell, path: '/(trainer)/plans' },
+      { name: 'home', label: 'Home', icon: House, path: '/(trainer)/home', isCenter: true },
       { name: 'explore', label: 'Explore', icon: Binoculars, path: '/(trainer)/explore' },
       { name: 'profile', label: 'Profile', icon: User, path: '/(trainer)/profile' }
     ];

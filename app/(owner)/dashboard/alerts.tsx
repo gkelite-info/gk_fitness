@@ -56,7 +56,6 @@ export default function AlertsAndRemindersScreen() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Today Date Strings
   const today = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => {
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -68,7 +67,6 @@ export default function AlertsAndRemindersScreen() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }, [today]);
 
-  // Data Queries
   const { data: customers, refetch: refetchCustomers, isLoading: loadingCust } = useGymCustomers(gymId ?? undefined);
   const { data: plans, refetch: refetchPlans, isLoading: loadingPlans } = useGymCustomerMembershipPlans(userId ?? null);
   const { data: payments, refetch: refetchPayments, isLoading: loadingPay } = useGymPayments(userId ?? null);
@@ -90,7 +88,6 @@ export default function AlertsAndRemindersScreen() {
     setRefreshing(false);
   }, [refetchCustomers, refetchPlans, refetchPayments, refetchAttendance, refetchInventory, refetchPT]);
 
-  // Build Dynamic Alert Stream
   const alertsList: AlertItem[] = useMemo(() => {
     const list: AlertItem[] = [];
 
@@ -99,7 +96,6 @@ export default function AlertsAndRemindersScreen() {
       return c?.fullName || 'Member';
     };
 
-    // 1. Expiring Memberships Alert
     const expiringTomorrowPlans = (plans || []).filter((p: any) => {
       if (!p.endDate) return false;
       const end = p.endDate.split('T')[0];
@@ -120,7 +116,6 @@ export default function AlertsAndRemindersScreen() {
       });
     }
 
-    // 2. Recent Renewals / Payments Alerts
     if (payments && payments.length > 0) {
       payments.slice(0, 3).forEach((p: any, idx: number) => {
         const cName = p.gym_customers?.fullName || getCustName(p.customerId);
@@ -141,7 +136,6 @@ export default function AlertsAndRemindersScreen() {
       });
     }
 
-    // 3. New Member Registrations
     if (customers && customers.length > 0) {
       const sortedCustomers = [...customers].sort(
         (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
@@ -165,123 +159,58 @@ export default function AlertsAndRemindersScreen() {
       });
     }
 
-    // 4. Trainer leave request pending
-    list.push({
-      id: 'alert-trainer-leave',
-      type: 'leave',
-      title: 'Trainer leave request submitt..',
-      subtitle: 'Amit Kumar • 2 Aug – 4 Aug',
-      time: '8:20 AM',
-      icon: CalendarBlank,
-      iconColor: '#F59E0B',
-      bgColor: '#2B230E',
-      route: '/(owner)/dashboard',
-    });
-
-    // 5. Support Ticket
-    list.push({
-      id: 'alert-support-ticket',
-      type: 'support',
-      title: 'Support ticket received',
-      subtitle: '"Unable to book trainer"',
-      time: '7:48 AM',
-      icon: ChatCircleText,
-      iconColor: '#3B82F6',
-      bgColor: '#0E1B2B',
-      route: '/(owner)/dashboard',
-    });
-
-    // 6. Payment Failed Notification
-    list.push({
-      id: 'alert-payment-failed',
-      type: 'payment_failed',
-      title: 'Payment failed',
-      subtitle: 'Membership payment failed for Arjun Singh',
-      time: '6:40 PM',
-      icon: CreditCard,
-      iconColor: '#A855F7',
-      bgColor: '#200E2B',
-      route: '/(owner)/dashboard/payments',
-    });
-
-    // 7. Personal Training Package Purchased
-    if (ptSessions && ptSessions.length > 0) {
-      const pt = ptSessions[0];
-      const custName = getCustName(pt.customerId);
+    const checkInsCount = attendances ? new Set(attendances.map((a: any) => a.customerId)).size : 0;
+    if (checkInsCount > 0) {
       list.push({
-        id: `alert-pt-${pt.customerTrainerId || '1'}`,
-        type: 'pt',
-        title: 'Personal training package p..',
-        subtitle: `${custName} purchased 12 PT Sessions`,
-        time: '5:10 PM',
-        icon: Barbell,
-        iconColor: '#10B981',
-        bgColor: '#0E2B24',
-        route: '/(owner)/dashboard/pt-sessions',
-      });
-    } else {
-      list.push({
-        id: 'alert-pt-default',
-        type: 'pt',
-        title: 'Personal training package p..',
-        subtitle: 'Sneha Patel purchased 12 PT Sessions',
-        time: '5:10 PM',
-        icon: Barbell,
-        iconColor: '#10B981',
-        bgColor: '#0E2B24',
-        route: '/(owner)/dashboard/pt-sessions',
+        id: 'alert-attendance-milestone',
+        type: 'attendance',
+        title: 'Attendance update',
+        subtitle: `${checkInsCount} member${checkInsCount === 1 ? '' : 's'} checked in today`,
+        time: 'Today',
+        icon: Trophy,
+        iconColor: '#EAB308',
+        bgColor: '#2B250E',
+        route: '/(owner)/dashboard/manual-attendance',
       });
     }
 
-    // 8. Attendance Milestone
-    const checkInsCount = attendances ? new Set(attendances.map((a: any) => a.customerId)).size : 0;
-    const milestoneCount = checkInsCount > 0 ? checkInsCount : 50;
-    list.push({
-      id: 'alert-attendance-milestone',
-      type: 'attendance',
-      title: 'Attendance milestone',
-      subtitle: `${milestoneCount} members checked in today`,
-      time: '4:00 PM',
-      icon: Trophy,
-      iconColor: '#EAB308',
-      bgColor: '#2B250E',
-      route: '/(owner)/dashboard',
-    });
-
-    // 9. Low Inventory Alert
-    if (inventory && inventory.length > 0) {
-      const lowStockItem = inventory.find((item: any) => (item.available ?? item.quantity) <= 5);
-      if (lowStockItem) {
+    if (ptSessions && ptSessions.length > 0) {
+      ptSessions.slice(0, 3).forEach((pt: any) => {
+        const custName = getCustName(pt.customerId);
         list.push({
-          id: `alert-inv-${lowStockItem.gymInventoryId}`,
+          id: `alert-pt-${pt.customerTrainerId || pt.id}`,
+          type: 'pt',
+          title: 'Personal training package active',
+          subtitle: `${custName} active in personal training`,
+          time: 'Active',
+          icon: Barbell,
+          iconColor: '#10B981',
+          bgColor: '#0E2B24',
+          route: '/(owner)/dashboard/pt-sessions',
+        });
+      });
+    }
+
+    if (inventory && inventory.length > 0) {
+      const lowStockItems = inventory.filter((item: any) => (item.available ?? item.quantity) <= 5);
+      lowStockItems.slice(0, 3).forEach((item: any) => {
+        list.push({
+          id: `alert-inv-${item.gymInventoryId}`,
           type: 'inventory',
           title: 'Low inventory alert',
-          subtitle: `${lowStockItem.equipmentName || 'Inventory item'} only ${lowStockItem.available ?? lowStockItem.quantity} units left`,
-          time: '3:45 PM',
+          subtitle: `${item.equipmentName || 'Inventory item'} only ${item.available ?? item.quantity} units left`,
+          time: 'Low Stock',
           icon: Package,
           iconColor: '#F43F5E',
           bgColor: '#2B0E1B',
           route: '/(owner)/dashboard/manage-inventory',
         });
-      }
-    } else {
-      list.push({
-        id: 'alert-inv-default',
-        type: 'inventory',
-        title: 'Low inventory alert',
-        subtitle: 'Protein Powder (Chocolate) only 3 units left',
-        time: '3:45 PM',
-        icon: Package,
-        iconColor: '#F43F5E',
-        bgColor: '#2B0E1B',
-        route: '/(owner)/dashboard/manage-inventory',
       });
     }
 
     return list;
   }, [customers, plans, payments, attendances, inventory, ptSessions, tomorrowStr]);
 
-  // Filtered List
   const filteredAlerts = useMemo(() => {
     let result = alertsList;
 
@@ -308,7 +237,6 @@ export default function AlertsAndRemindersScreen() {
 
   const renderHeader = () => (
     <View className="mb-4">
-      {/* Top Bar */}
       <View className="flex-row items-center mb-5">
         <Pressable
           onPress={() => {
@@ -319,12 +247,11 @@ export default function AlertsAndRemindersScreen() {
         >
           <ArrowLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="text-xl font-bold text-white tracking-tight">
+        <Text className="text-xl font-semibold text-white tracking-tight">
           Alerts & Reminders
         </Text>
       </View>
 
-      {/* Search Input */}
       <View className="flex-row items-center bg-[#131926] border border-[#1F293D] rounded-2xl px-4 py-3 mb-4">
         <MagnifyingGlass size={18} color="#717E95" weight="bold" />
         <TextInput
@@ -342,7 +269,6 @@ export default function AlertsAndRemindersScreen() {
         )}
       </View>
 
-      {/* Filter Tabs */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -353,16 +279,14 @@ export default function AlertsAndRemindersScreen() {
             triggerLightHaptic();
             setSelectedType('all');
           }}
-          className={`px-3.5 py-1.5 rounded-xl border ${
-            selectedType === 'all'
-              ? 'bg-[#CCF200]/15 border-[#CCF200]'
-              : 'bg-[#131926] border-[#1F293D]'
-          }`}
+          className={`px-3.5 py-1.5 rounded-xl border ${selectedType === 'all'
+            ? 'bg-[#CCF200]/15 border-[#CCF200]'
+            : 'bg-[#131926] border-[#1F293D]'
+            }`}
         >
           <Text
-            className={`text-xs ${
-              selectedType === 'all' ? 'text-[#CCF200] font-bold' : 'text-[#717E95] font-medium'
-            }`}
+            className={`text-xs ${selectedType === 'all' ? 'text-[#CCF200] font-semibold' : 'text-[#717E95] font-medium'
+              }`}
           >
             All ({alertsList.length})
           </Text>
@@ -373,16 +297,14 @@ export default function AlertsAndRemindersScreen() {
             triggerLightHaptic();
             setSelectedType('expiry');
           }}
-          className={`px-3.5 py-1.5 rounded-xl border ${
-            selectedType === 'expiry'
-              ? 'bg-[#EF4444]/15 border-[#EF4444]'
-              : 'bg-[#131926] border-[#1F293D]'
-          }`}
+          className={`px-3.5 py-1.5 rounded-xl border ${selectedType === 'expiry'
+            ? 'bg-[#EF4444]/15 border-[#EF4444]'
+            : 'bg-[#131926] border-[#1F293D]'
+            }`}
         >
           <Text
-            className={`text-xs ${
-              selectedType === 'expiry' ? 'text-[#F87171] font-bold' : 'text-[#717E95] font-medium'
-            }`}
+            className={`text-xs ${selectedType === 'expiry' ? 'text-[#F87171] font-semibold' : 'text-[#717E95] font-medium'
+              }`}
           >
             Expiry
           </Text>
@@ -393,16 +315,14 @@ export default function AlertsAndRemindersScreen() {
             triggerLightHaptic();
             setSelectedType('renewal');
           }}
-          className={`px-3.5 py-1.5 rounded-xl border ${
-            selectedType === 'renewal'
-              ? 'bg-[#22C55E]/15 border-[#22C55E]'
-              : 'bg-[#131926] border-[#1F293D]'
-          }`}
+          className={`px-3.5 py-1.5 rounded-xl border ${selectedType === 'renewal'
+            ? 'bg-[#22C55E]/15 border-[#22C55E]'
+            : 'bg-[#131926] border-[#1F293D]'
+            }`}
         >
           <Text
-            className={`text-xs ${
-              selectedType === 'renewal' ? 'text-[#4ADE80] font-bold' : 'text-[#717E95] font-medium'
-            }`}
+            className={`text-xs ${selectedType === 'renewal' ? 'text-[#4ADE80] font-semibold' : 'text-[#717E95] font-medium'
+              }`}
           >
             Renewals
           </Text>
@@ -413,16 +333,14 @@ export default function AlertsAndRemindersScreen() {
             triggerLightHaptic();
             setSelectedType('inventory');
           }}
-          className={`px-3.5 py-1.5 rounded-xl border ${
-            selectedType === 'inventory'
-              ? 'bg-[#F43F5E]/15 border-[#F43F5E]'
-              : 'bg-[#131926] border-[#1F293D]'
-          }`}
+          className={`px-3.5 py-1.5 rounded-xl border ${selectedType === 'inventory'
+            ? 'bg-[#F43F5E]/15 border-[#F43F5E]'
+            : 'bg-[#131926] border-[#1F293D]'
+            }`}
         >
           <Text
-            className={`text-xs ${
-              selectedType === 'inventory' ? 'text-[#FB7185] font-bold' : 'text-[#717E95] font-medium'
-            }`}
+            className={`text-xs ${selectedType === 'inventory' ? 'text-[#FB7185] font-semibold' : 'text-[#717E95] font-medium'
+              }`}
           >
             Inventory
           </Text>
@@ -432,7 +350,7 @@ export default function AlertsAndRemindersScreen() {
   );
 
   return (
-    <View className="flex-1 bg-[#09090B]" style={{ paddingTop: Math.max(insets.top, 16) }}>
+    <View className="flex-1 bg-[#09090B] pb-20 pt-16">
       <FlatList
         data={filteredAlerts}
         keyExtractor={(item) => item.id}
@@ -440,7 +358,7 @@ export default function AlertsAndRemindersScreen() {
           paddingHorizontal: 16,
           paddingBottom: insets.bottom + 40,
         }}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={renderHeader()}
         renderItem={({ item }) => {
           const IconComp = item.icon;
 
@@ -449,7 +367,6 @@ export default function AlertsAndRemindersScreen() {
               onPress={() => handleAlertPress(item)}
               className="flex-row items-center justify-between py-3.5 border-b border-[#1A1C24] active:bg-[#141824] px-1"
             >
-              {/* Left Circle Icon */}
               <View
                 className="w-11 h-11 rounded-full items-center justify-center mr-3.5"
                 style={{ backgroundColor: item.bgColor }}
@@ -457,9 +374,8 @@ export default function AlertsAndRemindersScreen() {
                 <IconComp size={22} color={item.iconColor} weight="bold" />
               </View>
 
-              {/* Title & Subtitle */}
               <View className="flex-1 pr-3">
-                <Text className="text-white font-bold text-sm mb-0.5" numberOfLines={1}>
+                <Text className="text-white font-semibold text-sm mb-0.5" numberOfLines={1}>
                   {item.title}
                 </Text>
                 <Text className="text-[#8E8E93] text-xs font-normal" numberOfLines={1}>
@@ -467,7 +383,6 @@ export default function AlertsAndRemindersScreen() {
                 </Text>
               </View>
 
-              {/* Time */}
               <Text className="text-[#8E8E93] text-xs font-medium">{item.time}</Text>
             </Pressable>
           );

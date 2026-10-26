@@ -178,7 +178,7 @@ export async function fetchTrainers(gymId?: string, searchQuery?: string) {
 
   if (searchQuery && searchQuery.trim()) {
     const q = searchQuery.trim();
-    query = query.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
+    query = query.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%,phone.ilike.%${q}%`);
   }
 
   const { data, error } = await query;

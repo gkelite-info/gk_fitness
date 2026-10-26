@@ -167,7 +167,7 @@ export default function CustomersScreen() {
           >
             <ArrowLeft size={20} color="#FFFFFF" weight="bold" />
           </Pressable>
-          <Text className="text-xl font-bold text-white tracking-tight">Members & Trainers</Text>
+          <Text className="text-xl font-semibold text-white tracking-tight">Members & Trainers</Text>
         </View>
       )}
       <AnimatedTabs
@@ -184,7 +184,7 @@ export default function CustomersScreen() {
       />
 
       <View className="flex-row mb-6 gap-3">
-        <View className="flex-1 flex-row items-center bg-[#161616] border border-[#242424] rounded-xl px-3 py-3">
+        <View className="flex-1 flex-row items-center bg-[#161616] border border-[#242424] rounded-xl px-3 py-1.5">
           <MagnifyingGlass size={20} color="#A1A1AA" />
           <TextInput
             placeholder="Search by name, phone..."
@@ -195,7 +195,7 @@ export default function CustomersScreen() {
             className="flex-1 text-white ml-2 font-sans"
           />
         </View>
-        <Pressable className="flex-row items-center bg-[#161616] border border-[#242424] rounded-xl px-4 py-3 active:opacity-70">
+        <Pressable className="flex-row items-center bg-[#161616] border border-[#242424] rounded-xl px-4 py-1.5 active:opacity-70">
           <FadersHorizontal size={20} color="#E5E5E5" />
           <Text className="text-white ml-2 font-medium">Filter</Text>
         </Pressable>
@@ -333,7 +333,7 @@ export default function CustomersScreen() {
           <View className="flex-row">
             <View className="relative">
               <View className="w-14 h-14 rounded-full bg-[#242424] items-center justify-center border border-[#333]">
-                <Text className="text-white text-lg font-bold">
+                <Text className="text-white text-lg font-semibold">
                   {item.fullName ? item.fullName.charAt(0).toUpperCase() : '?'}
                 </Text>
               </View>
@@ -410,7 +410,7 @@ export default function CustomersScreen() {
           <TouchableOpacity className="flex-1" activeOpacity={1} onPress={() => setPlanModalVisible(false)} />
           <View className="bg-[#121214] rounded-t-3xl overflow-hidden pb-10" style={{ minHeight: 250 }}>
             <View className="w-12 h-1.5 bg-[#27272A] rounded-full self-center mt-3 mb-6" />
-            <Text className="text-white text-xl font-bold px-6 mb-4">Select Plan Filter</Text>
+            <Text className="text-white text-xl font-semibold px-6 mb-4">Select Plan Filter</Text>
 
             <ScrollView className="max-h-80 px-4">
               <Pressable

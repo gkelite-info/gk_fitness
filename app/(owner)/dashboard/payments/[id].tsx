@@ -7,7 +7,6 @@ import { CaretLeft, User, CalendarBlank, CurrencyInr, Wallet, Receipt, Clock, Sh
 import { useUser } from '@/context/UserContext';
 import { useGymPayments } from '@/hooks/useGymPayments';
 
-// Re-use badge or define a simple one
 const PaymentMethodBadge = ({ method }: { method: string }) => {
   return (
     <View className="border border-[#CCF200] px-2 py-0.5 rounded-sm items-center justify-center">
@@ -24,7 +23,6 @@ export default function PaymentDetailsScreen() {
 
   const rawPayment = payments.find((p: any) => p.gymPaymentId === id);
 
-  // Get initials for Avatar
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
@@ -70,8 +68,7 @@ export default function PaymentDetailsScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#09090B]">
-      {/* Header */}
+    <View className="flex-1 bg-[#09090B] pt-5">
       <View
         className="flex-row items-center gap-3 px-5 pb-4"
         style={{ paddingTop: Math.max(insets.top, 14) }}
@@ -83,8 +80,6 @@ export default function PaymentDetailsScreen() {
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 }}>
-
-        {/* Profile Avatar & Info */}
         <View className="items-center mt-6 mb-8">
           <View className="w-20 h-20 rounded-full border border-[#4d5c00] items-center justify-center mb-4">
             <Text className="text-[#CCF200] text-2xl font-semibold">{getInitials(payment.memberName)}</Text>

@@ -165,12 +165,23 @@ export default function ManualAttendanceScreen() {
 
   const activeGymId = contextGymId || resolvedGymId || undefined;
 
+  // UI state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 600);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
   // Data fetching
   const {
     data: customersRaw,
     isLoading: isLoadingCustomers,
     refetch: refetchCustomers,
-  } = useGymCustomers(activeGymId);
+  } = useGymCustomers(activeGymId, debouncedSearch);
 
   const {
     data: plansRaw,
@@ -184,10 +195,8 @@ export default function ManualAttendanceScreen() {
     refetch: refetchAttendance,
   } = useGymLatestAttendance(activeGymId);
 
-  const isInitialLoading = isLoadingCustomers || isLoadingPlans || isLoadingAttendance;
+  const isInitialLoading = (isLoadingCustomers && !customersRaw) || isLoadingPlans || isLoadingAttendance;
 
-  // UI state
-  const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isBulkMode, setIsBulkMode] = useState(false);
@@ -371,17 +380,6 @@ export default function ManualAttendanceScreen() {
       result = result.filter((c) => c.hasNoPlan);
     }
 
-    // Filter by Search Query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.phone.includes(q) ||
-          c.custId.toLowerCase().includes(q)
-      );
-    }
-
     // Sort Alphabetically
     result.sort((a, b) => {
       if (sortOrder === 'asc') {
@@ -392,7 +390,7 @@ export default function ManualAttendanceScreen() {
     });
 
     return result;
-  }, [baseCustomers, activeTab, searchQuery, sortOrder]);
+  }, [baseCustomers, activeTab, sortOrder]);
 
   // Pagination (8 items per page, matching Web)
   const [currentPage, setCurrentPage] = useState(1);
@@ -401,7 +399,7 @@ export default function ManualAttendanceScreen() {
   // Reset to page 1 when search query, filter tab, or sort order changes
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, activeTab, sortOrder]);
+  }, [debouncedSearch, activeTab, sortOrder]);
 
   const totalPages = Math.ceil(processedCustomers.length / itemsPerPage) || 1;
 
@@ -491,11 +489,10 @@ export default function ManualAttendanceScreen() {
             handleToggleSelect(item.id, item.hasNoPlan);
           }
         }}
-        className={`mb-3 p-3.5 rounded-2xl border ${
-          isSelected
-            ? 'bg-[#1D2412] border-[#CCF200]'
-            : 'bg-[#14161F] border-[#222838]'
-        }`}
+        className={`mb-3 p-3.5 rounded-2xl border ${isSelected
+          ? 'bg-[#1D2412] border-[#CCF200]'
+          : 'bg-[#14161F] border-[#222838]'
+          }`}
       >
         <View className="flex-row items-center gap-3">
           {/* Checkbox for Bulk Mode */}
@@ -527,7 +524,7 @@ export default function ManualAttendanceScreen() {
           {/* Member Details */}
           <View className="flex-1 justify-center">
             <View className="flex-row items-center justify-between">
-              <Text className="text-white font-bold text-sm tracking-tight" numberOfLines={1}>
+              <Text className="text-white font-semibold text-sm tracking-tight" numberOfLines={1}>
                 {item.name}
               </Text>
               <Text className="text-[#64748B] text-[11px] font-mono font-medium">
@@ -564,9 +561,8 @@ export default function ManualAttendanceScreen() {
             <View className="flex-row items-center gap-1.5 mt-2">
               <Clock size={12} color={item.isPresentToday ? '#CCF200' : '#64748B'} weight="bold" />
               <Text
-                className={`text-[11px] font-medium ${
-                  item.isPresentToday ? 'text-[#CCF200] font-semibold' : 'text-[#64748B]'
-                }`}
+                className={`text-[11px] font-medium ${item.isPresentToday ? 'text-[#CCF200] font-semibold' : 'text-[#64748B]'
+                  }`}
               >
                 {item.attendanceText}
               </Text>
@@ -586,7 +582,7 @@ export default function ManualAttendanceScreen() {
                   className="px-3 py-1.5 bg-[#CCF200]/15 rounded-xl border border-[#CCF200]/40 flex-row items-center gap-1 active:opacity-70"
                 >
                   <Check size={13} color="#CCF200" weight="bold" />
-                  <Text className="text-[#CCF200] text-xs font-bold">Present</Text>
+                  <Text className="text-[#CCF200] text-xs font-semibold">Present</Text>
                 </Pressable>
               ) : (
                 <Pressable
@@ -614,8 +610,7 @@ export default function ManualAttendanceScreen() {
   }, []);
 
   return (
-    <View className="flex-1 bg-[#0A0C10]">
-      {/* Top Header */}
+    <View className="flex-1 bg-[#0A0C10] pt-5">
       <View
         className="px-4 pb-3 bg-[#0E1117] border-b border-[#1E2330]"
         style={{ paddingTop: Math.max(insets.top, 14) + 6 }}
@@ -632,35 +627,32 @@ export default function ManualAttendanceScreen() {
           </Pressable>
 
           <View className="items-center">
-            <Text className="text-white text-base font-bold tracking-tight">Manual Attendance</Text>
+            <Text className="text-white text-base font-semibold tracking-tight">Manual Attendance</Text>
             <Text className="text-[#94A3B8] text-[11px] font-medium">{todayDisplay}</Text>
           </View>
 
-          {/* Bulk Mode Toggle */}
           <Pressable
             onPress={toggleBulkMode}
-            className={`px-3 py-2 rounded-xl border flex-row items-center gap-1.5 active:opacity-75 ${
-              isBulkMode
-                ? 'bg-[#CCF200] border-[#CCF200]'
-                : 'bg-[#161B26] border-[#232B3C]'
-            }`}
+            className={`px-3 py-2 rounded-xl border flex-row items-center gap-1.5 active:opacity-75 ${isBulkMode
+              ? 'bg-[#CCF200] border-[#CCF200]'
+              : 'bg-[#161B26] border-[#232B3C]'
+              }`}
           >
             {isBulkMode ? (
               <>
                 <X size={14} color="#000000" weight="bold" />
-                <Text className="text-black text-xs font-bold">Cancel</Text>
+                <Text className="text-black text-xs font-semibold">Cancel</Text>
               </>
             ) : (
               <>
                 <CheckSquare size={14} color="#CCF200" weight="bold" />
-                <Text className="text-[#CCF200] text-xs font-bold">Bulk</Text>
+                <Text className="text-[#CCF200] text-xs font-semibold">Bulk</Text>
               </>
             )}
           </Pressable>
         </View>
       </View>
 
-      {/* Main Content Area */}
       <FlatList
         data={paginatedCustomers}
         keyExtractor={(item) => item.id}
@@ -676,31 +668,29 @@ export default function ManualAttendanceScreen() {
         }
         ListHeaderComponent={
           <View className="mb-4">
-            {/* Quick Metrics Bar */}
             <View className="flex-row gap-2.5 mb-4">
               <View className="flex-1 bg-[#14161F] border border-[#222838] rounded-2xl p-3 items-center">
-                <Text className="text-[#8E9BAC] text-[10px] font-bold uppercase tracking-wider">
+                <Text className="text-[#8E9BAC] text-[10px] font-semibold uppercase tracking-wider">
                   Total
                 </Text>
-                <Text className="text-white text-lg font-bold mt-0.5">{totalCount}</Text>
+                <Text className="text-white text-lg font-semibold mt-0.5">{totalCount}</Text>
               </View>
 
               <View className="flex-1 bg-[#172010] border border-[#CCF200]/30 rounded-2xl p-3 items-center">
-                <Text className="text-[#CCF200] text-[10px] font-bold uppercase tracking-wider">
+                <Text className="text-[#CCF200] text-[10px] font-semibold uppercase tracking-wider">
                   Present Today
                 </Text>
-                <Text className="text-[#CCF200] text-lg font-bold mt-0.5">{presentCount}</Text>
+                <Text className="text-[#CCF200] text-lg font-semibold mt-0.5">{presentCount}</Text>
               </View>
 
               <View className="flex-1 bg-[#14161F] border border-[#222838] rounded-2xl p-3 items-center">
-                <Text className="text-[#8E9BAC] text-[10px] font-bold uppercase tracking-wider">
+                <Text className="text-[#8E9BAC] text-[10px] font-semibold uppercase tracking-wider">
                   Unmarked
                 </Text>
-                <Text className="text-white text-lg font-bold mt-0.5">{unmarkedCount}</Text>
+                <Text className="text-white text-lg font-semibold mt-0.5">{unmarkedCount}</Text>
               </View>
             </View>
 
-            {/* Search Input Bar & Sort Button */}
             <View className="flex-row items-center gap-2.5 mb-3">
               <View className="flex-1 h-[46px] flex-row items-center bg-[#14161F] border border-[#222838] rounded-2xl px-3.5">
                 <MagnifyingGlass size={18} color="#64748B" weight="bold" />
@@ -713,6 +703,9 @@ export default function ManualAttendanceScreen() {
                   autoCapitalize="none"
                   returnKeyType="search"
                 />
+                {isLoadingCustomers && debouncedSearch ? (
+                  <ActivityIndicator size="small" color="#CCF200" style={{ marginRight: 6 }} />
+                ) : null}
                 {searchQuery.length > 0 && (
                   <Pressable
                     onPress={() => setSearchQuery('')}
@@ -723,7 +716,6 @@ export default function ManualAttendanceScreen() {
                 )}
               </View>
 
-              {/* Sort Toggle Button */}
               <Pressable
                 onPress={() => {
                   triggerLightHaptic();
@@ -739,7 +731,6 @@ export default function ManualAttendanceScreen() {
               </Pressable>
             </View>
 
-            {/* Filter Tabs */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -759,16 +750,14 @@ export default function ManualAttendanceScreen() {
                       triggerLightHaptic();
                       setActiveTab(tab.key as FilterTab);
                     }}
-                    className={`px-3.5 py-1.5 rounded-full border ${
-                      isActive
-                        ? 'bg-[#CCF200] border-[#CCF200]'
-                        : 'bg-[#14161F] border-[#222838]'
-                    }`}
+                    className={`px-3.5 py-1.5 rounded-full border ${isActive
+                      ? 'bg-[#CCF200] border-[#CCF200]'
+                      : 'bg-[#14161F] border-[#222838]'
+                      }`}
                   >
                     <Text
-                      className={`text-xs font-bold ${
-                        isActive ? 'text-black' : 'text-[#8E9BAC]'
-                      }`}
+                      className={`text-xs font-semibold ${isActive ? 'text-black' : 'text-[#8E9BAC]'
+                        }`}
                     >
                       {tab.label}
                     </Text>
@@ -777,7 +766,6 @@ export default function ManualAttendanceScreen() {
               })}
             </ScrollView>
 
-            {/* Bulk Select Helper Row */}
             {isBulkMode && (
               <View className="flex-row items-center justify-between mt-3 px-1 py-1.5 bg-[#171D28] rounded-xl border border-[#242E40]">
                 <Pressable
@@ -785,7 +773,7 @@ export default function ManualAttendanceScreen() {
                   className="flex-row items-center gap-2 px-2.5 py-1"
                 >
                   {eligibleBulkCustomersOnPage.length > 0 &&
-                  eligibleBulkCustomersOnPage.every((c) => selectedIds.has(c.id)) ? (
+                    eligibleBulkCustomersOnPage.every((c) => selectedIds.has(c.id)) ? (
                     <CheckSquare size={16} color="#CCF200" weight="fill" />
                   ) : (
                     <Square size={16} color="#94A3B8" />
@@ -795,7 +783,7 @@ export default function ManualAttendanceScreen() {
                   </Text>
                 </Pressable>
 
-                <Text className="text-[#CCF200] text-xs font-bold pr-3">
+                <Text className="text-[#CCF200] text-xs font-semibold pr-3">
                   {selectedIds.size} Selected
                 </Text>
               </View>
@@ -806,13 +794,12 @@ export default function ManualAttendanceScreen() {
           totalPages > 1 ? (
             <View className="mt-4 pt-4 border-t border-[#1E2330] flex-col items-center gap-3">
               <Text className="text-[#8E9BAC] text-xs font-medium">
-                Showing <Text className="text-white font-bold">{startItem}</Text> to{' '}
-                <Text className="text-white font-bold">{endItem}</Text> of{' '}
-                <Text className="text-white font-bold">{processedCustomers.length}</Text> members
+                Showing <Text className="text-white font-semibold">{startItem}</Text> to{' '}
+                <Text className="text-white font-semibold">{endItem}</Text> of{' '}
+                <Text className="text-white font-semibold">{processedCustomers.length}</Text> members
               </Text>
 
               <View className="flex-row items-center justify-center gap-1.5">
-                {/* Prev Button */}
                 <Pressable
                   onPress={() => {
                     if (currentPage > 1) {
@@ -821,17 +808,15 @@ export default function ManualAttendanceScreen() {
                     }
                   }}
                   disabled={currentPage === 1}
-                  className={`flex-row items-center px-3 py-2 rounded-xl border ${
-                    currentPage === 1
-                      ? 'bg-[#14161F] border-[#222838] opacity-40'
-                      : 'bg-[#14161F] border-[#222838] active:bg-[#1E2330]'
-                  }`}
+                  className={`flex-row items-center px-3 py-2 rounded-xl border ${currentPage === 1
+                    ? 'bg-[#14161F] border-[#222838] opacity-40'
+                    : 'bg-[#14161F] border-[#222838] active:bg-[#1E2330]'
+                    }`}
                 >
                   <CaretLeft size={14} color="#CBD5E1" weight="bold" />
                   <Text className="text-[#CBD5E1] text-xs font-semibold ml-1">Prev</Text>
                 </Pressable>
 
-                {/* Page Number Buttons */}
                 <View className="flex-row items-center gap-1 mx-1">
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter((p) => {
@@ -853,7 +838,7 @@ export default function ManualAttendanceScreen() {
                     .map((item, idx) => {
                       if (item === '...') {
                         return (
-                          <Text key={`ellipsis-${idx}`} className="text-[#64748B] text-xs font-bold px-1">
+                          <Text key={`ellipsis-${idx}`} className="text-[#64748B] text-xs font-semibold px-1">
                             ...
                           </Text>
                         );
@@ -866,16 +851,14 @@ export default function ManualAttendanceScreen() {
                             triggerLightHaptic();
                             setCurrentPage(item as number);
                           }}
-                          className={`w-8 h-8 rounded-xl items-center justify-center ${
-                            isCurr
-                              ? 'bg-[#CCF200]'
-                              : 'bg-[#14161F] border border-[#222838]'
-                          }`}
+                          className={`w-8 h-8 rounded-xl items-center justify-center ${isCurr
+                            ? 'bg-[#CCF200]'
+                            : 'bg-[#14161F] border border-[#222838]'
+                            }`}
                         >
                           <Text
-                            className={`text-xs font-bold ${
-                              isCurr ? 'text-black' : 'text-[#8E9BAC]'
-                            }`}
+                            className={`text-xs font-semibold ${isCurr ? 'text-black' : 'text-[#8E9BAC]'
+                              }`}
                           >
                             {item}
                           </Text>
@@ -884,7 +867,6 @@ export default function ManualAttendanceScreen() {
                     })}
                 </View>
 
-                {/* Next Button */}
                 <Pressable
                   onPress={() => {
                     if (currentPage < totalPages) {
@@ -893,11 +875,10 @@ export default function ManualAttendanceScreen() {
                     }
                   }}
                   disabled={currentPage === totalPages}
-                  className={`flex-row items-center px-3 py-2 rounded-xl border ${
-                    currentPage === totalPages
-                      ? 'bg-[#14161F] border-[#222838] opacity-40'
-                      : 'bg-[#14161F] border-[#222838] active:bg-[#1E2330]'
-                  }`}
+                  className={`flex-row items-center px-3 py-2 rounded-xl border ${currentPage === totalPages
+                    ? 'bg-[#14161F] border-[#222838] opacity-40'
+                    : 'bg-[#14161F] border-[#222838] active:bg-[#1E2330]'
+                    }`}
                 >
                   <Text className="text-[#CBD5E1] text-xs font-semibold mr-1">Next</Text>
                   <CaretRight size={14} color="#CBD5E1" weight="bold" />
@@ -917,7 +898,7 @@ export default function ManualAttendanceScreen() {
           ) : (
             <View className="items-center justify-center py-16 bg-[#14161F] rounded-2xl border border-[#222838] p-6 mt-4">
               <Users size={36} color="#475569" />
-              <Text className="text-white text-base font-bold mt-3">No Members Found</Text>
+              <Text className="text-white text-base font-semibold mt-3">No Members Found</Text>
               <Text className="text-[#64748B] text-xs text-center mt-1">
                 {searchQuery
                   ? `No members match "${searchQuery}".`
@@ -928,7 +909,7 @@ export default function ManualAttendanceScreen() {
                   onPress={() => setSearchQuery('')}
                   className="mt-4 px-4 py-2 bg-[#222838] rounded-xl"
                 >
-                  <Text className="text-[#CCF200] text-xs font-bold">Clear Search</Text>
+                  <Text className="text-[#CCF200] text-xs font-semibold">Clear Search</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -936,14 +917,13 @@ export default function ManualAttendanceScreen() {
         }
       />
 
-      {/* Floating Bottom Action Bar for Bulk Mode */}
       {isBulkMode && (
         <View
           style={{ paddingBottom: Math.max(insets.bottom, 16) }}
           className="absolute bottom-0 left-0 right-0 bg-[#0E1117] border-t border-[#222838] p-4 flex-row items-center gap-3"
         >
           <View className="flex-1">
-            <Text className="text-white text-xs font-bold">
+            <Text className="text-white text-xs font-semibold">
               {selectedIds.size} of {totalEligibleBulkCount} selected
             </Text>
             <Text className="text-[#64748B] text-[11px]">Marking as present today</Text>
@@ -956,18 +936,17 @@ export default function ManualAttendanceScreen() {
               setShowBulkConfirmModal(true);
             }}
             disabled={selectedIds.size === 0 || bulkMarkMutation.isPending}
-            className={`px-5 py-3 rounded-2xl flex-row items-center gap-2 ${
-              selectedIds.size > 0 && !bulkMarkMutation.isPending
-                ? 'bg-[#CCF200] shadow-lg shadow-[#CCF200]/20 active:opacity-85'
-                : 'bg-[#222838] opacity-50'
-            }`}
+            className={`px-5 py-3 rounded-2xl flex-row items-center gap-2 ${selectedIds.size > 0 && !bulkMarkMutation.isPending
+              ? 'bg-[#CCF200] shadow-lg shadow-[#CCF200]/20 active:opacity-85'
+              : 'bg-[#222838] opacity-50'
+              }`}
           >
             {bulkMarkMutation.isPending ? (
               <ActivityIndicator color="#000000" size="small" />
             ) : (
               <>
                 <Check size={16} color="#000000" weight="bold" />
-                <Text className="text-black font-bold text-sm">
+                <Text className="text-black font-semibold text-sm">
                   Mark {selectedIds.size} Present
                 </Text>
               </>
@@ -976,7 +955,6 @@ export default function ManualAttendanceScreen() {
         </View>
       )}
 
-      {/* Undo Attendance Confirmation Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -989,10 +967,10 @@ export default function ManualAttendanceScreen() {
             <View className="w-12 h-12 rounded-full bg-red-500/10 items-center justify-center mb-4 border border-red-500/20">
               <WarningCircle size={28} color="#EF4444" weight="fill" />
             </View>
-            <Text className="text-white text-lg font-bold mb-2">Undo Attendance</Text>
+            <Text className="text-white text-lg font-semibold mb-2">Undo Attendance</Text>
             <Text className="text-[#8E9BAC] text-sm text-center mb-6 leading-5">
               Are you sure you want to remove attendance for{' '}
-              <Text className="text-white font-bold">{undoModalTarget?.name}</Text> marked today?
+              <Text className="text-white font-semibold">{undoModalTarget?.name}</Text> marked today?
             </Text>
 
             <View className="flex-row gap-3 w-full">
@@ -1016,7 +994,7 @@ export default function ManualAttendanceScreen() {
                 {undoMutation.isPending ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text className="text-white font-bold">Remove</Text>
+                  <Text className="text-white font-semibold">Remove</Text>
                 )}
               </Pressable>
             </View>
@@ -1024,7 +1002,6 @@ export default function ManualAttendanceScreen() {
         </View>
       </Modal>
 
-      {/* Bulk Attendance Confirmation Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -1037,10 +1014,10 @@ export default function ManualAttendanceScreen() {
             <View className="w-12 h-12 rounded-full bg-[#CCF200]/15 items-center justify-center mb-4 border border-[#CCF200]/30">
               <CheckCircle size={28} color="#CCF200" weight="fill" />
             </View>
-            <Text className="text-white text-lg font-bold mb-2">Mark Bulk Attendance</Text>
+            <Text className="text-white text-lg font-semibold mb-2">Mark Bulk Attendance</Text>
             <Text className="text-[#8E9BAC] text-sm text-center mb-6 leading-5">
               Are you sure you want to mark{' '}
-              <Text className="text-[#CCF200] font-bold">{selectedIds.size} members</Text> as
+              <Text className="text-[#CCF200] font-semibold">{selectedIds.size} members</Text> as
               present for today?
             </Text>
 
@@ -1061,7 +1038,7 @@ export default function ManualAttendanceScreen() {
                 {bulkMarkMutation.isPending ? (
                   <ActivityIndicator color="#000000" size="small" />
                 ) : (
-                  <Text className="text-black font-bold">Confirm</Text>
+                  <Text className="text-black font-semibold">Confirm</Text>
                 )}
               </Pressable>
             </View>
@@ -1069,7 +1046,6 @@ export default function ManualAttendanceScreen() {
         </View>
       </Modal>
 
-      {/* Attendance Success Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -1082,7 +1058,7 @@ export default function ManualAttendanceScreen() {
             <View className="w-16 h-16 rounded-full bg-[#CCF200] items-center justify-center mb-4">
               <Check size={28} color="#000000" weight="bold" />
             </View>
-            <Text className="text-white text-lg font-bold mb-2 text-center">
+            <Text className="text-white text-lg font-semibold mb-2 text-center">
               Attendance Marked
             </Text>
             <Text className="text-[#8E9BAC] text-sm text-center mb-6 leading-5">
@@ -1095,7 +1071,7 @@ export default function ManualAttendanceScreen() {
               onPress={() => setSuccessModalData(null)}
               className="w-full bg-[#CCF200] rounded-2xl py-3.5 items-center active:opacity-85"
             >
-              <Text className="text-black font-bold">Done</Text>
+              <Text className="text-black font-semibold">Done</Text>
             </Pressable>
           </View>
         </View>

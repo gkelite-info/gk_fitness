@@ -12,6 +12,7 @@ import { useTrainerStore } from '@/constants/trainerStore';
 import { useUser } from '@/context/UserContext';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useAssignedTrainersByCustomer } from '@/hooks/customerTrainers/useCustomerTrainers';
+import { useAssignedGlobalTrainersByUser } from '@/hooks/individual/customer-trainer/individualCustomerTrainer';
 import { useGymTimings } from '@/hooks/gymTimings/useGymTimings';
 import { useTrainerWeeklyPlan } from '@/hooks/trainerWorkoutPlans/useTrainerWeeklyPlan';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
@@ -38,7 +39,13 @@ export default function MyTrainerScreen() {
     refetch: refetchAssigned
   } = useAssignedTrainersByCustomer(customerId, userId);
 
-  const activeAssignment = useMemo(() => {
+  const {
+    data: individualTrainers,
+    isLoading: isIndividualLoading,
+    refetch: refetchIndividual
+  } = useAssignedGlobalTrainersByUser(userId);
+
+  const activeGymAssignment = useMemo(() => {
     if (!assignedTrainers || assignedTrainers.length === 0) return null;
     return (
       assignedTrainers.find((a: any) => a.isActive !== false && a.trainer && a.trainer.is_deleted !== true) ||
@@ -46,6 +53,34 @@ export default function MyTrainerScreen() {
       assignedTrainers[0]
     );
   }, [assignedTrainers]);
+
+  const activeIndividualAssignment = useMemo(() => {
+    if (!individualTrainers || individualTrainers.length === 0) return null;
+    return (
+      individualTrainers.find((a: any) => {
+        if (a.is_deleted) return false;
+        if (a.isActive === false) return false;
+        if (a.status === 'rejected' || a.status === 'cancelled') return false;
+        return a.status === 'approved' || (a.status !== 'pending' && !!a.assignedOn);
+      }) ||
+      individualTrainers.find((a: any) => !a.is_deleted && a.status === 'approved') ||
+      individualTrainers.find((a: any) => !a.is_deleted && a.isActive !== false) ||
+      individualTrainers[0]
+    );
+  }, [individualTrainers]);
+
+  const activeAssignment = useMemo(() => {
+    if (activeGymAssignment) return activeGymAssignment;
+    if (activeIndividualAssignment) {
+      return {
+        ...activeIndividualAssignment,
+        trainer: activeIndividualAssignment.globalTrainer,
+        gymTrainerId: undefined,
+        globalTrainerId: activeIndividualAssignment.globalTrainerId,
+      };
+    }
+    return null;
+  }, [activeGymAssignment, activeIndividualAssignment]);
 
   const effectiveGymId = activeAssignment?.gymId || customerProfile?.customerData?.gymId;
   const { data: gymTimings, refetch: refetchTimings } = useGymTimings(effectiveGymId || undefined);
@@ -63,17 +98,19 @@ export default function MyTrainerScreen() {
     await Promise.all([
       refetchProfile(),
       refetchAssigned(),
+      refetchIndividual(),
       refetchTimings(),
       refetchWeeklyPlan(),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchAssigned, refetchTimings, refetchWeeklyPlan]);
+  }, [refetchProfile, refetchAssigned, refetchIndividual, refetchTimings, refetchWeeklyPlan]);
 
   useFocusEffect(
     useCallback(() => {
       refetchAssigned();
+      refetchIndividual();
       refetchWeeklyPlan();
-    }, [refetchAssigned, refetchWeeklyPlan])
+    }, [refetchAssigned, refetchIndividual, refetchWeeklyPlan])
   );
 
   const {
@@ -88,6 +125,7 @@ export default function MyTrainerScreen() {
 
   const assignedTrainer = activeAssignment?.trainer;
   const targetGymTrainerId = activeAssignment?.gymTrainerId || assignedTrainer?.gymTrainerId;
+  const targetGlobalTrainerId = activeAssignment?.globalTrainerId || (assignedTrainer as any)?.globalTrainerId;
 
   const trainerUser = Array.isArray(assignedTrainer?.users)
     ? assignedTrainer.users[0]
@@ -282,7 +320,7 @@ export default function MyTrainerScreen() {
   };
 
   const hasTrainer = !!activeAssignment || !!storeTrainer.name;
-  const isLoading = (isProfileLoading || isAssignedLoading) && !hasTrainer;
+  const isLoading = (isProfileLoading || isAssignedLoading || isIndividualLoading) && !hasTrainer;
 
   return (
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
@@ -343,6 +381,14 @@ export default function MyTrainerScreen() {
                         if (targetGymTrainerId) {
                           router.push({
                             pathname: `/(customer)/trainer/${targetGymTrainerId}`,
+                            params: {
+                              from: 'my-trainer',
+                              trainerData: assignedTrainer ? JSON.stringify(assignedTrainer) : undefined,
+                            },
+                          } as any);
+                        } else if (targetGlobalTrainerId) {
+                          router.push({
+                            pathname: `/(customer)/trainer/${targetGlobalTrainerId}`,
                             params: {
                               from: 'my-trainer',
                               trainerData: assignedTrainer ? JSON.stringify(assignedTrainer) : undefined,

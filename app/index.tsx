@@ -64,14 +64,14 @@ export default function Index() {
   }
 
   if (role && tenantAuthorized) {
-    const normalizedRole = role.trim().toLowerCase();
+    const normalizedRole = role.trim().toLowerCase().replace(/[\s_-]/g, '');
     if (normalizedRole === 'superadmin') {
       return <Redirect href="/(superadmin)/dashboard" />;
     } else if (normalizedRole === 'owner') {
       return <Redirect href="/(owner)/dashboard" />;
     } else if (normalizedRole === 'doctor') {
       return <Redirect href="/(doctor)/patients" />;
-    } else if (normalizedRole === 'trainer') {
+    } else if (normalizedRole === 'trainer' || normalizedRole === 'gymtrainer' || normalizedRole === 'globaltrainer') {
       return <Redirect href={"/(trainer)/home" as any} />;
     } else {
       return <Redirect href="/(customer)/home" />;

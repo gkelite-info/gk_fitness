@@ -17,6 +17,7 @@ import {
   CheckCircle,
 } from 'phosphor-react-native';
 import { useGymCustomerById } from '@/hooks/customers/useGymCustomers';
+import { useUserById } from '@/hooks/users/useUsers';
 import { useAssignedTrainersByCustomer } from '@/hooks/customerTrainers/useCustomerTrainers';
 import { useCustomerOnboardingData } from '@/hooks/customers/useCustomerOnboardingData';
 import { useCustomerGoalPreference } from '@/hooks/customers/useCustomerGoalPreferences';
@@ -27,6 +28,8 @@ export default function UserPersonalDetailsScreen() {
   const insets = useSafeAreaInsets();
 
   const { data: customer, isLoading: isCustomerLoading } = useGymCustomerById(id);
+  const targetUserId = customer?.userId || id;
+  const { data: userDetails, isLoading: isUserLoading } = useUserById(targetUserId);
   const { data: trainers, isLoading: isTrainersLoading } = useAssignedTrainersByCustomer(id);
   const { data: onboardingData, isLoading: isOnboardingLoading } = useCustomerOnboardingData(customer?.userId || id);
   const { data: goalPreference, isLoading: isGoalLoading } = useCustomerGoalPreference(customer?.userId || id);
@@ -51,7 +54,7 @@ export default function UserPersonalDetailsScreen() {
     return active?.trainer?.fullName || 'None';
   }, [trainers]);
 
-  const isLoading = isCustomerLoading || isTrainersLoading || isOnboardingLoading || isGoalLoading;
+  const isLoading = (isCustomerLoading && !customer) || isTrainersLoading || isOnboardingLoading || isGoalLoading;
 
   if (isLoading) {
     return (
@@ -65,7 +68,7 @@ export default function UserPersonalDetailsScreen() {
   if (!customer) {
     return (
       <View className="flex-1 bg-[#0A0A0A] items-center justify-center px-6">
-        <Text className="text-white text-lg font-bold mb-2">Customer Not Found</Text>
+        <Text className="text-white text-lg font-semibold mb-2">Customer Not Found</Text>
         <Pressable
           onPress={() => router.back()}
           className="bg-[#1A1A1A] border border-[#27272A] px-6 py-3 rounded-xl mt-4"
@@ -81,10 +84,14 @@ export default function UserPersonalDetailsScreen() {
     ? customer.fullName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
     : '??';
 
-  const userAddress = customer?.user?.address || customer?.address || '-';
-  const userCity = customer?.user?.city || customer?.city || '-';
-  const userState = customer?.user?.state || customer?.state || '-';
-  const userPincode = customer?.user?.pincode || customer?.pincode || '-';
+  const userAddress = userDetails?.address || customer?.user?.address || customer?.address || '-';
+  const userCity = userDetails?.city || customer?.user?.city || customer?.city || '-';
+  const userState = userDetails?.state || customer?.user?.state || customer?.state || '-';
+  const userPincode =
+    userDetails?.pincode ? String(userDetails.pincode) :
+    customer?.user?.pincode ? String(customer.user.pincode) :
+    customer?.pincode ? String(customer.pincode) :
+    '-';
 
   const renderDetailRow = (
     icon: React.ReactNode,
@@ -115,8 +122,7 @@ export default function UserPersonalDetailsScreen() {
   );
 
   return (
-    <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: insets.top }}>
-      {/* Top Header */}
+    <View className="flex-1 bg-[#0A0A0A] pb-10" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#1F1F22]">
         <Pressable
           onPress={() => router.back()}
@@ -124,7 +130,7 @@ export default function UserPersonalDetailsScreen() {
         >
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="text-white text-lg font-bold">Personal Details</Text>
+        <Text className="text-white text-lg font-semibold">Personal Details</Text>
         <View className="w-10" />
       </View>
 
@@ -132,22 +138,21 @@ export default function UserPersonalDetailsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
       >
-        {/* Identity Banner */}
         <View className="bg-[#141416] border border-[#242424] rounded-3xl p-5 mt-4">
           <View className="flex-row items-center">
-            {customer?.user?.profilePhoto ? (
+            {customer?.user?.profilePhoto || userDetails?.profilePhoto ? (
               <Image
-                source={{ uri: customer.user.profilePhoto }}
+                source={{ uri: customer?.user?.profilePhoto || userDetails?.profilePhoto }}
                 className="w-16 h-16 rounded-2xl border border-[#333] mr-4"
               />
             ) : (
               <View className="w-16 h-16 rounded-2xl bg-[#1C1F26] border border-[#333] items-center justify-center mr-4">
-                <Text className="text-[#CCF200] text-xl font-bold">{initials}</Text>
+                <Text className="text-[#CCF200] text-xl font-semibold">{initials}</Text>
               </View>
             )}
             <View className="flex-1">
               <View className="flex-row items-center">
-                <Text className="text-white text-xl font-bold mr-2" numberOfLines={1}>
+                <Text className="text-white text-xl font-semibold mr-2" numberOfLines={1}>
                   {customer.fullName}
                 </Text>
                 {isActive && <CheckCircle size={16} color="#CCF200" weight="fill" />}
@@ -157,14 +162,12 @@ export default function UserPersonalDetailsScreen() {
               </Text>
               <View className="flex-row items-center gap-2 mt-2">
                 <View
-                  className={`px-2.5 py-0.5 rounded-md ${
-                    isActive ? 'bg-[#373F0E]' : 'bg-[#4A1D1D]'
-                  }`}
+                  className={`px-2.5 py-0.5 rounded-md ${isActive ? 'bg-[#373F0E]' : 'bg-[#4A1D1D]'
+                    }`}
                 >
                   <Text
-                    className={`text-[10px] font-bold uppercase tracking-wider ${
-                      isActive ? 'text-[#CCF200]' : 'text-[#FFB6C1]'
-                    }`}
+                    className={`text-[10px] font-semibold uppercase tracking-wider ${isActive ? 'text-[#CCF200]' : 'text-[#FFB6C1]'
+                      }`}
                   >
                     {isActive ? 'Active' : 'Inactive'}
                   </Text>
@@ -179,11 +182,10 @@ export default function UserPersonalDetailsScreen() {
           </View>
         </View>
 
-        {/* 1. Personal Information Card */}
         <View className="bg-[#141416] border border-[#242424] rounded-2xl p-4 mt-4">
           <View className="flex-row items-center mb-3">
             <User size={18} color="#CCF200" weight="bold" />
-            <Text className="text-white text-base font-bold ml-2">Personal Information</Text>
+            <Text className="text-white text-base font-semibold ml-2">Personal Information</Text>
           </View>
 
           {renderDetailRow(<User size={14} color="#A1A1AA" />, 'Full Name', customer.fullName)}
@@ -197,10 +199,10 @@ export default function UserPersonalDetailsScreen() {
             'Date of Birth',
             customer.dateOfBirth
               ? new Date(customer.dateOfBirth).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                })
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })
               : '-'
           )}
           {renderDetailRow(<CalendarBlank size={14} color="#A1A1AA" />, 'Age', calculateAge(customer.dateOfBirth))}
@@ -220,11 +222,10 @@ export default function UserPersonalDetailsScreen() {
           )}
         </View>
 
-        {/* 2. Address Card */}
         <View className="bg-[#141416] border border-[#242424] rounded-2xl p-4 mt-4">
           <View className="flex-row items-center mb-3">
             <MapPin size={18} color="#CCF200" weight="bold" />
-            <Text className="text-white text-base font-bold ml-2">Address Details</Text>
+            <Text className="text-white text-base font-semibold ml-2">Address Details</Text>
           </View>
 
           {renderDetailRow(<MapPin size={14} color="#A1A1AA" />, 'Full Address', userAddress)}
@@ -233,11 +234,10 @@ export default function UserPersonalDetailsScreen() {
           {renderDetailRow(<MapPin size={14} color="#A1A1AA" />, 'Pincode', userPincode)}
         </View>
 
-        {/* 3. Health & Fitness Metrics Card */}
         <View className="bg-[#141416] border border-[#242424] rounded-2xl p-4 mt-4">
           <View className="flex-row items-center mb-3">
             <Heartbeat size={18} color="#CCF200" weight="bold" />
-            <Text className="text-white text-base font-bold ml-2">Health & Fitness</Text>
+            <Text className="text-white text-base font-semibold ml-2">Health & Fitness</Text>
           </View>
 
           {renderDetailRow(
@@ -262,11 +262,10 @@ export default function UserPersonalDetailsScreen() {
           )}
         </View>
 
-        {/* 4. Emergency Contact Card */}
         <View className="bg-[#141416] border border-[#242424] rounded-2xl p-4 mt-4">
           <View className="flex-row items-center mb-3">
             <FirstAid size={18} color="#CCF200" weight="bold" />
-            <Text className="text-white text-base font-bold ml-2">Emergency Contact</Text>
+            <Text className="text-white text-base font-semibold ml-2">Emergency Contact</Text>
           </View>
 
           {renderDetailRow(

@@ -6,11 +6,11 @@ import {
   fetchCustomerOnboardingByUserId
 } from '@/helpers/customers/customerHelper';
 
-export function useGymCustomers(gymId?: string) {
+export function useGymCustomers(gymId?: string, searchQuery?: string) {
   return useQuery({
-    queryKey: ['customers', gymId],
+    queryKey: ['customers', gymId, searchQuery],
     queryFn: async () => {
-      const data = await fetchGymCustomers(gymId);
+      const data = await fetchGymCustomers(gymId, searchQuery);
       return data;
     },
   });

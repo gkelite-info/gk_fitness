@@ -287,7 +287,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
   };
 
   const getMenuSections = (): MenuSection[] => {
-    const userRole = (role || 'customer').toLowerCase();
+    const userRole = (role || 'customer').toLowerCase().replace(/[\s_-]/g, '');
 
     if (userRole === 'owner') {
       return [
@@ -332,14 +332,15 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
       ];
     }
 
-    if (userRole === 'trainer') {
+    if (userRole === 'trainer' || userRole === 'globaltrainer') {
       return [
         {
-          title: 'TRAINER HUB',
+          title: userRole === 'globaltrainer' ? 'GLOBAL TRAINER HUB' : 'TRAINER HUB',
           items: [
             { name: 'Dashboard', href: '/(trainer)/home', icon: House },
-            { name: 'My Clients', href: '/(trainer)/clients', icon: Users },
-            { name: 'Workout Builder', href: '/(trainer)/workoutPlan', icon: Barbell },
+            { name: 'My Clients', href: '/(trainer)/customer', icon: Users },
+            { name: 'PT Customers', href: '/(trainer)/pt-customers', icon: UsersThree },
+            { name: 'Workout Plans', href: '/(trainer)/plans', icon: Barbell },
             { name: 'Weekly Schedule', href: '/(trainer)/weeklyWorkoutPlan', icon: CalendarCheck },
             { name: 'Explore Workouts', href: '/(trainer)/explore', icon: Compass },
           ],

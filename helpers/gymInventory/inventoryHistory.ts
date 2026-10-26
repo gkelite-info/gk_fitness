@@ -15,11 +15,44 @@ export interface LogGymInventoryHistoryParams {
   gymInventoryId: string;
   action: string;
   quantity: number;
-  createdBy: string;
+  createdBy?: string | null;
+  userId?: string | null;
 }
 
 export async function logGymInventoryHistory(params: LogGymInventoryHistoryParams) {
   const now = new Date().toISOString();
+
+  let resolvedCreatedBy = params.createdBy || params.userId;
+
+  // 1. Fallback to Supabase auth user
+  if (!resolvedCreatedBy) {
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      resolvedCreatedBy = authData?.user?.id;
+    } catch (e) {
+      console.warn('[inventoryHistoryHelper] auth.getUser failed:', e);
+    }
+  }
+
+  // 2. Fallback to equipment's createdBy
+  if (!resolvedCreatedBy && params.gymInventoryId) {
+    try {
+      const { data: inv } = await supabase
+        .from('gym_inventories')
+        .select('createdBy')
+        .eq('gymInventoryId', params.gymInventoryId)
+        .maybeSingle();
+      resolvedCreatedBy = inv?.createdBy;
+    } catch (e) {
+      console.warn('[inventoryHistoryHelper] inv fallback failed:', e);
+    }
+  }
+
+  if (!resolvedCreatedBy) {
+    console.error('[inventoryHistoryHelper] Cannot log inventory history: createdBy is missing and could not be resolved.');
+    throw new Error('User ID (createdBy) is required to record inventory history.');
+  }
+
   const { data, error } = await supabase
     .from('gym_inventory_histories')
     .insert([
@@ -28,10 +61,10 @@ export async function logGymInventoryHistory(params: LogGymInventoryHistoryParam
         gymInventoryId: params.gymInventoryId,
         action: params.action,
         quantity: params.quantity,
-        createdBy: params.createdBy,
+        createdBy: resolvedCreatedBy,
         createdAt: now,
-        updatedAt: now
-      }
+        updatedAt: now,
+      },
     ])
     .select();
 
@@ -60,18 +93,21 @@ export async function fetchGymInventoryHistory(gymInventoryId: string) {
 
 export interface UpdateGymInventoryStockParams {
   gymInventoryId: string;
-  action: 'add' | 'reduce' | 'maintenance' | 'out_of_service' | 'restore_maintenance' | 'restore_out_of_service';
+  action: 'add' | 'reduce' | 'maintenance' | 'out_of_service' | 'restore_maintenance' | 'restore_out_of_service' | 'restore' | string;
   quantity: number;
-  createdBy: string;
+  createdBy?: string | null;
+  userId?: string | null;
+  restoreSource?: 'maintenance' | 'out_of_service';
 }
 
 export async function updateGymInventoryStock(params: UpdateGymInventoryStockParams) {
-  const { gymInventoryId, action, quantity, createdBy } = params;
+  const { gymInventoryId, action, quantity } = params;
   const now = new Date().toISOString();
 
+  // 1. Fetch current equipment to verify it exists and get fallback createdBy
   const { data: currentInventory, error: fetchError } = await supabase
     .from('gym_inventories')
-    .select('quantity')
+    .select('quantity, createdBy')
     .eq('gymInventoryId', gymInventoryId)
     .eq('is_deleted', false)
     .maybeSingle();
@@ -81,6 +117,24 @@ export async function updateGymInventoryStock(params: UpdateGymInventoryStockPar
     throw new Error('Equipment not found');
   }
 
+  // 2. Resolve createdBy with fallback to currentInventory or auth session
+  let resolvedCreatedBy = params.createdBy || params.userId;
+  if (!resolvedCreatedBy) {
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      resolvedCreatedBy = authData?.user?.id;
+    } catch (e) {
+      console.warn('[inventoryHistoryHelper] auth.getUser failed:', e);
+    }
+  }
+  if (!resolvedCreatedBy) {
+    resolvedCreatedBy = currentInventory.createdBy;
+  }
+  if (!resolvedCreatedBy) {
+    throw new Error('User ID (createdBy) is required to update inventory stock.');
+  }
+
+  // 3. Compute new quantity and normalized history action
   let updatedQuantity = currentInventory.quantity;
   let historyAction = action as string;
 
@@ -94,18 +148,21 @@ export async function updateGymInventoryStock(params: UpdateGymInventoryStockPar
     historyAction = 'maintenance';
   } else if (action === 'out_of_service') {
     historyAction = 'out_of_service';
+  } else if (action === 'restore') {
+    historyAction = params.restoreSource === 'out_of_service' ? 'restore_out_of_service' : 'restore_maintenance';
   } else if (action === 'restore_maintenance') {
     historyAction = 'restore_maintenance';
   } else if (action === 'restore_out_of_service') {
     historyAction = 'restore_out_of_service';
   }
 
+  // 4. Update the main table if total unit count changes
   if (action === 'add' || action === 'reduce') {
     const { data: updatedData, error: updateError } = await supabase
       .from('gym_inventories')
       .update({
         quantity: updatedQuantity,
-        updatedAt: now
+        updatedAt: now,
       })
       .eq('gymInventoryId', gymInventoryId)
       .select();
@@ -119,14 +176,14 @@ export async function updateGymInventoryStock(params: UpdateGymInventoryStockPar
       console.error('[inventoryHistoryHelper] Update failed: 0 rows updated. Check if row exists or RLS permissions.');
       throw new Error('Update failed: No permission or equipment not found');
     }
-
   }
 
+  // 5. Always record the history entry with guaranteed non-null createdBy
   await logGymInventoryHistory({
     gymInventoryId,
     action: historyAction,
     quantity,
-    createdBy
+    createdBy: resolvedCreatedBy,
   });
 
   return { success: true };

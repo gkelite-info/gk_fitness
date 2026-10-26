@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -100,17 +100,16 @@ export default function AddExpenseModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Sync initialData when editing
   useEffect(() => {
     if (initialData) {
       setTitle(initialData.name || '');
       setCategory(initialData.category?.toLowerCase() || 'rent');
       setAmount(initialData.amount ? initialData.amount.toString() : '');
       setDate(initialData.date ? initialData.date.split('T')[0] : new Date().toISOString().split('T')[0]);
-      
+
       const pm = (initialData.paymentMethod || 'upi').toLowerCase().replace('_', '').replace(' ', '');
       setPaymentMethod(pm.includes('debit') ? 'debitcard' : pm.includes('credit') ? 'creditcard' : pm);
-      
+
       setNotes(initialData.notes || '');
       setExistingReceiptUrl(initialData.receiptUrl || null);
       setReceiptUri(null);
@@ -256,22 +255,20 @@ export default function AddExpenseModal({
           style={{ maxHeight: SCREEN_HEIGHT * 0.92 }}
           className="bg-[#0F141C] border-t border-[#1E293B] rounded-t-[32px] overflow-hidden"
         >
-          {/* Top Drag Handle Indicator */}
           <View className="items-center pt-3 pb-2">
             <View className="w-10 h-1.5 rounded-full bg-[#334155]" />
           </View>
 
-          {/* Modal Header */}
           <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#1E293B]/70">
             <View className="flex-row items-center gap-3">
               <View className="w-10 h-10 rounded-xl bg-[#1A2E05] border border-[#CCFF00]/40 items-center justify-center shadow-sm">
                 <FileText size={20} color="#CCFF00" weight="fill" />
               </View>
               <View>
-                <Text className="text-white text-lg font-bold">
+                <Text className="text-white text-lg font-semibold">
                   {initialData ? 'Edit Expense' : 'Add Expense'}
                 </Text>
-                <Text className="text-[#94A3B8] text-xs">
+                <Text className="text-[#94A3B8] text-xs font-sans">
                   {initialData ? 'Update expense details' : 'Record a new expense'}
                 </Text>
               </View>
@@ -286,12 +283,10 @@ export default function AddExpenseModal({
             </Pressable>
           </View>
 
-          {/* Scrollable Form Content */}
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 18 }}
           >
-            {/* 1. Expense Title */}
             <View className="gap-2">
               <Text className="text-[#CBD5E1] text-xs font-semibold">
                 Expense Title <Text className="text-[#F87171]">*</Text>
@@ -305,7 +300,6 @@ export default function AddExpenseModal({
               />
             </View>
 
-            {/* 2. Category Grid */}
             <View className="gap-2">
               <Text className="text-[#CBD5E1] text-xs font-semibold">
                 Category <Text className="text-[#F87171]">*</Text>
@@ -346,15 +340,13 @@ export default function AddExpenseModal({
               </View>
             </View>
 
-            {/* 3. Amount & Date Row */}
             <View className="flex-row gap-3">
-              {/* Amount */}
               <View className="flex-1 gap-2">
                 <Text className="text-[#CBD5E1] text-xs font-semibold">
                   Amount <Text className="text-[#F87171]">*</Text>
                 </Text>
                 <View className="flex-row items-center bg-[#090D13] border border-[#1E293B] rounded-xl px-3.5 py-2.5 focus:border-[#CCFF00]">
-                  <Text className="text-white font-bold text-base mr-1.5">₹</Text>
+                  <Text className="text-white font-semibold text-base mr-1.5">₹</Text>
                   <TextInput
                     value={amount}
                     onChangeText={setAmount}
@@ -366,7 +358,6 @@ export default function AddExpenseModal({
                 </View>
               </View>
 
-              {/* Date */}
               <View className="flex-1 gap-2">
                 <Text className="text-[#CBD5E1] text-xs font-semibold">
                   Date <Text className="text-[#F87171]">*</Text>
@@ -400,7 +391,6 @@ export default function AddExpenseModal({
               </View>
             </View>
 
-            {/* 4. Payment Method Selection */}
             <View className="gap-2">
               <Text className="text-[#CBD5E1] text-xs font-semibold">
                 Payment Method <Text className="text-[#F87171]">*</Text>
@@ -439,7 +429,6 @@ export default function AddExpenseModal({
               </View>
             </View>
 
-            {/* 5. Notes */}
             <View className="gap-2">
               <Text className="text-[#CBD5E1] text-xs font-semibold">Notes</Text>
               <View className="relative bg-[#090D13] border border-[#1E293B] rounded-xl p-3">
@@ -461,7 +450,6 @@ export default function AddExpenseModal({
               </View>
             </View>
 
-            {/* 6. Receipt Upload */}
             <View className="gap-2">
               <Text className="text-[#CBD5E1] text-xs font-semibold">
                 Receipt Upload <Text className="text-[#64748B] font-normal">(optional)</Text>
@@ -513,7 +501,6 @@ export default function AddExpenseModal({
               )}
             </View>
 
-            {/* 7. Action Buttons */}
             <View className="flex-row gap-3 pt-2">
               <Pressable
                 onPress={onClose}
@@ -535,7 +522,7 @@ export default function AddExpenseModal({
                 ) : (
                   <>
                     <FloppyDisk size={18} color="#000000" weight="bold" />
-                    <Text className="text-black text-xs font-bold">
+                    <Text className="text-black text-xs font-semibold">
                       {initialData ? 'Update Expense' : 'Save Expense'}
                     </Text>
                   </>

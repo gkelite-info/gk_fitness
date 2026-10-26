@@ -16,14 +16,16 @@ import { TrainerRegistrationForm } from '@/components/forms/TrainerRegistrationF
 
 export default function AddCustomerScreen() {
   const insets = useSafeAreaInsets();
-  const { tab } = useLocalSearchParams<{ tab?: string }>();
-  const [activeTab, setActiveTab] = useState(tab || 'customers');
-  
+  const { tab, enquiryId } = useLocalSearchParams<{ tab?: string; enquiryId?: string }>();
+  const [activeTab, setActiveTab] = useState(enquiryId ? 'customers' : (tab || 'customers'));
+
   useEffect(() => {
-    if (tab) {
+    if (enquiryId) {
+      setActiveTab('customers');
+    } else if (tab) {
       setActiveTab(tab);
     }
-  }, [tab]);
+  }, [tab, enquiryId]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitFnRef = useRef<(() => void) | null>(null);
@@ -41,7 +43,7 @@ export default function AddCustomerScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: Math.max(insets.top, 14) + 6 }}>
+    <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: Math.max(insets.top, 14) + 16 }}>
       <View className="flex-row items-center px-5 mb-6">
         <Pressable
           onPress={() => router.back()}
@@ -51,12 +53,14 @@ export default function AddCustomerScreen() {
         </Pressable>
         <View>
           <Text className="text-xl font-semibold text-white mb-0.5">
-            {isTrainer ? 'Add New Trainer' : 'Add New Customer'}
+            {isTrainer ? 'Add New Trainer' : (enquiryId ? 'Convert Enquiry to Customer' : 'Add New Customer')}
           </Text>
           <Text className="text-xs text-[#888]">
             {isTrainer
               ? 'Add trainer details and create their account'
-              : 'Add customer details and create their account'}
+              : (enquiryId
+                ? 'Register customer to complete enquiry conversion'
+                : 'Add customer details and create their account')}
           </Text>
         </View>
       </View>
@@ -78,7 +82,7 @@ export default function AddCustomerScreen() {
         {isTrainer ? (
           <TrainerRegistrationForm onRegisterSubmit={handleRegisterSubmit} />
         ) : (
-          <CustomerRegistrationForm onRegisterSubmit={handleRegisterSubmit} />
+          <CustomerRegistrationForm onRegisterSubmit={handleRegisterSubmit} enquiryId={enquiryId} />
         )}
       </KeyboardDismissView>
 
@@ -97,7 +101,7 @@ export default function AddCustomerScreen() {
         >
           {isSubmitting && <ActivityIndicator size="small" color="#000" />}
           <Text className="text-black font-semibold">
-            {isTrainer ? 'SAVE TRAINER' : 'SAVE CUSTOMER'}
+            {isTrainer ? 'SAVE TRAINER' : (enquiryId ? 'REGISTER & CONVERT' : 'SAVE CUSTOMER')}
           </Text>
         </Pressable>
       </View>

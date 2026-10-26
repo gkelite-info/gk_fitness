@@ -18,7 +18,7 @@ import {
   EnvelopeSimple,
   Copy
 } from 'phosphor-react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { triggerSuccessHaptic, triggerErrorHaptic, triggerLightHaptic } from '@/lib/haptics';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { toast } from '@/lib/toast';
@@ -27,6 +27,9 @@ import { saveGymCustomer, SaveGymCustomerParams } from '@/helpers/customers/cust
 import * as Crypto from 'expo-crypto';
 import { useGymMembershipPlans } from '@/hooks/useGymMembershipPlans';
 import { saveGymCustomerMembershipPlan } from '@/helpers/gymCustomerMembershipPlans/gymCustomerMembershipPlans';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEnquiryById } from '@/hooks/enquiries/useEnquiries';
+import { updateGymEnquiryStatus } from '@/helpers/enquiries/enquiriesHelper';
 
 interface GeneratedCredentials {
   fullName: string;
@@ -39,14 +42,20 @@ interface GeneratedCredentials {
 
 export interface CustomerRegistrationFormProps {
   onRegisterSubmit?: (fn: () => void, loading: boolean) => void;
+  enquiryId?: string;
 }
 
-export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrationFormProps = {}) {
+export function CustomerRegistrationForm({ onRegisterSubmit, enquiryId }: CustomerRegistrationFormProps = {}) {
   const { userId, gymOwnerId } = useUser();
+  const queryClient = useQueryClient();
+  const searchParams = useLocalSearchParams<{ enquiryId?: string }>();
+  const effectiveEnquiryId = enquiryId || searchParams.enquiryId;
+
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [createdCredentials, setCreatedCredentials] = useState<GeneratedCredentials | null>(null);
 
+  const { data: enquiry, isLoading: isLoadingEnquiry } = useEnquiryById(effectiveEnquiryId);
   const { data: membershipPlans } = useGymMembershipPlans(userId);
 
 
@@ -77,6 +86,37 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
     return d.toISOString().split('T')[0];
   });
   const [plan, setPlan] = useState('Select membership plan');
+
+  useEffect(() => {
+    if (enquiry) {
+      if (enquiry.fullName && !fullName) {
+        setFullName(enquiry.fullName);
+      }
+      if (enquiry.mobile && !phone) {
+        let clean = enquiry.mobile.replace(/\D/g, '');
+        if (clean.length > 10 && clean.startsWith('91')) {
+          clean = clean.slice(2);
+        }
+        setPhone(clean);
+      }
+      if (enquiry.email && !email) {
+        setEmail(enquiry.email);
+      }
+      if (enquiry.gender && gender === 'Select gender') {
+        const gLower = enquiry.gender.toLowerCase();
+        if (gLower === 'male') setGender('Male');
+        else if (gLower === 'female') setGender('Female');
+        else if (gLower === 'other' || gLower === 'others') setGender('Other');
+      }
+      if (enquiry.planId && membershipPlans && membershipPlans.length > 0 && plan === 'Select membership plan') {
+        const matched = membershipPlans.find((p: any) => p.planId === enquiry.planId);
+        if (matched) {
+          setPlan(matched.planName);
+          updateExpiry(parseInt(matched.durationMonths) || 1);
+        }
+      }
+    }
+  }, [enquiry, membershipPlans]);
 
   const clearError = (field: string) => {
     if (errors[field]) {
@@ -270,8 +310,21 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
         });
       }
 
+      if (effectiveEnquiryId) {
+        await updateGymEnquiryStatus(effectiveEnquiryId, 'converted');
+        queryClient.invalidateQueries({ queryKey: ['gymEnquiries'] });
+        queryClient.invalidateQueries({ queryKey: ['gymEnquiry', effectiveEnquiryId] });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customersPaginated'] });
+
       toast.dismiss();
-      toast.success('Customer account created successfully!');
+      toast.success(
+        effectiveEnquiryId
+          ? 'Customer registered and enquiry marked as Converted!'
+          : 'Customer account created successfully!'
+      );
       triggerSuccessHaptic();
 
       setCreatedCredentials({
@@ -287,7 +340,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
       console.error('[CustomerRegistrationForm] Save Error:', err);
       toast.dismiss();
       triggerErrorHaptic();
-      toast.error('Unable to register customer. Please verify details and ensure email/phone is unique.');
+      toast.error(err?.message || 'Unable to register customer. Please verify details and ensure email/phone is unique.');
     } finally {
       setLoading(false);
     }
@@ -462,6 +515,29 @@ export function CustomerRegistrationForm({ onRegisterSubmit }: CustomerRegistrat
         minYear={2020}
         maxYear={2032}
       />
+
+      {effectiveEnquiryId && (
+        <View className="mb-6 p-4 rounded-2xl bg-[#141B24] border border-[#22C55E]/40 flex-row items-center gap-3">
+          <View className="w-10 h-10 rounded-full bg-[#22C55E]/15 border border-[#22C55E]/30 items-center justify-center">
+            <IdentificationCard size={20} color="#22C55E" weight="bold" />
+          </View>
+          <View className="flex-1">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-white font-semibold text-sm">Converting Enquiry</Text>
+              {enquiry?.gymEnquiryId && (
+                <View className="bg-[#22C55E]/20 px-2 py-0.5 rounded">
+                  <Text className="text-[#22C55E] text-[10px] font-bold">
+                    #{enquiry.gymEnquiryId.substring(0, 6).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text className="text-gray-400 text-xs mt-0.5">
+              Enquiry details pre-filled. Enquiry status will automatically update to Converted once customer registration completes.
+            </Text>
+          </View>
+        </View>
+      )}
 
       <View className="mb-8">
         <View className="flex-row items-center mb-4">

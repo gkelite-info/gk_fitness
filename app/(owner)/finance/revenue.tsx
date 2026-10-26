@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { View, ScrollView, Pressable, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { CaretLeft, CaretDown, CurrencyInr, CaretRight, Lightning, CreditCard, Money, Buildings, CalendarBlank } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
@@ -15,6 +15,23 @@ export default function RevenueScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { userId, gymId } = useUser();
+
+  const isNavigatingRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      isNavigatingRef.current = false;
+    }, [])
+  );
+
+  const navigateSafely = useCallback((path: any) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    router.push(path);
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 700);
+  }, [router]);
 
   const { data: customersData, refetch: refetchCustomers } = useGymCustomers(gymId ?? undefined);
   const { data: membershipPlans, refetch: refetchPlans } = useMembershipPlans(gymId ?? null);
@@ -59,7 +76,6 @@ export default function RevenueScreen() {
     const now = new Date();
     const todayStr = now.toDateString();
 
-    // Use allPayments as primary revenue source (paymentDate = actual transaction date)
     if (allPayments) {
       const todaysPayments = allPayments.filter((payment: any) => {
         const pDate = new Date(payment.paymentDate);
@@ -91,7 +107,7 @@ export default function RevenueScreen() {
 
           const customer = customersData?.find(c => c.customerId === payment.customerId);
           const plan = membershipPlans?.find(p => p.id === payment.planId);
-          
+
           let txDate = new Date(payment.paymentDate);
           let timeStr = payment.paymentTime || '';
           if (payment.paymentDate && payment.paymentTime) {
@@ -100,7 +116,7 @@ export default function RevenueScreen() {
               timeStr = txDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
             }
           }
-          
+
           recentTx.push({
             id: payment.gymPaymentId,
             name: customer?.fullName || 'Unknown Customer',
@@ -144,7 +160,7 @@ export default function RevenueScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#09090B]">
+    <View className="flex-1 bg-[#09090B] pt-5">
       <View
         className="flex-row items-center justify-between px-5 pb-4 border-b border-[#27272A]"
         style={{ paddingTop: Math.max(insets.top, 14) }}
@@ -162,8 +178,8 @@ export default function RevenueScreen() {
         </Pressable>
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 140 }}
         refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -180,13 +196,13 @@ export default function RevenueScreen() {
         </View>
 
         <View className="px-5 mb-8">
-          <Text className="text-[#8E8E93] font-medium text-sm mb-4">Revenue by Membership Plan</Text>
+          <Text className="text-[#8E8E93] font-medium text-sm mb-4">Revenue by Membership Plans</Text>
           <View className="bg-[#121214] rounded-3xl">
             {revenueByPlan.length > 0 ? revenueByPlan.map((plan, index) => (
-              <Pressable 
-                key={plan.planId} 
+              <Pressable
+                key={plan.planId}
                 className={`flex-row items-center justify-between p-5 ${index < revenueByPlan.length - 1 ? 'border-b border-[#27272A]' : ''}`}
-                onPress={() => router.push(`/(owner)/finance/membership-plan/${plan.planId}?colorIndex=${index}`)}
+                onPress={() => navigateSafely(`/(owner)/finance/membership-plan/${plan.planId}?colorIndex=${index}`)}
               >
                 <View className="flex-row items-center">
                   <View className="w-3 h-3 rounded-full mr-4" style={{ backgroundColor: colors[index % colors.length] }} />

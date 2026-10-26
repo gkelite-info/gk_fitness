@@ -16,7 +16,7 @@ export default function BiometricManagementScreen() {
   const [activeTab, setActiveTab] = useState<BiometricTab>('devices');
 
   return (
-    <View className="flex-1 bg-[#0A0A0A]">
+    <View className="flex-1 bg-[#0A0A0A] pt-5">
       <View
         className="flex-row items-center px-4 pb-4 bg-[#0F0F0F] border-b border-[#1F293D]"
         style={{ paddingTop: Math.max(insets.top, 14) }}

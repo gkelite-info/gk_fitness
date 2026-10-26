@@ -20,12 +20,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
 import { useOwnerGymId } from '@/hooks/auth/useOwnerGymId';
 import { useGymInventoryList } from '@/hooks/inventory/useGymInventory';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { triggerLightHaptic } from '@/lib/haptics';
 
 export default function ManageInventoryScreen() {
   const insets = useSafeAreaInsets();
   const { userId } = useUser();
   const [searchQuery, setSearchQuery] = useState('');
-  
+  const [refreshing, setRefreshing] = useState(false);
+
   const { data: gymId } = useOwnerGymId(userId);
   const { data: equipmentList = [], isLoading: loading, refetch } = useGymInventoryList(gymId);
 
@@ -34,6 +37,18 @@ export default function ManageInventoryScreen() {
       refetch();
     }, [refetch])
   );
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    triggerLightHaptic();
+    try {
+      await refetch();
+    } catch (err) {
+      console.error('[ManageInventory] Refresh error:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const totalEquipment = equipmentList.length;
   const totalUnits = equipmentList.reduce((acc, item) => acc + (item.quantity || 0), 0);
@@ -66,10 +81,10 @@ export default function ManageInventoryScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A]">
+    <View className="flex-1 bg-[#0A0A0A] pt-5 pb-10">
       <View
         className="px-5 pb-4 flex-row items-center border-b border-[#161616]"
-        style={{ paddingTop: Math.max(insets.top, 14) }}
+        style={{ paddingTop: Math.max(insets.top) }}
       >
         <Pressable
           onPress={() => router.back()}
@@ -83,7 +98,12 @@ export default function ManageInventoryScreen() {
         </View>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+      >
         <View className="flex-row justify-between mb-6">
           {summaryCards.map((card) => {
             const Icon = card.icon;
@@ -100,14 +120,14 @@ export default function ManageInventoryScreen() {
         </View>
 
         <View className="flex-row gap-3 mb-6">
-          <View className="flex-1 bg-[#161616] flex-row items-center px-4 py-3.5 rounded-xl border border-[#242424]">
+          <View className="flex-1 bg-[#161616] flex-row items-center px-4 py-1.5 rounded-xl border border-[#242424]">
             <MagnifyingGlass size={20} color="#666" />
             <TextInput
               placeholder="Search equipment..."
               placeholderTextColor="#666"
               value={searchQuery}
               onChangeText={setSearchQuery}
-              className="flex-1 text-white ml-2"
+              className="flex-1 text-white ml-2 font-sans"
             />
           </View>
         </View>
@@ -134,8 +154,8 @@ export default function ManageInventoryScreen() {
             </View>
           ) : (
             filteredList.map((item) => (
-              <Pressable 
-                key={item.gymInventoryId} 
+              <Pressable
+                key={item.gymInventoryId}
                 className="bg-[#161616] rounded-2xl p-4 border border-[#242424] active:opacity-80"
                 onPress={() => router.push({ pathname: '/(owner)/dashboard/equipment/[id]', params: { id: item.gymInventoryId } })}
               >

@@ -35,7 +35,7 @@ export default function RegistrationStatusScreen() {
     };
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, [gymLeadId]);
+  }, [gymLeadId, globalTrainerLeadId]);
 
   const handleBack = () => {
     router.replace('/auth/otp-auth');

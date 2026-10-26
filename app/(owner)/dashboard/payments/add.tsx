@@ -9,6 +9,7 @@ import { getOwnerGymId } from '@/helpers/trainers/trainerHelper';
 import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
 import { useGymMembershipPlans } from '@/hooks/useGymMembershipPlans';
 import { useGymCustomerMembershipPlans } from '@/hooks/useGymCustomerMembershipPlans';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function AddPaymentScreen() {
   const [method, setMethod] = useState<'cash' | 'qrscan'>('cash');
@@ -22,12 +23,23 @@ export default function AddPaymentScreen() {
   const [time, setTime] = useState(now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   const { userId, gymId, gymOwnerId } = useUser();
   const savePaymentMutation = useSaveGymPayment();
-  const { data: customers = [], isLoading: loadingCustomers } = useGymCustomers(gymId || undefined);
-  const { data: plans = [], isLoading: loadingPlans } = useGymMembershipPlans(userId);
-  const { data: customerPlans = [], isLoading: loadingCustomerPlans } = useGymCustomerMembershipPlans(userId, selectedMember?.customerId || null);
+  const { data: customers = [], isLoading: loadingCustomers, refetch: refetchCustomers } = useGymCustomers(gymId || undefined);
+  const { data: plans = [], isLoading: loadingPlans, refetch: refetchPlans } = useGymMembershipPlans(userId);
+  const { data: customerPlans = [], isLoading: loadingCustomerPlans, refetch: refetchCustomerPlans } = useGymCustomerMembershipPlans(userId, selectedMember?.customerId || null);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      refetchPlans?.(),
+      refetchCustomers?.(),
+      refetchCustomerPlans?.(),
+    ]);
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     if (customerPlans && customerPlans.length > 0) {
@@ -49,7 +61,6 @@ export default function AddPaymentScreen() {
     if (!userId || !gymId || !gymOwnerId) return;
     try {
 
-      // Note: plan should be valid UUID from a dropdown picker
       await savePaymentMutation.mutateAsync({
         customerId: selectedMember?.customerId || '00000000-0000-0000-0000-000000000000', // Placeholder if none selected
         gymId,
@@ -73,9 +84,8 @@ export default function AddPaymentScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#09090B]">
+    <View className="flex-1 bg-[#09090B] pt-10">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-        {/* Header */}
         <View className="px-5 pt-4 pb-4">
           <View className="flex-row items-center gap-3 mb-2">
             <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 bg-[#1A1A1A] rounded-full items-center justify-center active:opacity-70">
@@ -86,9 +96,12 @@ export default function AddPaymentScreen() {
           <Text className="text-[#888888] text-xs font-medium ml-1">Manually add payment received via QR or Cash</Text>
         </View>
 
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 }}>
-
-          {/* Payment Method Toggle */}
+        <ScrollView
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 }}
+          refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
           <Text className="text-[#888888] text-xs font-semibold mb-2">Payment Method</Text>
           <View className="flex-row bg-[#1A1A1A] border border-[#27272A] rounded-xl p-1 mb-6">
             <TouchableOpacity

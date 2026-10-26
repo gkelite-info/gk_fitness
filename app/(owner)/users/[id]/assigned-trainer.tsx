@@ -56,10 +56,10 @@ export default function UserAssignedTrainerScreen() {
 
   const assignedSince = activeAssignment?.assignedOn
     ? new Date(activeAssignment.assignedOn).toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      })
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
     : '-';
 
   const weekDays = activeAssignment?.weekDays || ['Mon', 'Wed', 'Fri'];
@@ -80,7 +80,7 @@ export default function UserAssignedTrainerScreen() {
         >
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="text-white text-lg font-bold">Assigned Trainer</Text>
+        <Text className="text-white text-lg font-semibold">Assigned Trainer</Text>
         <View className="w-10" />
       </View>
 
@@ -92,7 +92,7 @@ export default function UserAssignedTrainerScreen() {
         <View className="bg-[#141416] border border-[#242424] rounded-2xl p-4 mt-4 flex-row items-center justify-between">
           <View>
             <Text className="text-gray-400 text-xs">Member</Text>
-            <Text className="text-white text-base font-bold mt-0.5">{customer?.fullName || 'Customer'}</Text>
+            <Text className="text-white text-base font-semibold mt-0.5">{customer?.fullName || 'Customer'}</Text>
           </View>
           <View className="bg-[#1C1F26] border border-[#2A2E38] px-3 py-1 rounded-lg">
             <Text className="text-[#CCF200] text-xs font-semibold">{memberCode}</Text>
@@ -103,11 +103,11 @@ export default function UserAssignedTrainerScreen() {
         {trainer ? (
           <View className="bg-[#141416] border border-[#242424] rounded-3xl p-5 mt-4">
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-[#CCF200] text-xs font-bold uppercase tracking-wider">
+              <Text className="text-[#CCF200] text-xs font-semibold uppercase tracking-wider">
                 Current Assigned Trainer
               </Text>
               <View className="px-2.5 py-0.5 rounded-md bg-[#373F0E]">
-                <Text className="text-[#CCF200] text-[10px] font-bold uppercase">Active</Text>
+                <Text className="text-[#CCF200] text-[10px] font-semibold uppercase">Active</Text>
               </View>
             </View>
 
@@ -119,11 +119,11 @@ export default function UserAssignedTrainerScreen() {
                 />
               ) : (
                 <View className="w-16 h-16 rounded-2xl bg-[#1C1F26] border border-[#333] items-center justify-center mr-4">
-                  <Text className="text-[#CCF200] text-xl font-bold">{initials}</Text>
+                  <Text className="text-[#CCF200] text-xl font-semibold">{initials}</Text>
                 </View>
               )}
               <View className="flex-1">
-                <Text className="text-white text-xl font-bold" numberOfLines={1}>
+                <Text className="text-white text-xl font-semibold" numberOfLines={1}>
                   {trainer.fullName}
                 </Text>
                 <Text className="text-[#CCF200] text-xs font-semibold mt-0.5">
@@ -168,12 +168,12 @@ export default function UserAssignedTrainerScreen() {
               <View className="flex-row items-center justify-between mb-3">
                 <View className="flex-row items-center">
                   <CalendarBlank size={16} color="#CCF200" />
-                  <Text className="text-white text-xs font-bold ml-2">Training Days</Text>
+                  <Text className="text-white text-xs font-semibold ml-2">Training Days</Text>
                 </View>
                 <View className="flex-row gap-1">
                   {weekDays.map((day: string, idx: number) => (
                     <View key={idx} className="bg-[#242A36] px-2 py-0.5 rounded-md">
-                      <Text className="text-[#CCF200] text-[10px] font-bold">{day}</Text>
+                      <Text className="text-[#CCF200] text-[10px] font-semibold">{day}</Text>
                     </View>
                   ))}
                 </View>
@@ -182,7 +182,7 @@ export default function UserAssignedTrainerScreen() {
               <View className="flex-row items-center justify-between pt-2 border-t border-[#2A2E38]">
                 <View className="flex-row items-center">
                   <Clock size={16} color="#CCF200" />
-                  <Text className="text-white text-xs font-bold ml-2">Session Timings</Text>
+                  <Text className="text-white text-xs font-semibold ml-2">Session Timings</Text>
                 </View>
                 <Text className="text-gray-300 text-xs font-medium">{timings}</Text>
               </View>
@@ -194,7 +194,7 @@ export default function UserAssignedTrainerScreen() {
               className="bg-[#CCF200] rounded-2xl py-3.5 items-center justify-center flex-row gap-2 active:opacity-80"
             >
               <Users size={18} color="#000000" weight="bold" />
-              <Text className="text-black font-bold text-sm">Change Trainer</Text>
+              <Text className="text-black font-semibold text-sm">Change Trainer</Text>
             </Pressable>
           </View>
         ) : (
@@ -202,7 +202,7 @@ export default function UserAssignedTrainerScreen() {
             <View className="w-16 h-16 rounded-full bg-[#1C1F26] border border-[#333] items-center justify-center mb-4">
               <Barbell size={32} color="#888" />
             </View>
-            <Text className="text-white text-lg font-bold text-center">
+            <Text className="text-white text-lg font-semibold text-center">
               No Trainer Assigned
             </Text>
             <Text className="text-gray-400 text-xs text-center mt-1 mb-6 px-4 leading-5">
@@ -214,7 +214,7 @@ export default function UserAssignedTrainerScreen() {
               className="bg-[#CCF200] rounded-2xl py-3.5 px-6 items-center justify-center flex-row gap-2 w-full active:opacity-80"
             >
               <Users size={18} color="#000000" weight="bold" />
-              <Text className="text-black font-bold text-sm">Assign a Trainer</Text>
+              <Text className="text-black font-semibold text-sm">Assign a Trainer</Text>
             </Pressable>
           </View>
         )}
@@ -223,7 +223,7 @@ export default function UserAssignedTrainerScreen() {
         <View className="bg-[#141416] border border-[#242424] rounded-2xl p-4 mt-4">
           <View className="flex-row items-center mb-3">
             <ShieldCheck size={18} color="#CCF200" weight="bold" />
-            <Text className="text-white text-sm font-bold ml-2">Personal Training Protocol</Text>
+            <Text className="text-white text-sm font-semibold ml-2">Personal Training Protocol</Text>
           </View>
           <Text className="text-gray-400 text-xs leading-5">
             Trainers assigned to members gain access to craft customized workout splits, record biometric body composition logs, and monitor attendance adherence directly from their Trainer Portal.

@@ -341,7 +341,7 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
   }
 }
 
-export async function fetchGymCustomers(gymId?: string) {
+export async function fetchGymCustomers(gymId?: string, search?: string) {
   let query = supabase
     .from('gym_customers')
     .select('*')
@@ -350,6 +350,11 @@ export async function fetchGymCustomers(gymId?: string) {
 
   if (gymId) {
     query = query.eq('gymId', gymId);
+  }
+
+  if (search && search.trim()) {
+    const s = search.trim();
+    query = query.or(`fullName.ilike.%${s}%,phone.ilike.%${s}%`);
   }
 
   const { data, error } = await query;
@@ -402,8 +407,34 @@ export async function fetchGymCustomerById(customerId: string) {
 
   if (error) {
     console.error('[customerHelper] fetchGymCustomerById Error:', error);
-    throw error;
+    const { data: fallbackCust, error: fallbackErr } = await supabase
+      .from('gym_customers')
+      .select('*')
+      .eq('customerId', customerId)
+      .eq('is_deleted', false)
+      .maybeSingle();
+
+    if (fallbackErr) throw fallbackErr;
+    if (fallbackCust?.userId) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('address, profilePhoto, city, state, pincode, status')
+        .eq('userId', fallbackCust.userId)
+        .maybeSingle();
+      return { ...fallbackCust, user: userData || null };
+    }
+    return fallbackCust;
   }
+
+  if (data && !data.user && data.userId) {
+    const { data: userData } = await supabase
+      .from('users')
+      .select('address, profilePhoto, city, state, pincode, status')
+      .eq('userId', data.userId)
+      .maybeSingle();
+    return { ...data, user: userData || null };
+  }
+
   return data;
 }
 

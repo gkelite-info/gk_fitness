@@ -83,7 +83,7 @@ export default function UserMembershipPaymentsScreen() {
         >
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="text-white text-lg font-bold">Membership & Payments</Text>
+        <Text className="text-white text-lg font-semibold">Membership & Payments</Text>
         <View className="w-10" />
       </View>
 
@@ -95,7 +95,7 @@ export default function UserMembershipPaymentsScreen() {
         <View className="bg-[#141416] border border-[#242424] rounded-2xl p-4 mt-4 flex-row items-center justify-between">
           <View>
             <Text className="text-gray-400 text-xs">Member</Text>
-            <Text className="text-white text-base font-bold mt-0.5">{customer?.fullName || 'Customer'}</Text>
+            <Text className="text-white text-base font-semibold mt-0.5">{customer?.fullName || 'Customer'}</Text>
           </View>
           <View className="bg-[#1C1F26] border border-[#2A2E38] px-3 py-1 rounded-lg">
             <Text className="text-[#CCF200] text-xs font-semibold">{memberCode}</Text>
@@ -105,18 +105,16 @@ export default function UserMembershipPaymentsScreen() {
         {/* Current Active Plan Card */}
         <View className="bg-[#141416] border border-[#242424] rounded-3xl p-5 mt-4">
           <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-[#CCF200] text-xs font-bold uppercase tracking-wider">
+            <Text className="text-[#CCF200] text-xs font-semibold uppercase tracking-wider">
               Membership Plan
             </Text>
             <View
-              className={`px-2.5 py-0.5 rounded-md ${
-                isPlanActive ? 'bg-[#373F0E]' : 'bg-[#4A1D1D]'
-              }`}
+              className={`px-2.5 py-0.5 rounded-md ${isPlanActive ? 'bg-[#373F0E]' : 'bg-[#4A1D1D]'
+                }`}
             >
               <Text
-                className={`text-[10px] font-bold uppercase tracking-wider ${
-                  isPlanActive ? 'text-[#CCF200]' : 'text-[#FFB6C1]'
-                }`}
+                className={`text-[10px] font-semibold uppercase tracking-wider ${isPlanActive ? 'text-[#CCF200]' : 'text-[#FFB6C1]'
+                  }`}
               >
                 {isPlanActive ? 'Active Plan' : 'Expired'}
               </Text>
@@ -128,7 +126,7 @@ export default function UserMembershipPaymentsScreen() {
               <Medal size={24} color="#CCF200" weight="fill" />
             </View>
             <View className="flex-1">
-              <Text className="text-white text-lg font-bold">{planName}</Text>
+              <Text className="text-white text-lg font-semibold">{planName}</Text>
               <Text className="text-gray-400 text-xs mt-0.5">Duration: {rawDuration} Month(s)</Text>
             </View>
           </View>
@@ -146,7 +144,7 @@ export default function UserMembershipPaymentsScreen() {
         </View>
 
         {/* Payment History List */}
-        <Text className="text-[#CCF200] text-xs font-bold uppercase tracking-wider mt-6 mb-3">
+        <Text className="text-[#CCF200] text-xs font-semibold uppercase tracking-wider mt-6 mb-3">
           Payment Transactions ({payments.length})
         </Text>
 
@@ -179,14 +177,14 @@ export default function UserMembershipPaymentsScreen() {
                         <Receipt size={18} color="#CCF200" />
                       </View>
                       <View>
-                        <Text className="text-white text-sm font-bold">
+                        <Text className="text-white text-sm font-semibold">
                           {payment.plan?.planName || planName}
                         </Text>
                         <Text className="text-gray-400 text-xs mt-0.5">{formattedDate}</Text>
                       </View>
                     </View>
 
-                    <Text className="text-[#CCF200] text-base font-bold">
+                    <Text className="text-[#CCF200] text-base font-semibold">
                       ₹{formattedAmount}
                     </Text>
                   </View>
@@ -194,17 +192,15 @@ export default function UserMembershipPaymentsScreen() {
                   <View className="pt-3 border-t border-[#222226] flex-row items-center justify-between">
                     <View className="flex-row items-center gap-2">
                       <View className="bg-[#1C1F26] px-2 py-0.5 rounded border border-[#2A2E38]">
-                        <Text className="text-gray-300 text-[10px] font-bold">{method}</Text>
+                        <Text className="text-gray-300 text-[10px] font-semibold">{method}</Text>
                       </View>
                       <View
-                        className={`px-2 py-0.5 rounded ${
-                          isSuccess ? 'bg-[#373F0E]' : 'bg-[#4A1D1D]'
-                        }`}
+                        className={`px-2 py-0.5 rounded ${isSuccess ? 'bg-[#373F0E]' : 'bg-[#4A1D1D]'
+                          }`}
                       >
                         <Text
-                          className={`text-[10px] font-bold ${
-                            isSuccess ? 'text-[#CCF200]' : 'text-[#FFB6C1]'
-                          }`}
+                          className={`text-[10px] font-semibold ${isSuccess ? 'text-[#CCF200]' : 'text-[#FFB6C1]'
+                            }`}
                         >
                           {isSuccess ? 'Verified' : 'Pending'}
                         </Text>

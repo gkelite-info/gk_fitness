@@ -17,6 +17,7 @@ const UserContext = createContext<UserContextType>({
   gymId: null,
   customerId: null,
   trainerId: null,
+  globalTrainerId: null,
   doctorId: null,
   dieticianId: null,
   name: null,
@@ -158,6 +159,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       gymId: profile?.gymId || null,
       customerId: profile?.customerId || null,
       trainerId: profile?.trainerId || null,
+      globalTrainerId: profile?.globalTrainerId || null,
       doctorId: profile?.doctorId || null,
       dieticianId: profile?.dieticianId || null,
 

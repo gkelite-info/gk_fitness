@@ -23,6 +23,7 @@ export interface UserProfile {
   gymId?: string | null;
   customerId?: string | null;
   trainerId?: string | null;
+  globalTrainerId?: string | null;
   doctorId?: string | null;
   dieticianId?: string | null;
 
@@ -241,8 +242,34 @@ export async function fetchUserAndRoleProfile(
           // TODO: Implement dietician table fetch when available
           break;
         }
+        case 'globaltrainer': {
+          let gtData: { globalTrainerId?: string | null; profilePhoto?: string | null } | null = null;
+          if (profile.userId) {
+            const { data } = await supabase
+              .from('global_trainers')
+              .select('globalTrainerId, profilePhoto')
+              .eq('userId', profile.userId)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            gtData = data;
+          }
+          if (!gtData?.globalTrainerId && profile.email) {
+            const { data } = await supabase
+              .from('global_trainers')
+              .select('globalTrainerId, profilePhoto')
+              .ilike('email', profile.email.trim())
+              .eq('is_deleted', false)
+              .maybeSingle();
+            gtData = data;
+          }
+          profile.globalTrainerId = gtData?.globalTrainerId || null;
+          profile.trainerId = gtData?.globalTrainerId || profile.userId || null;
+          if (!profile.profilePhoto && gtData?.profilePhoto) {
+            profile.profilePhoto = gtData.profilePhoto;
+          }
+          break;
+        }
         case 'superadmin':
-        case 'globaltrainer':
         case 'individual':
         default:
           // Global/superadmin roles do not have a gymId

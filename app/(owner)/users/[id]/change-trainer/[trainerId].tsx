@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, ScrollView, Pressable, TextInput, ActivityIndicator, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -87,11 +87,10 @@ export default function ConfirmTrainerAssignmentScreen() {
 
       triggerSuccessHaptic();
       toast.success('Trainer successfully assigned!');
-      // Navigate directly back to the assigned trainer sub-page
       router.dismissTo(`/(owner)/users/${id}/assigned-trainer` as any);
     } catch (err: any) {
       triggerErrorHaptic();
-      Alert.alert('Assignment Error', err?.message || 'Failed to assign trainer.');
+      toast.error(err?.message || 'Failed to assign trainer.');
     } finally {
       setIsSubmitting(false);
     }
@@ -111,7 +110,7 @@ export default function ConfirmTrainerAssignmentScreen() {
   if (!selectedTrainer) {
     return (
       <View className="flex-1 bg-[#0A0A0A] items-center justify-center px-6">
-        <Text className="text-white text-lg font-bold mb-2">Trainer Not Found</Text>
+        <Text className="text-white text-lg font-semibold mb-2">Trainer Not Found</Text>
         <Pressable
           onPress={() => router.back()}
           className="bg-[#1A1A1A] border border-[#27272A] px-6 py-3 rounded-xl mt-4"
@@ -128,7 +127,6 @@ export default function ConfirmTrainerAssignmentScreen() {
 
   return (
     <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: insets.top }}>
-      {/* Header */}
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#1F1F22]">
         <Pressable
           onPress={() => router.back()}
@@ -136,7 +134,7 @@ export default function ConfirmTrainerAssignmentScreen() {
         >
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="text-white text-lg font-bold">Confirm Trainer</Text>
+        <Text className="text-white text-lg font-semibold">Confirm Trainer</Text>
         <View className="w-10" />
       </View>
 
@@ -144,19 +142,16 @@ export default function ConfirmTrainerAssignmentScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
       >
-        {/* Assignment Summary Card */}
         <View className="bg-[#141416] border border-[#242424] rounded-3xl p-5 mt-4">
-          <Text className="text-[#CCF200] text-xs font-bold uppercase tracking-wider mb-3">
+          <Text className="text-[#CCF200] text-xs font-semibold uppercase tracking-wider mb-3">
             Assignment Summary
           </Text>
 
-          {/* Member Row */}
           <View className="py-2.5 border-b border-[#222226] flex-row justify-between items-center">
             <Text className="text-gray-400 text-xs font-medium">Member</Text>
-            <Text className="text-white text-sm font-bold">{customer?.fullName || 'Customer'}</Text>
+            <Text className="text-white text-sm font-semibold">{customer?.fullName || 'Customer'}</Text>
           </View>
 
-          {/* Trainer Card preview */}
           <View className="mt-4 flex-row items-center">
             {selectedTrainer.users?.profilePhoto ? (
               <Image
@@ -165,11 +160,11 @@ export default function ConfirmTrainerAssignmentScreen() {
               />
             ) : (
               <View className="w-14 h-14 rounded-2xl bg-[#1C1F26] border border-[#333] items-center justify-center mr-4">
-                <Text className="text-[#CCF200] font-bold text-lg">{trainerInitials}</Text>
+                <Text className="text-[#CCF200] font-semibold text-lg">{trainerInitials}</Text>
               </View>
             )}
             <View className="flex-1">
-              <Text className="text-white text-base font-bold">{selectedTrainer.fullName}</Text>
+              <Text className="text-white text-base font-semibold">{selectedTrainer.fullName}</Text>
               <Text className="text-[#CCF200] text-xs mt-0.5">
                 {selectedTrainer.specialization || 'Fitness Trainer'}
               </Text>
@@ -178,11 +173,10 @@ export default function ConfirmTrainerAssignmentScreen() {
           </View>
         </View>
 
-        {/* Schedule Form Card */}
         <View className="bg-[#141416] border border-[#242424] rounded-3xl p-5 mt-4">
           <View className="flex-row items-center mb-3">
             <CalendarBlank size={18} color="#CCF200" weight="bold" />
-            <Text className="text-white text-base font-bold ml-2">Workout Days</Text>
+            <Text className="text-white text-base font-semibold ml-2">Workout Days</Text>
           </View>
           <Text className="text-gray-400 text-xs mb-3">
             Select the recurring days this trainer will supervise sessions:
@@ -195,16 +189,14 @@ export default function ConfirmTrainerAssignmentScreen() {
                 <Pressable
                   key={day}
                   onPress={() => toggleDay(day)}
-                  className={`px-3.5 py-2 rounded-xl active:opacity-70 border ${
-                    isSelected
-                      ? 'bg-[#CCF200] border-[#CCF200]'
-                      : 'bg-[#1C1F26] border-[#2A2E38]'
-                  }`}
+                  className={`px-3.5 py-2 rounded-xl active:opacity-70 border ${isSelected
+                    ? 'bg-[#CCF200] border-[#CCF200]'
+                    : 'bg-[#1C1F26] border-[#2A2E38]'
+                    }`}
                 >
                   <Text
-                    className={`text-xs font-bold ${
-                      isSelected ? 'text-black' : 'text-gray-300'
-                    }`}
+                    className={`text-xs font-semibold ${isSelected ? 'text-black' : 'text-gray-300'
+                      }`}
                   >
                     {day}
                   </Text>
@@ -213,10 +205,9 @@ export default function ConfirmTrainerAssignmentScreen() {
             })}
           </View>
 
-          {/* Timings Input */}
           <View className="flex-row items-center mb-2">
             <Clock size={18} color="#CCF200" weight="bold" />
-            <Text className="text-white text-base font-bold ml-2">Session Timings</Text>
+            <Text className="text-white text-base font-semibold ml-2">Session Timings</Text>
           </View>
           <Text className="text-gray-400 text-xs mb-2">
             Enter the scheduled hours for training sessions:
@@ -232,7 +223,6 @@ export default function ConfirmTrainerAssignmentScreen() {
             />
           </View>
 
-          {/* Quick presets */}
           <View className="flex-row flex-wrap gap-2 mt-2">
             {[
               'Morning 06:00 AM - 07:00 AM',
@@ -246,16 +236,14 @@ export default function ConfirmTrainerAssignmentScreen() {
                   triggerLightHaptic();
                   setTimings(preset);
                 }}
-                className={`px-2.5 py-1 rounded-lg border ${
-                  timings === preset
-                    ? 'bg-[#CCF200]/20 border-[#CCF200]'
-                    : 'bg-[#181B22] border-[#252A36]'
-                }`}
+                className={`px-2.5 py-1 rounded-lg border ${timings === preset
+                  ? 'bg-[#CCF200]/20 border-[#CCF200]'
+                  : 'bg-[#181B22] border-[#252A36]'
+                  }`}
               >
                 <Text
-                  className={`text-[11px] font-medium ${
-                    timings === preset ? 'text-[#CCF200]' : 'text-gray-400'
-                  }`}
+                  className={`text-[11px] font-medium ${timings === preset ? 'text-[#CCF200]' : 'text-gray-400'
+                    }`}
                 >
                   {preset}
                 </Text>
@@ -264,20 +252,18 @@ export default function ConfirmTrainerAssignmentScreen() {
           </View>
         </View>
 
-        {/* Action Button */}
         <Pressable
           onPress={handleConfirmAssignment}
           disabled={isSubmitting}
-          className={`mt-6 rounded-2xl py-4 items-center justify-center flex-row gap-2 ${
-            isSubmitting ? 'bg-[#CCF200]/50' : 'bg-[#CCF200] active:opacity-80'
-          }`}
+          className={`mt-6 rounded-2xl py-4 items-center justify-center flex-row gap-2 ${isSubmitting ? 'bg-[#CCF200]/50' : 'bg-[#CCF200] active:opacity-80'
+            }`}
         >
           {isSubmitting ? (
             <ActivityIndicator size="small" color="#000000" />
           ) : (
             <>
               <CheckCircle size={20} color="#000000" weight="bold" />
-              <Text className="text-black font-bold text-base">Confirm & Assign Trainer</Text>
+              <Text className="text-black font-semibold text-base">Confirm & Assign Trainer</Text>
             </>
           )}
         </Pressable>

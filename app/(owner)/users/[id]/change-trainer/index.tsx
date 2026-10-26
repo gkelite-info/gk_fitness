@@ -17,36 +17,55 @@ import { useGymCustomerById } from '@/hooks/customers/useGymCustomers';
 import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import { useAssignedTrainersByCustomer } from '@/hooks/customerTrainers/useCustomerTrainers';
 import { triggerLightHaptic } from '@/lib/haptics';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function ChangeTrainerSelectScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const { data: customer, isLoading: isCustomerLoading } = useGymCustomerById(id);
-  const { data: gymTrainers = [], isLoading: isTrainersLoading } = useGymTrainers(
+  const {
+    data: gymTrainers = [],
+    isLoading: isTrainersLoading,
+    refetch: refetchTrainers,
+  } = useGymTrainers(
     customer?.gymId,
-    Boolean(customer?.gymId)
+    Boolean(customer?.gymId),
+    debouncedSearch
   );
-  const { data: assignedTrainers = [] } = useAssignedTrainersByCustomer(id);
+  const { data: assignedTrainers = [], refetch: refetchAssigned } = useAssignedTrainersByCustomer(id);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    triggerLightHaptic();
+    try {
+      await Promise.all([refetchTrainers(), refetchAssigned()]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const activeAssignment = useMemo(() => {
     return assignedTrainers.find((t: any) => t.isActive && !t.is_deleted) || null;
   }, [assignedTrainers]);
 
+  // Data is rendered from server-side; we only ensure active status
   const filteredTrainers = useMemo(() => {
-    return gymTrainers.filter((t: any) => {
-      const matchesSearch =
-        !search.trim() ||
-        t.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-        t.specialization?.toLowerCase().includes(search.toLowerCase()) ||
-        t.phone?.includes(search);
-      return matchesSearch && t.is_Active !== false;
-    });
-  }, [gymTrainers, search]);
+    return gymTrainers.filter((t: any) => t.is_Active !== false);
+  }, [gymTrainers]);
 
-  const isLoading = isCustomerLoading || isTrainersLoading;
+  const isLoading = (isCustomerLoading && !customer) || (isTrainersLoading && gymTrainers.length === 0 && !debouncedSearch);
 
   if (isLoading) {
     return (
@@ -64,7 +83,6 @@ export default function ChangeTrainerSelectScreen() {
 
   return (
     <View className="flex-1 bg-[#0A0A0A]" style={{ paddingTop: insets.top }}>
-      {/* Header */}
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#1F1F22]">
         <Pressable
           onPress={() => router.back()}
@@ -72,38 +90,39 @@ export default function ChangeTrainerSelectScreen() {
         >
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="text-white text-lg font-bold">Select Trainer</Text>
+        <Text className="text-white text-lg font-semibold">Select Trainer</Text>
         <View className="w-10" />
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+        refreshControl={
+          <CustomRefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
-        {/* Notice Card */}
         <View className="bg-[#10141C] border border-[#212735] rounded-2xl p-4 mt-4 flex-row items-center">
           <Info size={20} color="#CCF200" weight="bold" />
           <Text className="text-gray-300 text-xs ml-3 flex-1 leading-5">
             Selecting a new trainer will assign them to{' '}
-            <Text className="text-white font-bold">{customer?.fullName || 'this member'}</Text>.
+            <Text className="text-white font-semibold">{customer?.fullName || 'this member'}</Text>.
           </Text>
         </View>
 
-        {/* Current Trainer Highlight if any */}
         {activeAssignment?.trainer && (
           <View className="bg-[#141416] border border-[#242424] rounded-2xl p-4 mt-4">
-            <Text className="text-gray-400 text-[11px] font-bold uppercase tracking-wider mb-2">
+            <Text className="text-gray-400 text-[11px] font-semibold uppercase tracking-wider mb-2">
               Currently Assigned
             </Text>
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center flex-1 mr-2">
                 <View className="w-10 h-10 rounded-xl bg-[#1C1F26] border border-[#333] items-center justify-center mr-3">
-                  <Text className="text-[#CCF200] font-bold text-sm">
+                  <Text className="text-[#CCF200] font-semibold text-sm">
                     {activeAssignment.trainer.fullName?.charAt(0) || 'T'}
                   </Text>
                 </View>
                 <View className="flex-1">
-                  <Text className="text-white text-sm font-bold" numberOfLines={1}>
+                  <Text className="text-white text-sm font-semibold" numberOfLines={1}>
                     {activeAssignment.trainer.fullName}
                   </Text>
                   <Text className="text-gray-400 text-xs">
@@ -112,13 +131,12 @@ export default function ChangeTrainerSelectScreen() {
                 </View>
               </View>
               <View className="px-2 py-0.5 rounded bg-[#373F0E]">
-                <Text className="text-[#CCF200] text-[10px] font-bold">Current</Text>
+                <Text className="text-[#CCF200] text-[10px] font-semibold">Current</Text>
               </View>
             </View>
           </View>
         )}
 
-        {/* Search Bar */}
         <View className="bg-[#141416] border border-[#242424] rounded-2xl flex-row items-center px-4 py-3 mt-4">
           <MagnifyingGlass size={18} color="#71717A" />
           <TextInput
@@ -128,10 +146,12 @@ export default function ChangeTrainerSelectScreen() {
             placeholderTextColor="#666"
             className="flex-1 text-white text-sm ml-3 py-0"
           />
+          {isTrainersLoading && debouncedSearch ? (
+            <ActivityIndicator size="small" color="#CCF200" style={{ marginLeft: 6 }} />
+          ) : null}
         </View>
 
-        {/* Trainers List */}
-        <Text className="text-[#CCF200] text-xs font-bold uppercase tracking-wider mt-6 mb-3">
+        <Text className="text-[#CCF200] text-xs font-semibold uppercase tracking-wider mt-6 mb-3">
           Available Gym Trainers ({filteredTrainers.length})
         </Text>
 
@@ -154,9 +174,8 @@ export default function ChangeTrainerSelectScreen() {
               return (
                 <View
                   key={trainer.gymTrainerId}
-                  className={`bg-[#141416] border rounded-2xl p-4 ${
-                    isCurrent ? 'border-[#CCF200]/40' : 'border-[#242424]'
-                  }`}
+                  className={`bg-[#141416] border rounded-2xl p-4 ${isCurrent ? 'border-[#CCF200]/40' : 'border-[#242424]'
+                    }`}
                 >
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center flex-1 mr-3">
@@ -167,11 +186,11 @@ export default function ChangeTrainerSelectScreen() {
                         />
                       ) : (
                         <View className="w-12 h-12 rounded-xl bg-[#1C1F26] border border-[#333] items-center justify-center mr-3">
-                          <Text className="text-[#CCF200] font-bold text-base">{initials}</Text>
+                          <Text className="text-[#CCF200] font-semibold text-base">{initials}</Text>
                         </View>
                       )}
                       <View className="flex-1">
-                        <Text className="text-white text-base font-bold" numberOfLines={1}>
+                        <Text className="text-white text-base font-semibold" numberOfLines={1}>
                           {trainer.fullName}
                         </Text>
                         <Text className="text-[#CCF200] text-xs font-semibold mt-0.5">
@@ -185,16 +204,14 @@ export default function ChangeTrainerSelectScreen() {
 
                     <Pressable
                       onPress={() => handleSelectTrainer(trainer.gymTrainerId)}
-                      className={`px-4 py-2 rounded-xl active:opacity-80 ${
-                        isCurrent
-                          ? 'bg-[#1C1F26] border border-[#2A2E38]'
-                          : 'bg-[#CCF200]'
-                      }`}
+                      className={`px-4 py-2 rounded-xl active:opacity-80 ${isCurrent
+                        ? 'bg-[#1C1F26] border border-[#2A2E38]'
+                        : 'bg-[#CCF200]'
+                        }`}
                     >
                       <Text
-                        className={`text-xs font-bold ${
-                          isCurrent ? 'text-gray-300' : 'text-black'
-                        }`}
+                        className={`text-xs font-semibold ${isCurrent ? 'text-gray-300' : 'text-black'
+                          }`}
                       >
                         {isCurrent ? 'Reassign' : 'Select'}
                       </Text>

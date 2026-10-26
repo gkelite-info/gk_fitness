@@ -1,10 +1,10 @@
-import React, { useState, useCallback } from 'react';
-import { View, ScrollView, Pressable, Image, ActivityIndicator, Modal, Alert, Platform } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, Modal, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  GearSix, PencilSimple, Scales, Fire, CalendarBlank,
+  PencilSimple, Scales, Fire, CalendarBlank,
   User, Target, BookOpen, Star, Bell, ShieldCheck, Question, SignOut, CaretRight, ClipboardText, WarningCircle,
   UserGear
 } from 'phosphor-react-native';
@@ -17,16 +17,18 @@ import { toast } from '@/lib/toast';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { usePersonalTrainerRequestsByUser } from '@/hooks/personalTrainerRequests/usePersonalTrainerRequests';
 import { useAssignedTrainersByCustomer } from '@/hooks/customerTrainers/useCustomerTrainers';
+import { useAssignedGlobalTrainersByUser } from '@/hooks/individual/customer-trainer/individualCustomerTrainer';
 import { queryClient } from '@/lib/react-query';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { useWorkoutStreak } from '@/hooks/customerWorkouts/useWorkoutStreak';
 import { unregisterPushToken } from '@/lib/services/notificationService';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function ProfileScreen() {
   const userContext = useUser();
   const userId = userContext.userId;
-  const { data, isLoading } = useCustomerProfile(userId);
+  const { data, isLoading, refetch: refetchProfile } = useCustomerProfile(userId);
 
   return <ProfileView
     data={mockProfileData}
@@ -34,25 +36,99 @@ export default function ProfileScreen() {
     onboardingData={data?.onboardingData}
     loading={isLoading}
     fallbackUser={userContext}
+    refetchProfile={refetchProfile}
   />;
 }
 
-function ProfileView({ data, customerData, onboardingData, loading, fallbackUser }: { data: typeof mockProfileData, customerData: any, onboardingData: any, loading: boolean, fallbackUser: any }) {
+function ProfileView({
+  data,
+  customerData,
+  onboardingData,
+  loading,
+  fallbackUser,
+  refetchProfile
+}: {
+  data: typeof mockProfileData,
+  customerData: any,
+  onboardingData: any,
+  loading: boolean,
+  fallbackUser: any,
+  refetchProfile?: () => Promise<any>
+}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { trainer } = useTrainerStore();
   const userId = customerData?.userId || fallbackUser?.userId;
-  const { data: trainerRequests } = usePersonalTrainerRequestsByUser(userId);
+  const { data: trainerRequests, refetch: refetchTrainerRequests } = usePersonalTrainerRequestsByUser(userId);
 
   const customerId = customerData?.customerId || userId;
-  const { data: assignedTrainers } = useAssignedTrainersByCustomer(customerId, userId);
-  const activeAssignment = assignedTrainers?.find((a: any) => a.isActive !== false) || assignedTrainers?.[0];
-  const assignedTrainer = activeAssignment?.trainer;
+  const { data: assignedTrainers, refetch: refetchAssignedTrainers } = useAssignedTrainersByCustomer(customerId, userId);
+  const { data: individualTrainers, refetch: refetchIndividualTrainers } = useAssignedGlobalTrainersByUser(userId);
+  const { data: streakData, refetch: refetchStreak } = useWorkoutStreak();
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      typeof refetchProfile === 'function' ? refetchProfile() : Promise.resolve(),
+      typeof refetchAssignedTrainers === 'function' ? refetchAssignedTrainers() : Promise.resolve(),
+      typeof refetchIndividualTrainers === 'function' ? refetchIndividualTrainers() : Promise.resolve(),
+      typeof refetchTrainerRequests === 'function' ? refetchTrainerRequests() : Promise.resolve(),
+      typeof refetchStreak === 'function' ? refetchStreak() : Promise.resolve(),
+      queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] }),
+      queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
+      queryClient.invalidateQueries({ queryKey: ['assignedTrainers'] }),
+      queryClient.invalidateQueries({ queryKey: ['personalTrainerRequests'] }),
+      queryClient.invalidateQueries({ queryKey: ['workoutStreak'] }),
+    ]);
+    setRefreshing(false);
+  }, [refetchProfile, refetchAssignedTrainers, refetchIndividualTrainers, refetchTrainerRequests, refetchStreak, userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (typeof refetchAssignedTrainers === 'function') refetchAssignedTrainers();
+      if (typeof refetchIndividualTrainers === 'function') refetchIndividualTrainers();
+      if (typeof refetchTrainerRequests === 'function') refetchTrainerRequests();
+      if (typeof refetchStreak === 'function') refetchStreak();
+    }, [refetchAssignedTrainers, refetchIndividualTrainers, refetchTrainerRequests, refetchStreak])
+  );
+
+  const activeIndividualAssignment = individualTrainers?.find((a: any) => {
+    if (a.is_deleted) return false;
+    if (a.isActive === false) return false;
+    if (a.status === 'rejected' || a.status === 'cancelled') return false;
+    const isApproved = a.status === 'approved' || (a.status !== 'pending' && !!a.assignedOn);
+    if (!isApproved) return false;
+    if (a.expiryOn) {
+      const exp = new Date(a.expiryOn);
+      if (exp.getTime() < Date.now()) return false;
+    }
+    return true;
+  }) || individualTrainers?.find((a: any) => !a.is_deleted && a.isActive !== false && a.status === 'approved');
+
+  const pendingIndividualAssignment = individualTrainers?.find(
+    (a: any) => !a.is_deleted && (a.status === 'pending' || (a.status == null && a.isActive !== false))
+  );
+
+  const activeGymAssignment = assignedTrainers?.find((a: any) => a.isActive !== false && !a.is_deleted) || assignedTrainers?.[0];
+  const activeAssignment = activeIndividualAssignment || activeGymAssignment;
+  const assignedTrainer = activeIndividualAssignment ? activeIndividualAssignment.globalTrainer : activeGymAssignment?.trainer;
   const hasAssignedTrainer = !!activeAssignment;
 
   const activeRequest = trainerRequests?.[0];
-  const realStatus = activeRequest ? activeRequest.applicationStatus : 'none';
-  const trainerDisplayName = assignedTrainer?.fullName || activeRequest?.gymTrainer?.name || trainer.name;
+  const realStatus = activeIndividualAssignment
+    ? 'approved'
+    : pendingIndividualAssignment
+      ? 'submitted'
+      : (activeRequest ? activeRequest.applicationStatus : 'none');
+
+  const trainerDisplayName =
+    activeIndividualAssignment?.globalTrainer?.fullName ||
+    assignedTrainer?.fullName ||
+    activeRequest?.gymTrainer?.name ||
+    pendingIndividualAssignment?.globalTrainer?.fullName ||
+    trainer.name;
 
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -64,7 +140,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
       await unregisterPushToken(userId ?? undefined).catch(() => {});
       const { error } = await supabase.auth.signOut();
       if (error) {
-        Alert.alert('Sign Out Error', error.message);
+        toast.error(error.message || 'Failed to sign out.');
         setModalVisible(false);
       } else {
         queryClient.clear();
@@ -72,7 +148,7 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
         router.replace('/auth/account-type');
       }
     } catch (err: any) {
-      Alert.alert('Sign Out Error', err.message || 'An error occurred.');
+      toast.error(err.message || 'An error occurred while signing out.');
       setModalVisible(false);
     } finally {
       setSigningOut(false);
@@ -84,7 +160,6 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
 
   const displayAvatar = data.user.avatarUrl;
 
-  const { data: streakData } = useWorkoutStreak();
   const currentStreak = streakData?.currentStreak ?? 0;
 
   const rawWeight = onboardingData?.weight;
@@ -109,7 +184,11 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
         <View className="w-7 h-7" />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
         <View className="bg-[#1A1A1A] rounded-3xl p-5 flex-row items-center mt-2 border border-[#27272A]">
           <StaticAvatar
             uri={fallbackUser?.profilePhoto}
@@ -184,17 +263,17 @@ function ProfileView({ data, customerData, onboardingData, loading, fallbackUser
             <MenuItem
               icon={<User size={20} color="#000000" weight="bold" />}
               title="My Trainer"
-              subtitle={`Training with ${trainerDisplayName}`}
+              subtitle={`Active: ${trainerDisplayName}`}
               iconContainerStyle="bg-[#D4FF00]"
               onPress={() => router.push('/(customer)/my-trainer')}
             />
-          ) : realStatus === 'submitted' ? (
+          ) : pendingIndividualAssignment || realStatus === 'submitted' || realStatus === 'pending' ? (
             <MenuItem
               icon={<BookOpen size={20} color="#000000" weight="bold" />}
               title="Trainer Request"
-              subtitle="Request pending gym approval"
+              subtitle={pendingIndividualAssignment ? `Request pending with ${trainerDisplayName}` : "Request pending gym approval"}
               iconContainerStyle="bg-[#FF9F0A]"
-              onPress={() => router.push('/(customer)/trainer/trainer-request')}
+              onPress={() => router.push(pendingIndividualAssignment ? '/(customer)/trainer/book-trainer' : '/(customer)/trainer/trainer-request')}
             />
           ) : (
             <MenuItem

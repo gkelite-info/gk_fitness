@@ -37,6 +37,96 @@ export interface SaveGymExpenseParams {
   createdBy: string;
 }
 
+export interface FetchGymExpensesFilters {
+  category?: string;
+  paymentMethod?: string;
+  dateFilter?: string;
+  searchQuery?: string;
+}
+
+export interface PaginatedGymExpensesResult {
+  success: boolean;
+  data: GymExpenseAttributes[];
+  total: number;
+  error?: string;
+}
+
+export async function fetchGymExpensesPaginated(
+  gymId: string,
+  page = 1,
+  limit = 10,
+  filters?: FetchGymExpensesFilters
+): Promise<PaginatedGymExpensesResult> {
+  try {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    let query = supabase
+      .from('gym_expenses')
+      .select('*, createdBy_user:users!createdBy(name)', { count: 'exact' })
+      .eq('gymId', gymId)
+      .eq('is_deleted', false);
+
+    if (filters?.category && filters.category !== 'all') {
+      query = query.ilike('category', filters.category);
+    }
+
+    if (filters?.paymentMethod && filters.paymentMethod !== 'all') {
+      query = query.ilike('paymentMethod', `%${filters.paymentMethod}%`);
+    }
+
+    if (filters?.dateFilter && filters.dateFilter !== 'all') {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+
+      if (filters.dateFilter === 'today') {
+        const todayStr = `${y}-${m}-${d}`;
+        query = query.gte('date', todayStr).lte('date', `${todayStr}T23:59:59.999Z`);
+      } else if (filters.dateFilter === 'this_month') {
+        const firstDayOfMonth = `${y}-${m}-01`;
+        const lastDayDate = new Date(y, now.getMonth() + 1, 0);
+        const lastDayStr = `${y}-${m}-${String(lastDayDate.getDate()).padStart(2, '0')}`;
+        query = query.gte('date', firstDayOfMonth).lte('date', `${lastDayStr}T23:59:59.999Z`);
+      } else if (filters.dateFilter === 'last_month') {
+        const lastMonthDate = new Date(y, now.getMonth() - 1, 1);
+        const lmY = lastMonthDate.getFullYear();
+        const lmM = String(lastMonthDate.getMonth() + 1).padStart(2, '0');
+        const lmFirstDay = `${lmY}-${lmM}-01`;
+        const lmLastDayDate = new Date(lmY, lastMonthDate.getMonth() + 1, 0);
+        const lmLastDay = `${lmY}-${lmM}-${String(lmLastDayDate.getDate()).padStart(2, '0')}`;
+        query = query.gte('date', lmFirstDay).lte('date', `${lmLastDay}T23:59:59.999Z`);
+      }
+    }
+
+    if (filters?.searchQuery?.trim()) {
+      const s = filters.searchQuery.trim().replace(/[%_,()]/g, '');
+      if (s) {
+        query = query.or(`expenseTitle.ilike.%${s}%,category.ilike.%${s}%,notes.ilike.%${s}%`);
+      }
+    }
+
+    const { data, error, count } = await query
+      .order('date', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('[gymExpensesHelper] fetchGymExpensesPaginated error:', error);
+      throw error;
+    }
+
+    return {
+      success: true,
+      data: (data || []) as GymExpenseAttributes[],
+      total: count || 0,
+    };
+  } catch (error: any) {
+    console.error('[gymExpensesHelper] fetchGymExpensesPaginated error:', error);
+    return { success: false, data: [], total: 0, error: error.message };
+  }
+}
+
 export async function fetchGymExpenses(gymId: string): Promise<GymExpenseAttributes[]> {
   const { data, error } = await supabase
     .from('gym_expenses')

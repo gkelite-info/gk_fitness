@@ -4,13 +4,20 @@ import { CaretRight, Plus, Users, User, ArrowRight, ClipboardText, Bag, Star } f
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { useAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
+import { useIndividualCustomerTrainers } from '@/hooks/individual/customer-trainer/individualCustomerTrainer';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function TrainerHome() {
   const router = useRouter();
-  const { userId, name } = useUser();
+  const { userId, name, role, globalTrainerId } = useUser();
+  const isGlobalTrainer = (role || '').toLowerCase().replace(/[\s_-]/g, '') === 'globaltrainer';
 
   const { data: assignments, isLoading: loadingAssignments, refetch: refetchAssignments } = useAssignedCustomersByTrainer(userId ?? undefined);
+
+  const { data: individualAssignments, isLoading: loadingIndividual, refetch: refetchIndividual } = useIndividualCustomerTrainers(
+    globalTrainerId ? { globalTrainerId } : undefined,
+    { enabled: !!globalTrainerId }
+  );
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -27,27 +34,40 @@ export default function TrainerHome() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refetchAssignments();
+    await Promise.all([refetchAssignments(), refetchIndividual?.()]);
     setRefreshing(false);
   };
 
   const todaySessionsCount = useMemo(() => {
-    if (!assignments) return 0;
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
-    return assignments.filter((assignment: any) => {
+    const gymCount = (assignments || []).filter((assignment: any) => {
       const isActive = assignment.isActive === true || String(assignment.isActive).toLowerCase() === 'true';
-
       let isNotExpired = true;
       if (assignment.expiryOn) {
         const expiryDate = new Date(assignment.expiryOn);
         isNotExpired = expiryDate >= startOfToday;
       }
-
       return isActive && isNotExpired;
     }).length;
-  }, [assignments]);
+
+    const indCount = (individualAssignments || []).filter((assignment: any) => {
+      const isActive = assignment.isActive === true || String(assignment.isActive).toLowerCase() === 'true';
+      let isNotExpired = true;
+      if (assignment.expiryOn) {
+        const expiryDate = new Date(assignment.expiryOn);
+        isNotExpired = expiryDate >= startOfToday;
+      }
+      return isActive && isNotExpired;
+    }).length;
+
+    return gymCount + indCount;
+  }, [assignments, individualAssignments]);
+
+  const totalCustomersCount = (assignments?.length || 0) + (individualAssignments?.length || 0);
+  const pendingRequestsCount = individualAssignments?.filter((a: any) => a.status === 'pending')?.length || 0;
+  const isLoadingData = loadingAssignments || loadingIndividual;
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -64,7 +84,7 @@ export default function TrainerHome() {
     >
       <View className="px-5 pt-5 pb-6">
         <Text className="text-white text-[28px] font-semibold">{getGreeting()}, <Text className="text-[#CCFF00]">{name?.split(' ')[0] || 'Trainer'}</Text> 👋</Text>
-        <Text className="text-[#A3A3A3] text-sm mt-1 font-sans">Strength & Conditioning Coach</Text>
+        <Text className="text-[#A3A3A3] text-sm mt-1 font-sans">{isGlobalTrainer ? 'Global Fitness Coach' : 'Strength & Conditioning Coach'}</Text>
       </View>
 
       <View className="px-5 mb-6">
@@ -78,7 +98,7 @@ export default function TrainerHome() {
             </View>
             <View className="flex-row items-baseline mb-3">
               <Text className="text-white text-5xl font-semibold mr-2">28</Text>
-              <Text className="text-[#A3A3A3] text-sm">Days Left</Text>
+              <Text className="text-[#A3A3A3] text-sm font-sans">Days Left</Text>
             </View>
             <View className="h-1.5 w-full bg-[#2A2A2A] rounded-full overflow-hidden">
               <View className="h-full bg-[#CCFF00] w-1/3 rounded-full" />
@@ -94,9 +114,9 @@ export default function TrainerHome() {
                 <View className="w-2.5 h-2.5 bg-[#CCFF00] rounded-sm" />
               </View>
             </View>
-            <Text className="text-[#A3A3A3] text-xs text-center mb-1">Check-in{'\n'}(QR)</Text>
+            <Text className="text-[#A3A3A3] text-xs text-center mb-1 font-sans">Check-in{'\n'}(QR)</Text>
             <Pressable>
-              <Text className="text-[#CCFF00] text-xs underline">View</Text>
+              <Text className="text-[#CCFF00] text-xs underline font-sans">View</Text>
             </Pressable>
           </View>
         </View>
@@ -140,10 +160,10 @@ export default function TrainerHome() {
               </View>
               <View>
                 <Text className="text-[#A3A3A3] text-xs font-sans">PT Customers</Text>
-                {loadingAssignments ? (
+                {isLoadingData ? (
                   <ActivityIndicator size="small" color="#CCFF00" style={{ alignSelf: 'flex-start', marginTop: 4 }} />
                 ) : (
-                  <Text className="text-white text-2xl font-semibold">{assignments?.length || 0}</Text>
+                  <Text className="text-white text-2xl font-semibold">{totalCustomersCount}</Text>
                 )}
               </View>
             </View>
@@ -167,7 +187,7 @@ export default function TrainerHome() {
             className="flex-row items-center active:opacity-70"
             onPress={() => router.push('/(trainer)/new-assignments' as any)}
           >
-            <Text className="text-[#CCFF00] text-xs mr-1">View All</Text>
+            <Text className="text-[#CCFF00] text-xs mr-1 font-sans">View All</Text>
             <ArrowRight size={10} color="#CCFF00" />
           </Pressable>
         </View>
@@ -183,8 +203,8 @@ export default function TrainerHome() {
                   <Text className="text-[#CCFF00] text-[10px] font-semibold">NEW</Text>
                 </View>
               </View>
-              <Text className="text-[#A3A3A3] text-xs mb-0.5">CUST-1024</Text>
-              <Text className="text-[#A3A3A3] text-xs">Added today</Text>
+              <Text className="text-[#A3A3A3] text-xs mb-0.5 font-sans">CUST-1024</Text>
+              <Text className="text-[#A3A3A3] text-xs font-sans">Added today</Text>
             </View>
             <CaretRight size={16} color="#A3A3A3" />
           </Pressable>
@@ -200,8 +220,8 @@ export default function TrainerHome() {
                   <Text className="text-[#CCFF00] text-[10px] font-semibold">NEW</Text>
                 </View>
               </View>
-              <Text className="text-[#A3A3A3] text-xs mb-0.5">CUST-1025</Text>
-              <Text className="text-[#A3A3A3] text-xs">Added yesterday</Text>
+              <Text className="text-[#A3A3A3] text-xs mb-0.5 font-sans">CUST-1025</Text>
+              <Text className="text-[#A3A3A3] text-xs font-sans">Added yesterday</Text>
             </View>
             <CaretRight size={16} color="#A3A3A3" />
           </Pressable>
@@ -220,7 +240,7 @@ export default function TrainerHome() {
                 <ClipboardText size={18} color="#A3A3A3" />
               </View>
               <View>
-                <Text className="text-[#A3A3A3] text-[10px]">Create</Text>
+                <Text className="text-[#A3A3A3] text-[10px] font-sans">Create</Text>
                 <Text className="text-white text-sm font-semibold">Workout{'\n'}Plan</Text>
               </View>
             </View>
@@ -235,7 +255,7 @@ export default function TrainerHome() {
                 <Bag size={18} color="#A3A3A3" />
               </View>
               <View>
-                <Text className="text-[#A3A3A3] text-[10px]">Create</Text>
+                <Text className="text-[#A3A3A3] text-[10px] font-sans">Create</Text>
                 <Text className="text-white text-sm font-semibold">Diet Plan</Text>
               </View>
             </View>
@@ -256,19 +276,22 @@ export default function TrainerHome() {
               </View>
               <View className="shrink pr-2">
                 <Text className="text-white text-xs font-semibold tracking-wider mb-1">GLOBAL SESSION REQUESTS</Text>
-                <Text className="text-[#A3A3A3] text-xs">New customers want to book a session</Text>
+                <Text className="text-[#A3A3A3] text-xs font-sans">New customers want to book a session</Text>
               </View>
             </View>
             <View className="bg-[#CCFF00] px-2 py-1 rounded-full flex-row items-center">
-              <Text className="text-black text-[12px] font-semibold mr-1">0</Text>
+              <Text className="text-black text-[12px] font-semibold mr-1">{pendingRequestsCount}</Text>
               <Text className="text-black text-[9px] font-semibold">PENDING</Text>
             </View>
           </View>
 
           <View className="flex-row items-center justify-between mt-4 pt-4 border-t border-[#1A1A1A]">
-            <Text className="text-[#A3A3A3] text-xs">Check new inquiries</Text>
-            <Pressable className="bg-[#1A1A1A] px-3 py-1.5 rounded-full flex-row items-center">
-              <Text className="text-[#CCFF00] text-xs mr-1">View All</Text>
+            <Text className="text-[#A3A3A3] text-xs font-sans">Check new inquiries</Text>
+            <Pressable
+              onPress={() => router.push('/(trainer)/pt-customers' as any)}
+              className="bg-[#1A1A1A] px-3 py-1.5 rounded-full flex-row items-center active:opacity-70"
+            >
+              <Text className="text-[#CCFF00] text-xs mr-1 font-sans">View All</Text>
               <ArrowRight size={10} color="#CCFF00" />
             </Pressable>
           </View>

@@ -16,7 +16,12 @@ export function useGymPayments(userId: string | null) {
   });
 }
 
-export function useGymPaymentsPaginated(userId: string | null, page: number = 1, limit: number = 10, filters?: { tab?: string; searchQuery?: string }) {
+export function useGymPaymentsPaginated(
+  userId: string | null,
+  page: number = 1,
+  limit: number = 10,
+  filters?: { tab?: string; searchQuery?: string; customerId?: string; dateRange?: string; customDate?: string }
+) {
   return useQuery({
     queryKey: ['gymPaymentsPaginated', userId, page, limit, filters],
     queryFn: async () => {

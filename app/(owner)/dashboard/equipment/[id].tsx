@@ -5,7 +5,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Package, Wrench, WarningCircle, Copy, CalendarBlank, ArrowUp, ArrowDown, CheckCircle, Prohibit, X, Minus, Plus, ArrowCircleRight, Gear, ArrowsClockwise } from 'phosphor-react-native';
 import { useFocusEffect } from 'expo-router';
 import { fetchGymInventoryById } from '@/helpers/gymInventory/gymInventory';
-import { fetchGymInventoryHistory } from '@/helpers/gymInventory/inventoryHistory';
+import { fetchGymInventoryHistory, logGymInventoryHistory } from '@/helpers/gymInventory/inventoryHistory';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { triggerLightHaptic } from '@/lib/haptics';
 import * as Clipboard from 'expo-clipboard';
 import { toast } from '@/lib/toast';
 import ReusableModal from '@/components/modal';
@@ -16,6 +18,7 @@ export default function EquipmentDetailsScreen() {
   const { userId } = useUser();
   const [equipment, setEquipment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [updateStockVisible, setUpdateStockVisible] = useState(false);
   const [selectedAction, setSelectedAction] = useState('add');
@@ -25,11 +28,31 @@ export default function EquipmentDetailsScreen() {
     if (!id) return;
     try {
       setLoading(true);
-      const [data, historyData] = await Promise.all([
+      const [data, historyDataRaw] = await Promise.all([
         fetchGymInventoryById(id as string),
         fetchGymInventoryHistory(id as string),
       ]);
       setEquipment(data);
+
+      let historyData = historyDataRaw || [];
+
+      // Auto-backfill initial added log if equipment exists but has zero history logs
+      if (historyData.length === 0 && data?.gymInventoryId) {
+        try {
+          const autoLog = await logGymInventoryHistory({
+            gymInventoryId: data.gymInventoryId,
+            action: 'added',
+            quantity: data.quantity || 1,
+            createdBy: data.createdBy || userId,
+          });
+          if (autoLog) {
+            historyData = [autoLog];
+          }
+        } catch (e) {
+          console.warn('[EquipmentDetails] Auto-initial history log skipped:', e);
+        }
+      }
+
       setHistory(historyData);
     } catch (error) {
       console.error('[EquipmentDetails] Error loading equipment:', error);
@@ -37,7 +60,17 @@ export default function EquipmentDetailsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, userId]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    triggerLightHaptic();
+    try {
+      await loadEquipment();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -175,7 +208,7 @@ export default function EquipmentDetailsScreen() {
   const timelineItems = getTimelineItems();
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] pb-20">
+    <View className="flex-1 bg-[#0A0A0A] pb-20 pt-8">
       <View className="px-5 pt-6 pb-4 flex-row items-center">
         <Pressable
           onPress={() => router.back()}
@@ -189,7 +222,14 @@ export default function EquipmentDetailsScreen() {
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1 px-5"
+        contentContainerStyle={{ paddingBottom: 30 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <CustomRefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
         <View className="bg-[#161616] rounded-3xl p-6 border border-[#242424] mb-6 flex-row items-center">
           {equipment.image ? (
             <Image
@@ -258,47 +298,55 @@ export default function EquipmentDetailsScreen() {
           <Text className="text-base font-semibold text-white mb-5">Stock History (Latest)</Text>
 
           <View className="mt-2">
-            {timelineItems.map((item, index) => {
-              const isLast = index === timelineItems.length - 1;
-              return (
-                <View key={item.id} className="flex-row relative">
-                  {!isLast && (
-                    <View
-                      className="absolute left-[19px] top-10 bottom-0 w-0.5 bg-[#242424]"
-                      style={{ zIndex: 0 }}
-                    />
-                  )}
+            {timelineItems.length === 0 ? (
+              <View className="py-6 items-center justify-center">
+                <Text className="text-[#888] text-xs text-center">
+                  No stock adjustments recorded yet. Tap "Update Stock" to log units.
+                </Text>
+              </View>
+            ) : (
+              timelineItems.map((item, index) => {
+                const isLast = index === timelineItems.length - 1;
+                return (
+                  <View key={item.id} className="flex-row relative">
+                    {!isLast && (
+                      <View
+                        className="absolute left-[19px] top-10 bottom-0 w-0.5 bg-[#242424]"
+                        style={{ zIndex: 0 }}
+                      />
+                    )}
 
-                  <View className="items-center mr-4" style={{ zIndex: 1 }}>
-                    <View className={`w-10 h-10 rounded-full border ${item.type === 'added' ? 'border-[#D4F01E]' :
-                      item.type === 'reduced' ? 'border-[#EF4444]' :
-                        item.type === 'maintenance' ? 'border-[#F59E0B]' :
-                          'border-[#EF4444]'
-                      } items-center justify-center bg-[#161616]`}>
-                      {item.type === 'added' ? (
-                        <ArrowUp size={18} color="#D4F01E" />
-                      ) : item.type === 'reduced' ? (
-                        <ArrowDown size={18} color="#EF4444" />
-                      ) : item.type === 'maintenance' ? (
-                        <Wrench size={18} color="#F59E0B" />
-                      ) : (
-                        <Prohibit size={18} color="#EF4444" />
-                      )}
+                    <View className="items-center mr-4" style={{ zIndex: 1 }}>
+                      <View className={`w-10 h-10 rounded-full border ${item.type === 'added' ? 'border-[#D4F01E]' :
+                        item.type === 'reduced' ? 'border-[#EF4444]' :
+                          item.type === 'maintenance' ? 'border-[#F59E0B]' :
+                            'border-[#EF4444]'
+                        } items-center justify-center bg-[#161616]`}>
+                        {item.type === 'added' ? (
+                          <ArrowUp size={18} color="#D4F01E" />
+                        ) : item.type === 'reduced' ? (
+                          <ArrowDown size={18} color="#EF4444" />
+                        ) : item.type === 'maintenance' ? (
+                          <Wrench size={18} color="#F59E0B" />
+                        ) : (
+                          <Prohibit size={18} color="#EF4444" />
+                        )}
+                      </View>
+                    </View>
+
+                    <View className="flex-1 pb-8 flex-row justify-between items-start">
+                      <View className="flex-1 mr-2">
+                        <Text className="text-white text-base font-semibold mb-0.5">{item.title}</Text>
+                        <Text className="text-[#888] text-xs">{item.description}</Text>
+                      </View>
+                      <View className="items-end">
+                        <Text className="text-[#888] text-xs font-semibold">{item.date}</Text>
+                      </View>
                     </View>
                   </View>
-
-                  <View className="flex-1 pb-8 flex-row justify-between items-start">
-                    <View className="flex-1 mr-2">
-                      <Text className="text-white text-base font-semibold mb-0.5">{item.title}</Text>
-                      <Text className="text-[#888] text-xs">{item.description}</Text>
-                    </View>
-                    <View className="items-end">
-                      <Text className="text-[#888] text-xs font-semibold">{item.date}</Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
+                );
+              })
+            )}
           </View>
         </View>
 
@@ -322,7 +370,7 @@ export default function EquipmentDetailsScreen() {
         visible={updateStockVisible}
         onClose={() => setUpdateStockVisible(false)}
         gymInventoryId={equipment.gymInventoryId}
-        userId={userId || ''}
+        userId={userId || equipment.createdBy || ''}
         onSuccess={loadEquipment}
         totalCount={q}
         underMaintCount={underMaint}

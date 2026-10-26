@@ -1,8 +1,8 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { View, FlatList, Pressable, Dimensions, ActivityIndicator, ScrollView, Image } from 'react-native';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { View, FlatList, Pressable, Dimensions, ActivityIndicator, ScrollView, Image, Modal } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
-import { CaretDown, Crown, Star, SketchLogo, Medal, CaretRight, CalendarBlank, User, CurrencyInr, Users, ChartLine, Receipt } from 'phosphor-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { CaretDown, Crown, Star, SketchLogo, Medal, CaretRight, CalendarBlank, User, CurrencyInr, Users, ChartLine, Receipt, Lightning, CreditCard, Money, Buildings, Plus, Check } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
 import { useGymCustomerMembershipPlans } from '@/hooks/gymCustomerMembershipPlans/useGymCustomerMembershipPlans';
@@ -10,6 +10,8 @@ import { useGymPayments, useGymPaymentsPaginated } from '@/hooks/useGymPayments'
 import { useMembershipPlans } from '@/hooks/membership/useMembershipPlans';
 import { useGymCustomers } from '@/hooks/customers/useGymCustomers';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { DatePickerModal } from '@/components/DatePickerModal';
+import { format } from 'date-fns';
 
 const { width } = Dimensions.get('window');
 
@@ -20,11 +22,48 @@ const PLAN_STYLES = [
   { Icon: Medal, color: "#A1A1AA", bg: "bg-[#52525B]/40" },
 ];
 
+type DateFilterType = 'today' | 'month' | '3months' | '6months' | 'year' | 'custom' | 'all';
+
+const DATE_OPTIONS: { id: DateFilterType; label: string }[] = [
+  { id: 'today', label: 'Today' },
+  { id: 'month', label: 'This Month' },
+  { id: '3months', label: '3 Months' },
+  { id: '6months', label: '6 Months' },
+  { id: 'year', label: '1 Year' },
+  { id: 'custom', label: 'Pick a Date' },
+  { id: 'all', label: 'All Time' },
+];
+
 export default function FinanceDashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
   const { userId, gymId } = useUser();
+
+  const isNavigatingRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      isNavigatingRef.current = false;
+    }, [])
+  );
+
+  const navigateSafely = useCallback((path: any) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    router.push(path);
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 700);
+  }, [router]);
+
+  const [dateRange, setDateRange] = useState<DateFilterType>('month');
+  const [customDate, setCustomDate] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { data: customersData, refetch: refetchCustomers } = useGymCustomers(gymId ?? undefined);
   const { data: membershipPlans, refetch: refetchPlans } = useMembershipPlans(gymId ?? null);
@@ -33,9 +72,31 @@ export default function FinanceDashboard() {
 
   const limit = 10;
   const [page, setPage] = useState(1);
-  const { data: paginatedTransactions, isFetching, refetch: refetchPaginated } = useGymPaymentsPaginated(userId, page, limit);
+  const filters = useMemo(() => ({
+    dateRange: dateRange,
+    customDate: dateRange === 'custom' ? customDate : undefined,
+  }), [dateRange, customDate]);
+
+  const { data: paginatedTransactions, isFetching, refetch: refetchPaginated } = useGymPaymentsPaginated(userId, page, limit, filters);
   const [accumulatedTransactions, setAccumulatedTransactions] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    setPage(1);
+    setAccumulatedTransactions([]);
+  }, [dateRange, customDate]);
+
+  const currentRangeLabel = useMemo(() => {
+    if (dateRange === 'custom') {
+      try {
+        return format(new Date(customDate), 'dd MMM yyyy');
+      } catch {
+        return customDate;
+      }
+    }
+    const found = DATE_OPTIONS.find((o) => o.id === dateRange);
+    return found ? found.label : 'This Month';
+  }, [dateRange, customDate]);
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showYearDropdown, setShowYearDropdown] = useState(false);
@@ -44,7 +105,7 @@ export default function FinanceDashboard() {
     if (!allPayments) return [new Date().getFullYear()];
     const years = new Set(allPayments.map((p: any) => new Date(p.paymentDate).getFullYear()));
     years.add(new Date().getFullYear());
-    return Array.from(years).sort((a, b) => b - a); // descending
+    return Array.from(years).sort((a, b) => b - a);
   }, [allPayments]);
 
   const onRefresh = async () => {
@@ -82,6 +143,43 @@ export default function FinanceDashboard() {
       setPage(prev => prev + 1);
     }
   };
+
+  const filteredAllPayments = useMemo(() => {
+    if (!allPayments || allPayments.length === 0) return [];
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    return allPayments.filter((p: any) => {
+      if (!p.paymentDate) return false;
+      const pDateStr = p.paymentDate.split('T')[0];
+
+      if (dateRange === 'today') {
+        return pDateStr === todayStr;
+      }
+      if (dateRange === 'month') {
+        const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        return pDateStr >= firstDay;
+      }
+      if (dateRange === '3months') {
+        const d = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+        return pDateStr >= dateStr;
+      }
+      if (dateRange === '6months') {
+        const d = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+        return pDateStr >= dateStr;
+      }
+      if (dateRange === 'year') {
+        const firstDayOfYear = `${now.getFullYear()}-01-01`;
+        return pDateStr >= firstDayOfYear;
+      }
+      if (dateRange === 'custom') {
+        return pDateStr === customDate;
+      }
+      return true;
+    });
+  }, [allPayments, dateRange, customDate]);
 
   const { todaysRevenue, todaysGrowth, monthlyGrowth, revenueByPlan, monthlyRevenueChart, maxRevenue, totalCustomers, customerGrowth } = useMemo(() => {
     let todaysRev = 0;
@@ -151,11 +249,16 @@ export default function FinanceDashboard() {
               monthlyRev[monthKey] += amount;
             }
           }
+        }
+      });
+    }
 
-          if (payment.planId) {
-            if (planRevenues[payment.planId] === undefined) planRevenues[payment.planId] = 0;
-            planRevenues[payment.planId] += amount;
-          }
+    if (filteredAllPayments) {
+      filteredAllPayments.forEach((payment: any) => {
+        const amount = payment.amountPaid || 0;
+        if (amount > 0 && payment.planId) {
+          if (planRevenues[payment.planId] === undefined) planRevenues[payment.planId] = 0;
+          planRevenues[payment.planId] += amount;
         }
       });
     }
@@ -212,7 +315,39 @@ export default function FinanceDashboard() {
       totalCustomers: customersData?.length || 0,
       customerGrowth: cGrowth.toFixed(1),
     };
-  }, [customerPlans, allPayments, membershipPlans, customersData, selectedYear]);
+  }, [customerPlans, allPayments, filteredAllPayments, membershipPlans, customersData, selectedYear]);
+
+  const methodRevenues = useMemo(() => {
+    const revs = { upi: 0, card: 0, cash: 0, netBanking: 0 };
+    if (!filteredAllPayments) return revs;
+
+    filteredAllPayments.forEach((p: any) => {
+      const amount = Number(p.amountPaid) || 0;
+      const method = (p.paymentMethod || '').toLowerCase().trim();
+
+      if (['upi', 'gpay', 'phonepe', 'paytm', 'qrscan', 'qr'].includes(method)) {
+        revs.upi += amount;
+      } else if (['card', 'credit_card', 'debit_card', 'pos'].includes(method)) {
+        revs.card += amount;
+      } else if (['cash'].includes(method)) {
+        revs.cash += amount;
+      } else if (['netbanking', 'net_banking', 'net banking', 'bank_transfer', 'neft', 'imps', 'rtgs'].includes(method)) {
+        revs.netBanking += amount;
+      } else {
+        if (method.includes('upi') || method.includes('pay')) {
+          revs.upi += amount;
+        } else if (method.includes('card')) {
+          revs.card += amount;
+        } else if (method.includes('bank')) {
+          revs.netBanking += amount;
+        } else {
+          revs.cash += amount;
+        }
+      }
+    });
+
+    return revs;
+  }, [filteredAllPayments]);
 
   const formatCurrency = (val: number) => {
     if (val === 0) return '0';
@@ -221,13 +356,20 @@ export default function FinanceDashboard() {
     return `₹${Math.round(val)}`;
   };
 
+  const formatFullCurrency = (val: number) => {
+    return `₹${Math.round(val || 0).toLocaleString('en-IN')}`;
+  };
+
   const renderHeader = () => (
     <View className="mb-6">
       <View className="px-5 mb-6 flex-row justify-between items-center mt-4">
         <Text className="text-3xl font-semibold text-white tracking-wide">Finances</Text>
-        <Pressable className="flex-row items-center bg-[#18181B] px-3 py-2 rounded-xl border border-[#27272A]">
+        <Pressable
+          onPress={() => setShowDateDropdown(true)}
+          className="flex-row items-center bg-[#18181B] px-3 py-2 rounded-xl border border-[#27272A] active:opacity-75"
+        >
           <CalendarBlank size={14} color="#8E8E93" />
-          <Text className="text-white text-xs mx-2">This Month</Text>
+          <Text className="text-white text-xs mx-2">{currentRangeLabel}</Text>
           <CaretDown size={14} color="#8E8E93" />
         </Pressable>
       </View>
@@ -239,8 +381,8 @@ export default function FinanceDashboard() {
         className="mb-8"
       >
         <Pressable
-          onPress={() => router.push('/(owner)/finance/revenue')}
-          className="bg-[#09090B] p-4 rounded-[24px] border border-[#27272A]"
+          onPress={() => navigateSafely('/(owner)/finance/revenue')}
+          className="bg-[#09090B] p-4 rounded-[24px] border border-[#27272A] active:opacity-80"
           style={{ width: width * 0.38 }}
         >
           <View className="w-12 h-12 rounded-[16px] bg-[#14532D4D] mb-6 items-center justify-center">
@@ -259,8 +401,8 @@ export default function FinanceDashboard() {
         </Pressable>
 
         <Pressable
-          onPress={() => router.push('/(owner)/finance/customers')}
-          className="bg-[#09090B] p-4 rounded-[24px] border border-[#27272A]"
+          onPress={() => navigateSafely('/(owner)/finance/customers')}
+          className="bg-[#09090B] p-4 rounded-[24px] border border-[#27272A] active:opacity-80"
           style={{ width: width * 0.38 }}
         >
           <View className="w-12 h-12 rounded-[16px] bg-[#7C2D124D] mb-6 items-center justify-center">
@@ -295,7 +437,7 @@ export default function FinanceDashboard() {
         </View>
 
         <Pressable
-          onPress={() => router.push('/(owner)/finance/expenditure')}
+          onPress={() => navigateSafely('/(owner)/finance/expenditure')}
           className="bg-[#09090B] p-4 rounded-[24px] border border-[#27272A] active:opacity-80"
           style={{ width: width * 0.38 }}
         >
@@ -314,6 +456,35 @@ export default function FinanceDashboard() {
 
       <View className="px-5 mb-8">
         <Text className="text-white font-semibold text-base mb-4">Revenue by Membership Plan</Text>
+        <View className="px-0 mb-8">
+          {/* <Text className="text-white font-semibold text-base mb-4">Payment Methods</Text> */}
+          <View className="flex-row flex-wrap justify-between gap-y-4">
+            <View className="w-[48%] bg-[#121214] rounded-3xl p-4 items-center">
+              <Lightning size={24} color="#22C55E" weight="bold" style={{ marginBottom: 8 }} />
+              <Text className="text-[#8E8E93] text-xs mb-1">UPI</Text>
+              <Text className="text-white font-semibold text-sm">{formatFullCurrency(methodRevenues.upi)}</Text>
+            </View>
+
+            <View className="w-[48%] bg-[#121214] rounded-3xl p-4 items-center">
+              <CreditCard size={24} color="#A855F7" weight="bold" style={{ marginBottom: 8 }} />
+              <Text className="text-[#8E8E93] text-xs mb-1">Card</Text>
+              <Text className="text-white font-semibold text-sm">{formatFullCurrency(methodRevenues.card)}</Text>
+            </View>
+
+            <View className="w-[48%] bg-[#121214] rounded-3xl p-4 items-center">
+              <Money size={24} color="#F97316" weight="bold" style={{ marginBottom: 8 }} />
+              <Text className="text-[#8E8E93] text-xs mb-1">Cash</Text>
+              <Text className="text-white font-semibold text-sm">{formatFullCurrency(methodRevenues.cash)}</Text>
+            </View>
+
+            <View className="w-[48%] bg-[#121214] rounded-3xl p-4 items-center">
+              <Buildings size={24} color="#3B82F6" weight="bold" style={{ marginBottom: 8 }} />
+              <Text className="text-[#8E8E93] text-xs mb-1">Net Banking</Text>
+              <Text className="text-white font-semibold text-sm">{formatFullCurrency(methodRevenues.netBanking)}</Text>
+            </View>
+          </View>
+        </View>
+
         <View className="bg-[#121214] rounded-3xl p-1">
           {revenueByPlan.length > 0 ? revenueByPlan.map((plan, index) => {
             const style = PLAN_STYLES[index % PLAN_STYLES.length];
@@ -323,7 +494,7 @@ export default function FinanceDashboard() {
             return (
               <Pressable
                 key={plan.planId}
-                onPress={() => router.push(`/(owner)/finance/membership-plan/${plan.planId}` as any)}
+                onPress={() => navigateSafely(`/(owner)/finance/membership-plan/${plan.planId}`)}
                 className={`flex-row items-center justify-between p-4 ${!isLast ? 'border-b border-[#27272A]' : ''}`}
               >
                 <View className="flex-row items-center flex-1 mr-2">
@@ -374,7 +545,7 @@ export default function FinanceDashboard() {
                       }}
                       className={`px-4 py-3 border-b border-[#27272A] ${selectedYear === year ? 'bg-[#27272A]/50' : ''}`}
                     >
-                      <Text className={`text-center text-xs ${selectedYear === year ? 'text-[#C4EF00] font-bold' : 'text-white'}`}>{year}</Text>
+                      <Text className={`text-center text-xs ${selectedYear === year ? 'text-[#C4EF00] font-semibold' : 'text-white'}`}>{year}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -384,7 +555,6 @@ export default function FinanceDashboard() {
 
           <View style={{ height: 220, paddingTop: 8 }}>
             <View style={{ flexDirection: 'row', flex: 1 }}>
-              {/* Fixed Y-axis labels */}
               <View style={{ width: 40, justifyContent: 'space-between', paddingBottom: 30 }}>
                 <Text className="text-[#52525B] text-[10px]">{formatCurrency(maxRevenue)}</Text>
                 <Text className="text-[#52525B] text-[10px]">{formatCurrency(maxRevenue * 0.66)}</Text>
@@ -392,7 +562,6 @@ export default function FinanceDashboard() {
                 <Text className="text-[#52525B] text-[10px]">0</Text>
               </View>
 
-              {/* Scrollable bars + month labels */}
               <ScrollView
                 ref={scrollViewRef}
                 horizontal
@@ -412,7 +581,7 @@ export default function FinanceDashboard() {
                       return (
                         <View key={i} style={{ alignItems: 'center', width: 44, height: '100%', justifyContent: 'flex-end', marginRight: 6 }}>
                           {d.value > 0 && (
-                            <Text className="text-[#C4EF00] text-[8px] font-bold" style={{ marginBottom: 2, width: 50, textAlign: 'center' }} numberOfLines={1}>
+                            <Text className="text-[#C4EF00] text-[8px] font-semibold" style={{ marginBottom: 2, width: 50, textAlign: 'center' }} numberOfLines={1}>
                               {formatCurrency(d.value)}
                             </Text>
                           )}
@@ -425,14 +594,12 @@ export default function FinanceDashboard() {
                     })}
                   </View>
 
-                  {/* X-axis month labels */}
                   <View style={{ flexDirection: 'row', marginTop: 6, height: 20, alignItems: 'center' }}>
                     {monthlyRevenueChart.map((d, i) => (
                       <Text key={i} className="text-[#52525B] text-[10px]" style={{ width: 44, textAlign: 'center', marginRight: 6 }}>{d.month}</Text>
                     ))}
                   </View>
 
-                  {/* Bottom line */}
                   <View style={{ height: 1, backgroundColor: '#27272A', marginTop: 4 }} />
                 </View>
               </ScrollView>
@@ -518,7 +685,7 @@ export default function FinanceDashboard() {
   };
 
   return (
-    <View className="flex-1 bg-[#09090B]">
+    <View className="flex-1 bg-[#09090B] pb-28">
       <FlatList
         data={accumulatedTransactions}
         refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -538,6 +705,69 @@ export default function FinanceDashboard() {
             </View>
           ) : null
         }
+      />
+
+      {showDateDropdown && (
+        <Modal
+          transparent
+          animationType="fade"
+          visible={showDateDropdown}
+          onRequestClose={() => setShowDateDropdown(false)}
+        >
+          <Pressable
+            className="flex-1 bg-black/70 justify-end"
+            onPress={() => setShowDateDropdown(false)}
+          >
+            <View className="bg-[#121214] border-t border-[#27272A] rounded-t-3xl p-5 pb-8">
+              <View className="w-10 h-1 bg-[#2C2C2E] rounded-full self-center mb-4" />
+              <Text className="text-white font-semibold text-lg mb-4">Select Time Period</Text>
+              {DATE_OPTIONS.map((opt) => {
+                const isSelected = dateRange === opt.id;
+                return (
+                  <Pressable
+                    key={opt.id}
+                    onPress={() => {
+                      setShowDateDropdown(false);
+                      if (opt.id === 'custom') {
+                        setTimeout(() => setShowDatePicker(true), 250);
+                      } else {
+                        setDateRange(opt.id);
+                      }
+                    }}
+                    className={`flex-row items-center justify-between py-3.5 px-4 rounded-xl mb-1.5 ${isSelected ? 'bg-[#CCF200]/10 border border-[#CCF200]/30' : 'active:bg-[#1A1A1E]'
+                      }`}
+                  >
+                    <View className="flex-row items-center gap-3">
+                      {opt.id === 'custom' ? (
+                        <CalendarBlank size={18} color={isSelected ? '#CCF200' : '#8E8E93'} />
+                      ) : (
+                        <View className={`w-2 h-2 rounded-full ${isSelected ? 'bg-[#CCF200]' : 'bg-[#555555]'}`} />
+                      )}
+                      <Text className={`text-sm ${isSelected ? 'text-[#CCF200] font-semibold' : 'text-white font-sans'}`}>
+                        {opt.label}
+                      </Text>
+                    </View>
+                    {isSelected && <Check size={16} color="#CCF200" weight="bold" />}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Modal>
+      )}
+
+      <DatePickerModal
+        visible={showDatePicker}
+        title="Select Payment Date"
+        initialDate={customDate}
+        onClose={() => setShowDatePicker(false)}
+        onSelectDate={(dateStr) => {
+          setShowDatePicker(false);
+          setCustomDate(dateStr);
+          setDateRange('custom');
+        }}
+        minYear={2020}
+        maxYear={new Date().getFullYear() + 2}
       />
     </View>
   );

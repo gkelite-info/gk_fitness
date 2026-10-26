@@ -16,6 +16,8 @@ import {
 } from 'phosphor-react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 
+import { useUser } from '@/context/UserContext';
+
 export interface UpdateStockModalProps {
   visible: boolean;
   onClose: () => void;
@@ -28,6 +30,7 @@ export interface UpdateStockModalProps {
 }
 
 export default function ReusableModal({ visible, onClose, gymInventoryId, userId, onSuccess, totalCount, underMaintCount, outOfServiceCount }: UpdateStockModalProps) {
+  const { userId: contextUserId } = useUser();
   const [selectedAction, setSelectedAction] = useState('add');
   const [stockQuantity, setStockQuantity] = useState(1);
   const [renderModal, setRenderModal] = useState(false);
@@ -37,9 +40,11 @@ export default function ReusableModal({ visible, onClose, gymInventoryId, userId
   const updateMutation = useUpdateGymInventoryStock();
 
   const handleConfirm = () => {
+    const effectiveUserId = userId || contextUserId || '';
     updateMutation.mutate({
       gymInventoryId,
-      userId,
+      createdBy: effectiveUserId,
+      userId: effectiveUserId,
       action: selectedAction,
       quantity: stockQuantity,
       restoreSource: selectedAction === 'restore' ? restoreSource : undefined
@@ -48,6 +53,9 @@ export default function ReusableModal({ visible, onClose, gymInventoryId, userId
         toast.success('Stock updated');
         onSuccess?.();
         onClose();
+      },
+      onError: (err: any) => {
+        toast.error(err?.message || 'Failed to update stock');
       }
     });
   };

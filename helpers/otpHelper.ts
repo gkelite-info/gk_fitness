@@ -142,7 +142,7 @@ export function isAllowedForOwnerLogin(role: string | null): boolean {
 }
 
 export function navigateBasedOnRole(role: string | null) {
-  const normalizedRole = role?.trim().toLowerCase();
+  const normalizedRole = role?.trim().toLowerCase().replace(/[\s_-]/g, '');
   
   if (router.canDismiss()) {
     router.dismissAll();
@@ -154,7 +154,7 @@ export function navigateBasedOnRole(role: string | null) {
     router.replace('/(owner)/dashboard');
   } else if (normalizedRole === 'doctor') {
     router.replace('/(doctor)/patients');
-  } else if (normalizedRole === 'trainer') {
+  } else if (normalizedRole === 'trainer' || normalizedRole === 'globaltrainer') {
     router.replace('/(trainer)/home' as any);
   } else {
     router.replace('/(customer)/home');

@@ -28,24 +28,24 @@ export interface SaveGymEnquiryParams {
   fullName: string;
   mobile: string;
   email: string;
-  gender?: 'male' | 'female' | 'others';
-  interestedIn?: 'membership' | 'personaltraining' | 'groupclass' | 'others';
+  gender?: 'male' | 'female' | 'others' | '';
+  interestedIn?: 'membership' | 'personaltraining' | 'groupclass' | 'others' | '';
   planId?: string | null;
   addedThrough?: 'socialmedia' | 'walkin' | 'owner';
-  enquirySource?: 'google' | 'instagram' | 'facebook' | 'referral' | 'walkin' | 'owner' | 'others';
+  enquirySource?: 'google' | 'instagram' | 'facebook' | 'referral' | 'walkin' | 'owner' | 'others' | '';
   notes?: string | null;
-  enquiryCategory?: 'hot' | 'warm' | 'cold';
+  enquiryCategory?: 'hot' | 'warm' | 'cold' | '';
   followUpDate: string | Date;
   gymId: string;
   createdBy?: string | null;
-  status?: 'new' | 'followup' | 'converted' | 'notinterested';
+  status?: 'new' | 'followup' | 'converted' | 'notinterested' | '';
 }
 
 export async function fetchGymEnquiries(
-  gymId: string, 
-  page: number = 1, 
-  limit: number = 20, 
-  searchQuery?: string, 
+  gymId: string,
+  page: number = 1,
+  limit: number = 20,
+  searchQuery?: string,
   status?: string,
   category?: string,
   source?: string
@@ -112,17 +112,17 @@ export async function saveGymEnquiry(enquiryData: SaveGymEnquiryParams) {
       .update({
         fullName: enquiryData.fullName,
         mobile: enquiryData.mobile,
-        email: enquiryData.email,
-        gender: enquiryData.gender ?? 'male',
-        interestedIn: enquiryData.interestedIn ?? 'membership',
-        planId: enquiryData.planId ?? null,
-        addedThrough: enquiryData.addedThrough ?? 'owner',
-        enquirySource: enquiryData.enquirySource ?? 'owner',
-        notes: enquiryData.notes ?? null,
-        enquiryCategory: enquiryData.enquiryCategory ?? 'cold',
+        email: enquiryData.email || '',
+        gender: enquiryData.gender || 'male',
+        interestedIn: enquiryData.interestedIn || 'membership',
+        planId: enquiryData.planId || null,
+        addedThrough: enquiryData.addedThrough || 'owner',
+        enquirySource: enquiryData.enquirySource || 'owner',
+        notes: enquiryData.notes || null,
+        enquiryCategory: enquiryData.enquiryCategory || 'cold',
         followUpDate: enquiryData.followUpDate,
         gymId: enquiryData.gymId,
-        status: enquiryData.status ?? 'new',
+        status: enquiryData.status || 'new',
         updatedAt: now,
       })
       .eq('gymEnquiryId', enquiryData.gymEnquiryId)
@@ -143,18 +143,18 @@ export async function saveGymEnquiry(enquiryData: SaveGymEnquiryParams) {
           gymEnquiryId: generatedGymEnquiryId,
           fullName: enquiryData.fullName,
           mobile: enquiryData.mobile,
-          email: enquiryData.email,
-          gender: enquiryData.gender ?? 'male',
-          interestedIn: enquiryData.interestedIn ?? 'membership',
-          planId: enquiryData.planId ?? null,
-          addedThrough: enquiryData.addedThrough ?? 'owner',
-          enquirySource: enquiryData.enquirySource ?? 'owner',
-          notes: enquiryData.notes ?? null,
-          enquiryCategory: enquiryData.enquiryCategory ?? 'cold',
+          email: enquiryData.email || '',
+          gender: enquiryData.gender || 'male',
+          interestedIn: enquiryData.interestedIn || 'membership',
+          planId: enquiryData.planId || null,
+          addedThrough: enquiryData.addedThrough || 'owner',
+          enquirySource: enquiryData.enquirySource || 'owner',
+          notes: enquiryData.notes || null,
+          enquiryCategory: enquiryData.enquiryCategory || 'cold',
           followUpDate: enquiryData.followUpDate,
           gymId: enquiryData.gymId,
           createdBy: enquiryData.createdBy,
-          status: enquiryData.status ?? 'new',
+          status: enquiryData.status || 'new',
           is_deleted: false,
           createdAt: now,
           updatedAt: now,
@@ -194,12 +194,12 @@ export async function deleteGymEnquiry(gymEnquiryId: string) {
 
 export async function updateGymEnquiryStatus(gymEnquiryId: string, status: 'new' | 'followup' | 'converted' | 'notinterested', category?: 'hot' | 'warm' | 'cold') {
   const now = new Date().toISOString();
-  
+
   const updateData: any = {
     status: status,
     updatedAt: now,
   };
-  
+
   if (category) {
     updateData.enquiryCategory = category;
   }

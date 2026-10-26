@@ -10,6 +10,7 @@ import {
   ScrollView,
   Linking,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
@@ -68,7 +69,7 @@ const getRelativeTimeString = (dateInput: string | Date | undefined) => {
 
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  
+
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
@@ -225,8 +226,8 @@ export default function MembershipRenewalsScreen() {
         const validTillStr = matchingPlan?.endDate
           ? new Date(matchingPlan.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
           : p.paymentDate
-          ? new Date(new Date(p.paymentDate).setMonth(new Date(p.paymentDate).getMonth() + 1)).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-          : 'N/A';
+            ? new Date(new Date(p.paymentDate).setMonth(new Date(p.paymentDate).getMonth() + 1)).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+            : 'N/A';
 
         const paymentDateTime = p.paymentDate && p.paymentTime ? `${p.paymentDate}T${p.paymentTime}` : p.createdAt;
 
@@ -366,10 +367,8 @@ export default function MembershipRenewalsScreen() {
     router.push(`/(owner)/dashboard/customers` as any);
   };
 
-  // Header Component for FlatList
   const renderHeader = () => (
     <View className="mb-2">
-      {/* Top Bar: Back & Title */}
       <View className="flex-row items-center mb-5">
         <Pressable
           onPress={() => {
@@ -380,12 +379,11 @@ export default function MembershipRenewalsScreen() {
         >
           <ArrowLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="text-xl font-bold text-white tracking-tight">
+        <Text className="text-xl font-semibold text-white tracking-tight">
           Membership Renewals
         </Text>
       </View>
 
-      {/* Search Bar */}
       <View className="flex-row items-center bg-[#131926] border border-[#1F293D] rounded-2xl px-4 py-3 mb-5">
         <MagnifyingGlass size={18} color="#717E95" weight="bold" />
         <TextInput
@@ -413,7 +411,7 @@ export default function MembershipRenewalsScreen() {
           <Text className="text-[#717E95] text-[10px] font-semibold mb-1 text-center" numberOfLines={1}>
             Renewed Today
           </Text>
-          <Text className="text-white text-2xl font-bold" numberOfLines={1}>
+          <Text className="text-white text-2xl font-semibold" numberOfLines={1}>
             {stats.renewedToday}
           </Text>
         </View>
@@ -426,7 +424,7 @@ export default function MembershipRenewalsScreen() {
           <Text className="text-[#717E95] text-[10px] font-semibold mb-1 text-center" numberOfLines={1}>
             Renewed This Week
           </Text>
-          <Text className="text-white text-2xl font-bold" numberOfLines={1}>
+          <Text className="text-white text-2xl font-semibold" numberOfLines={1}>
             {stats.renewedThisWeek}
           </Text>
         </View>
@@ -439,7 +437,7 @@ export default function MembershipRenewalsScreen() {
           <Text className="text-[#717E95] text-[9.5px] font-semibold mb-1 text-center" numberOfLines={1}>
             Revenue from Renewals
           </Text>
-          <Text className="text-white text-lg font-bold" numberOfLines={1} adjustsFontSizeToFit>
+          <Text className="text-white text-lg font-semibold" numberOfLines={1} adjustsFontSizeToFit>
             ₹{stats.revenueFromRenewals.toLocaleString('en-IN')}
           </Text>
         </View>
@@ -447,7 +445,7 @@ export default function MembershipRenewalsScreen() {
 
       {/* Section 1: Recent Renewals */}
       <View className="flex-row items-center justify-between mb-3.5">
-        <Text className="text-lg font-bold text-white tracking-tight">Recent Renewals</Text>
+        <Text className="text-lg font-semibold text-white tracking-tight">Recent Renewals</Text>
         <Pressable
           onPress={() => {
             triggerLightHaptic();
@@ -489,7 +487,7 @@ export default function MembershipRenewalsScreen() {
                   </View>
                 )}
                 <View className="flex-1">
-                  <Text className="text-white font-bold text-sm mb-0.5" numberOfLines={1}>
+                  <Text className="text-white font-semibold text-sm mb-0.5" numberOfLines={1}>
                     {item.name}
                   </Text>
                   <Text
@@ -508,7 +506,7 @@ export default function MembershipRenewalsScreen() {
               {/* Right Column: Valid Till + Expiry + Payment Mode */}
               <View className="items-end justify-center pl-2">
                 <Text className="text-[#717E95] text-[10px] mb-0.5 font-medium">Valid Till</Text>
-                <Text className="text-white font-bold text-xs mb-1.5">{item.validTill}</Text>
+                <Text className="text-white font-semibold text-xs mb-1.5">{item.validTill}</Text>
                 <View className="flex-row items-center">
                   {item.paymentIconType === 'upi' ? (
                     <Triangle size={10} color="#F59E0B" weight="fill" style={{ marginRight: 4 }} />
@@ -525,7 +523,7 @@ export default function MembershipRenewalsScreen() {
 
       {/* Section 2: Upcoming Renewals */}
       <View className="flex-row items-center justify-between mb-3.5">
-        <Text className="text-lg font-bold text-white tracking-tight">Upcoming Renewals</Text>
+        <Text className="text-lg font-semibold text-white tracking-tight">Upcoming Renewals</Text>
         <Pressable
           onPress={() => {
             triggerLightHaptic();
@@ -550,16 +548,14 @@ export default function MembershipRenewalsScreen() {
             triggerLightHaptic();
             setActiveFilter('all');
           }}
-          className={`px-3.5 py-1.5 rounded-xl border ${
-            activeFilter === 'all'
-              ? 'bg-[#FBBF24]/15 border-[#FBBF24]'
-              : 'bg-[#131926] border-[#1F293D]'
-          }`}
+          className={`px-3.5 py-1.5 rounded-xl border ${activeFilter === 'all'
+            ? 'bg-[#FBBF24]/15 border-[#FBBF24]'
+            : 'bg-[#131926] border-[#1F293D]'
+            }`}
         >
           <Text
-            className={`text-xs ${
-              activeFilter === 'all' ? 'text-[#FBBF24] font-bold' : 'text-[#717E95] font-medium'
-            }`}
+            className={`text-xs ${activeFilter === 'all' ? 'text-[#FBBF24] font-semibold' : 'text-[#717E95] font-medium'
+              }`}
           >
             All ({upcomingRenewals.length})
           </Text>
@@ -570,16 +566,14 @@ export default function MembershipRenewalsScreen() {
             triggerLightHaptic();
             setActiveFilter('today');
           }}
-          className={`px-3.5 py-1.5 rounded-xl border ${
-            activeFilter === 'today'
-              ? 'bg-[#EF4444]/15 border-[#EF4444]'
-              : 'bg-[#131926] border-[#1F293D]'
-          }`}
+          className={`px-3.5 py-1.5 rounded-xl border ${activeFilter === 'today'
+            ? 'bg-[#EF4444]/15 border-[#EF4444]'
+            : 'bg-[#131926] border-[#1F293D]'
+            }`}
         >
           <Text
-            className={`text-xs ${
-              activeFilter === 'today' ? 'text-[#F87171] font-bold' : 'text-[#717E95] font-medium'
-            }`}
+            className={`text-xs ${activeFilter === 'today' ? 'text-[#F87171] font-semibold' : 'text-[#717E95] font-medium'
+              }`}
           >
             Today ({upcomingTodayCount})
           </Text>
@@ -590,16 +584,14 @@ export default function MembershipRenewalsScreen() {
             triggerLightHaptic();
             setActiveFilter('next3');
           }}
-          className={`px-3.5 py-1.5 rounded-xl border ${
-            activeFilter === 'next3'
-              ? 'bg-[#F59E0B]/15 border-[#F59E0B]'
-              : 'bg-[#131926] border-[#1F293D]'
-          }`}
+          className={`px-3.5 py-1.5 rounded-xl border ${activeFilter === 'next3'
+            ? 'bg-[#F59E0B]/15 border-[#F59E0B]'
+            : 'bg-[#131926] border-[#1F293D]'
+            }`}
         >
           <Text
-            className={`text-xs ${
-              activeFilter === 'next3' ? 'text-[#FBBF24] font-bold' : 'text-[#717E95] font-medium'
-            }`}
+            className={`text-xs ${activeFilter === 'next3' ? 'text-[#FBBF24] font-semibold' : 'text-[#717E95] font-medium'
+              }`}
           >
             Next 3 Days ({upcomingNext3Count})
           </Text>
@@ -610,16 +602,14 @@ export default function MembershipRenewalsScreen() {
             triggerLightHaptic();
             setActiveFilter('next7');
           }}
-          className={`px-3.5 py-1.5 rounded-xl border ${
-            activeFilter === 'next7'
-              ? 'bg-[#10B981]/15 border-[#10B981]'
-              : 'bg-[#131926] border-[#1F293D]'
-          }`}
+          className={`px-3.5 py-1.5 rounded-xl border ${activeFilter === 'next7'
+            ? 'bg-[#10B981]/15 border-[#10B981]'
+            : 'bg-[#131926] border-[#1F293D]'
+            }`}
         >
           <Text
-            className={`text-xs ${
-              activeFilter === 'next7' ? 'text-[#34D399] font-bold' : 'text-[#717E95] font-medium'
-            }`}
+            className={`text-xs ${activeFilter === 'next7' ? 'text-[#34D399] font-semibold' : 'text-[#717E95] font-medium'
+              }`}
           >
             Next 7 Days ({upcomingNext7Count})
           </Text>
@@ -645,9 +635,8 @@ export default function MembershipRenewalsScreen() {
           triggerLightHaptic();
           setSelectedMember(item);
         }}
-        className={`flex-row items-center px-4 py-3.5 bg-[#131926] border-l border-r border-[#1F293D] active:bg-[#1A2234] ${
-          isLast ? 'border-b rounded-b-2xl mb-6' : 'border-b border-[#1F293D]'
-        }`}
+        className={`flex-row items-center px-4 py-3.5 bg-[#131926] border-l border-r border-[#1F293D] active:bg-[#1A2234] ${isLast ? 'border-b rounded-b-2xl mb-6' : 'border-b border-[#1F293D]'
+          }`}
       >
         {/* Member Name */}
         <View className="flex-[2.2] pr-2">
@@ -670,7 +659,7 @@ export default function MembershipRenewalsScreen() {
         {/* Urgency / Expires In */}
         <View className="flex-[1.4] items-end">
           <Text
-            className="font-bold text-xs"
+            className="font-semibold text-xs"
             style={{ color: item.urgency.color }}
           >
             {item.urgency.text}
@@ -681,7 +670,11 @@ export default function MembershipRenewalsScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#09090B]" style={{ paddingTop: Math.max(insets.top, 16) }}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 bg-[#09090B] pb-20"
+      style={{ paddingTop: Math.max(insets.top, 16) }}
+    >
       <FlatList
         data={filteredUpcomingRenewals}
         renderItem={renderUpcomingRow}
@@ -690,7 +683,8 @@ export default function MembershipRenewalsScreen() {
           paddingHorizontal: 16,
           paddingBottom: insets.bottom + 40,
         }}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={renderHeader()}
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           !isLoadingPlans && !isLoadingPayments ? (
             <View className="bg-[#131926] border-b border-l border-r border-[#1F293D] rounded-b-2xl p-6 items-center mb-6">
@@ -735,7 +729,7 @@ export default function MembershipRenewalsScreen() {
                   </View>
                 )}
                 <View>
-                  <Text className="text-white font-bold text-base">{selectedMember?.name}</Text>
+                  <Text className="text-white font-semibold text-base">{selectedMember?.name}</Text>
                   <Text className="text-xs font-semibold" style={{ color: selectedMember?.planColor }}>
                     {selectedMember?.plan}
                   </Text>
@@ -771,7 +765,7 @@ export default function MembershipRenewalsScreen() {
               {selectedMember?.daysLeft !== undefined ? (
                 <View className="flex-row justify-between items-center">
                   <Text className="text-[#717E95] text-xs font-medium">Status</Text>
-                  <Text className="text-xs font-bold" style={{ color: selectedMember.urgency?.color || '#F59E0B' }}>
+                  <Text className="text-xs font-semibold" style={{ color: selectedMember.urgency?.color || '#F59E0B' }}>
                     {selectedMember.urgency?.text || `${selectedMember.daysLeft} Days Left`}
                   </Text>
                 </View>
@@ -788,7 +782,7 @@ export default function MembershipRenewalsScreen() {
                       className="flex-1 flex-row items-center justify-center bg-[#1F293D] py-3 rounded-xl gap-2 active:opacity-75"
                     >
                       <Phone size={18} color="#FFFFFF" weight="bold" />
-                      <Text className="text-white text-xs font-bold">Call</Text>
+                      <Text className="text-white text-xs font-semibold">Call</Text>
                     </Pressable>
 
                     <Pressable
@@ -796,7 +790,7 @@ export default function MembershipRenewalsScreen() {
                       className="flex-1 flex-row items-center justify-center bg-[#25D366]/20 border border-[#25D366]/40 py-3 rounded-xl gap-2 active:opacity-75"
                     >
                       <WhatsappLogo size={18} color="#25D366" weight="fill" />
-                      <Text className="text-[#25D366] text-xs font-bold">WhatsApp</Text>
+                      <Text className="text-[#25D366] text-xs font-semibold">WhatsApp</Text>
                     </Pressable>
                   </>
                 ) : null}
@@ -807,7 +801,7 @@ export default function MembershipRenewalsScreen() {
                 className="flex-row items-center justify-center bg-[#CCF200] py-3.5 rounded-xl gap-2 active:opacity-85"
               >
                 <CurrencyInr size={18} color="#000000" weight="bold" />
-                <Text className="text-black text-sm font-bold">Record Renewal Payment</Text>
+                <Text className="text-black text-sm font-semibold">Record Renewal Payment</Text>
               </Pressable>
 
               <Pressable
@@ -837,7 +831,7 @@ export default function MembershipRenewalsScreen() {
               >
                 <ArrowLeft size={18} color="#FFFFFF" weight="bold" />
               </Pressable>
-              <Text className="text-lg font-bold text-white">All Recent Renewals</Text>
+              <Text className="text-lg font-semibold text-white">All Recent Renewals</Text>
             </View>
             <Text className="text-[#717E95] text-xs font-semibold">
               {filteredRecentRenewals.length} Total
@@ -865,7 +859,7 @@ export default function MembershipRenewalsScreen() {
                     </View>
                   )}
                   <View className="flex-1">
-                    <Text className="text-white font-bold text-sm mb-0.5">{item.name}</Text>
+                    <Text className="text-white font-semibold text-sm mb-0.5">{item.name}</Text>
                     <Text className="text-xs font-semibold mb-0.5" style={{ color: item.planColor }}>
                       {item.plan}
                     </Text>
@@ -875,7 +869,7 @@ export default function MembershipRenewalsScreen() {
 
                 <View className="items-end justify-center pl-2">
                   <Text className="text-[#717E95] text-[10px] mb-0.5">Valid Till</Text>
-                  <Text className="text-white font-bold text-xs mb-1.5">{item.validTill}</Text>
+                  <Text className="text-white font-semibold text-xs mb-1.5">{item.validTill}</Text>
                   <View className="flex-row items-center">
                     {item.paymentIconType === 'upi' ? (
                       <Triangle size={10} color="#F59E0B" weight="fill" style={{ marginRight: 4 }} />
@@ -891,14 +885,13 @@ export default function MembershipRenewalsScreen() {
         </View>
       </Modal>
 
-      {/* Modal: View All Upcoming Renewals */}
       <Modal
         visible={showUpcomingAllModal}
         transparent
         animationType="slide"
         onRequestClose={() => setShowUpcomingAllModal(false)}
       >
-        <View className="flex-1 bg-[#09090B]" style={{ paddingTop: Math.max(insets.top, 16) }}>
+        <View className="flex-1 bg-[#09090B] pb-20" style={{ paddingTop: Math.max(insets.top, 10) }}>
           <View className="px-4 py-3 border-b border-[#1F293D] flex-row items-center justify-between">
             <View className="flex-row items-center gap-3">
               <Pressable
@@ -907,7 +900,7 @@ export default function MembershipRenewalsScreen() {
               >
                 <ArrowLeft size={18} color="#FFFFFF" weight="bold" />
               </Pressable>
-              <Text className="text-lg font-bold text-white">All Upcoming Renewals</Text>
+              <Text className="text-lg font-semibold text-white">All Upcoming Renewals</Text>
             </View>
             <Text className="text-[#717E95] text-xs font-semibold">
               {upcomingRenewals.length} Total
@@ -935,7 +928,7 @@ export default function MembershipRenewalsScreen() {
                     </View>
                   )}
                   <View className="flex-1">
-                    <Text className="text-white font-bold text-sm mb-0.5">{item.name}</Text>
+                    <Text className="text-white font-semibold text-sm mb-0.5">{item.name}</Text>
                     <Text className="text-xs font-semibold mb-0.5" style={{ color: item.planColor }}>
                       {item.plan}
                     </Text>
@@ -951,7 +944,7 @@ export default function MembershipRenewalsScreen() {
                       borderColor: item.urgency.color,
                     }}
                   >
-                    <Text className="text-xs font-bold" style={{ color: item.urgency.color }}>
+                    <Text className="text-xs font-semibold" style={{ color: item.urgency.color }}>
                       {item.urgency.text}
                     </Text>
                   </View>
@@ -961,6 +954,6 @@ export default function MembershipRenewalsScreen() {
           />
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

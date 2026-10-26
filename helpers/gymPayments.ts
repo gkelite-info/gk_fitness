@@ -68,7 +68,7 @@ export async function fetchGymPaymentsPaginated(
   gymId?: string,
   page: number = 1,
   limit: number = 10,
-  filters?: { tab?: string; searchQuery?: string; customerId?: string }
+  filters?: { tab?: string; searchQuery?: string; customerId?: string; dateRange?: string; customDate?: string }
 ) {
   let query = supabase
     .from('gym_payments')
@@ -98,15 +98,29 @@ export async function fetchGymPaymentsPaginated(
     query = query.eq('customerId', filters.customerId);
   }
 
-  if (filters?.tab === 'Today') {
-    const today = new Date();
-    // Use local date for "Today" filter, format YYYY-MM-DD
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const range = filters?.dateRange || (filters?.tab === 'Today' ? 'today' : filters?.tab === 'This Month' ? 'month' : filters?.tab === 'All' ? 'all' : undefined);
+
+  if (range === 'today') {
     query = query.eq('paymentDate', todayStr);
-  } else if (filters?.tab === 'This Month') {
-    const today = new Date();
-    const firstDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+  } else if (range === 'month') {
+    const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     query = query.gte('paymentDate', firstDay);
+  } else if (range === '3months') {
+    const d = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    query = query.gte('paymentDate', dateStr);
+  } else if (range === '6months') {
+    const d = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    query = query.gte('paymentDate', dateStr);
+  } else if (range === 'year') {
+    const firstDayOfYear = `${now.getFullYear()}-01-01`;
+    query = query.gte('paymentDate', firstDayOfYear);
+  } else if (range === 'custom' && filters?.customDate) {
+    query = query.eq('paymentDate', filters.customDate);
   }
 
   const from = (page - 1) * limit;

@@ -160,44 +160,72 @@ export default function NotificationsPreferencesScreen() {
                       {/* Time Range Pickers */}
                       {(currentPrefs.water_quiet_hours_enabled ?? true) && (
                         <View className="gap-y-3 pt-2 border-t border-white/5">
-                          {/* Start Time (Wake up) */}
+                          {/* Start Time */}
                           <View className="flex-row justify-between items-center">
                             <Text className="text-gray-400 text-sm">Start Reminders</Text>
                             <View className="flex-row items-center gap-x-3">
                               <Pressable
-                                onPress={() => updatePreference.mutate({ water_start_hour: Math.max(5, (currentPrefs.water_start_hour || 8) - 1) })}
-                                className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center"
+                                onPress={() => {
+                                  const s = currentPrefs.water_start_hour ?? 8;
+                                  const e = currentPrefs.water_end_hour ?? 20;
+                                  const nextStart = (s - 1 + 24) % 24;
+                                  const updates: any = { water_start_hour: nextStart, water_mode: 'custom' };
+                                  if (nextStart === e) updates.water_end_hour = (e - 1 + 24) % 24;
+                                  updatePreference.mutate(updates);
+                                }}
+                                className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center active:bg-[#333333]"
                               >
                                 <Text className="text-white font-semibold">-</Text>
                               </Pressable>
                               <Text className="text-[#D4FF00] font-semibold w-16 text-center">
-                                {format12Hour(currentPrefs.water_start_hour || 8, 0)}
+                                {format12Hour(currentPrefs.water_start_hour ?? 8, 0)}
                               </Text>
                               <Pressable
-                                onPress={() => updatePreference.mutate({ water_start_hour: Math.min((currentPrefs.water_end_hour || 22) - 1, (currentPrefs.water_start_hour || 8) + 1) })}
-                                className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center"
+                                onPress={() => {
+                                  const s = currentPrefs.water_start_hour ?? 8;
+                                  const e = currentPrefs.water_end_hour ?? 20;
+                                  const nextStart = (s + 1) % 24;
+                                  const updates: any = { water_start_hour: nextStart, water_mode: 'custom' };
+                                  if (nextStart === e) updates.water_end_hour = (e + 1) % 24;
+                                  updatePreference.mutate(updates);
+                                }}
+                                className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center active:bg-[#333333]"
                               >
                                 <Text className="text-white font-semibold">+</Text>
                               </Pressable>
                             </View>
                           </View>
 
-                          {/* End Time (Wind down) */}
+                          {/* End Time */}
                           <View className="flex-row justify-between items-center">
                             <Text className="text-gray-400 text-sm">Stop Reminders</Text>
                             <View className="flex-row items-center gap-x-3">
                               <Pressable
-                                onPress={() => updatePreference.mutate({ water_end_hour: Math.max((currentPrefs.water_start_hour || 8) + 1, (currentPrefs.water_end_hour || 22) - 1) })}
-                                className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center"
+                                onPress={() => {
+                                  const s = currentPrefs.water_start_hour ?? 8;
+                                  const e = currentPrefs.water_end_hour ?? 20;
+                                  const nextEnd = (e - 1 + 24) % 24;
+                                  const updates: any = { water_end_hour: nextEnd, water_mode: 'custom' };
+                                  if (nextEnd === s) updates.water_start_hour = (s - 1 + 24) % 24;
+                                  updatePreference.mutate(updates);
+                                }}
+                                className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center active:bg-[#333333]"
                               >
                                 <Text className="text-white font-semibold">-</Text>
                               </Pressable>
                               <Text className="text-[#D4FF00] font-semibold w-16 text-center">
-                                {format12Hour(currentPrefs.water_end_hour || 22, 0)}
+                                {format12Hour(currentPrefs.water_end_hour ?? 20, 0)}
                               </Text>
                               <Pressable
-                                onPress={() => updatePreference.mutate({ water_end_hour: Math.min(23, (currentPrefs.water_end_hour || 22) + 1) })}
-                                className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center"
+                                onPress={() => {
+                                  const s = currentPrefs.water_start_hour ?? 8;
+                                  const e = currentPrefs.water_end_hour ?? 20;
+                                  const nextEnd = (e + 1) % 24;
+                                  const updates: any = { water_end_hour: nextEnd, water_mode: 'custom' };
+                                  if (nextEnd === s) updates.water_start_hour = (s + 1) % 24;
+                                  updatePreference.mutate(updates);
+                                }}
+                                className="bg-[#2A2A2A] w-8 h-8 rounded-full items-center justify-center active:bg-[#333333]"
                               >
                                 <Text className="text-white font-semibold">+</Text>
                               </Pressable>

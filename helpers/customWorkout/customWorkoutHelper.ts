@@ -21,10 +21,10 @@ export const MUSCLE_TO_WORKOUT_TYPES: Record<MuscleValue, string[]> = {
   FOREARMS: ['forearms', 'arms'],
   ABDOMINALS: ['abs'],
   OBLIQUES: ['abs'],
-  QUADRICEPS: ['legs'],
-  HAMSTRINGS: ['legs'],
-  GLUTES: ['legs', 'hips'],
-  CALVES: ['calves', 'legs'],
+  QUADRICEPS: ['hips', 'legs'],
+  HAMSTRINGS: ['hips', 'legs'],
+  GLUTES: ['hips', 'legs'],
+  CALVES: ['calves', 'legs', 'hips'],
   TRAPS: ['trapezius', 'back'],
 };
 
@@ -183,32 +183,214 @@ const FALLBACK_EXERCISE_LIBRARY: Record<MuscleValue, Array<{ name: string; equip
   ],
 };
 
-function matchesEquipment(name: string, eqList: string[] | undefined, selectedEquipment: EquipmentValue[]): boolean {
-  if (selectedEquipment.length === 0) return true;
+const CARDIO_KEYWORDS = [
+  'elliptical',
+  'treadmill',
+  'stationary bike',
+  'spin bike',
+  'cycling',
+  'bicycle',
+  'stairmaster',
+  'stair climber',
+  'stepmill',
+  'stepper',
+  'rowing machine',
+  'rower',
+  'cross trainer',
+  'ski erg',
+  'air bike',
+  'assault bike',
+  'running',
+  'jogging',
+  'sprint',
+  'jumping jack',
+  'jump rope',
+  'skipping',
+  'burpee',
+  'mountain climber',
+];
 
-  // 1. If video has equipment array tag in DB, check overlap
-  if (Array.isArray(eqList) && eqList.length > 0) {
-    const hasOverlap = eqList.some(e => selectedEquipment.includes(e as EquipmentValue));
-    if (hasOverlap) return true;
+export function isCardioExercise(name: string, workoutType?: string): boolean {
+  const lower = (name || '').toLowerCase().trim();
+  const wt = (workoutType || '').toLowerCase().trim();
+  if (wt === 'cardio') return true;
+  return CARDIO_KEYWORDS.some((pat) => lower.includes(pat));
+}
+
+/**
+ * Detect all equipment genuinely required by an exercise based on its name and DB equipment tag.
+ */
+export function getRequiredEquipment(name: string, eqList?: string[]): EquipmentValue[] {
+  const lower = (name || '').toLowerCase();
+  const detected = new Set<EquipmentValue>();
+
+  // 1. Precise name keyword heuristics
+  if (lower.includes('dumbbell') || lower.includes('dumbell') || lower.includes('db ') || lower.includes('db-') || lower.includes('(db)')) {
+    detected.add('DUMBBELL');
+  }
+  if (lower.includes('barbell') || lower.includes('barbel') || lower.includes('bb ') || lower.includes('bb-') || lower.includes('(bb)') || lower.includes('olympic') || lower.includes('ez bar')) {
+    detected.add('BARBELL');
+  }
+  if (lower.includes('cable') || lower.includes('pulldown') || lower.includes('pushdown') || lower.includes('crossover') || lower.includes('rope') || lower.includes('face pull') || lower.includes('pulley')) {
+    detected.add('CABLE');
+  }
+  if (
+    lower.includes('machine') || lower.includes('lever') || lower.includes('sled') || lower.includes('press machine') ||
+    lower.includes('leg press') || lower.includes('pec deck') || lower.includes('peck dec') || lower.includes('smith') ||
+    lower.includes('hack') || lower.includes('extension') || lower.includes('curl machine') || lower.includes('calf raise machine') ||
+    lower.includes('seated row machine') || lower.includes('abduction') || lower.includes('adduction') ||
+    lower.includes('elliptical') || lower.includes('treadmill') || lower.includes('bike') || lower.includes('cycle') ||
+    lower.includes('stairmaster') || lower.includes('stepper') || lower.includes('rowing machine') || lower.includes('rower') ||
+    lower.includes('cross trainer') || lower.includes('ski erg')
+  ) {
+    detected.add('MACHINE');
+  }
+  if (lower.includes('kettlebell') || lower.includes('kb ') || lower.includes('kb-')) {
+    detected.add('KETTLEBELLS');
+  }
+  if (lower.includes('band') || lower.includes('bended') || lower.includes('resistance')) {
+    detected.add('BANDS');
+  }
+  if (lower.includes('weight plate') || lower.includes('plate pinch') || lower.includes('plate press') || lower.includes('plate curl') || lower.includes('plate raise')) {
+    detected.add('WEIGHT_PLATE');
+  }
+  if (lower.includes('pull-up') || lower.includes('chin-up') || lower.includes('pullup') || lower.includes('chinup') || lower.includes('hanging leg') || lower.includes('hanging knee') || lower.includes('dead hang')) {
+    detected.add('PULLUP_BAR');
+  }
+  if (lower.includes('bench') || lower.includes('incline') || lower.includes('decline') || lower.includes('preacher')) {
+    detected.add('BENCH');
   }
 
-  // 2. Keyword heuristic on exercise name
-  const lower = name.toLowerCase();
-  for (const eq of selectedEquipment) {
-    if (eq === 'CABLE' && (lower.includes('cable') || lower.includes('pulldown') || lower.includes('pushdown') || lower.includes('crossover') || lower.includes('rope') || lower.includes('face pull'))) return true;
-    if (eq === 'MACHINE' && (lower.includes('machine') || lower.includes('press machine') || lower.includes('leg press') || lower.includes('pec deck') || lower.includes('smith') || lower.includes('hack squat') || lower.includes('extension') || lower.includes('curl machine') || lower.includes('calf raise machine') || lower.includes('seated row machine') || lower.includes('abduction'))) return true;
-    if (eq === 'DUMBBELL' && (lower.includes('dumbbell') || lower.includes('db'))) return true;
-    if (eq === 'BARBELL' && (lower.includes('barbell') || lower.includes('bb'))) return true;
-    if (eq === 'KETTLEBELLS' && (lower.includes('kettlebell') || lower.includes('kb'))) return true;
-    if (eq === 'BANDS' && (lower.includes('band') || lower.includes('resistance'))) return true;
-    if (eq === 'WEIGHT_PLATE' && (lower.includes('plate') || lower.includes('weighted'))) return true;
-    if (eq === 'PULLUP_BAR' && (lower.includes('pull-up') || lower.includes('chin-up') || lower.includes('pullup') || lower.includes('chinup') || lower.includes('hanging'))) return true;
-    if (eq === 'BENCH' && lower.includes('bench')) return true;
-    if (eq === 'BODY_ONLY') {
-      const usesWeights = lower.includes('dumbbell') || lower.includes('barbell') || lower.includes('kettlebell') || lower.includes('band') || lower.includes('cable') || lower.includes('machine');
-      if (!usesWeights) return true;
+  // 2. Incorporate explicit DB equipment tags if provided
+  if (Array.isArray(eqList)) {
+    eqList.forEach((e) => {
+      if (e && e !== 'BODY_ONLY') detected.add(e as EquipmentValue);
+    });
+  }
+
+  // 3. If no external equipment detected, it's bodyweight only
+  if (detected.size === 0) {
+    detected.add('BODY_ONLY');
+  }
+
+  return Array.from(detected);
+}
+
+/**
+ * Validates whether an exercise can be performed with the user's selected equipment.
+ */
+function matchesEquipment(name: string, eqList: string[] | undefined, selectedEquipment: EquipmentValue[]): boolean {
+  if (!selectedEquipment || selectedEquipment.length === 0) return true;
+
+  const required = getRequiredEquipment(name, eqList);
+
+  // If exercise strictly requires heavy specialized equipment that user does NOT have, reject:
+  if (required.includes('BARBELL') && !selectedEquipment.includes('BARBELL')) return false;
+  if (required.includes('CABLE') && !selectedEquipment.includes('CABLE')) return false;
+  if (required.includes('MACHINE') && !selectedEquipment.includes('MACHINE')) return false;
+  if (required.includes('KETTLEBELLS') && !selectedEquipment.includes('KETTLEBELLS')) return false;
+  if (required.includes('BANDS') && !selectedEquipment.includes('BANDS')) return false;
+  if (required.includes('PULLUP_BAR') && !selectedEquipment.includes('PULLUP_BAR')) return false;
+
+  // The exercise must be compatible with at least one selected item
+  const hasOverlap = required.some((eq) => selectedEquipment.includes(eq));
+  if (hasOverlap) return true;
+
+  // Bodyweight compatibility
+  if (selectedEquipment.includes('BODY_ONLY') && required.includes('BODY_ONLY')) return true;
+
+  return false;
+}
+
+/**
+ * Infers the true anatomical muscle group of an exercise from its name and DB tags.
+ */
+export function inferExerciseMuscle(name: string, primaryMuscle?: string, workoutType?: string): MuscleValue | null {
+  const lower = (name || '').toLowerCase();
+
+  // Cardio machines & aerobic exercises do not target isolated lifting muscles
+  if (isCardioExercise(name, workoutType)) {
+    return null;
+  }
+
+  // Explicit primaryMuscle match if valid and not clearly contradicted by name
+  if (primaryMuscle) {
+    const pm = primaryMuscle.toUpperCase().trim() as MuscleValue;
+    if (Object.keys(MUSCLE_TO_WORKOUT_TYPES).includes(pm)) {
+      // Catch mislabeled CHEST on leg/curl/cardio exercises
+      if (!(pm === 'CHEST' && (lower.includes('leg') || lower.includes('squat') || lower.includes('curl') || lower.includes('calf') || isCardioExercise(name, workoutType)))) {
+        return pm;
+      }
     }
   }
+
+  // 1. High-confidence name heuristics
+  if (lower.includes('calf') || lower.includes('calves')) return 'CALVES';
+  if (lower.includes('hamstring') || lower.includes('leg curl') || lower.includes('rdl') || lower.includes('romanian deadlift') || lower.includes('stiff leg') || lower.includes('good morning')) return 'HAMSTRINGS';
+  if (lower.includes('glute') || lower.includes('hip thrust') || lower.includes('glute bridge') || lower.includes('hip bridge') || lower.includes('abductor') || lower.includes('donkey kick')) return 'GLUTES';
+  if (lower.includes('squat') || lower.includes('leg extension') || lower.includes('leg press') || lower.includes('lunge') || lower.includes('hack') || lower.includes('sissy') || lower.includes('adductor') || lower.includes('step up')) return 'QUADRICEPS';
+
+  if (lower.includes('wrist curl') || lower.includes('forearm') || lower.includes('dead hang') || lower.includes('farmer')) return 'FOREARMS';
+  if (lower.includes('bicep') || (lower.includes('curl') && !lower.includes('leg curl') && !lower.includes('wrist')) || lower.includes('preacher') || lower.includes('hammer curl')) return 'BICEPS';
+  if (lower.includes('tricep') || lower.includes('pushdown') || lower.includes('skull crusher') || lower.includes('kickback') || lower.includes('close grip bench') || lower.includes('diamond push') || lower.includes('tricep dip') || lower.includes('bench dip')) return 'TRICEPS';
+
+  if (lower.includes('shrug') || lower.includes('trap')) return 'TRAPS';
+  if (lower.includes('shoulder') || lower.includes('overhead press') || lower.includes('military press') || lower.includes('lateral raise') || lower.includes('front raise') || lower.includes('rear delt') || lower.includes('face pull') || lower.includes('arnold') || lower.includes('deltoid') || lower.includes('pike')) return 'SHOULDERS';
+
+  if (lower.includes('russian twist') || lower.includes('side plank') || lower.includes('woodchopper') || lower.includes('side bend') || lower.includes('oblique') || lower.includes('bicycle crunch')) return 'OBLIQUES';
+  if (lower.includes('crunch') || lower.includes('plank') || lower.includes('sit up') || lower.includes('situp') || lower.includes('ab wheel') || lower.includes('hanging leg') || lower.includes('hanging knee') || lower.includes('hollow') || lower.includes('flutter kick')) return 'ABDOMINALS';
+
+  if (lower.includes('bench press') || lower.includes('chest press') || lower.includes('chest fly') || lower.includes('pec deck') || lower.includes('push-up') || lower.includes('push up') || lower.includes('pushup') || lower.includes('incline press') || lower.includes('decline press')) return 'CHEST';
+  if (lower.includes('lat pulldown') || lower.includes('pull-up') || lower.includes('pull up') || lower.includes('pullup') || lower.includes('chin-up') || lower.includes('chin up') || lower.includes('chinup') || lower.includes('seated row') || lower.includes('bent-over row') || lower.includes('bent over row') || lower.includes('t-bar') || lower.includes('pulldown') || lower.includes('pullover') || lower.includes('inverted row')) return 'BACK';
+
+  // 2. Fallback to parent workoutType mapping
+  const wt = (workoutType || '').toLowerCase().trim();
+  if (wt.includes('chest')) return 'CHEST';
+  if (wt.includes('back')) return 'BACK';
+  if (wt.includes('shoulder')) return 'SHOULDERS';
+  if (wt.includes('calv')) return 'CALVES';
+  if (wt.includes('bicep')) return 'BICEPS';
+  if (wt.includes('tricep')) return 'TRICEPS';
+  if (wt.includes('forearm')) return 'FOREARMS';
+  if (wt.includes('trap')) return 'TRAPS';
+  if (wt.includes('ab') || wt.includes('core')) return 'ABDOMINALS';
+  if (wt.includes('leg') || wt.includes('hip')) return 'QUADRICEPS';
+
+  return null;
+}
+
+/**
+ * Verifies if an exercise matches the target muscle, preventing cross-muscle leakage.
+ */
+function isExerciseMatchForMuscle(name: string, primaryMuscle?: string, workoutType?: string, targetMuscle?: MuscleValue): boolean {
+  if (!targetMuscle) return true;
+
+  // Strict cardio rejection: Cardio exercises/machines should NEVER match targeted resistance muscle groups
+  if (isCardioExercise(name, workoutType)) {
+    return false;
+  }
+
+  const inferred = inferExerciseMuscle(name, primaryMuscle, workoutType);
+  if (inferred === targetMuscle) return true;
+
+  // Strict guardrails:
+  // Calves must strictly match Calves (never allow Squats or Leg Extensions for Calves)
+  if (targetMuscle === 'CALVES') return inferred === 'CALVES';
+  // Biceps vs Triceps strict separation
+  if (targetMuscle === 'BICEPS' && inferred === 'TRICEPS') return false;
+  if (targetMuscle === 'TRICEPS' && inferred === 'BICEPS') return false;
+  // Forearms strict separation from upper arm
+  if (targetMuscle === 'FOREARMS' && (inferred === 'BICEPS' || inferred === 'TRICEPS')) return false;
+
+  // Acceptable Core synergy
+  if ((targetMuscle === 'ABDOMINALS' && inferred === 'OBLIQUES') || (targetMuscle === 'OBLIQUES' && inferred === 'ABDOMINALS')) {
+    return true;
+  }
+
+  // Acceptable Leg synergy only if no explicit conflict
+  if (targetMuscle === 'QUADRICEPS' && (inferred === 'HAMSTRINGS' || inferred === 'GLUTES')) return true;
+  if (targetMuscle === 'HAMSTRINGS' && (inferred === 'GLUTES' || inferred === 'QUADRICEPS')) return true;
+  if (targetMuscle === 'GLUTES' && (inferred === 'HAMSTRINGS' || inferred === 'QUADRICEPS')) return true;
 
   return false;
 }
@@ -234,7 +416,37 @@ export async function getCustomExercises({
 }: GetCustomExercisesParams): Promise<GeneratedExercise[]> {
   const result: GeneratedExercise[] = [];
   const selectedExIds = new Set<string>(excludeIds);
-  const preferredRole = (gender || 'male').toLowerCase().trim().includes('female') ? 'female' : 'male';
+
+  // 1. Resolve logged in user's gender strictly
+  let resolvedGender = (gender || '').toLowerCase().trim();
+  if (!resolvedGender || (resolvedGender !== 'male' && resolvedGender !== 'female')) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        const { data: cust } = await supabase
+          .from('gym_customers')
+          .select('gender')
+          .or(`customerId.eq.${user.id},userId.eq.${user.id}`)
+          .maybeSingle();
+        if (cust?.gender) {
+          resolvedGender = cust.gender.toLowerCase().trim();
+        } else {
+          const { data: u } = await supabase
+            .from('users')
+            .select('gender')
+            .eq('userId', user.id)
+            .maybeSingle();
+          if (u?.gender) {
+            resolvedGender = u.gender.toLowerCase().trim();
+          }
+        }
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  const preferredRole = resolvedGender.includes('female') ? 'female' : 'male';
 
   // Only attempt RPC if gender is not specified (since RPC lacks role filtering)
   if (!gender) {
@@ -270,11 +482,21 @@ export async function getCustomExercises({
     }
   }
 
-  // Direct table query: Query workout_videos joined with workouts:workoutId(role)
+  // Direct table query: Query workout_videos strictly for user's gender role
   for (const muscle of muscles) {
     const workoutTypes = MUSCLE_TO_WORKOUT_TYPES[muscle] || [];
 
-    // Query workout_videos
+    // 1. Resolve matching workoutIds from workouts table STRICTLY for the user's role (or neutral)
+    const { data: matchedWorkouts } = await supabase
+      .from('workouts')
+      .select('workoutId, workoutType, role')
+      .in('workoutType', workoutTypes)
+      .or(`role.eq.${preferredRole},role.eq.all,role.is.null`)
+      .or('is_deleted.eq.false,is_deleted.is.null');
+
+    const workoutIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
+
+    // 2. Query workout_videos with valid videoUrl
     let query = supabase
       .from('workout_videos')
       .select(`
@@ -292,36 +514,47 @@ export async function getCustomExercises({
           role
         )
       `)
-      .eq('is_deleted', false);
+      .not('videoUrl', 'is', null)
+      .neq('videoUrl', '')
+      .or('is_deleted.eq.false,is_deleted.is.null');
 
-    // Try filtering by primaryMuscle column if it exists
-    query = query.or(`primaryMuscle.eq.${muscle},primaryMuscle.is.null`);
+    if (workoutIds.length > 0) {
+      query = query.in('workoutId', workoutIds);
+    } else {
+      query = query.ilike('primaryMuscle', `%${muscle}%`);
+    }
 
     const { data: videos, error } = await query.limit(60);
 
     let candidates: any[] = [];
 
     if (!error && videos && videos.length > 0) {
-      // Filter candidates in JS
+      // Filter candidates in JS matching target muscle, equipment, and STRICT gender
       candidates = videos.filter((v: any) => {
         if (selectedExIds.has(v.workoutVideoId)) return false;
+        // Never allow cardio machines when targeting strength muscles
+        if (isCardioExercise(v.exerciseName || '', v.workouts?.workoutType)) return false;
 
-        // Check muscle match: either primaryMuscle matches, or workoutType in workouts table matches
-        const primaryMatch = v.primaryMuscle === muscle;
-        const wType = (v.workouts?.workoutType || '').toLowerCase();
-        const typeMatch = workoutTypes.some(t => wType.includes(t));
+        // Strictly verify workout role (never allow opposite gender)
+        const vRole = (v.workouts?.role || '').toLowerCase().trim();
+        if (vRole && vRole !== preferredRole && vRole !== 'all') {
+          return false;
+        }
 
-        if (!primaryMatch && !typeMatch) return false;
-
-        // Check equipment match
+        const matchesMuscle = isExerciseMatchForMuscle(
+          v.exerciseName || '',
+          v.primaryMuscle,
+          v.workouts?.workoutType,
+          muscle
+        );
+        if (!matchesMuscle) return false;
         return matchesEquipment(v.exerciseName || '', v.equipment, equipment);
       });
     }
 
-    // Prioritize candidates matching user's gender
+    // Prioritize exact gender matches first, then neutral
     const exactGenderMatches: any[] = [];
     const neutralMatches: any[] = [];
-    const otherMatches: any[] = [];
 
     for (const v of candidates) {
       const vRole = (v.workouts?.role || '').toLowerCase().trim();
@@ -329,16 +562,12 @@ export async function getCustomExercises({
         exactGenderMatches.push(v);
       } else if (!vRole || vRole === 'all') {
         neutralMatches.push(v);
-      } else {
-        otherMatches.push(v);
       }
     }
 
-    // Pick prioritizing preferredRole first, then neutral, then fallback
     const prioritized = [
       ...exactGenderMatches.sort(() => 0.5 - Math.random()),
       ...neutralMatches.sort(() => 0.5 - Math.random()),
-      ...otherMatches.sort(() => 0.5 - Math.random()),
     ];
     const picked = prioritized.slice(0, limit);
 
@@ -377,24 +606,46 @@ export async function getCustomExercises({
         .slice(0, needed);
 
       for (const f of pickedFallbacks) {
-        // Try finding a video matching preferredRole for this fallback exercise
         let fVideoId: string | null = null;
         let fVideoUrl: string | null = null;
 
         try {
-          const { data: matchedVids } = await supabase
+          // 1. Try finding video by exercise name keywords strictly matching user's gender
+          const words = f.name.split(' ').filter((w: string) => w.length > 3);
+          let vidQuery = supabase
             .from('workout_videos')
             .select('workoutVideoId, videoUrl, workouts:workoutId(role)')
-            .ilike('exerciseName', `%${f.name}%`)
-            .eq('is_deleted', false)
+            .not('videoUrl', 'is', null)
+            .neq('videoUrl', '')
+            .or('is_deleted.eq.false,is_deleted.is.null')
             .limit(10);
+
+          if (words.length > 0) {
+            vidQuery = vidQuery.ilike('exerciseName', `%${words[words.length - 1]}%`);
+          }
+
+          let { data: matchedVids } = await vidQuery;
+
+          // 2. If no direct keyword match, grab videos from user's matching workouts
+          if ((!matchedVids || matchedVids.length === 0) && workoutIds.length > 0) {
+            const res = await supabase
+              .from('workout_videos')
+              .select('workoutVideoId, videoUrl, workouts:workoutId(role)')
+              .in('workoutId', workoutIds)
+              .not('videoUrl', 'is', null)
+              .neq('videoUrl', '')
+              .or('is_deleted.eq.false,is_deleted.is.null')
+              .limit(5);
+            matchedVids = res.data;
+          }
 
           if (matchedVids && matchedVids.length > 0) {
             const match = matchedVids.find((mv: any) => mv.workouts?.role?.toLowerCase() === preferredRole) ||
-                          matchedVids.find((mv: any) => !mv.workouts?.role || mv.workouts?.role?.toLowerCase() === 'all') ||
-                          matchedVids[0];
-            fVideoId = match.workoutVideoId;
-            fVideoUrl = match.videoUrl;
+                          matchedVids.find((mv: any) => !mv.workouts?.role || mv.workouts?.role?.toLowerCase() === 'all');
+            if (match) {
+              fVideoId = match.workoutVideoId;
+              fVideoUrl = match.videoUrl;
+            }
           }
         } catch {
           // ignore lookup error
@@ -479,10 +730,11 @@ export async function shuffleCustomExercise({
 
       if (matchedVids && matchedVids.length > 0) {
         const match = matchedVids.find((mv: any) => mv.workouts?.role?.toLowerCase() === preferredRole) ||
-                      matchedVids.find((mv: any) => !mv.workouts?.role || mv.workouts?.role?.toLowerCase() === 'all') ||
-                      matchedVids[0];
-        fVideoId = match.workoutVideoId;
-        fVideoUrl = match.videoUrl;
+                      matchedVids.find((mv: any) => !mv.workouts?.role || mv.workouts?.role?.toLowerCase() === 'all');
+        if (match) {
+          fVideoId = match.workoutVideoId;
+          fVideoUrl = match.videoUrl;
+        }
       }
     } catch {
       // ignore lookup error

@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, ActivityIndicator, FlatList, Modal, Image,
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Barbell, Plus, Trash, PlayCircle, ArrowLeft, ArrowsClockwise, PencilSimple, MagnifyingGlass } from 'phosphor-react-native';
+import { Barbell, Plus, Trash, PlayCircle, ArrowLeft, ArrowsClockwise, PencilSimple, MagnifyingGlass, X } from 'phosphor-react-native';
 import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
 import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 import { useDeleteWorkoutVideo } from '@/hooks/workoutVideos/useDeleteWorkoutVideo';
@@ -46,7 +46,14 @@ export default function WorkoutsScreen() {
   const [roleFilter, setRoleFilter] = useState<'all' | 'male' | 'female'>('all');
   const [stretchingFilter, setStretchingFilter] = useState<'all' | 'stretching' | 'non-stretching'>('all');
 
-  const { data: videosResponse, isLoading: isLoadingVideos, refetch: refetchVideos, isFetching } = useWorkoutVideos(page, limit, typeFilter, roleFilter, stretchingFilter);
+  const { data: videosResponse, isLoading: isLoadingVideos, refetch: refetchVideos, isFetching } = useWorkoutVideos(
+    page,
+    limit,
+    typeFilter,
+    roleFilter,
+    stretchingFilter,
+    debouncedSearchQuery
+  );
   const { data: workouts, isLoading: isLoadingWorkouts, refetch: refetchWorkouts } = useWorkouts();
   const deleteMutation = useDeleteWorkoutVideo();
 
@@ -57,7 +64,7 @@ export default function WorkoutsScreen() {
   useEffect(() => {
     setPage(1);
     setAccumulatedVideos([]);
-  }, [typeFilter, roleFilter, stretchingFilter]);
+  }, [typeFilter, roleFilter, stretchingFilter, debouncedSearchQuery]);
 
   useFocusEffect(
     useCallback(() => {
@@ -69,8 +76,8 @@ export default function WorkoutsScreen() {
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 2000);
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 350);
 
     return () => {
       clearTimeout(handler);
@@ -123,6 +130,12 @@ export default function WorkoutsScreen() {
         role: video.role || 'male',
         isStretching: video.isStretching ? 'true' : 'false',
         videoUrl: video.videoUrl || '',
+        equipment: JSON.stringify(video.equipment || ['BODY_ONLY']),
+        primaryMuscle: video.primaryMuscle || '',
+        secondaryMuscles: JSON.stringify(video.secondaryMuscles || []),
+        difficulty: video.difficulty || 'intermediate',
+        defaultSets: String(video.defaultSets ?? 3),
+        defaultReps: video.defaultReps || '10-12',
       },
     });
   };
@@ -163,29 +176,16 @@ export default function WorkoutsScreen() {
   const mappedVideos = React.useMemo(() => {
     if (!accumulatedVideos || !workouts) return [];
 
-    let filtered = accumulatedVideos;
-    if (debouncedSearchQuery) {
-      const lowerQuery = debouncedSearchQuery.toLowerCase();
-      filtered = filtered.filter((video: any) =>
-        (video.exerciseName || '').toLowerCase().includes(lowerQuery)
-      );
-    }
-
-    return filtered.map((video: any) => {
+    return accumulatedVideos.map((video: any) => {
       const workout = workouts.find((w: any) => w.workoutId === video.workoutId);
       return {
         ...video,
-        workoutType: workout ? workout.workoutType : 'unknown',
-        role: workout ? workout.role : 'male',
+        workoutType: workout ? workout.workoutType : (video.primaryMuscle?.toLowerCase() || 'general'),
+        role: workout ? workout.role : 'all',
         isStretching: workout ? workout.isStretching : false,
       };
-    }).filter((video: any) => {
-      if (roleFilter !== 'all' && video.role !== roleFilter) return false;
-      if (stretchingFilter === 'stretching' && !video.isStretching) return false;
-      if (stretchingFilter === 'non-stretching' && video.isStretching) return false;
-      return true;
     });
-  }, [accumulatedVideos, workouts, debouncedSearchQuery, roleFilter, stretchingFilter]);
+  }, [accumulatedVideos, workouts]);
 
   const renderFooter = () => {
     if (isFetching && !refreshing) {
@@ -306,23 +306,38 @@ export default function WorkoutsScreen() {
 
       <View className="px-4 pb-4">
         <View className="flex-row items-center bg-[#111622] border border-[#1F293D] rounded-xl px-4 py-3">
-          <MagnifyingGlass size={20} color="#888888" />
+          <MagnifyingGlass size={20} color={debouncedSearchQuery ? '#BEF227' : '#888888'} />
           <TextInput
             className="flex-1 ml-2 text-white font-sans text-sm p-0"
-            placeholder="Search exercises..."
+            placeholder="Search exercises by name or muscle (e.g. Elliptical)..."
             placeholderTextColor="#888888"
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCorrect={false}
             autoCapitalize="none"
+            returnKeyType="search"
           />
+          {searchQuery.length > 0 && (
+            <Pressable
+              onPress={() => {
+                setSearchQuery('');
+                setDebouncedSearchQuery('');
+              }}
+              hitSlop={8}
+              className="p-1 rounded-full bg-[#1C1C1E] active:opacity-70"
+            >
+              <X size={14} color="#BEF227" weight="bold" />
+            </Pressable>
+          )}
         </View>
       </View>
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#BEF227" />
-          <Text className="text-[#888888] text-sm mt-3">Loading workouts...</Text>
+          <Text className="text-[#888888] text-sm mt-3">
+            {debouncedSearchQuery ? `Searching for "${debouncedSearchQuery}"...` : 'Loading workouts...'}
+          </Text>
         </View>
       ) : mappedVideos.length === 0 ? (
         <ScrollView
@@ -331,18 +346,40 @@ export default function WorkoutsScreen() {
           refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           <View className="w-16 h-16 rounded-full bg-[#111622] border border-[#1F293D] items-center justify-center mb-4">
-            <Barbell size={32} color="#BEF227" weight="fill" />
+            {debouncedSearchQuery ? (
+              <MagnifyingGlass size={32} color="#BEF227" />
+            ) : (
+              <Barbell size={32} color="#BEF227" weight="fill" />
+            )}
           </View>
-          <Text className="text-xl font-semibold text-white text-center">No Workouts Found</Text>
-          <Text className="text-sm text-[#888888] text-center mt-2 mb-6 max-w-[280px]">
-            Get started by adding your first exercise workout video to the library.
+          <Text className="text-xl font-semibold text-white text-center">
+            {debouncedSearchQuery ? 'No Exercises Found' : 'No Workouts Found'}
           </Text>
-          <Pressable
-            onPress={handleAddWorkout}
-            className="w-full max-w-[200px] flex-row items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#BEF227] active:opacity-80">
-            <Plus size={18} color="#000000" weight="bold" />
-            <Text className="text-sm font-semibold text-black">Add Workout</Text>
-          </Pressable>
+          <Text className="text-sm text-[#888888] text-center mt-2 mb-6 max-w-[280px]">
+            {debouncedSearchQuery
+              ? `No exercises matched "${debouncedSearchQuery}". Try clearing filters or checking spelling.`
+              : 'Get started by adding your first exercise workout video to the library.'}
+          </Text>
+          {debouncedSearchQuery ? (
+            <Pressable
+              onPress={() => {
+                setSearchQuery('');
+                setDebouncedSearchQuery('');
+                setTypeFilter('all');
+                setRoleFilter('all');
+              }}
+              className="py-3 px-6 rounded-2xl bg-[#1C1C1E] border border-[#27272A] active:opacity-80"
+            >
+              <Text className="text-sm font-semibold text-white">Clear Search & Filters</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={handleAddWorkout}
+              className="w-full max-w-[200px] flex-row items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#BEF227] active:opacity-80">
+              <Plus size={18} color="#000000" weight="bold" />
+              <Text className="text-sm font-semibold text-black">Add Workout</Text>
+            </Pressable>
+          )}
         </ScrollView>
       ) : (
         <FlatList
@@ -359,13 +396,60 @@ export default function WorkoutsScreen() {
                     {video.exerciseName || 'Unnamed Exercise'}
                   </Text>
 
-                  <View className="flex-row mt-2">
+                  <View className="flex-row flex-wrap items-center gap-1.5 mt-2.5">
                     <View className="px-2.5 py-1 rounded-lg bg-[#111622] border border-[#1F293D]">
-                      <Text className="text-[11px] font-medium text-[#BEF227] uppercase tracking-wider">
+                      <Text className="text-[11px] font-semibold text-[#BEF227] uppercase tracking-wider">
                         {video.workoutType}
                       </Text>
                     </View>
+
+                    {video.primaryMuscle ? (
+                      <View className="px-2 py-0.5 rounded-md bg-[#1D2507] border border-[#BEF227]/40">
+                        <Text className="text-[10px] font-bold text-[#BEF227]">
+                          {video.primaryMuscle}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {video.difficulty ? (
+                      <View className={`px-2 py-0.5 rounded-md ${
+                        video.difficulty === 'beginner'
+                          ? 'bg-emerald-950/60 border border-emerald-500/40'
+                          : video.difficulty === 'advanced'
+                          ? 'bg-rose-950/60 border border-rose-500/40'
+                          : 'bg-amber-950/60 border border-amber-500/40'
+                      }`}>
+                        <Text className={`text-[10px] font-semibold uppercase ${
+                          video.difficulty === 'beginner'
+                            ? 'text-emerald-400'
+                            : video.difficulty === 'advanced'
+                            ? 'text-rose-400'
+                            : 'text-amber-400'
+                        }`}>
+                          {video.difficulty}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    <View className="px-2 py-0.5 rounded-md bg-[#161B26]">
+                      <Text className="text-[10px] font-medium text-[#888888]">
+                        {video.defaultSets || 3} sets • {video.defaultReps || '10-12'}
+                      </Text>
+                    </View>
                   </View>
+
+                  {Array.isArray(video.equipment) && video.equipment.length > 0 && (
+                    <View className="flex-row flex-wrap items-center gap-1 mt-2">
+                      <Text className="text-[10px] text-[#666666] font-medium mr-1">Equipment:</Text>
+                      {video.equipment.map((eq: string, idx: number) => (
+                        <View key={idx} className="px-1.5 py-0.5 rounded bg-[#1C1C1E]">
+                          <Text className="text-[9px] text-[#AAAAAA] font-medium">
+                            {eq.replace('_', ' ')}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
 
                 <View className="flex-row items-center gap-2">

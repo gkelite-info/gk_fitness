@@ -9,6 +9,7 @@ import {
   TextInput,
   Switch,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
@@ -36,6 +37,8 @@ import { useWaterStreak } from '@/hooks/fitness/useWaterStreak';
 import { useNotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES } from '@/hooks/notifications/useNotificationPreferences';
 import { getLocalDateString } from '@/lib/dateUtils';
 import { triggerLightHaptic, triggerMediumHaptic, triggerSuccessHaptic } from '@/lib/haptics';
+import { toast } from '@/lib/toast';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DEFAULT_WATER_GOAL_ML = 3000;
@@ -48,6 +51,25 @@ const QUICK_PRESETS = [
 
 const GOAL_PRESETS_ML = [2000, 2500, 3000, 3500, 4000];
 const REMINDER_INTERVALS = [0.5, 1, 2, 3, 4];
+
+export function formatHour12(hour: number = 8): string {
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12}:00 ${period}`;
+}
+
+export function formatHourShort(hour: number = 8): string {
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12} ${period}`;
+}
+
+const WINDOW_PRESETS = [
+  { label: 'Standard', start: 8, end: 20, desc: '8 AM – 8 PM (12h)' },
+  { label: 'All Day', start: 6, end: 23, desc: '6 AM – 11 PM (17h)' },
+  { label: 'Max Active', start: 0, end: 23, desc: '12 AM – 11 PM (23h)' },
+  { label: 'Night Shift', start: 18, end: 12, desc: '6 PM – 12 PM (18h)' },
+];
 
 export default function WaterScreen() {
   const router = useRouter();
@@ -95,6 +117,76 @@ export default function WaterScreen() {
   const [tempInterval, setTempInterval] = useState(reminderInterval);
   const [tempStartHour, setTempStartHour] = useState(reminderStartHour);
   const [tempEndHour, setTempEndHour] = useState(reminderEndHour);
+  const [pickerState, setPickerState] = useState<{ field: 'start' | 'end'; date: Date } | null>(null);
+
+  const openReminderModal = () => {
+    triggerLightHaptic();
+    setTempReminderOn(isReminderOn);
+    setTempInterval(reminderInterval);
+    let s = reminderStartHour;
+    let e = reminderEndHour;
+    if (s === e) {
+      e = (s + 12) % 24;
+    }
+    setTempStartHour(s);
+    setTempEndHour(e);
+    setIsReminderModalVisible(true);
+  };
+
+  const handleStepStart = (delta: 1 | -1) => {
+    triggerLightHaptic();
+    const nextStart = (tempStartHour + delta + 24) % 24;
+    setTempStartHour(nextStart);
+    if (nextStart === tempEndHour) {
+      setTempEndHour((tempEndHour + delta + 24) % 24);
+    }
+  };
+
+  const handleStepEnd = (delta: 1 | -1) => {
+    triggerLightHaptic();
+    const nextEnd = (tempEndHour + delta + 24) % 24;
+    setTempEndHour(nextEnd);
+    if (nextEnd === tempStartHour) {
+      setTempStartHour((tempStartHour + delta + 24) % 24);
+    }
+  };
+
+  const activeWindowInfo = useMemo(() => {
+    if (tempStartHour === tempEndHour) {
+      return {
+        hours: 0,
+        isOvernight: false,
+        isValid: false,
+        badgeText: '0 hours (Identical times)',
+        subText: 'Start and end time cannot be identical',
+        slotsCount: 0,
+      };
+    }
+
+    const rawHours = tempEndHour > tempStartHour 
+      ? tempEndHour - tempStartHour 
+      : 24 - tempStartHour + tempEndHour;
+    
+    const hours = Math.min(23, rawHours);
+    const isOvernight = tempEndHour < tempStartHour;
+    const stepMinutes = Math.max(15, Math.round(tempInterval * 60));
+    const totalMinutes = hours * 60;
+    const slotsCount = Math.floor(totalMinutes / stepMinutes) + 1;
+
+    let subText = isOvernight ? '🌙 Overnight • Ends next day' : '☀️ Same day';
+    if (hours === 23) {
+      subText = isOvernight ? '⚡ 23 hrs (Max active • Ends next day)' : '⚡ 23 hrs (Max active)';
+    }
+
+    return {
+      hours,
+      isOvernight,
+      isValid: true,
+      badgeText: `${hours} hours active`,
+      subText,
+      slotsCount,
+    };
+  }, [tempStartHour, tempEndHour, tempInterval]);
 
   const [isStreakModalVisible, setIsStreakModalVisible] = useState(false);
   const [isAddWaterModalVisible, setIsAddWaterModalVisible] = useState(false);
@@ -163,17 +255,30 @@ export default function WaterScreen() {
     }
   };
 
-  // Handle Save Reminder Preferences
-  const handleSaveReminderSettings = () => {
-    triggerSuccessHaptic();
-    updatePreference.mutate({
-      water_reminders: tempReminderOn,
-      water_mode: 'custom',
-      water_interval_hours: tempInterval,
-      water_start_hour: tempStartHour,
-      water_end_hour: tempEndHour,
-    });
-    setIsReminderModalVisible(false);
+  // Handle Save Reminder & Active Window Preferences
+  const handleSaveReminderSettings = async () => {
+    if (tempStartHour === tempEndHour) {
+      Alert.alert(
+        'Invalid Window',
+        'Start and end time cannot be identical. The active hydration window must be between 1 and 23 hours.'
+      );
+      return;
+    }
+    try {
+      triggerSuccessHaptic();
+      await updatePreference.mutateAsync({
+        water_reminders: tempReminderOn,
+        water_mode: 'custom',
+        water_interval_hours: tempInterval,
+        water_start_hour: tempStartHour,
+        water_end_hour: tempEndHour,
+      });
+      setIsReminderModalVisible(false);
+      toast.success(`Active window: ${formatHour12(tempStartHour)} – ${formatHour12(tempEndHour)}`);
+    } catch (e) {
+      console.error('Failed to save reminder settings', e);
+      Alert.alert('Error', 'Failed to save hydration settings. Please try again.');
+    }
   };
 
   // Handle Delete Confirmation
@@ -303,14 +408,7 @@ export default function WaterScreen() {
 
           {/* Right: Reminder Card */}
           <Pressable
-            onPress={() => {
-              triggerLightHaptic();
-              setTempReminderOn(isReminderOn);
-              setTempInterval(reminderInterval);
-              setTempStartHour(reminderStartHour);
-              setTempEndHour(reminderEndHour);
-              setIsReminderModalVisible(true);
-            }}
+            onPress={openReminderModal}
             className="w-[88px] bg-[#141414] border border-[#222222] rounded-2xl p-3.5 items-center active:scale-95"
           >
             <View className="w-10 h-10 rounded-xl bg-[#241530] items-center justify-center mb-1.5 border border-[#C084FC]/20">
@@ -590,7 +688,7 @@ export default function WaterScreen() {
       </Modal>
 
       {/* ============================================================
-          MODAL 3: REMINDER & NOTIFICATION SETTINGS (GOOD UX)
+          MODAL 3: ACTIVE WINDOW & REMINDER SETTINGS
       ============================================================ */}
       <Modal
         visible={isReminderModalVisible}
@@ -603,11 +701,11 @@ export default function WaterScreen() {
             className="flex-1"
             onPress={() => setIsReminderModalVisible(false)}
           />
-          <View className="bg-[#141414] border-t border-[#2A2A2A] rounded-t-3xl p-6 pb-10">
+          <View className="bg-[#141414] border-t border-[#2A2A2A] rounded-t-3xl p-6 pb-10 max-h-[88%]">
             <View className="flex-row items-center justify-between mb-5">
               <View>
-                <Text className="text-white text-xl font-bold">Hydration Reminders</Text>
-                <Text className="text-[#8E8E93] text-xs mt-0.5">Stay on track with gentle notifications</Text>
+                <Text className="text-white text-xl font-bold">Active Window & Reminders</Text>
+                <Text className="text-[#8E8E93] text-xs mt-0.5">Customize your active hours and notification schedule</Text>
               </View>
               <Pressable
                 onPress={() => setIsReminderModalVisible(false)}
@@ -617,90 +715,326 @@ export default function WaterScreen() {
               </Pressable>
             </View>
 
-            {/* Main Toggle Switch */}
-            <View className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-4 flex-row items-center justify-between mb-5">
-              <View className="flex-row items-center gap-3">
-                <View className="w-10 h-10 rounded-xl bg-[#241530] items-center justify-center border border-[#C084FC]/25">
-                  <Bell size={20} color="#C084FC" weight="bold" />
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Main Toggle Switch */}
+              <View className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-4 flex-row items-center justify-between mb-5">
+                <View className="flex-row items-center gap-3">
+                  <View className="w-10 h-10 rounded-xl bg-[#241530] items-center justify-center border border-[#C084FC]/25">
+                    <Bell size={20} color="#C084FC" weight="bold" />
+                  </View>
+                  <View>
+                    <Text className="text-white font-semibold text-base">Water Reminders</Text>
+                    <Text className="text-[#8E8E93] text-xs">
+                      {tempReminderOn ? 'Active on this device' : 'Reminders are paused'}
+                    </Text>
+                  </View>
                 </View>
-                <View>
-                  <Text className="text-white font-semibold text-base">Water Reminders</Text>
-                  <Text className="text-[#8E8E93] text-xs">
-                    {tempReminderOn ? 'Active on this device' : 'Reminders are paused'}
+
+                <Switch
+                  value={tempReminderOn}
+                  onValueChange={(val) => {
+                    triggerLightHaptic();
+                    setTempReminderOn(val);
+                  }}
+                  trackColor={{ false: '#333333', true: '#C084FC' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+
+              {/* Active Window Hours Configuration */}
+              <Text className="text-[#8E8E93] text-xs font-semibold mb-2 uppercase tracking-wider">
+                ACTIVE HYDRATION WINDOW
+              </Text>
+
+              {/* Time Pickers Row (Start & End) */}
+              <View className="flex-row gap-3 mb-3">
+                {/* Start Time Box */}
+                <View className="flex-1 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-3.5 items-center">
+                  <Text className="text-[#8E8E93] text-[11px] font-semibold uppercase mb-1">
+                    Start Time
                   </Text>
+                  <Pressable
+                    onPress={() => {
+                      triggerLightHaptic();
+                      const d = new Date();
+                      d.setHours(tempStartHour, 0, 0, 0);
+                      setPickerState({ field: 'start', date: d });
+                    }}
+                    className="py-1 px-2 rounded-lg active:bg-[#2A2A2A]"
+                  >
+                    <Text className="text-white text-lg font-extrabold text-center">
+                      {formatHour12(tempStartHour)}
+                    </Text>
+                  </Pressable>
+                  <View className="flex-row items-center gap-2 mt-2">
+                    <Pressable
+                      onPress={() => handleStepStart(-1)}
+                      className="w-9 h-9 rounded-full items-center justify-center border bg-[#262626] border-[#383838] active:bg-[#333333]"
+                    >
+                      <Minus size={16} color="#FFFFFF" weight="bold" />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleStepStart(1)}
+                      className="w-9 h-9 rounded-full items-center justify-center border bg-[#262626] border-[#383838] active:bg-[#333333]"
+                    >
+                      <Plus size={16} color="#FFFFFF" weight="bold" />
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* End Time Box */}
+                <View className="flex-1 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-3.5 items-center">
+                  <Text className="text-[#8E8E93] text-[11px] font-semibold uppercase mb-1">
+                    End Time
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      triggerLightHaptic();
+                      const d = new Date();
+                      d.setHours(tempEndHour, 0, 0, 0);
+                      setPickerState({ field: 'end', date: d });
+                    }}
+                    className="py-1 px-2 rounded-lg active:bg-[#2A2A2A]"
+                  >
+                    <Text className="text-white text-lg font-extrabold text-center">
+                      {formatHour12(tempEndHour)}
+                    </Text>
+                  </Pressable>
+                  <View className="flex-row items-center gap-2 mt-2">
+                    <Pressable
+                      onPress={() => handleStepEnd(-1)}
+                      className="w-9 h-9 rounded-full items-center justify-center border bg-[#262626] border-[#383838] active:bg-[#333333]"
+                    >
+                      <Minus size={16} color="#FFFFFF" weight="bold" />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleStepEnd(1)}
+                      className="w-9 h-9 rounded-full items-center justify-center border bg-[#262626] border-[#383838] active:bg-[#333333]"
+                    >
+                      <Plus size={16} color="#FFFFFF" weight="bold" />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
 
-              <Switch
-                value={tempReminderOn}
-                onValueChange={(val) => {
-                  triggerLightHaptic();
-                  setTempReminderOn(val);
-                }}
-                trackColor={{ false: '#333333', true: '#C084FC' }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-
-            {tempReminderOn && (
-              <>
-                {/* Interval Selection */}
-                <Text className="text-[#8E8E93] text-xs font-semibold mb-2">REMIND FREQUENCY</Text>
-                <View className="flex-row gap-1.5 mb-5">
-                  {REMINDER_INTERVALS.map((hrs) => {
-                    const isSelected = tempInterval === hrs;
-                    return (
-                      <Pressable
-                        key={hrs}
-                        onPress={() => {
-                          triggerLightHaptic();
-                          setTempInterval(hrs);
-                        }}
-                        className={`flex-1 py-3 px-1 rounded-xl border items-center justify-center ${
-                          isSelected
-                            ? 'bg-[#C084FC]/20 border-[#C084FC]'
-                            : 'bg-[#1A1A1A] border-[#2A2A2A]'
-                        }`}
-                      >
-                        <Text
-                          numberOfLines={1}
-                          adjustsFontSizeToFit
-                          className={`text-[11px] font-bold text-center ${
-                            isSelected ? 'text-[#C084FC]' : 'text-white'
-                          }`}
-                        >
-                          {hrs === 0.5 ? '30 min' : `${hrs} hr`}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* Active Hours Summary */}
-                <View className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-4 mb-6">
+              {/* Active Window Duration Pill or Collision Alert */}
+              {!activeWindowInfo.isValid ? (
+                <View className="bg-red-950/40 border border-red-500/50 rounded-2xl px-4 py-3 mb-4">
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-white text-sm font-semibold">Active Window</Text>
-                    <Text className="text-[#C084FC] text-xs font-bold">
-                      {tempStartHour}:00 AM - {tempEndHour > 12 ? `${tempEndHour - 12}:00 PM` : `${tempEndHour}:00 AM`}
-                    </Text>
+                    <View className="flex-row items-center gap-2">
+                      <Clock size={16} color="#EF4444" weight="bold" />
+                      <Text className="text-red-400 text-xs font-bold">
+                        Invalid Window (0 hours)
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => {
+                        triggerLightHaptic();
+                        setTempEndHour((tempStartHour + 1) % 24);
+                      }}
+                      className="bg-red-500/20 px-2.5 py-1 rounded-lg border border-red-500/40 active:opacity-75"
+                    >
+                      <Text className="text-red-300 text-[11px] font-bold">Fix (+1 hr)</Text>
+                    </Pressable>
                   </View>
-                  <Text className="text-[#8E8E93] text-xs mt-1.5 leading-4">
-                    Reminders will automatically run between your active waking hours and pause at night so your sleep is not disturbed.
+                  <Text className="text-red-300/80 text-[11px] mt-1.5">
+                    Start and end times are both {formatHour12(tempStartHour)}. The active window must be between 1 and 23 hours.
                   </Text>
                 </View>
-              </>
-            )}
+              ) : (
+                <View className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl px-4 py-2.5 mb-4 flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-2">
+                    <Clock size={16} color="#C084FC" weight="bold" />
+                    <View>
+                      <Text className="text-white text-xs font-bold">
+                        {activeWindowInfo.badgeText}
+                      </Text>
+                      <Text className="text-[#8E8E93] text-[10px] mt-0.5">
+                        {activeWindowInfo.subText}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-[#C084FC] text-xs font-semibold">
+                    {tempReminderOn ? `~${activeWindowInfo.slotsCount} reminders/day` : 'Reminders paused'}
+                  </Text>
+                </View>
+              )}
 
-            {/* Save Preferences Button */}
-            <Pressable
-              onPress={handleSaveReminderSettings}
-              className="bg-[#C084FC] py-4 rounded-2xl items-center active:opacity-80"
-            >
-              <Text className="text-black font-bold text-base">Save Notification Settings</Text>
-            </Pressable>
+              {/* Quick Presets */}
+              <Text className="text-[#8E8E93] text-xs font-semibold mb-2">QUICK PRESETS</Text>
+              <View className="flex-row flex-wrap gap-2 mb-5">
+                {WINDOW_PRESETS.map((p) => {
+                  const isSelected = tempStartHour === p.start && tempEndHour === p.end;
+                  return (
+                    <Pressable
+                      key={p.label}
+                      onPress={() => {
+                        triggerLightHaptic();
+                        setTempStartHour(p.start);
+                        setTempEndHour(p.end);
+                      }}
+                      className={`py-2 px-3 rounded-xl border flex-1 min-w-[45%] items-center ${
+                        isSelected
+                          ? 'bg-[#C084FC]/20 border-[#C084FC]'
+                          : 'bg-[#1A1A1A] border-[#2A2A2A]'
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-bold ${
+                          isSelected ? 'text-[#C084FC]' : 'text-white'
+                        }`}
+                      >
+                        {p.label}
+                      </Text>
+                      <Text className="text-[#8E8E93] text-[10px] mt-0.5">{p.desc}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {tempReminderOn && (
+                <>
+                  {/* Interval Selection */}
+                  <Text className="text-[#8E8E93] text-xs font-semibold mb-2 uppercase tracking-wider">
+                    Remind Frequency
+                  </Text>
+                  <View className="flex-row gap-1.5 mb-5">
+                    {REMINDER_INTERVALS.map((hrs) => {
+                      const isSelected = tempInterval === hrs;
+                      return (
+                        <Pressable
+                          key={hrs}
+                          onPress={() => {
+                            triggerLightHaptic();
+                            setTempInterval(hrs);
+                          }}
+                          className={`flex-1 py-3 px-1 rounded-xl border items-center justify-center ${
+                            isSelected
+                              ? 'bg-[#C084FC]/20 border-[#C084FC]'
+                              : 'bg-[#1A1A1A] border-[#2A2A2A]'
+                          }`}
+                        >
+                          <Text
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            className={`text-[11px] font-bold text-center ${
+                              isSelected ? 'text-[#C084FC]' : 'text-white'
+                            }`}
+                          >
+                            {hrs === 0.5 ? '30 min' : `${hrs} hr`}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {/* Save Preferences Button */}
+              <Pressable
+                onPress={handleSaveReminderSettings}
+                disabled={updatePreference.isPending || !activeWindowInfo.isValid}
+                className={`py-4 rounded-2xl items-center mt-2 mb-2 ${
+                  !activeWindowInfo.isValid
+                    ? 'bg-[#2A2A2A] opacity-50'
+                    : 'bg-[#C084FC] active:opacity-80'
+                }`}
+              >
+                {updatePreference.isPending ? (
+                  <ActivityIndicator color="#000000" size="small" />
+                ) : (
+                  <Text
+                    className={`font-bold text-base ${
+                      !activeWindowInfo.isValid ? 'text-[#8E8E93]' : 'text-black'
+                    }`}
+                  >
+                    {!activeWindowInfo.isValid ? 'Set Valid Window (Min 1 hr)' : 'Save Active Window'}
+                  </Text>
+                )}
+              </Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>
+
+      {/* Platform Native Time Picker */}
+      {Platform.OS === 'android' && pickerState && (
+        <DateTimePicker
+          value={pickerState.date}
+          mode="time"
+          is24Hour={false}
+          display="default"
+          onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
+            if (event.type === 'set' && selectedDate) {
+              const pickedHour = selectedDate.getHours();
+              if (pickerState.field === 'start') {
+                setTempStartHour(pickedHour);
+                if (pickedHour === tempEndHour) {
+                  const newEnd = (pickedHour + 1) % 24;
+                  setTempEndHour(newEnd);
+                  toast.info(`End time adjusted to ${formatHourShort(newEnd)} (min 1h window)`);
+                }
+              } else {
+                if (pickedHour === tempStartHour) {
+                  const newEnd = (pickedHour + 1) % 24;
+                  setTempEndHour(newEnd);
+                  toast.info(`End time adjusted to ${formatHourShort(newEnd)} (min 1h window)`);
+                } else {
+                  setTempEndHour(pickedHour);
+                }
+              }
+            }
+            setPickerState(null);
+          }}
+        />
+      )}
+
+      {Platform.OS === 'ios' && (
+        <Modal visible={!!pickerState} transparent animationType="fade">
+          <View className="flex-1 bg-black/70 justify-end">
+            <View className="bg-[#1A1A1A] border-t border-[#2A2A2A] rounded-t-3xl p-5 pb-9">
+              <View className="flex-row justify-between items-center pb-3 border-b border-[#2A2A2A]">
+                <Pressable onPress={() => setPickerState(null)}>
+                  <Text className="text-[#8E8E93] text-base font-medium">Cancel</Text>
+                </Pressable>
+                <Text className="text-white font-bold text-base">
+                  Select {pickerState?.field === 'start' ? 'Start' : 'End'} Time
+                </Text>
+                <Pressable onPress={() => setPickerState(null)}>
+                  <Text className="text-[#C084FC] font-bold text-base">Done</Text>
+                </Pressable>
+              </View>
+              <DateTimePicker
+                value={pickerState?.date || new Date()}
+                mode="time"
+                display="spinner"
+                textColor="#FFFFFF"
+                themeVariant="dark"
+                onChange={(_event: DateTimePickerEvent, selectedDate?: Date) => {
+                  if (selectedDate && pickerState) {
+                    const pickedHour = selectedDate.getHours();
+                    if (pickerState.field === 'start') {
+                      setTempStartHour(pickedHour);
+                      if (pickedHour === tempEndHour) {
+                        const newEnd = (pickedHour + 1) % 24;
+                        setTempEndHour(newEnd);
+                      }
+                    } else {
+                      if (pickedHour === tempStartHour) {
+                        const newEnd = (pickedHour + 1) % 24;
+                        setTempEndHour(newEnd);
+                      } else {
+                        setTempEndHour(pickedHour);
+                      }
+                    }
+                    setPickerState({ ...pickerState, date: selectedDate });
+                  }
+                }}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
 
       {/* ============================================================
           MODAL 4: HYDRATION STREAK & STATS

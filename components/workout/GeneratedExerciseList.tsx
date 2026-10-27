@@ -136,12 +136,12 @@ function ExerciseCard({
 
         {/* Info */}
         <View className="flex-1 mr-2">
-          <Text className="text-white text-sm font-bold" numberOfLines={1}>
+          <Text className="text-white text-sm font-semibold" numberOfLines={1}>
             {item.exercise_name || (item as any)?.exerciseName}
           </Text>
           <View className="flex-row items-center gap-1.5 mt-0.5">
             <View className="bg-[#1A2000] px-1.5 py-0.5 rounded-md border border-[#C4EF00]/20">
-              <Text className="text-[#C4EF00] text-[10px] font-bold">{muscleName}</Text>
+              <Text className="text-[#C4EF00] text-[10px] font-semibold">{muscleName}</Text>
             </View>
             <Text className="text-[#71717A] text-[11px] font-medium">
               {item.default_sets} sets · {item.default_reps}
@@ -270,7 +270,7 @@ export function GeneratedExerciseList({
   return (
     <View className="w-full">
       <View className="flex-row items-center justify-between mb-3 px-1">
-        <Text className="text-[#C4EF00] text-xs font-bold tracking-wider uppercase">
+        <Text className="text-[#C4EF00] text-xs font-semibold tracking-wider uppercase">
           {exercises.length} Exercises Generated
         </Text>
         <Text className="text-[#71717A] text-[11px] font-medium">Tap to view video & details</Text>

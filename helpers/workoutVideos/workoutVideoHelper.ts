@@ -9,6 +9,12 @@ export interface WorkoutVideoAttributes {
   workoutId: string;
   videoUrl: string;
   exerciseName?: string | null;
+  equipment?: string[] | null;
+  primaryMuscle?: string | null;
+  secondaryMuscles?: string[] | null;
+  difficulty?: string | null;
+  defaultSets?: number | null;
+  defaultReps?: string | null;
   is_deleted?: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -20,6 +26,12 @@ export interface SaveWorkoutVideoParams {
   workoutId: string;
   videoUrl: string;
   exerciseName?: string;
+  equipment?: string[];
+  primaryMuscle?: string | null;
+  secondaryMuscles?: string[];
+  difficulty?: string;
+  defaultSets?: number;
+  defaultReps?: string;
 }
 
 export function mapWorkoutTypeToDbEnums(workoutType?: string): string[] {
@@ -75,7 +87,8 @@ export async function fetchWorkoutVideos(
   limit: number = 10,
   workoutType: string = 'all',
   role: string = 'all',
-  isStretching: string = 'all'
+  isStretching: string = 'all',
+  searchQuery: string = ''
 ) {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
@@ -86,12 +99,18 @@ export async function fetchWorkoutVideos(
     .or('is_deleted.eq.false,is_deleted.is.null')
     .order('createdAt', { ascending: false });
 
+  // 1. Server-side search filter across exerciseName and primaryMuscle
+  const cleanSearch = (searchQuery || '').trim();
+  if (cleanSearch) {
+    query = query.or(`exerciseName.ilike.%${cleanSearch}%,primaryMuscle.ilike.%${cleanSearch}%`);
+  }
+
   const mappedTypes = mapWorkoutTypeToDbEnums(workoutType);
   const normalizedRole = (role || 'all').toLowerCase().trim();
   const isRoleFilterActive = normalizedRole === 'male' || normalizedRole === 'female';
 
   if (mappedTypes.length > 0 || isRoleFilterActive || isStretching !== 'all') {
-    const buildWorkoutsQuery = (applyRole: boolean) => {
+    const buildWorkoutsQuery = () => {
       let q = supabase
         .from('workouts')
         .select('workoutId')
@@ -103,7 +122,8 @@ export async function fetchWorkoutVideos(
         q = q.in('workoutType', mappedTypes);
       }
 
-      if (applyRole && isRoleFilterActive) {
+      // Strictly enforce gender role without cross-gender leakage
+      if (isRoleFilterActive) {
         q = q.eq('role', normalizedRole);
       }
 
@@ -118,24 +138,19 @@ export async function fetchWorkoutVideos(
       return q;
     };
 
-    let { data: matchedWorkouts, error: workoutsError } = await buildWorkoutsQuery(true);
+    const { data: matchedWorkouts, error: workoutsError } = await buildWorkoutsQuery();
 
     if (workoutsError) {
       console.warn('[workoutVideoHelper] workoutsQuery error:', workoutsError);
     }
 
-    let workoutIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
-
-    // Fallback 1: If role was filtered (e.g. 'female' or 'male') but no workouts were found, try matching without the role filter
-    if (workoutIds.length === 0 && isRoleFilterActive) {
-      const fallbackRes = await buildWorkoutsQuery(false);
-      workoutIds = fallbackRes.data?.map((w: any) => w.workoutId) || [];
-    }
+    const workoutIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
 
     if (workoutIds.length > 0) {
       query = query.in('workoutId', workoutIds);
     } else {
-      console.warn(`[workoutVideoHelper] No workouts matched for type="${workoutType}" and role="${role}".`);
+      // If a specific filter was requested and 0 parent workouts matched, return empty result
+      return { data: [], total: 0 };
     }
   }
 
@@ -149,20 +164,31 @@ export async function fetchWorkoutVideos(
     throw error;
   }
 
-  // Fallback 2: If on page 1 the returned data is completely empty,
-  // do a safety fallback so the user NEVER gets an empty recommended/more exercises screen!
-  if ((!data || data.length === 0) && page === 1 && workoutType !== 'all') {
-    const fallbackQuery = await supabase
+  // Fallback: only when not searching and on page 1, if empty, fetch neutral fallback respecting role
+  if ((!data || data.length === 0) && page === 1 && workoutType !== 'all' && !cleanSearch) {
+    let fallbackQuery = supabase
       .from('workout_videos')
       .select('*', { count: 'exact' })
       .or('is_deleted.eq.false,is_deleted.is.null')
-      .order('createdAt', { ascending: false })
-      .range(from, to);
+      .order('createdAt', { ascending: false });
 
-    if (fallbackQuery.data && fallbackQuery.data.length > 0) {
+    if (isRoleFilterActive) {
+      const { data: roleWorkouts } = await supabase
+        .from('workouts')
+        .select('workoutId')
+        .eq('role', normalizedRole)
+        .or('is_deleted.eq.false,is_deleted.is.null');
+      const rIds = roleWorkouts?.map((w: any) => w.workoutId) || [];
+      if (rIds.length > 0) {
+        fallbackQuery = fallbackQuery.in('workoutId', rIds);
+      }
+    }
+
+    const fallbackRes = await fallbackQuery.range(from, to);
+    if (fallbackRes.data && fallbackRes.data.length > 0) {
       return {
-        data: fallbackQuery.data,
-        total: fallbackQuery.count ?? fallbackQuery.data.length,
+        data: fallbackRes.data,
+        total: fallbackRes.count ?? fallbackRes.data.length,
       };
     }
   }
@@ -209,14 +235,23 @@ export async function saveWorkoutVideo(videoData: SaveWorkoutVideoParams) {
   const now = new Date().toISOString();
 
   if (videoData.workoutVideoId) {
+    const updatePayload: any = {
+      workoutId: videoData.workoutId,
+      videoUrl: videoData.videoUrl,
+      exerciseName: videoData.exerciseName,
+      updatedAt: now,
+    };
+
+    if (videoData.equipment !== undefined) updatePayload.equipment = videoData.equipment;
+    if (videoData.primaryMuscle !== undefined) updatePayload.primaryMuscle = videoData.primaryMuscle;
+    if (videoData.secondaryMuscles !== undefined) updatePayload.secondaryMuscles = videoData.secondaryMuscles;
+    if (videoData.difficulty !== undefined) updatePayload.difficulty = videoData.difficulty;
+    if (videoData.defaultSets !== undefined) updatePayload.defaultSets = videoData.defaultSets;
+    if (videoData.defaultReps !== undefined) updatePayload.defaultReps = videoData.defaultReps;
+
     const { data, error } = await supabase
       .from('workout_videos')
-      .update({
-        workoutId: videoData.workoutId,
-        videoUrl: videoData.videoUrl,
-        exerciseName: videoData.exerciseName,
-        updatedAt: now,
-      })
+      .update(updatePayload)
       .eq('workoutVideoId', videoData.workoutVideoId)
       .select();
 
@@ -236,6 +271,12 @@ export async function saveWorkoutVideo(videoData: SaveWorkoutVideoParams) {
           workoutId: videoData.workoutId,
           videoUrl: videoData.videoUrl,
           exerciseName: videoData.exerciseName || null,
+          equipment: videoData.equipment || ['BODY_ONLY'],
+          primaryMuscle: videoData.primaryMuscle || null,
+          secondaryMuscles: videoData.secondaryMuscles || [],
+          difficulty: videoData.difficulty || 'intermediate',
+          defaultSets: videoData.defaultSets ?? 3,
+          defaultReps: videoData.defaultReps || '10-12',
           is_deleted: false,
           createdAt: now,
           updatedAt: now,

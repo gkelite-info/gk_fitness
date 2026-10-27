@@ -392,23 +392,34 @@ export async function cancelWaterReminders() {
 }
 
 function getWaterReminderMessage(hour: number, minute: number, isFirst: boolean, isLast: boolean): { title: string; body: string } {
-  // First reminder of the day (if scheduled in early morning)
-  if (isFirst && hour <= 9) {
+  // First reminder of the active hydration window
+  if (isFirst) {
     return {
-      title: '💧 Morning Hydration',
-      body: 'Start your day right! Drink a refreshing glass of water to wake up your body.',
+      title: '💧 Hydration Window Started',
+      body: 'Time for your first glass of water to kick off your hydration window!',
     };
   }
 
-  // Last reminder of the day (evening wind-down)
-  if (isLast || hour >= 21) {
+  // Last reminder of the active hydration window
+  if (isLast) {
     return {
-      title: '💧 Evening Hydration',
-      body: 'One last light glass of water before winding down for a restful night.',
+      title: '💧 Hydration Window Ending',
+      body: 'Final water reminder of your active window! Stay refreshed and hit your goal.',
     };
   }
 
-  // Morning window: 4 AM - 11:59 AM
+  // Late night / night shift window: 10 PM - 4:59 AM (22:00 - 04:59)
+  if (hour >= 22 || hour < 5) {
+    const nightPool = [
+      { title: '💧 Night Hydration', body: 'Staying active? Drink a glass of water to stay refreshed.' },
+      { title: '💧 Hydration Check', body: 'Keep sipping water to keep your body balanced through the night.' },
+      { title: '💧 Water Break', body: 'A quick sip of water to keep your energy and focus steady.' },
+    ];
+    const index = (hour * 2 + (minute >= 30 ? 1 : 0)) % nightPool.length;
+    return nightPool[index];
+  }
+
+  // Morning window: 5 AM - 11:59 AM (05:00 - 11:59)
   if (hour < 12) {
     const morningPool = [
       { title: '💧 Morning Hydration', body: 'Stay fresh and energized. Time for a glass of water!' },
@@ -420,7 +431,7 @@ function getWaterReminderMessage(hour: number, minute: number, isFirst: boolean,
     return morningPool[index];
   }
 
-  // Mid-day / Lunch window: 12 PM - 1:59 PM
+  // Mid-day / Lunch window: 12 PM - 1:59 PM (12:00 - 13:59)
   if (hour < 14) {
     const middayPool = [
       { title: '💧 Mid-day Refresh', body: 'Keep your energy high. Grab a glass of water with your lunch!' },
@@ -443,7 +454,7 @@ function getWaterReminderMessage(hour: number, minute: number, isFirst: boolean,
     return afternoonPool[index];
   }
 
-  // Evening window: 5 PM - 8:59 PM (17:00 - 20:59)
+  // Evening window: 5 PM - 9:59 PM (17:00 - 21:59)
   const eveningPool = [
     { title: '💧 Evening Hydration', body: 'Unwind and rehydrate after your daily activities.' },
     { title: '💧 Hydration Check', body: 'Almost hit your daily goal? Keep drinking water this evening!' },
@@ -458,15 +469,32 @@ export async function scheduleWaterReminders(startHour = 8, endHour = 20, interv
   if (!Notifications) return;
   await cancelWaterReminders();
 
-  const reminderSlots: { hour: number; minute: number }[] = [];
-  const stepMinutes = Math.max(15, Math.round(interval * 60));
-  const startTotalMinutes = startHour * 60;
-  const endTotalMinutes = endHour * 60;
+  // Robustly sanitize inputs (hours in 0..23, interval between 0.5 and 12)
+  let sHour = Math.floor(Math.max(0, Math.min(23, Number(startHour) || 0)));
+  let eHour = Math.floor(Math.max(0, Math.min(23, Number(endHour) || 0)));
+  const stepMinutes = Math.max(15, Math.round(Math.max(0.5, Math.min(12, Number(interval) || 2)) * 60));
 
-  for (let m = startTotalMinutes; m <= endTotalMinutes; m += stepMinutes) {
-    const hour = Math.floor(m / 60);
-    const minute = m % 60;
-    reminderSlots.push({ hour, minute });
+  // Edge case: A window cannot have 0 duration (start === end); auto-adjust eHour to standard 12-hour window
+  if (sHour === eHour) {
+    eHour = (sHour + 12) % 24;
+  }
+
+  let totalMinutesSpan = eHour > sHour
+    ? (eHour - sHour) * 60
+    : (24 - sHour + eHour) * 60;
+
+  // Cap active window span at 23 hours max (never 24h or full day wrap)
+  totalMinutesSpan = Math.min(totalMinutesSpan, 23 * 60);
+
+  const reminderSlots: { hour: number; minute: number }[] = [];
+
+  for (let offset = 0; offset <= totalMinutesSpan; offset += stepMinutes) {
+    const totalMinuteOfDay = (sHour * 60 + offset) % (24 * 60);
+    const hour = Math.floor(totalMinuteOfDay / 60);
+    const minute = totalMinuteOfDay % 60;
+    if (!reminderSlots.some((s) => s.hour === hour && s.minute === minute)) {
+      reminderSlots.push({ hour, minute });
+    }
   }
 
   if (reminderSlots.length === 0) return;

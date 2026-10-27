@@ -64,7 +64,7 @@ function StepHeader({ currentStep }: { currentStep: number }) {
                   <Check size={14} color="#C4EF00" weight="bold" />
                 ) : (
                   <Text
-                    className={`text-xs font-bold ${isActive ? 'text-black' : 'text-[#555]'}`}
+                    className={`text-xs font-semibold ${isActive ? 'text-black' : 'text-[#555]'}`}
                   >
                     {step.number}
                   </Text>
@@ -120,8 +120,9 @@ export function CustomWorkoutBuilder() {
 
   const rawGender = (
     (userContext.role === 'customer' ? customerProfileData?.customerData?.gender : null) ||
-    userContext.gender ||
     customerProfileData?.customerData?.gender ||
+    customerProfileData?.onboardingData?.gender ||
+    userContext.gender ||
     'male'
   ).toString().trim().toLowerCase();
 
@@ -230,7 +231,7 @@ export function CustomWorkoutBuilder() {
 
       {/* Step heading */}
       <View className="mb-5">
-        <Text className="text-white text-xl font-bold mb-1">{stepInfo.title}</Text>
+        <Text className="text-white text-xl font-semibold mb-1">{stepInfo.title}</Text>
         <Text className="text-[#8E8E8E] text-sm">{stepInfo.description}</Text>
       </View>
 
@@ -288,7 +289,7 @@ export function CustomWorkoutBuilder() {
             `}
           >
             <Text
-              className={`font-bold text-sm ${canProceedToNext ? 'text-black' : 'text-[#666]'}`}
+              className={`font-semibold text-sm ${canProceedToNext ? 'text-black' : 'text-[#666]'}`}
             >
               {currentStep === 1 ? 'Target Muscles' : 'Generate Workout'}
             </Text>
@@ -313,7 +314,7 @@ export function CustomWorkoutBuilder() {
             ) : (
               <>
                 <Lightning size={18} color="#000000" weight="fill" />
-                <Text className="text-black font-bold text-sm">Start Workout</Text>
+                <Text className="text-black font-semibold text-sm">Start Workout</Text>
               </>
             )}
           </Pressable>

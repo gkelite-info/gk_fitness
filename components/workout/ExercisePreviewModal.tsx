@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { View, Pressable, Modal, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Pressable, Modal, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { X, Barbell, Lightbulb, Play, Pause, ArrowsClockwise } from 'phosphor-react-native';
 import { Video, ResizeMode } from '@/components/ui/Video';
 import { supabase } from '@/lib/supabase';
 import { GeneratedExercise, MuscleValue } from '@/hooks/customWorkout/useCustomWorkoutBuilder';
+import { MUSCLE_TO_WORKOUT_TYPES } from '@/helpers/customWorkout/customWorkoutHelper';
 import { MUSCLE_LABELS } from './MuscleBodyMap';
 import { triggerLightHaptic } from '@/lib/haptics';
 
@@ -26,6 +27,8 @@ export function ExercisePreviewModal({
   userGender,
 }: ExercisePreviewModalProps) {
   const [isPlaying, setIsPlaying] = useState(true);
+  const [dynamicVideo, setDynamicVideo] = useState<string | null>(null);
+  const [isResolvingVideo, setIsResolvingVideo] = useState(false);
 
   const rawVideo = useMemo(() => {
     if (exercise?.video_url || (exercise as any)?.videoUrl) {
@@ -47,9 +50,122 @@ export function ExercisePreviewModal({
     return null;
   }, [exercise, userGender]);
 
+  // If exercise object lacked video_url, dynamically resolve it from workout_videos in Supabase
+  useEffect(() => {
+    if (!visible || !exercise) {
+      setDynamicVideo(null);
+      setIsResolvingVideo(false);
+      return;
+    }
+
+    if (rawVideo) {
+      setDynamicVideo(null);
+      setIsResolvingVideo(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsResolvingVideo(true);
+
+    (async () => {
+      try {
+        const preferredRole = (userGender || 'male').toLowerCase().trim().includes('female') ? 'female' : 'male';
+        const exName = exercise.exercise_name || (exercise as any)?.exerciseName || '';
+        const muscle = (exercise.muscle_group as MuscleValue) || 'CHEST';
+        const targetTypes = MUSCLE_TO_WORKOUT_TYPES[muscle] || [];
+
+        // 1. Try finding by workoutVideoId if valid
+        const vidId = exercise.workoutVideoId || (exercise as any)?.workout_video_id;
+        if (vidId && !vidId.startsWith('fallback-')) {
+          const { data: byId } = await supabase
+            .from('workout_videos')
+            .select('videoUrl')
+            .eq('workoutVideoId', vidId)
+            .maybeSingle();
+
+          if (!isCancelled && byId?.videoUrl) {
+            setDynamicVideo(byId.videoUrl);
+            return;
+          }
+        }
+
+        // 2. Try finding by exerciseName keywords
+        const keywords = exName
+          .replace(/[^\w\s]/g, '')
+          .split(' ')
+          .filter((w: string) => w.length > 2 && !['and', 'the', 'for', 'with'].includes(w.toLowerCase()));
+
+        if (keywords.length > 0) {
+          const lastWord = keywords[keywords.length - 1];
+          let { data: byName } = await supabase
+            .from('workout_videos')
+            .select('videoUrl, workouts:workoutId(role, workoutType)')
+            .ilike('exerciseName', `%${lastWord}%`)
+            .not('videoUrl', 'is', null)
+            .neq('videoUrl', '')
+            .or('is_deleted.eq.false,is_deleted.is.null')
+            .limit(10);
+
+          if (!isCancelled && byName && byName.length > 0) {
+            const match =
+              byName.find((v: any) => v.workouts?.role?.toLowerCase() === preferredRole) ||
+              byName.find((v: any) => !v.workouts?.role || v.workouts?.role?.toLowerCase() === 'all') ||
+              byName[0];
+            if (match?.videoUrl) {
+              setDynamicVideo(match.videoUrl);
+              return;
+            }
+          }
+        }
+
+        // 3. Fallback to ANY video matching this muscle category from DB
+        if (targetTypes.length > 0) {
+          const { data: matchedWorkouts } = await supabase
+            .from('workouts')
+            .select('workoutId')
+            .in('workoutType', targetTypes)
+            .or('is_deleted.eq.false,is_deleted.is.null');
+
+          const wIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
+          if (wIds.length > 0) {
+            const { data: byType } = await supabase
+              .from('workout_videos')
+              .select('videoUrl, workouts:workoutId(role)')
+              .in('workoutId', wIds)
+              .not('videoUrl', 'is', null)
+              .neq('videoUrl', '')
+              .or('is_deleted.eq.false,is_deleted.is.null')
+              .limit(10);
+
+            if (!isCancelled && byType && byType.length > 0) {
+              const match =
+                byType.find((v: any) => v.workouts?.role?.toLowerCase() === preferredRole) ||
+                byType.find((v: any) => !v.workouts?.role || v.workouts?.role?.toLowerCase() === 'all') ||
+                byType[0];
+              if (match?.videoUrl) {
+                setDynamicVideo(match.videoUrl);
+                return;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[ExercisePreviewModal] Video dynamic resolution error:', err);
+      } finally {
+        if (!isCancelled) setIsResolvingVideo(false);
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [visible, exercise, rawVideo, userGender]);
+
+  const effectiveRawVideo = rawVideo || dynamicVideo;
+
   const videoUri = useMemo(() => {
-    if (!rawVideo) return null;
-    const url = String(rawVideo).trim();
+    if (!effectiveRawVideo) return null;
+    const url = String(effectiveRawVideo).trim();
     if (
       url.startsWith('http://') ||
       url.startsWith('https://') ||
@@ -59,7 +175,7 @@ export function ExercisePreviewModal({
       return url;
     }
     return supabase.storage.from('workout-videos').getPublicUrl(url).data.publicUrl;
-  }, [rawVideo]);
+  }, [effectiveRawVideo]);
 
   if (!exercise) return null;
 
@@ -87,12 +203,12 @@ export function ExercisePreviewModal({
           {/* Modal Header */}
           <View className="flex-row items-center justify-between px-5 py-2">
             <View className="flex-1 mr-3">
-              <Text className="text-white text-lg font-bold" numberOfLines={1}>
+              <Text className="text-white text-lg font-semibold" numberOfLines={1}>
                 {title}
               </Text>
               <View className="flex-row items-center gap-2 mt-1">
                 <View className="bg-[#1A2000] px-2 py-0.5 rounded-md border border-[#C4EF00]/30">
-                  <Text className="text-[#C4EF00] text-[11px] font-bold tracking-wide">
+                  <Text className="text-[#C4EF00] text-[11px] font-semibold tracking-wide">
                     {muscleName}
                   </Text>
                 </View>
@@ -143,6 +259,13 @@ export function ExercisePreviewModal({
                     )}
                   </Pressable>
                 </>
+              ) : isResolvingVideo ? (
+                <View className="items-center justify-center p-6">
+                  <ActivityIndicator size="small" color="#C4EF00" />
+                  <Text className="text-[#A1A1AA] text-xs mt-2 font-medium">
+                    Loading video demonstration...
+                  </Text>
+                </View>
               ) : (
                 <View className="items-center justify-center p-6">
                   <Barbell size={40} color="#3F3F46" weight="fill" />
@@ -156,7 +279,7 @@ export function ExercisePreviewModal({
             {/* Quick Metrics Cards */}
             <View className="flex-row gap-3 mb-4">
               <View className="flex-1 bg-[#1A1A1D] border border-[#27272A] p-3 rounded-2xl items-center">
-                <Text className="text-[#71717A] text-[10px] font-bold uppercase tracking-wider mb-1">
+                <Text className="text-[#71717A] text-[10px] font-semibold uppercase tracking-wider mb-1">
                   SETS
                 </Text>
                 <Text className="text-[#C4EF00] text-xl font-black">
@@ -165,7 +288,7 @@ export function ExercisePreviewModal({
               </View>
 
               <View className="flex-1 bg-[#1A1A1D] border border-[#27272A] p-3 rounded-2xl items-center">
-                <Text className="text-[#71717A] text-[10px] font-bold uppercase tracking-wider mb-1">
+                <Text className="text-[#71717A] text-[10px] font-semibold uppercase tracking-wider mb-1">
                   REPS
                 </Text>
                 <Text className="text-white text-xl font-black">
@@ -174,10 +297,10 @@ export function ExercisePreviewModal({
               </View>
 
               <View className="flex-1 bg-[#1A1A1D] border border-[#27272A] p-3 rounded-2xl items-center">
-                <Text className="text-[#71717A] text-[10px] font-bold uppercase tracking-wider mb-1">
+                <Text className="text-[#71717A] text-[10px] font-semibold uppercase tracking-wider mb-1">
                   LEVEL
                 </Text>
-                <Text className="text-[#A1A1AA] text-xs font-bold mt-1">
+                <Text className="text-[#A1A1AA] text-xs font-semibold mt-1">
                   {difficulty}
                 </Text>
               </View>
@@ -189,7 +312,7 @@ export function ExercisePreviewModal({
                 <View className="w-6 h-6 rounded-lg bg-[#C4EF00]/15 items-center justify-center">
                   <Lightbulb size={14} color="#C4EF00" weight="fill" />
                 </View>
-                <Text className="text-white text-sm font-bold">
+                <Text className="text-white text-sm font-semibold">
                   Technique & Form Tips
                 </Text>
               </View>

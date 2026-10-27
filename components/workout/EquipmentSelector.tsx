@@ -3,6 +3,7 @@ import { View, Pressable, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { Check } from 'phosphor-react-native';
 import { EquipmentValue } from '@/hooks/customWorkout/useCustomWorkoutBuilder';
+import { triggerLightHaptic } from '@/lib/haptics';
 
 interface EquipmentItem {
   value: EquipmentValue;
@@ -100,11 +101,27 @@ export function EquipmentSelector({
         </Text>
         <View className="flex-row gap-3">
           {selectedEquipment.length > 0 && (
-            <Pressable onPress={onClear} className="active:opacity-70">
-              <Text className="text-[#8E8E8E] text-sm underline">Clear</Text>
+            <Pressable
+              onPress={() => {
+                triggerLightHaptic();
+                onClear();
+              }}
+              className="active:opacity-70"
+            >
+              <Text className="text-[#8E8E8E] text-sm">Clear</Text>
             </Pressable>
           )}
-          <Pressable onPress={allSelected ? onClear : onSelectAll} className="active:opacity-70">
+          <Pressable
+            onPress={() => {
+              triggerLightHaptic();
+              if (allSelected) {
+                onClear();
+              } else {
+                onSelectAll();
+              }
+            }}
+            className="active:opacity-70"
+          >
             <Text className="text-[#C4EF00] text-sm font-semibold">
               {allSelected ? 'Deselect All' : 'Select All'}
             </Text>
@@ -119,26 +136,24 @@ export function EquipmentSelector({
           return (
             <Pressable
               key={item.value}
-              onPress={() => onToggle(item.value)}
+              onPress={() => {
+                triggerLightHaptic();
+                onToggle(item.value);
+              }}
               className={`
-                items-center justify-center rounded-2xl border p-3 active:opacity-80
+                items-center justify-center rounded-2xl border p-3.5 active:opacity-80
                 ${isSelected
-                  ? 'border-[#C4EF00] bg-[#1A2000]'
-                  : 'border-[#27272A] bg-[#111111]'}
+                  ? 'border-[#C4EF00] bg-[#C4EF00]/10'
+                  : 'border-[#27272A] bg-[#121214]'}
               `}
               style={{ width: '47%' }}
             >
               {/* Selected check badge */}
               {isSelected && (
-                <View className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#C4EF00] items-center justify-center z-10">
+                <View className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-[#C4EF00] items-center justify-center z-10">
                   <Check size={12} color="black" weight="bold" />
                 </View>
               )}
-
-              {/* Active dot */}
-              <View
-                className={`absolute top-2.5 left-2.5 w-2 h-2 rounded-full ${isSelected ? 'bg-[#C4EF00]' : 'bg-[#333]'}`}
-              />
 
               {/* Equipment image */}
               <Image
@@ -155,14 +170,9 @@ export function EquipmentSelector({
               </Text>
 
               {/* Description */}
-              <Text className="text-[#555] text-[10px] text-center mt-0.5" numberOfLines={1}>
+              <Text className="text-[#71717A] text-[10px] text-center mt-0.5" numberOfLines={1}>
                 {item.description}
               </Text>
-
-              {/* Lime bottom bar when selected */}
-              {isSelected && (
-                <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#C4EF00] rounded-b-2xl" />
-              )}
             </Pressable>
           );
         })}

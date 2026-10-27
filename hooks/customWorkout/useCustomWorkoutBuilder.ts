@@ -35,7 +35,7 @@ export interface GeneratedExercise {
 
 export function useCustomWorkoutBuilder() {
   const [currentStep, setCurrentStep] = useState<WorkoutBuilderStep>(1);
-  const [selectedEquipment, setSelectedEquipment] = useState<EquipmentValue[]>(['BODY_ONLY']);
+  const [selectedEquipment, setSelectedEquipment] = useState<EquipmentValue[]>([]);
   const [selectedMuscles, setSelectedMuscles] = useState<MuscleValue[]>([]);
   const [generatedExercises, setGeneratedExercises] = useState<GeneratedExercise[]>([]);
   const [isLoadingExercises, setIsLoadingExercises] = useState(false);
@@ -93,7 +93,7 @@ export function useCustomWorkoutBuilder() {
 
   const reset = useCallback(() => {
     setCurrentStep(1);
-    setSelectedEquipment(['BODY_ONLY']);
+    setSelectedEquipment([]);
     setSelectedMuscles([]);
     setGeneratedExercises([]);
     setIsLoadingExercises(false);

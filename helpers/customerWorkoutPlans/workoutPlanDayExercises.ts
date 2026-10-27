@@ -114,8 +114,7 @@ async function enrichExercisesWithVideos(exercises: any[], targetGender?: string
     if (!vUrl && exercise.workout_videos) {
       const list = Array.isArray(exercise.workout_videos) ? exercise.workout_videos : [exercise.workout_videos];
       const match = list.find((v: any) => v.gender?.toLowerCase() === gender) ||
-                    list.find((v: any) => !v.gender || v.gender === 'all') ||
-                    list[0];
+                    list.find((v: any) => !v.gender || v.gender === 'all');
       if (match?.videoUrl) {
         const urlStr = typeof match.videoUrl === 'object' ? match.videoUrl.uri : match.videoUrl;
         if (isRealVideoUrl(urlStr)) vUrl = urlStr;
@@ -173,7 +172,7 @@ async function enrichExercisesWithVideos(exercises: any[], targetGender?: string
           if (genderMatch) return genderMatch;
           const allMatch = items.find(i => i.gender === 'all' || !i.gender);
           if (allMatch) return allMatch;
-          return items[0];
+          return null; // Never cross-pollinate opposite gender
         };
 
         idGroupMap.forEach((items, wId) => {

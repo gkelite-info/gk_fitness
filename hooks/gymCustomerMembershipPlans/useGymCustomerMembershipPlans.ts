@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchGymCustomerMembershipPlans,
   saveGymCustomerMembershipPlan,
+  setGymCustomerPendingPlan,
+  revokeGymCustomerPendingPlan,
   SaveGymCustomerMembershipPlanParams
 } from '@/helpers/gymCustomerMembershipPlans/gymCustomerMembershipPlans';
 
@@ -26,7 +28,49 @@ export function useSaveGymCustomerMembershipPlan() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gymCustomerMembershipPlans'] });
       queryClient.invalidateQueries({ queryKey: ['customerProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['gymCustomerMembershipHistories'] });
     },
   });
 }
+
+export function useSetGymCustomerPendingPlan() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { GymCustomerMembershipPlanId: string; pendingPlanId: string | null }) => {
+      return await setGymCustomerPendingPlan(params);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gymCustomerMembershipPlans'] });
+      queryClient.invalidateQueries({ queryKey: ['customerProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['gymCustomerMembershipHistories'] });
+    },
+  });
+}
+
+export function useRevokeGymCustomerPendingPlan() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { GymCustomerMembershipPlanId: string; customerId?: string; gymId?: string }) => {
+      return await revokeGymCustomerPendingPlan(params);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gymCustomerMembershipPlans'] });
+      queryClient.invalidateQueries({ queryKey: ['customerProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['gymCustomerMembershipHistories'] });
+    },
+  });
+}
+
+export {
+  useGymCustomerMembershipHistories,
+  useGymCustomerMembershipHistoryById,
+  useGymCustomerMembershipHistoriesPaginated,
+  useSaveGymCustomerMembershipHistory,
+  useLogGymCustomerMembershipHistory,
+  useUpdateGymCustomerMembershipHistory,
+  useDeleteGymCustomerMembershipHistory,
+} from './gymCustomerMembershipHistories';
+
 

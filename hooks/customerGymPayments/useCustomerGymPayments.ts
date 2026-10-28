@@ -1,12 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  fetchCustomerGymPayments, 
-  fetchCustomerGymPaymentById, 
-  saveCustomerGymPayment, 
+import {
+  fetchCustomerGymPayments,
+  fetchCustomerGymPaymentById,
+  saveCustomerGymPayment,
   deleteCustomerGymPayment,
+  CustomerGymPaymentAttributes,
   SaveCustomerGymPaymentParams,
+  PaymentMethod,
+  PaymentStatus,
+  CustomerPaymentMethod,
+  CustomerPaymentStatus,
   fetchCustomerGymPaymentsPaginated
 } from '@/helpers/customerGymPayments/customerGymPayments';
+
+export {
+  CustomerGymPaymentAttributes,
+  SaveCustomerGymPaymentParams,
+  PaymentMethod,
+  PaymentStatus,
+  CustomerPaymentMethod,
+  CustomerPaymentStatus
+};
 
 export function useCustomerGymPayments(gymId?: string, customerId?: string) {
   return useQuery({
@@ -39,6 +53,8 @@ export function useSaveCustomerGymPayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customerGymPayments'] });
       queryClient.invalidateQueries({ queryKey: ['customerGymPayment'] });
+      queryClient.invalidateQueries({ queryKey: ['customerGymPaymentsPaginated'] });
+      queryClient.invalidateQueries({ queryKey: ['gymCustomerMembershipPlans'] });
     },
   });
 }
@@ -50,17 +66,26 @@ export function useDeleteCustomerGymPayment() {
     mutationFn: (id: string) => deleteCustomerGymPayment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customerGymPayments'] });
+      queryClient.invalidateQueries({ queryKey: ['customerGymPayment'] });
+      queryClient.invalidateQueries({ queryKey: ['customerGymPaymentsPaginated'] });
     },
   });
 }
 
-export function useCustomerGymPaymentsPaginated(gymId: string, page: number, limit: number, searchQuery?: string, sortOrder: 'newest' | 'oldest' = 'newest', customerId?: string) {
-  return useQuery({
-    queryKey: ['customerGymPaymentsPaginated', gymId, page, limit, searchQuery, sortOrder, customerId],
-    queryFn: async () => {
-      return await fetchCustomerGymPaymentsPaginated(gymId, page, limit, searchQuery, sortOrder, customerId);
-    },
-    enabled: !!gymId,
-    placeholderData: (previousData) => previousData,
-  });
-}
+  export function useCustomerGymPaymentsPaginated(
+    gymId: string,
+    page: number,
+    limit: number,
+    searchQuery?: string,
+    sortOrder: 'newest' | 'oldest' = 'newest',
+    customerId?: string
+  ) {
+    return useQuery({
+      queryKey: ['customerGymPaymentsPaginated', gymId, page, limit, searchQuery, sortOrder, customerId],
+      queryFn: async () => {
+        return await fetchCustomerGymPaymentsPaginated(gymId, page, limit, searchQuery, sortOrder, customerId);
+      },
+      enabled: !!gymId,
+      placeholderData: (previousData) => previousData,
+    });
+  }

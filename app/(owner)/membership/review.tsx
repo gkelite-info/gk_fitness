@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, TextInput, ActionSheetIOS, Platform, Alert, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, TextInput, Platform, Modal, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,18 +8,20 @@ import {
   CaretDown,
   CheckCircle,
   PencilSimple,
-  Trash
+  Trash,
+  Check,
+  X
 } from 'phosphor-react-native';
-import { 
-  MOCK_DRAFT_PLANS, 
-  DraftPlan, 
-  MembershipFeatureItem 
+import {
+  MOCK_DRAFT_PLANS,
+  DraftPlan,
+  MembershipFeatureItem
 } from '@/constants/membershipMockData';
 import { triggerLightHaptic, triggerSuccessHaptic } from '@/lib/haptics';
 import { toast } from '@/lib/toast';
 import { useMembership } from '@/context/MembershipContext';
 
-const DURATION_OPTIONS = ['1 Month', '3 Months', '6 Months', '1 Year', 'Cancel'];
+const DURATION_OPTIONS = ['1 Month', '3 Months', '6 Months', '1 Year'];
 
 export interface ReviewAndPublishPlansViewProps {
   plans?: DraftPlan[];
@@ -57,6 +59,8 @@ export function ReviewAndPublishPlansView({
   const insets = useSafeAreaInsets();
   const [plans, setPlans] = useState<DraftPlan[]>(initialPlans);
   const [activePlanId, setActivePlanId] = useState<string>(initialPlans[0]?.id || 'plan-1');
+  const [showDurationModal, setShowDurationModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const activePlan = plans.find(p => p.id === activePlanId) || plans[0];
 
@@ -71,58 +75,24 @@ export function ReviewAndPublishPlansView({
 
   const handleDurationClick = () => {
     triggerLightHaptic();
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: DURATION_OPTIONS,
-          cancelButtonIndex: 4,
-          title: 'Select Billing Cycle / Duration',
-        },
-        (buttonIndex) => {
-          if (buttonIndex !== 4) {
-            updatePlanField('duration', DURATION_OPTIONS[buttonIndex]);
-          }
-        }
-      );
-    } else {
-      Alert.alert(
-        'Select Duration',
-        'Choose billing cycle duration for this plan',
-        [
-          { text: '1 Month', onPress: () => updatePlanField('duration', '1 Month') },
-          { text: '3 Months', onPress: () => updatePlanField('duration', '3 Months') },
-          { text: '6 Months', onPress: () => updatePlanField('duration', '6 Months') },
-          { text: '1 Year', onPress: () => updatePlanField('duration', '1 Year') },
-          { text: 'Cancel', style: 'cancel' },
-        ],
-        { cancelable: true }
-      );
-    }
+    setShowDurationModal(true);
   };
 
   const handlePublishClick = () => {
     triggerSuccessHaptic();
+    const invalidPlan = plans.find(p => !p.price || parseInt(p.price, 10) <= 0);
+    if (invalidPlan) {
+      toast.error(`Please enter a valid price for ${invalidPlan.name}`);
+      return;
+    }
     if (onPublish) {
       onPublish(plans);
     }
   };
 
   const handleDeleteClick = () => {
-    Alert.alert(
-      'Delete Plan',
-      'Are you sure you want to delete this membership plan? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive', 
-          onPress: () => {
-            triggerLightHaptic();
-            if (onDelete) onDelete(activePlan.id);
-          }
-        },
-      ]
-    );
+    triggerLightHaptic();
+    setShowDeleteModal(true);
   };
 
   const getTabLabel = (plan: DraftPlan, index: number) => {
@@ -133,21 +103,21 @@ export function ReviewAndPublishPlansView({
   return (
     <View className="flex-1 bg-[#09090B]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center px-5 py-3 mb-2">
-        <Pressable 
-          onPress={onBack} 
+        <Pressable
+          onPress={onBack}
           className="w-10 h-10 rounded-full bg-[#18181B] items-center justify-center mr-3 active:opacity-80 border border-[#27272A]"
         >
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="text-base font-extrabold text-white tracking-wide">{headerTitle}</Text>
+        <Text className="text-base font-semibold text-white tracking-wide">{headerTitle}</Text>
       </View>
 
-      <ScrollView 
+      <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 160 + (insets.bottom || 0) }}
         showsVerticalScrollIndicator={false}
       >
-        <Text className="text-2xl font-black text-white mb-2 leading-8">{pageHeading}</Text>
+        <Text className="text-2xl text-white mb-2 leading-8 font-semibold">{pageHeading}</Text>
         <Text className="text-xs font-medium text-[#8E8E93] leading-5 mb-6">{pageSubtitle}</Text>
 
         <View className="bg-[#121216] border border-[#1D1D22] rounded-[24px] p-2 flex-row items-center mb-8">
@@ -161,8 +131,8 @@ export function ReviewAndPublishPlansView({
                 onPress={() => handleTabSelect(plan.id)}
                 className={`flex-1 py-3 px-2 rounded-[18px] items-center justify-center ${isSelected ? 'bg-[#D4FF00]' : 'bg-transparent'}`}
               >
-                <Text 
-                  className={`text-xs font-extrabold tracking-wide text-center ${isSelected ? 'text-black font-black' : 'text-[#8E8E93]'}`}
+                <Text
+                  className={`text-xs font-semibold tracking-wide text-center ${isSelected ? 'text-black' : 'text-[#8E8E93]'}`}
                   numberOfLines={1}
                 >
                   {label || `Plan ${idx + 1}`}
@@ -184,7 +154,7 @@ export function ReviewAndPublishPlansView({
                 maxLength={6}
               />
             </View>
-            <Text className="text-sm font-bold text-[#8E8E93] ml-2">
+            <Text className="text-sm font-semibold text-[#8E8E93] ml-2">
               {activePlan.duration === '1 Year' ? '/ Year' : '/ Month'}
             </Text>
           </View>
@@ -197,23 +167,23 @@ export function ReviewAndPublishPlansView({
           <Text className="text-xs font-extrabold text-white mb-2 tracking-wide">
             BILLING CYCLE
           </Text>
-          <Pressable 
+          <Pressable
             onPress={handleDurationClick}
             className="bg-[#121216] border border-[#1C1C22] rounded-2xl p-4 flex-row items-center justify-between active:bg-[#18181D]"
           >
-            <Text className="text-sm font-bold text-white">{activePlan.duration}</Text>
+            <Text className="text-sm font-semibold text-white">{activePlan.duration}</Text>
             <CaretDown size={18} color="#71717A" weight="bold" />
           </Pressable>
         </View>
 
         <View className="flex-row items-center justify-between mb-5">
-          <Text className="text-base font-extrabold text-white">Included Features</Text>
-          
-          <Pressable 
-            onPress={() => onEditFeatures?.(activePlan.id, plans)} 
+          <Text className="text-base font-semibold text-white">Included Features</Text>
+
+          <Pressable
+            onPress={() => onEditFeatures?.(activePlan.id, plans)}
             className="flex-row items-center px-2 py-1 active:opacity-70"
           >
-            <Text className="text-xs font-black text-[#D4FF00] mr-1.5">Edit</Text>
+            <Text className="text-xs font-sans text-[#D4FF00] mr-1.5">Edit</Text>
             <PencilSimple size={15} color="#D4FF00" weight="bold" />
           </Pressable>
         </View>
@@ -238,14 +208,14 @@ export function ReviewAndPublishPlansView({
             className="bg-[#D4FF00] rounded-[24px] h-14 items-center justify-center mb-3.5 active:opacity-90 min-h-[56px] flex-row gap-2"
           >
             {isPublishing && <ActivityIndicator size="small" color="#000000" />}
-            <Text className="text-black font-black text-base tracking-wide">
+            <Text className="text-black font-semibold text-base tracking-wide">
               {isPublishing ? 'Publishing...' : publishButtonText}
             </Text>
           </Pressable>
           <Text className="text-[11px] font-semibold text-[#71717A] text-center mb-4">
             {publishHelperText}
           </Text>
-          
+
           {isEditingExisting && (
             <Pressable
               onPress={handleDeleteClick}
@@ -253,13 +223,129 @@ export function ReviewAndPublishPlansView({
               className="bg-transparent border border-red-500 rounded-[24px] h-14 flex-row items-center justify-center mb-6 active:opacity-60 min-h-[56px]"
             >
               {isDeleting ? <ActivityIndicator size="small" color="#EF4444" /> : <Trash size={18} color="#EF4444" weight="bold" />}
-              <Text className="text-red-500 font-bold text-base ml-2">
+              <Text className="text-red-500 font-semibold text-base ml-2">
                 {isDeleting ? 'Deleting...' : 'Delete Plan'}
               </Text>
             </Pressable>
           )}
         </View>
       </ScrollView>
+
+      {/* Duration Selection Modal */}
+      <Modal
+        visible={showDurationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDurationModal(false)}
+      >
+        <Pressable
+          className="flex-1 bg-black/70 justify-end"
+          onPress={() => setShowDurationModal(false)}
+        >
+          <Pressable
+            className="bg-[#121216] border-t border-[#27272A] rounded-t-3xl p-6"
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View className="flex-row items-center justify-between mb-4">
+              <View>
+                <Text className="text-white text-base font-semibold">Select Billing Cycle</Text>
+                <Text className="text-[#8E8E93] text-xs mt-0.5">Choose billing frequency for this plan</Text>
+              </View>
+              <Pressable
+                onPress={() => setShowDurationModal(false)}
+                className="w-8 h-8 rounded-full bg-[#18181B] items-center justify-center border border-[#27272A] active:opacity-70"
+              >
+                <X size={16} color="#8E8E93" />
+              </Pressable>
+            </View>
+
+            <View className="mt-2 mb-2">
+              {DURATION_OPTIONS.map((opt) => {
+                const isSelected = activePlan.duration === opt;
+                return (
+                  <Pressable
+                    key={opt}
+                    onPress={() => {
+                      triggerLightHaptic();
+                      updatePlanField('duration', opt);
+                      setShowDurationModal(false);
+                      toast.success(`Billing cycle set to ${opt}`);
+                    }}
+                    className={`flex-row items-center justify-between py-3.5 px-4 rounded-xl mb-2.5 ${
+                      isSelected
+                        ? 'bg-[#D4FF00]/10 border border-[#D4FF00]/40'
+                        : 'bg-[#18181D] border border-[#27272A] active:bg-[#202026]'
+                    }`}
+                  >
+                    <View className="flex-row items-center gap-3">
+                      <View
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          isSelected ? 'bg-[#D4FF00]' : 'bg-[#555555]'
+                        }`}
+                      />
+                      <Text
+                        className={`text-sm ${
+                          isSelected ? 'text-[#D4FF00] font-bold' : 'text-white font-medium'
+                        }`}
+                      >
+                        {opt}
+                      </Text>
+                    </View>
+                    {isSelected && <Check size={18} color="#D4FF00" weight="bold" />}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <Pressable
+          className="flex-1 bg-black/75 justify-center items-center px-5"
+          onPress={() => setShowDeleteModal(false)}
+        >
+          <Pressable
+            className="w-full bg-[#141418] border border-[#27272A] rounded-3xl p-6"
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View className="w-12 h-12 rounded-full bg-red-500/10 items-center justify-center mb-4 border border-red-500/20">
+              <Trash size={22} color="#EF4444" weight="bold" />
+            </View>
+
+            <Text className="text-white text-lg font-bold mb-2">Delete Plan</Text>
+            <Text className="text-[#8E8E93] text-sm leading-5 mb-6">
+              Are you sure you want to delete <Text className="text-white font-semibold">{activePlan.name}</Text>? This action cannot be undone.
+            </Text>
+
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={() => setShowDeleteModal(false)}
+                className="flex-1 py-3.5 rounded-2xl bg-[#1F1F24] border border-[#2B2B32] items-center justify-center active:opacity-70"
+              >
+                <Text className="text-white font-semibold text-sm">Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  triggerLightHaptic();
+                  if (onDelete) onDelete(activePlan.id);
+                }}
+                className="flex-1 py-3.5 rounded-2xl bg-red-600 items-center justify-center active:opacity-80"
+              >
+                <Text className="text-white font-bold text-sm">Delete</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -272,11 +358,11 @@ import { useOwnerGymId } from '@/hooks/auth/useOwnerGymId';
 export default function ReviewMembershipPlansScreen() {
   const router = useRouter();
   const { drafts, setDrafts, isEditingExisting } = useMembership();
-  
+
   const { userId } = useUser();
   const { data: gymId } = useOwnerGymId(userId);
   const { data: availableFeatures = [] } = useMembershipFeatures();
-  
+
   const upsertMutation = useUpsertMembershipPlans();
   const deleteMutation = useDeleteMembershipPlan();
 
@@ -285,7 +371,7 @@ export default function ReviewMembershipPlansScreen() {
       toast.error('Missing gym or user context.');
       return;
     }
-    
+
     upsertMutation.mutate({ gymId, userId, plans: finalDrafts }, {
       onSuccess: () => {
         if (isEditingExisting) {

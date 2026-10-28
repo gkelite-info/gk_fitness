@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, ActivityIndicator, Platform, Alert } from 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Info, CheckCircle, Crown, Star, Diamond, CaretRight, XCircle } from 'phosphor-react-native';
+import { ArrowLeft, ArrowRight, Info, CheckCircle, Crown, Star, Diamond, CaretRight, XCircle, Clock } from 'phosphor-react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
@@ -146,13 +146,30 @@ export default function MembershipsScreen() {
     });
   }, [isIndividual, individualPlans, gymPlans, currentPlan]);
 
-  const isExpired = currentPlan?.endDate ? new Date(currentPlan.endDate) < new Date() : false;
-  const statusLabel = isExpired ? 'Expired' : (currentPlan?.is_Active ? 'Active' : 'Inactive');
-  const statusColor = isExpired ? '#EF4444' : (currentPlan?.is_Active ? '#CCFF00' : '#8E8E93');
+  const isPendingActivation = Boolean(
+    currentPlan && (!currentPlan.startDate || !currentPlan.endDate || (!currentPlan.is_Active && !currentPlan.endDate))
+  );
+  const isExpired = !isPendingActivation && currentPlan?.endDate ? new Date(currentPlan.endDate) < new Date() : false;
+  const statusLabel = isPendingActivation ? 'Pending Activation' : (isExpired ? 'Expired' : (currentPlan?.is_Active ? 'Active' : 'Inactive'));
+  const statusColor = isPendingActivation ? '#F59E0B' : (isExpired ? '#EF4444' : (currentPlan?.is_Active ? '#CCFF00' : '#8E8E93'));
   const planName = currentPlan?.plan?.planName || 'Basic Membership';
-  const planAmount = currentPlan?.customAmount ? `₹${currentPlan.customAmount}` : '₹0';
+  const planAmount = currentPlan?.plan?.price
+    ? `₹${currentPlan.plan.price}`
+    : (currentPlan?.customAmount ? `₹${currentPlan.customAmount}` : '₹0');
 
-  const openWebCheckout = async (targetPlanId?: string | null, targetPlanName?: string | null) => {
+  const hasPendingTierUpdate = Boolean(!isIndividual && currentPlan?.pendingPlanId);
+  const pendingPlanName = (currentPlan as any)?.pendingPlan?.planName || 'Club Access Pass';
+  const pendingAmount = (currentPlan as any)?.pendingAmount;
+  const formattedPendingAmount = pendingAmount !== undefined && pendingAmount !== null
+    ? (Number(pendingAmount) % 1 === 0 ? String(Number(pendingAmount)) : Number(pendingAmount).toFixed(1))
+    : null;
+
+  const openWebCheckout = async (
+    targetPlanId?: string | null,
+    targetPlanName?: string | null,
+    targetAmount?: number | string | null,
+    actionOverride?: string
+  ) => {
     triggerMediumHaptic();
     try {
       let session = (await supabase.auth.getSession()).data.session;
@@ -184,10 +201,12 @@ export default function MembershipsScreen() {
       const params = new URLSearchParams();
 
       params.append('returnTo', '/customer');
-      if (Platform.OS !== 'ios') {
-        params.append('action', isIndividual ? 'subscribe' : 'renew');
+      if (Platform.OS !== 'ios' || actionOverride || targetPlanId) {
+        const action = actionOverride || (isPendingActivation ? 'activate' : (isIndividual ? 'subscribe' : 'renew'));
+        params.append('action', action);
         if (targetPlanId) params.append('planId', targetPlanId);
         if (targetPlanName) params.append('planName', targetPlanName);
+        if (targetAmount !== undefined && targetAmount !== null) params.append('amount', String(targetAmount));
       }
       if (userId) params.append('userId', userId);
       if (role) params.append('role', role);
@@ -305,7 +324,9 @@ export default function MembershipsScreen() {
                   </View>
                 )}
                 <View className="flex-row items-center">
-                  {statusLabel === 'Expired' || statusLabel === 'Inactive' ? (
+                  {statusLabel === 'Pending Activation' ? (
+                    <Clock size={14} color={statusColor} weight="fill" />
+                  ) : statusLabel === 'Expired' || statusLabel === 'Inactive' ? (
                     <XCircle size={14} color={statusColor} weight="fill" />
                   ) : (
                     <CheckCircle size={14} color={statusColor} weight="fill" />
@@ -315,26 +336,66 @@ export default function MembershipsScreen() {
               </View>
             </View>
 
-            {statusLabel !== 'Active' && (
+            {hasPendingTierUpdate && (
+              <View className="mt-4 bg-[#1C160C] border border-[#F59E0B]/30 rounded-2xl p-3.5">
+                <Text className="text-[#F59E0B] text-[10px] font-semibold tracking-widest uppercase mb-1">
+                  {Platform.OS === 'ios' ? 'FACILITY ACCESS UPDATE' : 'UPGRADE PENDING'}
+                </Text>
+                <Text className="text-white text-sm font-semibold mb-3">
+                  {pendingPlanName}
+                </Text>
+                <Pressable
+                  className="w-full bg-[#CCFF00] py-2.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-85"
+                  onPress={() => openWebCheckout(currentPlan?.pendingPlanId, pendingPlanName, pendingAmount, 'activate')}
+                >
+                  <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5">
+                    {Platform.OS === 'ios' ? 'ACTIVATE FACILITY ACCESS' : 'PAY UPGRADE'}
+                  </Text>
+                  <ArrowRight size={14} color="#000000" weight="bold" />
+                </Pressable>
+              </View>
+            )}
+
+            {statusLabel !== 'Active' ? (
               <Pressable
                 className="bg-[#CCFF00] py-3.5 px-5 rounded-2xl flex-row items-center justify-center mt-4 active:opacity-80"
                 onPress={() => handleRenewCurrentPlan()}
               >
                 <Text className="text-black text-sm font-semibold tracking-wide mr-1 uppercase">
-                  {Platform.OS === 'ios' ? 'MEMBERSHIP DETAILS' : 'RENEW PLAN'}
+                  {Platform.OS === 'ios'
+                    ? 'MEMBERSHIP DETAILS'
+                    : isPendingActivation
+                      ? 'ACTIVATE MEMBERSHIP'
+                      : 'RENEW PLAN'}
                 </Text>
                 <CaretRight size={16} color="#000000" weight="bold" />
               </Pressable>
-            )}
+            ) : !hasPendingTierUpdate ? (
+              <Pressable
+                className="bg-[#1C1F26] border border-[#2A2E38] py-3 px-5 rounded-2xl flex-row items-center justify-center mt-4 active:opacity-80"
+                onPress={() => handleRenewCurrentPlan()}
+              >
+                <Text className="text-[#CCFF00] text-xs font-semibold tracking-wide mr-1 uppercase">
+                  {Platform.OS === 'ios' ? 'MEMBERSHIP DETAILS ↗' : 'RENEW PLAN ↗'}
+                </Text>
+              </Pressable>
+            ) : null}
 
-            {statusLabel === 'Active' && currentPlan?.endDate && (
+            {statusLabel === 'Active' && currentPlan?.endDate ? (
               <View className="mt-4 pt-3.5 border-t border-[#27272A] flex-row items-center justify-between">
                 <Text className="text-[#9CA3AF] text-xs">Plan Validity</Text>
                 <Text className="text-[#CCFF00] text-xs font-semibold">
                   Valid until {new Date(currentPlan.endDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </Text>
               </View>
-            )}
+            ) : isPendingActivation ? (
+              <View className="mt-4 pt-3.5 border-t border-[#27272A] flex-row items-center justify-between">
+                <Text className="text-[#9CA3AF] text-xs">Membership Status</Text>
+                <Text className="text-[#F59E0B] text-xs font-semibold">
+                  Awaiting Activation • Pay to start access
+                </Text>
+              </View>
+            ) : null}
 
             {Platform.OS === 'ios' && statusLabel !== 'Active' && (
               <Text className="text-[#9CA3AF] text-[11px] text-center mt-2.5">
@@ -369,8 +430,8 @@ export default function MembershipsScreen() {
                   {isIndividual
                     ? 'No subscription plans are currently available.'
                     : (statusLabel === 'Active'
-                        ? 'You are currently on an active plan. No other plans are available.'
-                        : 'No other gym plans are currently available. You can renew your current plan above.')}
+                      ? 'You are currently on an active plan. No other plans are available.'
+                      : 'No other gym plans are currently available. You can renew your current plan above.')}
                 </Text>
               </View>
             ) : (
@@ -429,7 +490,9 @@ export default function MembershipsScreen() {
                       onPress={() => handleRenewPlan(plan)}
                     >
                       <Text className="text-black text-sm font-semibold tracking-wide mr-1 uppercase">
-                        {isIndividual ? 'SELECT PLAN' : (statusLabel === 'Active' ? 'UPGRADE PLAN' : 'RENEW PLAN')}
+                        {Platform.OS === 'ios'
+                          ? 'PLAN DETAILS'
+                          : (isIndividual ? 'SELECT PLAN' : (statusLabel === 'Active' ? 'UPDATE PASS' : 'RENEW PASS'))}
                       </Text>
                       <CaretRight size={16} color="#000000" weight="bold" />
                     </Pressable>

@@ -1,5 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
+import { base64ToArrayBuffer, compressImage } from '@/components/imageCompressor';
 
 export interface GymPaymentAttributes {
   gymPaymentId?: string;
@@ -11,6 +14,7 @@ export interface GymPaymentAttributes {
   paymentDate: string;
   paymentTime: string;
   transactionId?: string | null;
+  paymentProof?: string | null;
   notes?: string | null;
   paymentTakenBy: string;
   is_deleted?: boolean;
@@ -29,6 +33,7 @@ export interface SaveGymPaymentParams {
   paymentDate: string;
   paymentTime: string;
   transactionId?: string | null;
+  paymentProof?: string | null;
   notes?: string | null;
   paymentTakenBy: string;
 }
@@ -160,21 +165,27 @@ export async function saveGymPayment(paymentData: SaveGymPaymentParams) {
   const now = new Date().toISOString();
 
   if (paymentData.gymPaymentId) {
+    const updatePayload: Record<string, any> = {
+      customerId: paymentData.customerId,
+      gymId: paymentData.gymId,
+      planId: paymentData.planId,
+      paymentMethod: paymentData.paymentMethod,
+      amountPaid: paymentData.amountPaid,
+      paymentDate: paymentData.paymentDate,
+      paymentTime: paymentData.paymentTime,
+      transactionId: paymentData.transactionId,
+      notes: paymentData.notes,
+      paymentTakenBy: paymentData.paymentTakenBy,
+      updatedAt: now,
+    };
+
+    if (paymentData.paymentProof !== undefined) {
+      updatePayload.paymentProof = paymentData.paymentProof;
+    }
+
     const { data, error } = await supabase
       .from('gym_payments')
-      .update({
-        customerId: paymentData.customerId,
-        gymId: paymentData.gymId,
-        planId: paymentData.planId,
-        paymentMethod: paymentData.paymentMethod,
-        amountPaid: paymentData.amountPaid,
-        paymentDate: paymentData.paymentDate,
-        paymentTime: paymentData.paymentTime,
-        transactionId: paymentData.transactionId,
-        notes: paymentData.notes,
-        paymentTakenBy: paymentData.paymentTakenBy,
-        updatedAt: now,
-      })
+      .update(updatePayload)
       .eq('gymPaymentId', paymentData.gymPaymentId)
       .select();
 
@@ -199,6 +210,7 @@ export async function saveGymPayment(paymentData: SaveGymPaymentParams) {
           paymentDate: paymentData.paymentDate,
           paymentTime: paymentData.paymentTime,
           transactionId: paymentData.transactionId || null,
+          paymentProof: paymentData.paymentProof || null,
           notes: paymentData.notes || null,
           paymentTakenBy: paymentData.paymentTakenBy,
           is_deleted: false,
@@ -236,4 +248,81 @@ export async function deleteGymPayment(gymPaymentId: string) {
   }
 
   return data ? data[0] : null;
+}
+
+export async function uploadPaymentProof(uri: string, fileExtension: string = 'jpg'): Promise<string | null> {
+  try {
+    let uploadUri = uri;
+    try {
+      const compressed = await compressImage(uri, { maxWidth: 1200, compress: 0.7 });
+      uploadUri = compressed.uri;
+    } catch (compressError) {
+      console.warn('[gymPaymentsHelper] Image compression fallback to original:', compressError);
+    }
+
+    const fileName = `payment_proof_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExtension}`;
+    let fileData: ArrayBuffer | Blob;
+
+    if (Platform.OS === 'web') {
+      const response = await fetch(uploadUri);
+      fileData = await response.blob();
+    } else {
+      const base64 = await FileSystem.readAsStringAsync(uploadUri, {
+        encoding: 'base64',
+      });
+      fileData = base64ToArrayBuffer(base64);
+    }
+
+    let contentType = 'image/jpeg';
+    if (fileExtension.toLowerCase() === 'png') contentType = 'image/png';
+    else if (fileExtension.toLowerCase() === 'pdf') contentType = 'application/pdf';
+    else if (fileExtension.toLowerCase() === 'webp') contentType = 'image/webp';
+
+    const { data, error } = await supabase.storage
+      .from('gym-payment-proofs')
+      .upload(fileName, fileData, {
+        contentType,
+        upsert: true,
+      });
+
+    if (error) {
+      console.error('[gymPaymentsHelper] storage upload error:', error);
+      throw error;
+    }
+
+    if (data) {
+      const { data: publicData } = supabase.storage
+        .from('gym-payment-proofs')
+        .getPublicUrl(fileName);
+      return publicData?.publicUrl || fileName;
+    }
+
+    return null;
+  } catch (error: any) {
+    console.error('[gymPaymentsHelper] uploadPaymentProof Error:', error);
+    throw error;
+  }
+}
+
+export async function deletePaymentProof(fileNameOrUrl: string): Promise<boolean> {
+  try {
+    let fileName = fileNameOrUrl;
+    if (fileNameOrUrl.includes('/')) {
+      fileName = fileNameOrUrl.split('/').pop() || fileNameOrUrl;
+    }
+
+    const { error } = await supabase.storage
+      .from('gym-payment-proofs')
+      .remove([fileName]);
+
+    if (error) {
+      console.error('[gymPaymentsHelper] deletePaymentProof Error:', error);
+      throw error;
+    }
+
+    return true;
+  } catch (error: any) {
+    console.error('[gymPaymentsHelper] deletePaymentProof Error:', error);
+    return false;
+  }
 }

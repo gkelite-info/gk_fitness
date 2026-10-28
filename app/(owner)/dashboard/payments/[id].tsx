@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { toast } from '@/lib/toast';
@@ -65,6 +65,7 @@ export default function PaymentDetailsScreen() {
     date: rawPayment.paymentDate,
     time: rawPayment.paymentTime,
     status: 'completed',
+    paymentProof: rawPayment.paymentProof || null,
   };
 
   return (
@@ -175,6 +176,44 @@ export default function PaymentDetailsScreen() {
           </View>
 
         </View>
+
+        {/* Payment Proof (if attached) */}
+        {payment.paymentProof && (
+          <View className="bg-[#121214] border border-[#27272A] rounded-3xl p-5 mb-5">
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-row items-center gap-3">
+                <Receipt size={18} color="#CCF200" />
+                <Text className="text-[#888888] text-sm font-medium">Payment Proof</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  if (payment.paymentProof) {
+                    Linking.openURL(payment.paymentProof);
+                  }
+                }}
+                className="flex-row items-center gap-1 active:opacity-70"
+              >
+                <Text className="text-[#CCF200] text-xs font-semibold">View Full</Text>
+                <CaretRight size={14} color="#CCF200" />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                if (payment.paymentProof) {
+                  Linking.openURL(payment.paymentProof);
+                }
+              }}
+              activeOpacity={0.8}
+              className="rounded-2xl overflow-hidden border border-[#27272A] bg-[#1A1A1A] h-48 items-center justify-center"
+            >
+              <Image
+                source={{ uri: payment.paymentProof }}
+                className="w-full h-full"
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Payment Receipt Download */}
         <TouchableOpacity onPress={handleDownload} className="bg-[#121214] border border-[#27272A] rounded-2xl p-4 flex-row items-center justify-between mb-3 active:opacity-70">

@@ -63,23 +63,23 @@ export function MembershipPlansListView({
     <View className="flex-1 bg-[#09090B]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-center py-4 bg-black border-b border-[#1A1A1E] px-4 relative">
         {onBack && (
-          <Pressable 
-            onPress={onBack} 
+          <Pressable
+            onPress={onBack}
             className="absolute left-4 w-9 h-9 rounded-full bg-[#18181C] items-center justify-center active:opacity-70"
           >
             <CaretLeft size={20} color="#FFFFFF" weight="bold" />
           </Pressable>
         )}
-        <Text className="text-xl font-bold text-white tracking-wide">{headerTitle}</Text>
+        <Text className="text-xl font-semibold text-white tracking-wide">{headerTitle}</Text>
       </View>
 
-      <ScrollView 
-        className="flex-1" 
+      <ScrollView
+        className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
         refreshControl={refreshControl}
       >
-        <Text className="text-base font-bold text-white mb-1">{sectionTitle}</Text>
+        <Text className="text-base font-semibold text-white mb-1">{sectionTitle}</Text>
         <Text className="text-xs text-[#8E8E93] mb-6">{sectionSubtitle}</Text>
 
         {isLoading ? (
@@ -90,8 +90,8 @@ export function MembershipPlansListView({
         ) : hasPlans ? (
           <View>
             {plans.map((plan) => (
-              <View 
-                key={plan.id} 
+              <View
+                key={plan.id}
                 className="bg-[#121215] border border-[#202024] rounded-[28px] p-5 mb-5"
               >
                 <View className="flex-row items-center">
@@ -99,22 +99,22 @@ export function MembershipPlansListView({
                     <Crown size={24} color="#D4FF00" weight="fill" />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-lg font-bold text-white mb-0.5">{plan.name}</Text>
+                    <Text className="text-lg font-semibold text-white mb-0.5">{plan.name}</Text>
                     <View className="flex-row items-baseline">
-                      <Text className="text-2xl font-black text-[#D4FF00]">{plan.priceFormatted}</Text>
+                      <Text className="text-2xl font-semibold text-[#D4FF00]">{plan.priceFormatted}</Text>
                       <Text className="text-sm font-medium text-[#8E8E93] ml-1.5">{plan.billingCycle}</Text>
                     </View>
                   </View>
                 </View>
 
-                <Text className="text-[11px] font-extrabold text-[#71717A] tracking-widest uppercase mt-6 mb-3">
+                <Text className="text-[11px] font-semibold text-[#71717A] tracking-widest uppercase mt-6 mb-3">
                   INCLUDES
                 </Text>
-                
+
                 <View className={`flex-row flex-wrap ${plan.twoColumnLayout ? 'justify-between' : ''}`}>
                   {plan.features.map((feature, idx) => (
-                    <View 
-                      key={idx} 
+                    <View
+                      key={idx}
                       className={`flex-row items-center mb-2.5 ${plan.twoColumnLayout ? 'w-[48%]' : 'w-full'}`}
                     >
                       <CheckCircle size={18} color="#D4FF00" weight="regular" />
@@ -139,15 +139,15 @@ export function MembershipPlansListView({
                     <CalendarBlank size={18} color="#8E8E93" weight="regular" />
                     <View className="ml-2.5">
                       <Text className="text-[10px] font-medium text-[#71717A]">Duration</Text>
-                      <Text className="text-xs font-bold text-white mt-0.5">{plan.duration}</Text>
+                      <Text className="text-xs font-semibold text-white mt-0.5">{plan.duration}</Text>
                     </View>
                   </View>
-                  
+
                   <View className="flex-1 flex-row items-center">
                     <Users size={18} color="#8E8E93" weight="regular" />
                     <View className="ml-2.5">
                       <Text className="text-[10px] font-medium text-[#71717A]">Members</Text>
-                      <Text className="text-xs font-bold text-white mt-0.5">{plan.membersText}</Text>
+                      <Text className="text-xs font-semibold text-white mt-0.5">{plan.membersText}</Text>
                     </View>
                   </View>
                 </View>
@@ -157,7 +157,7 @@ export function MembershipPlansListView({
                   className="mt-5 border border-[#D4FF00] bg-[#151518] rounded-2xl h-12 flex-row items-center justify-center active:opacity-80"
                 >
                   <PencilSimple size={18} color="#D4FF00" weight="bold" />
-                  <Text className="text-[#D4FF00] font-extrabold text-sm ml-2.5">Edit</Text>
+                  <Text className="text-[#D4FF00] font-semibold text-sm ml-2.5">Edit</Text>
                 </Pressable>
               </View>
             ))}
@@ -167,11 +167,11 @@ export function MembershipPlansListView({
             <View className="w-20 h-20 rounded-full bg-[#1A1B16] border border-[#252818] items-center justify-center mb-5">
               <ClipboardText size={36} color="#D4FF00" weight="regular" />
             </View>
-            <Text className="text-white text-xl font-bold mb-2 text-center">{emptyCardTitle}</Text>
+            <Text className="text-white text-xl font-semibold mb-2 text-center">{emptyCardTitle}</Text>
             <Text className="text-[#8E8E93] text-sm text-center px-4 mb-8 leading-5">
               {emptyCardSubtitle}
             </Text>
-            
+
             <Pressable
               onPress={handleCreatePress}
               className="bg-[#D4FF00] rounded-2xl px-6 py-4 items-center justify-center w-full max-w-[280px] active:opacity-90"
@@ -186,19 +186,19 @@ export function MembershipPlansListView({
       </ScrollView>
 
       {hasPlans && (
-        <View 
+        <View
           className="absolute items-center justify-center"
-          style={{ 
-            bottom: 90 + (insets.bottom || 0), 
-            right: 24, 
-            width: 64, 
-            height: 64, 
-            zIndex: 999 
+          style={{
+            bottom: 90 + (insets.bottom || 0),
+            right: 24,
+            width: 64,
+            height: 64,
+            zIndex: 999
           }}
         >
-          <View 
-            className="absolute rounded-full bg-[#D4FF00]" 
-            style={{ 
+          <View
+            className="absolute rounded-full bg-[#D4FF00]"
+            style={{
               width: 30,
               height: 30,
               opacity: 0.45,
@@ -208,13 +208,13 @@ export function MembershipPlansListView({
               shadowOpacity: 1,
               shadowRadius: 20,
               elevation: 25,
-            }} 
+            }}
           />
           <Pressable
             onPress={handleCreatePress}
             className="rounded-full bg-[#D4FF00] items-center justify-center active:opacity-90"
-            style={{ 
-              width:  60, 
+            style={{
+              width: 60,
               height: 60,
               shadowColor: '#D4FF00',
               shadowOffset: { width: 0, height: 4 },
@@ -244,7 +244,7 @@ export default function MembershipPlansScreen() {
   const { data: features = [] } = useMembershipFeatures();
   const { data: plans = [], isLoading, refetch } = useMembershipPlans(gymId ?? null);
   const { startCreateFlow, startEditFlow } = useMembership();
-  
+
   const [refreshing, setRefreshing] = React.useState(false);
 
   const handleRefresh = async () => {

@@ -16,7 +16,8 @@ import {
   ClipboardText,
   ShareNetwork,
   EnvelopeSimple,
-  Copy
+  Copy,
+  Clock
 } from 'phosphor-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { triggerSuccessHaptic, triggerErrorHaptic, triggerLightHaptic } from '@/lib/haptics';
@@ -244,14 +245,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit, enquiryId }: Custom
       newErrors.plan = 'Please choose a membership plan.';
     }
 
-    if (!startDate) {
-      newErrors.startDate = 'Start Date is required.';
-    }
-    if (!expiryDate) {
-      newErrors.expiryDate = 'Expiry Date is required.';
-    } else if (startDate && new Date(expiryDate) <= new Date(startDate)) {
-      newErrors.expiryDate = 'Expiry Date must be after Start Date.';
-    }
+
 
     setErrors(newErrors);
     const errKeys = Object.keys(newErrors);
@@ -299,14 +293,16 @@ export function CustomerRegistrationForm({ onRegisterSubmit, enquiryId }: Custom
 
       const selectedPlanObj = membershipPlans?.find(p => p.planName === plan);
       if (selectedPlanObj && result.customerId && result.gymId) {
+        // Store selected plan with pending activation (null dates, inactive) until payment is completed
         await saveGymCustomerMembershipPlan({
           customerId: result.customerId,
           gymId: result.gymId,
           planId: selectedPlanObj.planId,
-          startDate: startDate,
-          endDate: expiryDate,
+          startDate: null,
+          endDate: null,
+          customAmount: 0,
           createdBy: gymOwnerId || userId || '',
-          is_Active: true,
+          is_Active: false,
         });
       }
 
@@ -333,7 +329,7 @@ export function CustomerRegistrationForm({ onRegisterSubmit, enquiryId }: Custom
         phone: cleanPhoneVal,
         temporaryPassword: result.temporaryPassword || 'CS-XXXXX-X',
         plan: plan,
-        startDate: startDate,
+        startDate: 'Pending Activation',
       });
 
     } catch (err: any) {
@@ -776,42 +772,15 @@ export function CustomerRegistrationForm({ onRegisterSubmit, enquiryId }: Custom
           )}
         </View>
 
-        <View className="flex-row gap-4">
-          <View className="flex-1">
-            <Text className="text-white text-xs mb-2">Start Date <Text className="text-red-500">*</Text></Text>
-            <Pressable
-              onPress={() => setStartModalVisible(true)}
-              className={`flex-row items-center justify-between px-3.5 py-3.5 rounded-xl border active:opacity-80 ${errors.startDate ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
-            >
-              <Text className={startDate ? 'text-white text-xs font-medium' : 'text-[#666] text-xs'}>
-                {startDate || 'YYYY-MM-DD'}
-              </Text>
-              <CalendarBlank size={16} color={errors.startDate ? '#EF4444' : '#A1A1AA'} />
-            </Pressable>
-            {errors.startDate && (
-              <View className="flex-row items-center mt-1 ml-1">
-                <WarningCircle size={12} color="#EF4444" />
-                <Text className="text-red-400 text-[10px] ml-1">{errors.startDate}</Text>
-              </View>
-            )}
+        <View className="p-3.5 rounded-xl bg-[#141414] border border-[#262626] flex-row items-center gap-3">
+          <View className="w-8 h-8 rounded-lg bg-[#F59E0B]/10 items-center justify-center">
+            <Clock size={16} color="#F59E0B" weight="fill" />
           </View>
           <View className="flex-1">
-            <Text className="text-white text-xs mb-2">Expiry Date <Text className="text-red-500">*</Text></Text>
-            <Pressable
-              onPress={() => setExpiryModalVisible(true)}
-              className={`flex-row items-center justify-between px-3.5 py-3.5 rounded-xl border active:opacity-80 ${errors.expiryDate ? 'bg-[#291111] border-red-500' : 'bg-[#161616] border-[#242424]'}`}
-            >
-              <Text className={expiryDate ? 'text-white text-xs font-medium' : 'text-[#666] text-xs'}>
-                {expiryDate || 'YYYY-MM-DD'}
-              </Text>
-              <CalendarBlank size={16} color={errors.expiryDate ? '#EF4444' : '#A1A1AA'} />
-            </Pressable>
-            {errors.expiryDate && (
-              <View className="flex-row items-center mt-1 ml-1">
-                <WarningCircle size={12} color="#EF4444" />
-                <Text className="text-red-400 text-[10px] ml-1">{errors.expiryDate}</Text>
-              </View>
-            )}
+            <Text className="text-[#F59E0B] text-xs font-semibold">Pending First-Time Activation</Text>
+            <Text className="text-[#888] text-[11px] leading-4 mt-0.5">
+              Membership dates & services activate automatically when the customer completes payment.
+            </Text>
           </View>
         </View>
       </View>

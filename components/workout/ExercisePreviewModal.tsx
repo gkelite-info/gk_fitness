@@ -182,7 +182,7 @@ export function ExercisePreviewModal({
   const title = exercise.exercise_name || (exercise as any)?.exerciseName || 'Exercise';
   const muscleName = MUSCLE_LABELS[exercise.muscle_group as MuscleValue] ?? exercise.muscle_group ?? 'Full Body';
   const sets = exercise.default_sets || 3;
-  const reps = exercise.default_reps || '10-12';
+  const reps = exercise.default_reps || '10';
   const difficulty = exercise.difficulty ? exercise.difficulty.toUpperCase() : 'INTERMEDIATE';
   const category = exercise.category || 'Strength';
 

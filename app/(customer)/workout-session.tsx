@@ -144,13 +144,7 @@ export default function WorkoutSession() {
   const isActiveDayToday = activeDayInList ? activeDayInList.isToday : (dayData?.dayOfWeek?.toLowerCase() === new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase());
 
 
-  const placeholderExercises = [
-    { name: 'Flat Barbell Bench Press', sets: '4 sets', reps: '8-10 reps', image: { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' } },
-    { name: 'Incline Dumbbell Flyes', sets: '3 sets', reps: '12 reps', image: { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' } },
-    { name: 'Chest Press Machine', sets: '3 sets', reps: '10 reps', image: { uri: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop' } },
-    { name: 'Pushups', sets: '3 sets', reps: 'to failure', image: { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' } },
-    { name: 'Cable Crossovers', sets: '3 sets', reps: '15 reps', image: { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop' } },
-  ];
+
 
   const getVideoUrlFromItem = (item: any) => {
     if (!item) return null;
@@ -311,8 +305,12 @@ export default function WorkoutSession() {
                     <CaretRight size={16} color="#262626" />
                   </View>
                 ))
+              ) : exercises.length === 0 ? (
+                <View className="bg-[#18181B] rounded-2xl p-6 border border-[#262626] items-center my-2">
+                  <Text className="text-[#8E8E8E] text-sm text-center">No exercises found for this day.</Text>
+                </View>
               ) : (
-                (exercises.length > 0 ? exercises : placeholderExercises).map((item, index) => {
+                exercises.map((item, index) => {
                   const rawVideoUrl = getVideoUrlFromItem(item);
                   const fullVideoUrl = getFullVideoUrl(rawVideoUrl);
                   const isGif = fullVideoUrl ? (fullVideoUrl.toLowerCase().includes('.gif') || fullVideoUrl.toLowerCase().includes('format=gif')) : false;
@@ -324,7 +322,8 @@ export default function WorkoutSession() {
                         pathname: '/(customer)/exercise-detail',
                         params: {
                           dayId: activeDayId,
-                          exerciseIndex: index
+                          exerciseIndex: index,
+                          isTrainer: isTrainerPlan ? 'true' : 'false'
                         }
                       })}
                       className="flex-row items-center bg-[#18181B] rounded-2xl p-3 border border-[#262626]"
@@ -400,7 +399,8 @@ export default function WorkoutSession() {
               pathname: '/(customer)/exercise-detail',
               params: {
                 dayId: activeDayId,
-                exerciseIndex: 0
+                exerciseIndex: 0,
+                isTrainer: isTrainerPlan ? 'true' : 'false'
               }
             })}
             className="bg-[#DFFF00] w-full rounded-2xl p-4 flex-row items-center justify-center">

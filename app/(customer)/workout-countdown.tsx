@@ -6,12 +6,13 @@ import { useAudioPlayer } from 'expo-audio';
 import { X } from 'phosphor-react-native';
 
 export default function WorkoutCountdown() {
-  const { dayId, workoutType, duration, exercisesCount, isTrainer } = useLocalSearchParams<{
+  const { dayId, workoutType, duration, exercisesCount, isTrainer, isCustom } = useLocalSearchParams<{
     dayId: string;
     workoutType: string;
     duration: string;
     exercisesCount: string;
     isTrainer?: string;
+    isCustom?: string;
   }>();
 
   const [countdown, setCountdown] = useState(3);
@@ -57,14 +58,21 @@ export default function WorkoutCountdown() {
   useEffect(() => {
     if (countdown === 0) {
       const timer = setTimeout(() => {
-        router.replace({
-          pathname: '/(customer)/workout-session',
-          params: { dayId, isTrainer }
-        });
+        if (isCustom === 'true') {
+          router.replace({
+            pathname: '/(customer)/exercise-detail',
+            params: { dayId, exerciseIndex: 0, isCustom: 'true' }
+          });
+        } else {
+          router.replace({
+            pathname: '/(customer)/workout-session',
+            params: { dayId, isTrainer: isTrainer || 'false' }
+          });
+        }
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [countdown, dayId, isTrainer]);
+  }, [countdown, dayId, isTrainer, isCustom]);
 
   return (
     <ImageBackground

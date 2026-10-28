@@ -17,7 +17,8 @@ export function useGymCustomerMembershipPlans(userId: string | null, customerId?
         .select(`
           *,
           gym_customers(fullName, email, phone, users!gym_customers_userId_fkey(profilePhoto)),
-          gym_membership_plans!gym_customer_membership_plans_planId_fkey(planName, durationMonths, price)
+          plan:gym_membership_plans!gym_customer_membership_plans_planId_fkey(planName, durationMonths, price),
+          pendingPlan:gym_membership_plans!gym_customer_membership_plans_pendingPlanId_fkey(planName, durationMonths, price)
         `)
         .eq('gymId', gymId)
         .eq('is_deleted', false)
@@ -34,7 +35,11 @@ export function useGymCustomerMembershipPlans(userId: string | null, customerId?
         throw error;
       }
 
-      return data || [];
+      return (data || []).map((item: any) => ({
+        ...item,
+        plan: item.plan || item.gym_membership_plans,
+        gym_membership_plans: item.gym_membership_plans || item.plan,
+      }));
     },
     enabled: !!userId,
   });
@@ -54,3 +59,20 @@ export function useGymCustomerMembershipPlansPaginated(userId: string | null, pa
     enabled: !!userId,
   });
 }
+
+export function useGymCustomerMembershipHistories(customerId?: string) {
+  return useQuery({
+    queryKey: ['gymCustomerMembershipHistories', customerId],
+    queryFn: async () => {
+      if (!customerId) return [];
+      const { fetchGymCustomerMembershipHistories } = await import('@/helpers/gymCustomerMembershipPlans/gymCustomerMembershipPlans');
+      return await fetchGymCustomerMembershipHistories(customerId);
+    },
+    enabled: !!customerId,
+  });
+}
+
+export {
+  useSetGymCustomerPendingPlan,
+  useRevokeGymCustomerPendingPlan,
+} from './gymCustomerMembershipPlans/useGymCustomerMembershipPlans';

@@ -46,3 +46,38 @@ export function getCalendarDaysDifference(
   const diffMs = end.getTime() - start.getTime();
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
+
+/**
+ * Parses duration representation (number, "1 Month", "1 Year", "3 Months") into an integer count of months.
+ */
+export function parseDurationMonths(duration: any): number {
+  if (!duration) return 1;
+  const str = String(duration).toLowerCase().trim();
+  if (str.includes('year')) {
+    const m = str.match(/\d+/);
+    return m ? parseInt(m[0], 10) * 12 : 12;
+  }
+  const m = str.match(/\d+/);
+  return m ? parseInt(m[0], 10) : 1;
+}
+
+/**
+ * Calculates the exact plan expiry date from a given start date by adding the specified duration in months.
+ * For example:
+ * - Start '2026-10-27' + 1 month => '2026-11-27'
+ * - Handles end of month properly (e.g. Jan 31 + 1 month => Feb 28).
+ */
+export function calculatePlanExpiryDate(
+  startDateInput?: string | Date | null,
+  durationMonthsInput: any = 1
+): string {
+  const start = parseLocalDate(startDateInput || new Date());
+  const months = parseDurationMonths(durationMonthsInput);
+  const end = new Date(start);
+  const targetDay = start.getDate();
+  end.setMonth(end.getMonth() + months);
+  if (end.getDate() !== targetDay) {
+    end.setDate(0);
+  }
+  return getLocalDateString(end);
+}

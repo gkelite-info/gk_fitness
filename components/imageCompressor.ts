@@ -1,3 +1,52 @@
+import * as ImageManipulator from 'expo-image-manipulator';
+
+export interface CompressImageOptions {
+  maxWidth?: number;
+  maxHeight?: number;
+  compress?: number;
+  format?: ImageManipulator.SaveFormat;
+}
+
+/**
+ * Compresses and resizes an image using expo-image-manipulator.
+ *
+ * @param uri Local URI of the image to compress.
+ * @param options Compression options like maxWidth, maxHeight, compress (0-1), and format.
+ * @returns Manipulated image result containing compressed URI, width, and height.
+ */
+export async function compressImage(
+  uri: string,
+  options: CompressImageOptions = {}
+): Promise<ImageManipulator.ImageResult> {
+  const {
+    maxWidth = 1200,
+    maxHeight,
+    compress = 0.7,
+    format = ImageManipulator.SaveFormat.JPEG,
+  } = options;
+
+  const actions: ImageManipulator.Action[] = [];
+  if (maxWidth || maxHeight) {
+    actions.push({
+      resize: {
+        width: maxWidth,
+        height: maxHeight,
+      },
+    });
+  }
+
+  const result = await ImageManipulator.manipulateAsync(
+    uri,
+    actions,
+    {
+      compress,
+      format,
+    }
+  );
+
+  return result;
+}
+
 /**
  * Converts a base64 encoded string into a binary ArrayBuffer.
  * This is useful in React Native environments for file handling, 

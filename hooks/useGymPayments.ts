@@ -1,6 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchGymPayments, fetchGymPaymentsPaginated, saveGymPayment, deleteGymPayment, SaveGymPaymentParams } from '@/helpers/gymPayments';
+import { 
+  fetchGymPayments, 
+  fetchGymPaymentsPaginated, 
+  fetchGymPaymentById,
+  saveGymPayment, 
+  deleteGymPayment, 
+  uploadPaymentProof,
+  deletePaymentProof,
+  GymPaymentAttributes,
+  SaveGymPaymentParams 
+} from '@/helpers/gymPayments';
 import { getOwnerGymId } from '@/helpers/trainers/trainerHelper';
+
+export { GymPaymentAttributes, SaveGymPaymentParams, uploadPaymentProof, deletePaymentProof };
 
 export function useGymPayments(userId: string | null) {
   return useQuery({
@@ -13,6 +25,17 @@ export function useGymPayments(userId: string | null) {
       return await fetchGymPayments(gymId);
     },
     enabled: !!userId,
+  });
+}
+
+export function useGymPaymentById(paymentId: string | null) {
+  return useQuery({
+    queryKey: ['gymPayment', paymentId],
+    queryFn: async () => {
+      if (!paymentId) return null;
+      return await fetchGymPaymentById(paymentId);
+    },
+    enabled: !!paymentId,
   });
 }
 
@@ -53,6 +76,9 @@ export function useSaveGymPayment() {
     mutationFn: (paymentData: SaveGymPaymentParams) => saveGymPayment(paymentData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gymPayments'] });
+      queryClient.invalidateQueries({ queryKey: ['gymPaymentsPaginated'] });
+      queryClient.invalidateQueries({ queryKey: ['customerGymPaymentsPaginated'] });
+      queryClient.invalidateQueries({ queryKey: ['gymPayment'] });
     },
   });
 }
@@ -64,6 +90,22 @@ export function useDeleteGymPayment() {
     mutationFn: (gymPaymentId: string) => deleteGymPayment(gymPaymentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gymPayments'] });
+      queryClient.invalidateQueries({ queryKey: ['gymPaymentsPaginated'] });
+      queryClient.invalidateQueries({ queryKey: ['customerGymPaymentsPaginated'] });
+      queryClient.invalidateQueries({ queryKey: ['gymPayment'] });
     },
+  });
+}
+
+export function useUploadPaymentProof() {
+  return useMutation({
+    mutationFn: ({ uri, fileExtension }: { uri: string; fileExtension?: string }) =>
+      uploadPaymentProof(uri, fileExtension),
+  });
+}
+
+export function useDeletePaymentProof() {
+  return useMutation({
+    mutationFn: (fileNameOrUrl: string) => deletePaymentProof(fileNameOrUrl),
   });
 }

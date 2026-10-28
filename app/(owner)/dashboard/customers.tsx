@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { View, TextInput, Pressable, FlatList, ActivityIndicator, Animated, ScrollView, Modal, TouchableOpacity } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import {
@@ -27,6 +27,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useCustomers } from '@/hooks/users/useCustomers';
 import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import { useGymMembershipPlans } from '@/hooks/useGymMembershipPlans';
+import { useGymCustomerMembershipPlans } from '@/hooks/gymCustomerMembershipPlans/useGymCustomerMembershipPlans';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 const ShimmerCard = () => {
@@ -90,14 +91,14 @@ const ShimmerCard = () => {
 export default function CustomersScreen() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  const { userId } = useUser();
+  const { userId, gymId: contextGymId } = useUser();
   const [activeTab, setActiveTab] = useState<'customers' | 'trainers'>('customers');
   const [filter, setFilter] = useState<'all' | 'active' | 'expired'>('all');
   const [planFilter, setPlanFilter] = useState('All');
   const [planModalVisible, setPlanModalVisible] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [gymId, setGymId] = useState<string | null>(null);
+  const [gymId, setGymId] = useState<string | null>(contextGymId || null);
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(search), 400);
@@ -105,12 +106,34 @@ export default function CustomersScreen() {
   }, [search]);
 
   useEffect(() => {
-    if (userId) {
-      getOwnerGymId(userId).then(setGymId);
+    if (contextGymId) {
+      setGymId(contextGymId);
+    } else if (userId) {
+      getOwnerGymId(userId).then((res) => {
+        if (res) setGymId(res);
+      });
     }
-  }, [userId]);
+  }, [contextGymId, userId]);
 
   const { data: membershipPlans = [] } = useGymMembershipPlans(userId);
+  const { data: customerPlans = [], refetch: refetchCustomerPlans } = useGymCustomerMembershipPlans(gymId || undefined);
+
+  const customerPlanMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (Array.isArray(customerPlans)) {
+      customerPlans.forEach((p: any) => {
+        if (!p.customerId || p.is_deleted) return;
+        const pName = p.plan?.planName || p.planName;
+        if (!pName) return;
+
+        // Prefer active plan over inactive plan
+        if (!map.has(p.customerId) || p.is_Active) {
+          map.set(p.customerId, pName);
+        }
+      });
+    }
+    return map;
+  }, [customerPlans]);
 
   const customersQuery = useCustomers(gymId, filter, debouncedSearch, planFilter);
   const { data: gymTrainers, isLoading: isTrainersLoading, refetch: refetchTrainers } = useGymTrainers(gymId || undefined, !!gymId);
@@ -131,7 +154,9 @@ export default function CustomersScreen() {
     ? (customersQuery.data?.pages[0]?.count || 0)
     : trainersData.length;
 
-  const loading = activeTab === 'customers' ? customersQuery.isLoading : isTrainersLoading;
+  const isCustomersLoading = !gymId || customersQuery.isLoading || (!customersQuery.data && !customersQuery.isError);
+  const isTrainersLoadingState = !gymId || isTrainersLoading || (gymTrainers === undefined);
+  const loading = activeTab === 'customers' ? isCustomersLoading : isTrainersLoadingState;
   const loadingMore = activeTab === 'customers' ? customersQuery.isFetchingNextPage : false;
 
   const [refreshing, setRefreshing] = useState(false);
@@ -145,7 +170,7 @@ export default function CustomersScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     if (activeTab === 'customers') {
-      await customersQuery.refetch();
+      await Promise.all([customersQuery.refetch(), refetchCustomerPlans()]);
     } else {
       await refetchTrainers();
     }
@@ -317,6 +342,25 @@ export default function CustomersScreen() {
     const joinedDate = item.dateOfJoining || item.createdAt;
     const formattedJoinedDate = joinedDate ? new Date(joinedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
 
+    const getCustomerPlanName = () => {
+      if (item.customerId && customerPlanMap.has(item.customerId)) {
+        return customerPlanMap.get(item.customerId);
+      }
+      const plans = item.gym_customer_membership_plans;
+      if (Array.isArray(plans) && plans.length > 0) {
+        const active = plans.find((p: any) => !p.is_deleted && p.is_Active) || plans.find((p: any) => !p.is_deleted) || plans[0];
+        const name = active?.plan?.planName || active?.planName;
+        if (name) return name;
+      }
+      if (item.planId && Array.isArray(membershipPlans)) {
+        const matched = membershipPlans.find((m: any) => m.planId === item.planId);
+        if (matched?.planName) return matched.planName;
+      }
+      return item.planName || 'No Plan';
+    };
+
+    const customerPlanName = getCustomerPlanName();
+
     const handleItemPress = () => {
       triggerLightHaptic();
       if (activeTab === 'customers' && item.customerId) {
@@ -341,9 +385,9 @@ export default function CustomersScreen() {
             </View>
             <View className="ml-3 justify-center">
               <Text className="text-white text-lg font-semibold mb-0.5">{item.fullName}</Text>
-              <Text className="text-[#A1A1AA] text-xs">
+              {/* <Text className="text-[#A1A1AA] text-xs">
                 {activeTab === 'customers' ? `CUST-${String(index + 1).padStart(4, '0')}` : `TRN-${String(index + 1).padStart(4, '0')}`}
-              </Text>
+              </Text> */}
             </View>
           </View>
           <View className="flex-row items-center">
@@ -367,7 +411,9 @@ export default function CustomersScreen() {
           {activeTab === 'customers' ? (
             <View className="flex-row items-center">
               <Medal size={18} color="#CCF200" />
-              <Text className="text-[#CCF200] ml-3 text-sm font-semibold">Platinum Plan</Text>
+              <Text className="text-[#CCF200] ml-3 text-sm font-semibold" numberOfLines={1}>
+                {customerPlanName}
+              </Text>
             </View>
           ) : (
             <View className="flex-row items-center">

@@ -89,9 +89,9 @@ export default function UserPersonalDetailsScreen() {
   const userState = userDetails?.state || customer?.user?.state || customer?.state || '-';
   const userPincode =
     userDetails?.pincode ? String(userDetails.pincode) :
-    customer?.user?.pincode ? String(customer.user.pincode) :
-    customer?.pincode ? String(customer.pincode) :
-    '-';
+      customer?.user?.pincode ? String(customer.user.pincode) :
+        customer?.pincode ? String(customer.pincode) :
+          '-';
 
   const renderDetailRow = (
     icon: React.ReactNode,
@@ -114,7 +114,7 @@ export default function UserPersonalDetailsScreen() {
           </Text>
         </Pressable>
       ) : (
-        <Text className="text-white text-sm font-medium text-right flex-1 pl-2" numberOfLines={2}>
+        <Text className="text-white text-sm font-medium text-right flex-1 pl-2 capitalize" numberOfLines={2}>
           {value || '-'}
         </Text>
       )}

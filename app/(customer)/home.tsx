@@ -75,6 +75,11 @@ export default function CustomerHome() {
   const [daysLeft, setDaysLeft] = useState<number | string>('--');
   const [progressPercentage, setProgressPercentage] = useState<number>(0);
   const [isLoadingMembership, setIsLoadingMembership] = useState(true);
+  const [pendingTierUpdate, setPendingTierUpdate] = useState<{
+    pendingPlanId: string;
+    pendingPlanName: string;
+    pendingAmount?: number | null;
+  } | null>(null);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -98,6 +103,7 @@ export default function CustomerHome() {
       syncAllLocalReminders(userId).catch(console.error);
 
       if (isIndividual) {
+        setPendingTierUpdate(null);
         const queryRes = await refetchIndivCustomerPlans();
         const indivPlans = queryRes.data || individualCustomerPlans || [];
         const activePlan = indivPlans.find((p: any) => p.isActive && p.endDate) || (indivPlans.length > 0 && indivPlans[0].isActive ? indivPlans[0] : null);
@@ -141,6 +147,17 @@ export default function CustomerHome() {
         }
       } else {
         const plans = await fetchGymCustomerMembershipPlans(undefined, userId);
+        const latestPlan = plans && plans.length > 0 ? plans[0] : null;
+        if (latestPlan?.pendingPlanId) {
+          setPendingTierUpdate({
+            pendingPlanId: latestPlan.pendingPlanId,
+            pendingPlanName: (latestPlan as any).pendingPlan?.planName || 'Club Access Pass',
+            pendingAmount: (latestPlan as any).pendingAmount,
+          });
+        } else {
+          setPendingTierUpdate(null);
+        }
+
         const activePlan = plans.find((p: any) => p.is_Active && p.endDate);
         if (activePlan) {
           const diffDays = getCalendarDaysDifference(activePlan.endDate);
@@ -340,9 +357,10 @@ export default function CustomerHome() {
         </Text>
       </View>
 
-      <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 flex-row items-center justify-between">
-        <View className="flex-1 pr-3">
-          <View className="flex-row items-center gap-2 mb-3">
+      <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4">
+        {/* Top Header Row: Plan Badge + Check-in / Attendance */}
+        <View className="flex-row items-center justify-between mb-3.5">
+          <View className="flex-row items-center gap-2">
             <View className="w-6 h-6 rounded-full bg-[#D7FF00] items-center justify-center">
               <Star size={14} color="#000000" weight="fill" />
             </View>
@@ -350,70 +368,104 @@ export default function CustomerHome() {
               {planName}
             </Text>
           </View>
-          {isMembershipLoading ? (
-            <ActivityIndicator size="small" color="#D7FF00" className="self-start mt-2" />
-          ) : typeof daysLeft === 'number' && daysLeft > 0 ? (
-            <>
-              <View className="flex-row items-baseline gap-2 mb-3">
-                <Text className="text-white text-4xl font-semibold">{daysLeft}</Text>
-                <Text className="text-[#8E8E93] text-sm font-medium">Days Left</Text>
-              </View>
 
-              <View className="w-full h-1.5 bg-[#262626] rounded-full overflow-hidden mb-3">
-                <View className="h-full bg-[#D7FF00] rounded-full" style={{ width: `${progressPercentage}%` }} />
-              </View>
+          {typeof daysLeft === 'number' && daysLeft > 0 && !isIndividual && (
+            <View className="flex-row items-center gap-2">
+              <Pressable
+                onPress={openCamera}
+                className="flex-row items-center gap-1.5 bg-[#1C1C1E] border border-[#2A2A2A] px-2.5 py-1 rounded-xl active:opacity-80"
+              >
+                <QrCode size={15} color="#D7FF00" weight="bold" />
+                <Text className="text-white text-[11px] font-semibold">Check-in</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => router.push('/(customer)/attendance' as any)}
+                className="px-2 py-1 active:opacity-70"
+              >
+                <Text className="text-[#CCFF00] text-xs underline">View</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
 
+        {isMembershipLoading ? (
+          <ActivityIndicator size="small" color="#D7FF00" className="self-start my-4" />
+        ) : typeof daysLeft === 'number' && daysLeft > 0 ? (
+          <>
+            <View className="flex-row items-baseline gap-2 mb-3">
+              <Text className="text-white text-4xl font-semibold">{daysLeft}</Text>
+              <Text className="text-[#8E8E93] text-sm font-medium">Days Left</Text>
+            </View>
+
+            <View className="w-full h-1.5 bg-[#262626] rounded-full overflow-hidden mb-3">
+              <View className="h-full bg-[#D7FF00] rounded-full" style={{ width: `${progressPercentage}%` }} />
+            </View>
+
+            {pendingTierUpdate ? (
+              <View className="mt-3 bg-[#1C160C] border border-[#F59E0B]/30 rounded-2xl p-3.5">
+                <Text className="text-[#F59E0B] text-[10px] font-semibold tracking-widest uppercase mb-1">
+                  {Platform.OS === 'ios' ? 'FACILITY ACCESS UPDATE' : 'UPGRADE PENDING'}
+                </Text>
+                <Text className="text-white text-sm font-semibold mb-3">
+                  {pendingTierUpdate.pendingPlanName}
+                </Text>
+                <Pressable
+                  onPress={() => router.push('/(customer)/memberships' as any)}
+                  className="w-full bg-[#D7FF00] py-2.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-85"
+                >
+                  <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5">
+                    {Platform.OS === 'ios' ? 'ACTIVATE FACILITY ACCESS' : 'PAY UPGRADE'}
+                  </Text>
+                  <ArrowRight size={14} color="#000000" weight="bold" />
+                </Pressable>
+              </View>
+            ) : (
               <Pressable
                 onPress={() => router.push('/(customer)/memberships' as any)}
                 className="flex-row items-center gap-1.5 active:opacity-70 mt-0.5"
               >
                 <Text className="text-[#8E8E93] text-xs font-medium">
-                  {Platform.OS === 'ios' ? 'Membership Details' : 'Upgrade or Renew'}
+                  {Platform.OS === 'ios' ? 'Membership Details' : 'Pass Details'}
                 </Text>
                 <ArrowRight size={12} color="#8E8E93" weight="bold" />
               </Pressable>
-            </>
-          ) : (
-            <View className="mb-1">
-              <Text className="text-[#EF4444] text-xl font-semibold mb-1">Plan Expired</Text>
-              <Text className="text-[#8E8E93] text-xs font-medium mb-3">
-                {Platform.OS === 'ios' ? 'View membership details to continue your journey.' : 'Renew your plan to continue your journey.'}
-              </Text>
-              {/* @ts-ignore */}
-              <Pressable className="bg-[#D7FF00] py-2.5 px-5 rounded-xl self-start active:opacity-80"
+            )}
+          </>
+        ) : (
+          <View className="mb-1">
+            <Text className="text-[#EF4444] text-xl font-semibold mb-1">Plan Expired</Text>
+            <Text className="text-[#8E8E93] text-xs font-medium mb-3">
+              {Platform.OS === 'ios' ? 'View membership details to continue your journey.' : 'Renew your plan to continue your journey.'}
+            </Text>
+            {pendingTierUpdate ? (
+              <View className="mt-2 bg-[#1C160C] border border-[#F59E0B]/30 rounded-2xl p-3.5">
+                <Text className="text-[#F59E0B] text-[10px] font-semibold tracking-widest uppercase mb-1">
+                  {Platform.OS === 'ios' ? 'FACILITY ACCESS UPDATE' : 'UPGRADE PENDING'}
+                </Text>
+                <Text className="text-white text-sm font-semibold mb-3">
+                  {pendingTierUpdate.pendingPlanName}
+                </Text>
+                <Pressable
+                  onPress={() => router.push('/(customer)/memberships' as any)}
+                  className="w-full bg-[#D7FF00] py-2.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-85"
+                >
+                  <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5">
+                    {Platform.OS === 'ios' ? 'ACTIVATE FACILITY ACCESS' : 'PAY UPGRADE'}
+                  </Text>
+                  <ArrowRight size={14} color="#000000" weight="bold" />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                className="bg-[#D7FF00] py-2.5 px-5 rounded-xl self-start active:opacity-80"
                 onPress={() => router.push('/(customer)/memberships' as any)}
               >
                 <Text className="text-black text-xs font-semibold tracking-wide">
                   {Platform.OS === 'ios' ? 'MEMBERSHIP DETAILS' : 'RENEW PLAN'}
                 </Text>
               </Pressable>
-            </View>
-          )}
-        </View>
-
-        {typeof daysLeft === 'number' && daysLeft > 0 && !isIndividual && (
-          <>
-            <View className="w-[1px] h-20 bg-[#262626] mx-2" />
-
-            <View className="items-center justify-center pl-2">
-              {/* @ts-ignore */}
-              <Pressable onPress={openCamera} className="items-center justify-center active:opacity-80">
-                <View className="w-12 h-12 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] items-center justify-center mb-1">
-                  <QrCode size={26} color="#D7FF00" />
-                </View>
-                <Text className="text-white text-[11px] font-semibold text-center">Check-in</Text>
-                <Text className="text-[#8E8E93] text-[10px] text-center">(QR)</Text>
-              </Pressable>
-
-              {/* @ts-ignore */}
-              <Pressable
-                onPress={() => router.push('/(customer)/attendance' as any)}
-                className="mt-1 active:opacity-70"
-              >
-                <Text className="text-[#CCFF00] text-xs underline">View</Text>
-              </Pressable>
-            </View>
-          </>
+            )}
+          </View>
         )}
       </View>
 

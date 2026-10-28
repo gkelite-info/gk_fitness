@@ -10,10 +10,10 @@ import {
   Info,
   ArrowRight
 } from 'phosphor-react-native';
-import { 
-  MOCK_DRAFT_PLANS, 
-  DraftPlan, 
-  MembershipFeatureItem 
+import {
+  MOCK_DRAFT_PLANS,
+  DraftPlan,
+  MembershipFeatureItem
 } from '@/constants/membershipMockData';
 import { triggerLightHaptic, triggerMediumHaptic } from '@/lib/haptics';
 import { useMembership } from '@/context/MembershipContext';
@@ -70,7 +70,7 @@ export function CreateMembershipPlansView({
     setDrafts(prev => prev.map(p => {
       if (p.id !== planId) return p;
       const exists = p.selectedFeatureIds.includes(featureId);
-      const updatedIds = exists 
+      const updatedIds = exists
         ? p.selectedFeatureIds.filter(id => id !== featureId)
         : [...p.selectedFeatureIds, featureId];
       return { ...p, selectedFeatureIds: updatedIds };
@@ -85,8 +85,8 @@ export function CreateMembershipPlansView({
   return (
     <View className="flex-1 bg-[#09090B]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center px-5 py-3 mb-2">
-        <Pressable 
-          onPress={onBack} 
+        <Pressable
+          onPress={onBack}
           className="w-9 h-9 rounded-full bg-[#18181D] items-center justify-center mr-4 active:opacity-70"
         >
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
@@ -94,7 +94,7 @@ export function CreateMembershipPlansView({
         <Text className="text-base font-semibold text-white">{headerTitle}</Text>
       </View>
 
-      <ScrollView 
+      <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 160 + (insets.bottom || 0) }}
         showsVerticalScrollIndicator={false}
@@ -108,16 +108,16 @@ export function CreateMembershipPlansView({
 
           return (
             <View key={plan.id} className="mb-4">
-              <Pressable 
+              <Pressable
                 onPress={() => setActivePlanId(plan.id)}
                 className={`bg-[#141418] rounded-[24px] p-5 mb-5 border ${isFocused ? 'border-[#D4FF00]' : 'border-[#222226]'}`}
               >
                 <Text className="text-xs font-black text-[#D4FF00] tracking-wider mb-4 uppercase">
                   {plan.planNumberLabel}
                 </Text>
-                
-                <Text className="text-[11px] font-bold text-[#8E8E93] mb-2">Plan Name</Text>
-                
+
+                <Text className="text-[11px] font-semibold text-[#8E8E93] mb-2">Plan Name</Text>
+
                 <View className="bg-black border border-[#27272D] rounded-2xl px-4 py-3.5 mb-2">
                   <TextInput
                     value={plan.name}
@@ -150,7 +150,7 @@ export function CreateMembershipPlansView({
                       className="bg-[#121216] border border-[#1C1C22] rounded-[20px] p-4.5 mb-3 flex-row items-center justify-between active:bg-[#1A1A20]"
                     >
                       <View className="flex-1 mr-4">
-                        <Text className="text-sm font-bold text-white mb-1">{feature.title}</Text>
+                        <Text className="text-sm font-semibold text-white mb-1">{feature.title}</Text>
                         <Text className="text-xs text-[#71717A] leading-4">{feature.subtitle}</Text>
                       </View>
 
@@ -180,7 +180,7 @@ export function CreateMembershipPlansView({
             <Info size={22} color="#D4FF00" weight="fill" />
           </View>
           <View className="flex-1">
-            <Text className="text-sm font-bold text-white mb-1">{infoTitle}</Text>
+            <Text className="text-sm font-semibold text-white mb-1">{infoTitle}</Text>
             <Text className="text-xs text-[#8E8E93] leading-4">{infoSubtitle}</Text>
           </View>
         </View>
@@ -212,11 +212,11 @@ export default function CreateMembershipPlansScreen() {
   };
 
   return (
-    <CreateMembershipPlansView 
+    <CreateMembershipPlansView
       initialPlans={drafts.length > 0 ? drafts : [MOCK_DRAFT_PLANS[0]]}
       availableFeatures={availableFeatures}
       onContinue={handleContinue}
-      onBack={() => router.back()} 
+      onBack={() => router.back()}
     />
   );
 }

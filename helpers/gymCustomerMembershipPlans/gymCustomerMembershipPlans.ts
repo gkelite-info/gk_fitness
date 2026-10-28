@@ -32,7 +32,7 @@ export interface SaveGymCustomerMembershipPlanParams {
 export async function fetchGymCustomerMembershipPlans(gymId?: string, customerId?: string) {
   let query = supabase
     .from('gym_customer_membership_plans')
-    .select('*, plan:gym_membership_plans(planName, durationMonths, price), gym_customers(fullName, email, phone, gymId, is_Active, users!gym_customers_userId_fkey(profilePhoto, status, createdAt))')
+    .select('*, plan:gym_membership_plans!gym_customer_membership_plans_planId_fkey(planName, durationMonths, price), gym_customers(fullName, email, phone, gymId, is_Active, users!gym_customers_userId_fkey(profilePhoto, status, createdAt))')
     .eq('is_deleted', false)
     .order('createdAt', { ascending: false })
     .limit(50);
@@ -250,7 +250,7 @@ export async function fetchGymCustomerMembershipPlansPaginated(
 
   let query = supabase
     .from('gym_customer_membership_plans')
-    .select('*, gym_customers!inner(fullName, email, phone, is_Active, users!inner(profilePhoto, status, createdAt)), gym_membership_plans(planName, durationMonths, price)', { count: 'exact' })
+    .select('*, gym_customers!inner(fullName, email, phone, is_Active, users!inner(profilePhoto, status, createdAt)), gym_membership_plans!gym_customer_membership_plans_planId_fkey(planName, durationMonths, price)', { count: 'exact' })
     .eq('gymId', gymId)
     .eq('is_deleted', false)
     .eq('gym_customers.is_Active', true)

@@ -1,7 +1,7 @@
 import { createRef } from 'react';
 
 export interface ToastRef {
-  show: (message: string, type: 'success' | 'error' | 'loading', duration?: number) => void;
+  show: (message: string, type: 'success' | 'error' | 'loading' | 'info', duration?: number) => void;
   hide: () => void;
 }
 
@@ -16,6 +16,9 @@ export const toast = {
   },
   loading: (message: string, duration?: number) => {
     toastRef.current?.show(message, 'loading', duration);
+  },
+  info: (message: string, duration?: number) => {
+    toastRef.current?.show(message, 'info', duration);
   },
   dismiss: () => {
     toastRef.current?.hide();

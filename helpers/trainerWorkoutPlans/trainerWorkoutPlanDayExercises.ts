@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
+import { enrichExercisesWithVideos } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 
 export interface TrainerWorkoutPlanDayExerciseAttributes {
   dayExerciseId?: string;
@@ -28,7 +29,113 @@ export interface SaveTrainerWorkoutPlanDayExerciseParams {
   videoUrl?: string | null;
 }
 
-export async function fetchTrainerWorkoutPlanDayExercises(planDayId?: string) {
+export async function autoSeedTrainerPlanDayExercises(planDayId: string, targetGender?: string) {
+  try {
+    const { data: dayData } = await supabase
+      .from('trainer_workout_plan_days')
+      .select('planDayId, workoutType, dayOfWeek, planId')
+      .eq('planDayId', planDayId)
+      .maybeSingle();
+
+    if (!dayData || !dayData.workoutType) return [];
+    const workoutTypeLower = dayData.workoutType.toLowerCase().trim();
+    if (workoutTypeLower === 'rest' || workoutTypeLower.includes('rest day')) return [];
+
+    const preferredRole = (targetGender || 'male').toLowerCase().includes('female') ? 'female' : 'male';
+
+    const muscleMap: Record<string, { muscles: string[]; keywords: string[] }> = {
+      chest: { muscles: ['CHEST', 'TRICEPS'], keywords: ['bench', 'chest', 'pushup', 'press', 'fly', 'pec deck', 'dip'] },
+      push: { muscles: ['CHEST', 'SHOULDERS', 'TRICEPS'], keywords: ['bench', 'press', 'pushup', 'dip', 'lateral raise'] },
+      back: { muscles: ['BACK', 'BICEPS'], keywords: ['lat', 'pull', 'row', 'deadlift', 'chin-up', 'chin up', 'pulldown'] },
+      pull: { muscles: ['BACK', 'BICEPS'], keywords: ['row', 'pull', 'curl', 'lat', 'pulldown'] },
+      legs: { muscles: ['QUADRICEPS', 'HAMSTRINGS', 'GLUTES', 'CALVES', 'LEGS'], keywords: ['squat', 'press', 'lunge', 'curl', 'extension', 'calf', 'rdl'] },
+      'lower body': { muscles: ['QUADRICEPS', 'HAMSTRINGS', 'GLUTES', 'CALVES', 'LEGS'], keywords: ['squat', 'press', 'lunge', 'curl', 'extension', 'calf'] },
+      shoulders: { muscles: ['SHOULDERS', 'TRAPS'], keywords: ['shoulder', 'press', 'lateral', 'raise', 'overhead', 'military'] },
+      arms: { muscles: ['BICEPS', 'TRICEPS', 'FOREARMS'], keywords: ['curl', 'pushdown', 'extension', 'bicep', 'tricep', 'skull'] },
+      biceps: { muscles: ['BICEPS'], keywords: ['bicep', 'curl', 'preacher', 'hammer'] },
+      triceps: { muscles: ['TRICEPS'], keywords: ['tricep', 'pushdown', 'extension', 'dip', 'skull'] },
+      abs: { muscles: ['ABDOMINALS', 'OBLIQUES', 'ABS'], keywords: ['crunch', 'plank', 'leg raise', 'situp', 'sit up', 'russian'] },
+      core: { muscles: ['ABDOMINALS', 'OBLIQUES', 'ABS'], keywords: ['crunch', 'plank', 'leg raise', 'twist'] },
+      'upper body': { muscles: ['CHEST', 'BACK', 'SHOULDERS', 'BICEPS', 'TRICEPS'], keywords: ['bench', 'row', 'press', 'pulldown', 'curl'] },
+      'full body': { muscles: ['CHEST', 'BACK', 'QUADRICEPS', 'SHOULDERS', 'ABDOMINALS'], keywords: ['bench', 'squat', 'row', 'press', 'crunch'] },
+    };
+
+    let targetInfo = muscleMap[workoutTypeLower];
+    if (!targetInfo) {
+      const matchedKey = Object.keys(muscleMap).find(k => workoutTypeLower.includes(k));
+      targetInfo = matchedKey ? muscleMap[matchedKey] : muscleMap['full body'];
+    }
+
+    const { data: wvRows } = await supabase
+      .from('workout_videos')
+      .select('workoutVideoId, videoUrl, exerciseName, primaryMuscle, workouts:workoutId(role)')
+      .not('videoUrl', 'is', null)
+      .neq('videoUrl', '')
+      .or('is_deleted.eq.false,is_deleted.is.null')
+      .limit(100);
+
+    if (!wvRows || wvRows.length === 0) return [];
+
+    const candidates: any[] = [];
+    const seenNames = new Set<string>();
+
+    for (const row of wvRows) {
+      const rowGender = (row.workouts?.role || 'all').toLowerCase();
+      if (rowGender !== 'all' && rowGender !== preferredRole) continue;
+
+      const norm = (row.exerciseName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (seenNames.has(norm)) continue;
+
+      const lowerExName = (row.exerciseName || '').toLowerCase();
+      if (lowerExName.match(/(treadmill|elliptical|spin bike|stationary bike|cycling|rowing machine|stairmaster|air bike|ski erg)/)) continue;
+
+      const pMuscle = (row.primaryMuscle || '').toUpperCase();
+      const matchesMuscle = targetInfo.muscles.some(m => pMuscle === m);
+      const matchesKeyword = targetInfo.keywords.some(k => lowerExName.includes(k.toLowerCase()));
+
+      if (matchesMuscle || matchesKeyword) {
+        seenNames.add(norm);
+        candidates.push(row);
+        if (candidates.length >= 6) break;
+      }
+    }
+
+    const rowsToInsert = candidates.map((c, idx) => ({
+      dayExerciseId: Crypto.randomUUID(),
+      planDayId,
+      workoutVideoId: c.workoutVideoId || null,
+      exerciseName: c.exerciseName || 'Exercise',
+      category: c.primaryMuscle || dayData.workoutType,
+      reps: '10-12',
+      order: idx,
+      image: c.videoUrl,
+      videoUrl: c.videoUrl,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+
+    if (rowsToInsert.length > 0) {
+      try {
+        const { data: inserted } = await supabase
+          .from('trainer_workout_plan_day_exercises')
+          .insert(rowsToInsert)
+          .select();
+        if (inserted && inserted.length > 0) {
+          return inserted;
+        }
+      } catch (err) {
+        console.warn('[trainerWorkoutPlanDayExercises] Auto-seed insert failed, returning generated rows:', err);
+      }
+    }
+
+    return rowsToInsert;
+  } catch (e) {
+    console.error('[trainerWorkoutPlanDayExercises] autoSeedTrainerPlanDayExercises Error:', e);
+    return [];
+  }
+}
+
+export async function fetchTrainerWorkoutPlanDayExercises(planDayId?: string, targetGender?: string) {
   let query = supabase
     .from('trainer_workout_plan_day_exercises')
     .select('*')
@@ -46,7 +153,12 @@ export async function fetchTrainerWorkoutPlanDayExercises(planDayId?: string) {
     throw error;
   }
 
-  return data ?? [];
+  let finalRows = data ?? [];
+  if (finalRows.length === 0 && planDayId) {
+    finalRows = await autoSeedTrainerPlanDayExercises(planDayId, targetGender);
+  }
+
+  return await enrichExercisesWithVideos(finalRows, targetGender);
 }
 
 export async function fetchPaginatedTrainerWorkoutPlanDayExercises(planDayId: string | null | undefined, page: number, limit: number) {

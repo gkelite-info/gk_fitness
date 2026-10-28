@@ -1506,7 +1506,7 @@ export async function syncMembershipRenewalReminders(userId: string) {
 
     const { data: customerPlans, error } = await supabase
       .from('gym_customer_membership_plans')
-      .select('*, gym_membership_plans(planName)')
+      .select('*, gym_membership_plans!gym_customer_membership_plans_planId_fkey(planName)')
       .eq('customerId', userId)
       .eq('is_deleted', false)
       .eq('is_Active', true)
@@ -1666,7 +1666,7 @@ export async function checkAndDispatchExpiringMembershipNotifications(gymId?: st
   try {
     let query = supabase
       .from('gym_customer_membership_plans')
-      .select('*, gym_membership_plans(planName)')
+      .select('*, gym_membership_plans!gym_customer_membership_plans_planId_fkey(planName)')
       .eq('is_deleted', false)
       .eq('is_Active', true);
 

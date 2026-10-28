@@ -2,14 +2,14 @@ import React, { useState, useImperativeHandle, useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { toastRef } from '@/lib/toast';
-import { CheckCircle, XCircle, CircleNotch } from 'phosphor-react-native';
+import { CheckCircle, XCircle, CircleNotch, Info } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export function ToastProvider() {
   const insets = useSafeAreaInsets();
   const [visible, setVisible] = useState(false);
   const [message, setMessage] = useState('');
-  const [type, setType] = useState<'success' | 'error' | 'loading'>('success');
+  const [type, setType] = useState<'success' | 'error' | 'loading' | 'info'>('success');
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-100)).current;
@@ -88,6 +88,8 @@ export function ToastProvider() {
         return <CheckCircle size={18} color="#D4FF00" weight="fill" />;
       case 'error':
         return <XCircle size={18} color="#FF3B30" weight="fill" />;
+      case 'info':
+        return <Info size={18} color="#00E5FF" weight="fill" />;
       case 'loading':
         return (
           <Animated.View style={{ transform: [{ rotate: spin }] }}>

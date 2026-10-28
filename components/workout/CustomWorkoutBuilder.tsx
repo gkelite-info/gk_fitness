@@ -208,6 +208,7 @@ export function CustomWorkoutBuilder() {
         params: {
           dayId: planDayId,
           exerciseIndex: 0,
+          isCustom: 'true',
         },
       } as any);
     } catch (e: any) {

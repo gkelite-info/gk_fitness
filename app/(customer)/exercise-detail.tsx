@@ -19,6 +19,8 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { supabase } from '@/lib/supabase';
 import { useWorkoutPlanDayById } from '@/hooks/customerWorkouts/useWorkoutPlanDayById';
 import { useWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/useWorkoutPlanDayExercises';
+import { useTrainerWorkoutPlanDayById } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlanDayById';
+import { useTrainerWorkoutPlanDayExercises } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlanDayExercises';
 import { useLogWorkoutCompletion } from '@/hooks/customerWorkouts/useLogWorkoutCompletion';
 import { useSaveSetLog } from '@/hooks/customerWorkouts/useSaveSetLog';
 import { useLastSessionWeights, useWorkoutSetLogs } from '@/hooks/customerWorkouts/useWorkoutSetLogs';
@@ -30,13 +32,28 @@ import { RestTimerWidget } from '@/components/workout/RestTimerWidget';
 import { ExerciseInfoSheet } from '@/components/workout/ExerciseInfoSheet';
 import { WorkoutCompleteModal } from '@/components/workout/WorkoutCompleteModal';
 
+function parsePlannedReps(plannedRepsStr: string | number | undefined | null, isCustomMode: boolean): number {
+  if (isCustomMode) {
+    return 10;
+  }
+  if (typeof plannedRepsStr === 'number') {
+    return plannedRepsStr || 10;
+  }
+  if (!plannedRepsStr) {
+    return 10;
+  }
+  const match = String(plannedRepsStr).match(/\d+/);
+  return match ? parseInt(match[0], 10) || 10 : 10;
+}
+
 function buildInitialSets(
   plannedSets: number,
-  plannedRepsStr: string,
-  lastWeights: { setNumber: number; weight: number; reps: number }[]
+  plannedRepsStr: string | number | undefined | null,
+  lastWeights: { setNumber: number; weight: number; reps: number }[],
+  isCustomMode: boolean = false
 ): WorkoutSetRow[] {
   const count = Math.max(plannedSets || 3, 1);
-  const parsedReps = parseInt((plannedRepsStr || '10').replace(/[^0-9]/g, ''), 10) || 10;
+  const parsedReps = parsePlannedReps(plannedRepsStr, isCustomMode);
 
   return Array.from({ length: count }, (_, i) => {
     const setNum = i + 1;
@@ -53,7 +70,7 @@ function buildInitialSets(
 
 export default function ExerciseDetail() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ dayId: string; exerciseIndex: string }>();
+  const params = useLocalSearchParams<{ dayId: string; exerciseIndex: string; isTrainer?: string; isCustom?: string }>();
   const userContext = useUser();
   const userId = userContext.userId;
   const { data: customerProfileData } = useCustomerProfile(userId);
@@ -73,14 +90,27 @@ export default function ExerciseDetail() {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
 
-  const { data: dayData, isLoading: isLoadingDay } = useWorkoutPlanDayById(params.dayId);
-  const { data: eData, isLoading: isLoadingExercises } = useWorkoutPlanDayExercises(params.dayId, userGender);
+  const isTrainerParam = params.isTrainer === 'true';
+
+  const { data: customerDayData, isLoading: isLoadingCustomerDay } = useWorkoutPlanDayById(params.dayId);
+  const { data: customerEData, isLoading: isLoadingCustomerEx } = useWorkoutPlanDayExercises(params.dayId, userGender);
+
+  const { data: trainerDayData, isLoading: isLoadingTrainerDay } = useTrainerWorkoutPlanDayById(params.dayId);
+  const { data: trainerEData, isLoading: isLoadingTrainerEx } = useTrainerWorkoutPlanDayExercises(params.dayId, userGender);
+
+  const isTrainerPlan = isTrainerParam || (!customerDayData && !!trainerDayData);
+  const dayData = isTrainerPlan ? (trainerDayData || customerDayData) : (customerDayData || trainerDayData);
+  const rawEData = isTrainerPlan ? (trainerEData && trainerEData.length > 0 ? trainerEData : customerEData) : (customerEData && customerEData.length > 0 ? customerEData : trainerEData);
 
   const exercises = React.useMemo(() => {
-    return eData ? [...eData].sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : [];
-  }, [eData]);
+    return rawEData ? [...rawEData].sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) : [];
+  }, [rawEData]);
 
+  const isLoadingDay = isTrainerPlan ? (isLoadingTrainerDay && !trainerDayData) : (isLoadingCustomerDay && !customerDayData);
+  const isLoadingExercises = isTrainerPlan ? (isLoadingTrainerEx && !trainerEData) : (isLoadingCustomerEx && !customerEData);
   const isLoading = isLoadingDay || isLoadingExercises;
+
+  const isCustomMode = params.isCustom === 'true' || dayData?.workoutType?.toLowerCase()?.startsWith('custom') || false;
 
   // Per-exercise sets state — keyed by dayExerciseId
   const [setsMap, setSetsMap] = useState<Record<string, WorkoutSetRow[]>>({});
@@ -121,14 +151,14 @@ export default function ExerciseDetail() {
       // populate from todayLogs
       const mapped: WorkoutSetRow[] = todayLogs.map(l => ({
         setNumber: l.setNumber,
-        weight: l.weight,
-        reps: l.reps.toString(),
-        setType: l.setType as SetType,
-        isCompleted: l.isCompleted
+        weight: Number(l.weight) || 0,
+        reps: Number(l.reps) || (isCustomMode ? 10 : parsePlannedReps(currentExercise.reps, false)),
+        setType: (l.setType as SetType) || 'working',
+        isCompleted: !!l.isCompleted
       }));
       
       const planned = Math.max(currentExercise.sets ?? 3, 1);
-      const parsedReps = parseInt((currentExercise.reps || '10').replace(/[^0-9]/g, ''), 10) || 10;
+      const parsedReps = parsePlannedReps(currentExercise.reps, isCustomMode);
       
       for (let i = mapped.length; i < planned; i++) {
         const setNum = i + 1;
@@ -148,10 +178,11 @@ export default function ExerciseDetail() {
     const rows = buildInitialSets(
       currentExercise.sets ?? 3,
       currentExercise.reps ?? '10',
-      lastWeights ?? []
+      lastWeights ?? [],
+      isCustomMode
     );
     setSetsMap((prev) => ({ ...prev, [key]: rows }));
-  }, [currentExercise, lastWeights, todayAllLogs, isLoadingLast, isLoadingToday, setsMap]);
+  }, [currentExercise, lastWeights, todayAllLogs, isLoadingLast, isLoadingToday, setsMap, isCustomMode]);
 
   const currentSets: WorkoutSetRow[] = currentExercise
     ? setsMap[currentExercise.dayExerciseId] ?? []
@@ -228,15 +259,16 @@ export default function ExerciseDetail() {
 
   const handleAddSet = useCallback(() => {
     const last = currentSets[currentSets.length - 1];
+    const defaultReps = isCustomMode ? 10 : parsePlannedReps(currentExercise?.reps, false);
     const newSet: WorkoutSetRow = {
       setNumber: currentSets.length + 1,
       setType: last?.setType ?? 'working',
       weight: last?.weight ?? 0,
-      reps: last?.reps ?? 10,
+      reps: last?.reps ?? defaultReps,
       isCompleted: false,
     };
     updateSets([...currentSets, newSet]);
-  }, [currentSets, updateSets]);
+  }, [currentSets, updateSets, isCustomMode, currentExercise?.reps]);
 
   // Finish Workout Flow
   const handleFinishWorkout = async () => {
@@ -362,14 +394,43 @@ export default function ExerciseDetail() {
     );
   }
 
+  if (exercises.length === 0) {
+    const isRest = dayData?.workoutType?.toLowerCase() === 'rest';
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0A0A0A', paddingTop: insets.top, paddingHorizontal: 20, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '700', marginBottom: 8, textAlign: 'center' }}>
+          {isRest ? 'Rest Day' : 'No Exercises Found'}
+        </Text>
+        <Text style={{ color: '#8E8E8E', fontSize: 14, textAlign: 'center', marginBottom: 24 }}>
+          {isRest ? 'Today is scheduled as a rest day. Take time to recover and recharge!' : 'This workout day does not have any exercises configured yet.'}
+        </Text>
+        <Pressable
+          onPress={() => router.push('/(customer)/workout')}
+          style={{ backgroundColor: '#DFFF00', paddingVertical: 14, paddingHorizontal: 28, borderRadius: 16 }}
+        >
+          <Text style={{ color: '#000000', fontSize: 15, fontWeight: '700' }}>Back to Workouts</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: '#0A0A0A', paddingTop: insets.top }}>
       {/* ── Top Header ── */}
       <View className="flex-row items-center justify-between px-4 mb-4 mt-2 bg-transparent">
         <Pressable
-          onPress={() =>
-            router.push({ pathname: '/(customer)/workout-session', params: { dayId: params.dayId } })
-          }
+          onPress={() => {
+            if (isCustomMode) {
+              router.push('/(customer)/workout');
+            } else if (params.dayId) {
+              router.push({
+                pathname: '/(customer)/workout-session',
+                params: { dayId: params.dayId, isTrainer: isTrainerPlan ? 'true' : 'false' }
+              });
+            } else {
+              router.push('/(customer)/workout');
+            }
+          }}
           className="p-2"
         >
           <ArrowLeft size={24} color="#FFF" />

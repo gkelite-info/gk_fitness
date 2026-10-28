@@ -2,8 +2,8 @@
   "expo": {
     "name": "GK-Gymlife",
     "slug": "gk-fitness",
-    "owner": "gk-elite-info",
-    "version": "1.0.4",
+    "owner": "ashishgkelite",
+    "version": "1.0.5",
     "scheme": "gk-fitness",
     "platforms": [
       "ios",
@@ -95,7 +95,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vamshi0111.gkfitness",
-      "buildNumber": "20",
+      "buildNumber": "26",
       "entitlements": {
         "aps-environment": "production"
       },
@@ -115,7 +115,7 @@
       }
     },
     "android": {
-      "versionCode": 24,
+      "versionCode": 25,
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -143,14 +143,14 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5d58a773-7b20-402a-b488-fd27bccbc462"
+        "projectId": "99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/5d58a773-7b20-402a-b488-fd27bccbc462"
+      "url": "https://u.expo.dev/99fd4ec8-3138-4950-8a93-2f09dd96dbfc"
     }
   }
 }

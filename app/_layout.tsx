@@ -47,6 +47,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { UserProvider } from '@/context/UserContext';
 import { ToastProvider } from '@/components/ToastProvider';
 import { setupNotificationChannels } from '@/lib/services/notificationService';
+import { useWatchSync } from '@/hooks/watch/useWatchSync';
+
+function WatchSyncListener() {
+  useWatchSync();
+  return null;
+}
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -111,6 +117,7 @@ export default function RootLayout() {
                 <Stack.Screen name="community" options={{ headerShown: false }} />
                 <Stack.Screen name="modal" options={MODAL_OPTIONS} />
               </Stack>
+              <WatchSyncListener />
               <ToastProvider />
               <OfflineIndicator />
             </NavThemeProvider>

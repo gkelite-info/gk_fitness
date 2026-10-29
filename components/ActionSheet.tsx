@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Pressable, Modal, Platform, ScrollView } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 
 interface ActionSheetProps {
   visible: boolean;
@@ -16,7 +15,7 @@ export function ActionSheet({ visible, onClose, title, options, onSelect }: Acti
 
   return (
     <Modal
-      animationType={isAndroid ? 'fade' : 'none'}
+      animationType={isAndroid ? 'fade' : 'slide'}
       transparent={true}
       visible={visible}
       onRequestClose={onClose}
@@ -58,11 +57,7 @@ export function ActionSheet({ visible, onClose, title, options, onSelect }: Acti
               </View>
             </View>
           ) : (
-            <Animated.View
-              entering={SlideInDown.duration(250)}
-              exiting={SlideOutDown.duration(250)}
-              className="w-full gap-3"
-            >
+            <View className="w-full gap-3">
               <View className="bg-[#161616] rounded-2xl overflow-hidden border border-[#242424]">
                 {title && (
                   <View className="py-4 items-center justify-center border-b border-[#242424]">
@@ -90,7 +85,7 @@ export function ActionSheet({ visible, onClose, title, options, onSelect }: Acti
               >
                 <Text className="text-[#CCF200] text-base font-semibold">Cancel</Text>
               </Pressable>
-            </Animated.View>
+            </View>
           )}
         </View>
       )}

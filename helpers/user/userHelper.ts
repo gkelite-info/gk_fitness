@@ -110,32 +110,72 @@ export async function saveUser(userData: SaveUserParams) {
   const now = new Date().toISOString();
 
   if (userData.userId) {
-    const { data, error } = await supabase
+    const { data: existingUser } = await supabase
       .from('users')
-      .update({
-        name: userData.name,
-        email: userData.email,
-        phone: userData.phone,
-        address: userData.address,
-        country: userData.country,
-        state: userData.state,
-        city: userData.city,
-        pincode: userData.pincode,
-        ...(userData.dob !== undefined ? { dob: userData.dob } : {}),
-        ...(userData.gender !== undefined ? { gender: userData.gender ? (userData.gender.toLowerCase() === 'other' ? 'others' : userData.gender.toLowerCase()) : 'male' } : {}),
-        role: userData.role,
-        status: userData.status,
-        updatedAt: now,
-      })
+      .select('userId')
       .eq('userId', userData.userId)
-      .select();
+      .maybeSingle();
 
-    if (error) {
-      console.error('[userHelper] saveUser Update Error:', error);
-      throw error;
+    if (existingUser) {
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone,
+          address: userData.address,
+          country: userData.country,
+          state: userData.state,
+          city: userData.city,
+          pincode: userData.pincode,
+          ...(userData.dob !== undefined ? { dob: userData.dob } : {}),
+          ...(userData.gender !== undefined ? { gender: userData.gender ? (userData.gender.toLowerCase() === 'other' ? 'others' : userData.gender.toLowerCase()) : 'male' } : {}),
+          role: userData.role,
+          status: userData.status,
+          updatedAt: now,
+        })
+        .eq('userId', userData.userId)
+        .select();
+
+      if (error) {
+        console.error('[userHelper] saveUser Update Error:', error);
+        throw error;
+      }
+
+      return data ? data[0] : null;
+    } else {
+      const { data, error } = await supabase
+        .from('users')
+        .insert([
+          {
+            userId: userData.userId,
+            name: userData.name,
+            email: userData.email,
+            phone: userData.phone,
+            gender: userData.gender ? (userData.gender.toLowerCase() === 'other' ? 'others' : userData.gender.toLowerCase()) : 'male',
+            dob: userData.dob || null,
+            address: userData.address || null,
+            country: userData.country || null,
+            state: userData.state || null,
+            city: userData.city || null,
+            pincode: userData.pincode || null,
+            role: userData.role || 'customer',
+            status: userData.status || 'active',
+            isEmailVerified: false,
+            isPhoneVerified: false,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ])
+        .select();
+
+      if (error) {
+        console.error('[userHelper] saveUser Insert Error:', error);
+        throw error;
+      }
+
+      return data ? data[0] : null;
     }
-
-    return data ? data[0] : null;
   } else {
     const generatedUserId = Crypto.randomUUID();
     const { data, error } = await supabase

@@ -30,6 +30,13 @@ export default function AccountTypeScreen() {
       async function checkSessionAndNavigate() {
         if (!loading && role) {
           const normalizedRole = role.trim().toLowerCase();
+          if (normalizedRole === 'individual' || normalizedRole === 'superadmin' || normalizedRole === 'globaltrainer') {
+            await clearSelectedGym();
+            if (!isCancelled) {
+              navigateBasedOnRole(role);
+            }
+            return;
+          }
           if (['customer', 'trainer', 'owner'].includes(normalizedRole)) {
             const selectedGym = await getSelectedGym();
             if (selectedGym?.gymId && userId) {
@@ -59,10 +66,13 @@ export default function AccountTypeScreen() {
     }, [role, loading, userId, email])
   );
 
-  const handleSelect = (typeId: string) => {
-    if (typeId === 'customer' || typeId === 'gym_trainer') {
+  const handleSelect = async (typeId: string) => {
+    if (typeId === 'individual') {
+      await clearSelectedGym();
+      router.push({ pathname: '/auth/otp-auth', params: { type: 'individual' } });
+    } else if (typeId === 'customer' || typeId === 'gym_trainer') {
       router.push({ pathname: '/auth/find-organization', params: { type: typeId } });
-    } else if (typeId === 'individual' || typeId === 'owner' || typeId === 'global_trainer') {
+    } else if (typeId === 'owner' || typeId === 'global_trainer') {
       router.push({ pathname: '/auth/otp-auth', params: { type: typeId } });
     }
   };

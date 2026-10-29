@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, ScrollView, TextInput, Pressable, Platform, Modal, FlatList, ActivityIndicator, Image as RNImage, Keyboard } from 'react-native';
+import { View, ScrollView, TextInput, Pressable, Platform, Modal, FlatList, ActivityIndicator, Image as RNImage, Keyboard, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import {
   CaretLeft,
   User,
@@ -21,7 +22,9 @@ import {
   X,
   CaretDown,
   UploadSimple,
-  CalendarBlank
+  CalendarBlank,
+  Crown,
+  ArrowSquareOut
 } from 'phosphor-react-native';
 import { Country, State } from 'country-state-city';
 import * as ImagePicker from 'expo-image-picker';
@@ -31,12 +34,16 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useCreateUser } from '@/hooks/auth/useCreateUser';
 import { useCreateGymLead } from '@/hooks/gymLeads/useCreateGymLead';
 import { useUploadGymLeadLogo } from '@/hooks/gymLeads/useUploadGymLeadLogo';
+import { useSubscriptions } from '@/hooks/superadmin/subscriptions';
+import { useSaveIndividualCustomerPlan } from '@/hooks/individual/membership/individualCustomerPlan';
+import { useSaveIndividualCustomerPlanHistory } from '@/hooks/individual/membership/individualCustomerPlanHistories';
+import { useSaveUser } from '@/hooks/users';
 import { ActionSheet } from '@/components/ActionSheet';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 
-const SearchableModalPicker = ({ visible, onClose, data, onSelect, placeholder, selectedValue }: any) => {
+const SearchableModalPicker = ({ visible, onClose, data, onSelect, placeholder, selectedValue, onExploreWeb }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredData = data.filter((item: any) => item.label.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -62,6 +69,18 @@ const SearchableModalPicker = ({ visible, onClose, data, onSelect, placeholder, 
               autoCapitalize="none"
             />
           </View>
+
+          {onExploreWeb && (
+            <Pressable
+              onPress={onExploreWeb}
+              className="flex-row items-center justify-center bg-[#C3F400]/10 border border-[#C3F400] rounded-xl py-3 px-4 mb-4 active:opacity-75 gap-2"
+            >
+              <Globe size={18} color="#C3F400" weight="bold" />
+              <Text className="text-[#C3F400] text-[14px] font-semibold">Explore Plans on Web</Text>
+              <ArrowSquareOut size={16} color="#C3F400" weight="bold" />
+            </Pressable>
+          )}
+
           <FlatList
             data={filteredData}
             keyExtractor={item => item.value}
@@ -177,10 +196,50 @@ export default function SignupScreen() {
   const [stateModalVisible, setStateModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+  const [planModalVisible, setPlanModalVisible] = useState(false);
+
+  const { data: rawSubscriptions, isLoading: isSubscriptionsLoading } = useSubscriptions(undefined, 'customer');
   const { mutateAsync: createUser, isPending: isCreateUserPending } = useCreateUser();
+  const { mutateAsync: saveUserMutation, isPending: isSaveUserPending } = useSaveUser();
+  const { mutateAsync: saveIndividualPlanMutation, isPending: isSavePlanPending } = useSaveIndividualCustomerPlan();
+  const { mutateAsync: saveIndividualPlanHistoryMutation, isPending: isSaveHistoryPending } = useSaveIndividualCustomerPlanHistory();
   const { mutateAsync: createGymLead, isPending: isCreateGymLeadPending } = useCreateGymLead();
   const { mutateAsync: uploadGymLeadLogo, isPending: isUploadLogoPending } = useUploadGymLeadLogo();
-  const isPending = isCreateUserPending || isCreateGymLeadPending || isUploadLogoPending;
+
+  const isPending =
+    isCreateUserPending ||
+    isCreateGymLeadPending ||
+    isUploadLogoPending ||
+    isSaveUserPending ||
+    isSavePlanPending ||
+    isSaveHistoryPending;
+
+  const subscriptionPlans = (rawSubscriptions || []).filter(
+    (p: any) => p.isActive !== false && !p.is_deleted
+  );
+
+  const selectedPlan = subscriptionPlans.find((p: any) => p.subscriptionPlanId === selectedPlanId);
+
+  const planPickerData = subscriptionPlans.map((p: any) => ({
+    label: p.planName + (p.label ? ` (${p.label})` : ''),
+    value: p.subscriptionPlanId,
+  }));
+
+  const handleExplorePlansOnWeb = async () => {
+    const url = 'https://www.gkgymlife.com/';
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch (err) {
+      console.warn('[handleExplorePlansOnWeb] WebBrowser failed, falling back to Linking:', err);
+      try {
+        await Linking.openURL(url);
+      } catch (linkErr) {
+        console.error('[handleExplorePlansOnWeb] Failed to open URL:', linkErr);
+        toast.error('Could not open browser. Please visit https://www.gkgymlife.com/');
+      }
+    }
+  };
 
   const handlePhoneInput = (setter: React.Dispatch<React.SetStateAction<string>>) => (val: string) => {
     const cleaned = val.replace(/[^0-9]/g, '');
@@ -375,6 +434,38 @@ export default function SignupScreen() {
       toast.error('Please select Gender.');
       return;
     }
+    if (typeId === 'individual' && !selectedPlanId) {
+      toast.error('Please select a Membership Plan.');
+      return;
+    }
+    if (!dob || !dob.trim()) {
+      toast.error('Please select Date of Birth.');
+      return;
+    }
+    if (!address.trim()) {
+      toast.error('Please enter Address.');
+      return;
+    }
+    if (!country) {
+      toast.error('Please select Country.');
+      return;
+    }
+    if (!state) {
+      toast.error('Please select State.');
+      return;
+    }
+    if (!city.trim()) {
+      toast.error('Please enter City.');
+      return;
+    }
+    if (!pinCode.trim()) {
+      toast.error('Please enter PIN Code.');
+      return;
+    }
+    if (pinCode.trim().length !== 6) {
+      toast.error('PIN Code must be 6 digits.');
+      return;
+    }
     if (!password) {
       toast.error('Please enter Password.');
       return;
@@ -392,6 +483,8 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       if (typeId === 'individual') {
+        const chosenPlan = subscriptionPlans.find((p: any) => p.subscriptionPlanId === selectedPlanId);
+        const planAmount = chosenPlan?.price ? Number(chosenPlan.price) : 0;
         const normalizedGender = (gender.toLowerCase() === 'other' ? 'others' : gender.toLowerCase()) as 'male' | 'female' | 'others';
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
@@ -416,20 +509,54 @@ export default function SignupScreen() {
           throw new Error('Authentication failed to generate a user ID.');
         }
 
-        const result = await createUser({
-          userId: authData.user.id,
-          name: fullName,
-          email,
-          phone,
+        const newUserId = authData.user.id;
+
+        // 1. Save in users table
+        await saveUserMutation({
+          userId: newUserId,
+          name: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim(),
           gender: normalizedGender,
           dob: dob || null,
-          address,
-          country,
-          state,
-          city,
+          address: address.trim() || null,
+          country: country || null,
+          state: state || null,
+          city: city.trim() || null,
           pincode: pinCode ? parseInt(pinCode, 10) : null,
-          role: 'individual'
+          role: 'individual',
+          status: 'active',
         });
+
+        // 2. Save in individual_customer_plans table
+        const savedPlan = await saveIndividualPlanMutation({
+          subscriptionPlanId: selectedPlanId,
+          userId: newUserId,
+          customAmount: planAmount,
+          startDate: null,
+          endDate: null,
+          isActive: true,
+          status: 'pending',
+          transactionId: null,
+        });
+
+        // 3. Save in individual_customer_plan_histories table
+        const planId = savedPlan?.individualCustomerPlanId || null;
+        await saveIndividualPlanHistoryMutation({
+          individualCustomerPlanId: planId,
+          subscriptionPlanId: selectedPlanId,
+          userId: newUserId,
+          actionType: 'ASSIGNED',
+          customAmount: planAmount,
+          unusedCredit: 0,
+          daysCarriedOver: 0,
+          startDate: null,
+          endDate: null,
+          paymentStatus: 'pending',
+          transactionId: null,
+          isActive: true,
+        });
+
         toast.success('Account created! Please check your email to verify.');
         if (router.canGoBack()) {
           router.back();
@@ -966,8 +1093,33 @@ export default function SignupScreen() {
                 </Pressable>
               </View>
 
+              {typeId === 'individual' && (
+                <View onLayout={(e) => registerField('plan', e.nativeEvent.layout.y)}>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">
+                    Membership Plan <Text className="text-red-500">*</Text>
+                  </Text>
+                  <Pressable
+                    onPress={() => setPlanModalVisible(true)}
+                    className="flex-row items-center justify-between bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 active:opacity-80"
+                  >
+                    <View className="flex-row items-center gap-3 flex-1">
+                      <Crown size={18} color="#C3F400" />
+                      <Text
+                        numberOfLines={1}
+                        className={selectedPlan ? 'text-white text-[14px] font-medium flex-1' : 'text-[#6B6B6B] text-[14px] font-medium flex-1'}
+                      >
+                        {selectedPlan
+                          ? (selectedPlan.planName + (selectedPlan.label ? ` (${selectedPlan.label})` : ''))
+                          : (isSubscriptionsLoading ? 'Loading plans...' : 'Select Membership Plan')}
+                      </Text>
+                    </View>
+                    <CaretDown size={18} color="#6B6B6B" />
+                  </Pressable>
+                </View>
+              )}
+
               <View onLayout={(e) => registerField('dob', e.nativeEvent.layout.y)}>
-                <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Date of Birth</Text>
+                <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Date of Birth <Text className="text-red-500">*</Text></Text>
                 <Pressable
                   onPress={() => setDobModalVisible(true)}
                   className="flex-row items-center justify-between bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 active:opacity-80"
@@ -983,7 +1135,7 @@ export default function SignupScreen() {
               </View>
 
               <View onLayout={(e) => registerField('address', e.nativeEvent.layout.y)}>
-                <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Address</Text>
+                <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Address <Text className="text-red-500">*</Text></Text>
                 <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 mb-3">
                   <MapPin size={18} color="#6B6B6B" />
                   <TextInput autoCorrect={false} spellCheck={false}
@@ -998,6 +1150,7 @@ export default function SignupScreen() {
 
                 <View className="flex-row gap-3 mb-3">
                   <View className="flex-1">
+                    <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Country <Text className="text-red-500">*</Text></Text>
                     <Pressable onPress={() => setCountryModalVisible(true)}>
                       <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                         <Flag size={18} color="#6B6B6B" />
@@ -1023,6 +1176,7 @@ export default function SignupScreen() {
                   </View>
 
                   <View className="flex-1">
+                    <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">State <Text className="text-red-500">*</Text></Text>
                     <Pressable onPress={() => { if (country) setStateModalVisible(true); }}>
                       <View className={`flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 ${!country ? 'opacity-50' : ''}`}>
                         <MapTrifold size={18} color="#6B6B6B" />
@@ -1049,118 +1203,134 @@ export default function SignupScreen() {
                 </View>
 
                 <View className="flex-row gap-3" onLayout={(e) => registerField('cityRow', e.nativeEvent.layout.y)}>
-                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
-                    <Buildings size={18} color="#6B6B6B" />
-                    <TextInput autoCorrect={false} spellCheck={false}
-                      value={city}
-                      onChangeText={setCity}
-                      onFocus={() => scrollToField('cityRow')}
-                      placeholder="City"
-                      placeholderTextColor="#6B6B6B"
-                      className="flex-1 text-white text-[14px] p-0 font-medium"
-                    />
+                  <View className="flex-1">
+                    <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">City <Text className="text-red-500">*</Text></Text>
+                    <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                      <Buildings size={18} color="#6B6B6B" />
+                      <TextInput autoCorrect={false} spellCheck={false}
+                        value={city}
+                        onChangeText={setCity}
+                        onFocus={() => scrollToField('cityRow')}
+                        placeholder="City"
+                        placeholderTextColor="#6B6B6B"
+                        className="flex-1 text-white text-[14px] p-0 font-medium"
+                      />
+                    </View>
                   </View>
-                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 flex-1">
-                    <GlobeHemisphereWest size={18} color="#6B6B6B" />
-                    <TextInput autoCorrect={false} spellCheck={false}
-                      value={pinCode}
-                      onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
-                      onFocus={() => scrollToField('cityRow')}
-                      placeholder="PIN Code"
-                      placeholderTextColor="#6B6B6B"
-                      keyboardType="number-pad"
-                      maxLength={6}
-                      className="flex-1 text-white text-[14px] p-0 font-medium"
-                    />
+                  <View className="flex-1">
+                    <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">PIN Code <Text className="text-red-500">*</Text></Text>
+                    <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                      <GlobeHemisphereWest size={18} color="#6B6B6B" />
+                      <TextInput autoCorrect={false} spellCheck={false}
+                        value={pinCode}
+                        onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
+                        onFocus={() => scrollToField('cityRow')}
+                        placeholder="PIN Code"
+                        placeholderTextColor="#6B6B6B"
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        className="flex-1 text-white text-[14px] p-0 font-medium"
+                      />
+                    </View>
                   </View>
                 </View>
               </View>
             </>
           )}
 
-          <View onLayout={(e) => registerField('password', e.nativeEvent.layout.y)}>
-            <Text className="text-white text-[13px] font-medium mb-2">Password <Text className="text-red-500">*</Text></Text>
-            <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-              <LockKey size={18} color="#6B6B6B" />
-              <TextInput autoCorrect={false} spellCheck={false}
-                value={password}
-                onChangeText={setPassword}
-                onFocus={() => scrollToField('password')}
-                placeholder="Enter your password"
-                placeholderTextColor="#6B6B6B"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                className="flex-1 text-white text-[14px] p-0 font-medium"
-              />
-              <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
-                {showPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
+                <View onLayout={(e) => registerField('password', e.nativeEvent.layout.y)}>
+                  <Text className="text-white text-[13px] font-medium mb-2">Password <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <LockKey size={18} color="#6B6B6B" />
+                    <TextInput autoCorrect={false} spellCheck={false}
+                      value={password}
+                      onChangeText={setPassword}
+                      onFocus={() => scrollToField('password')}
+                      placeholder="Enter your password"
+                      placeholderTextColor="#6B6B6B"
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                    <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
+                      {showPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
+                    </Pressable>
+                  </View>
+                </View>
+
+                <View onLayout={(e) => registerField('confirmPassword', e.nativeEvent.layout.y)}>
+                  <Text className="text-white text-[13px] font-medium mb-2">Confirm Password <Text className="text-red-500">*</Text></Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <LockKey size={18} color="#6B6B6B" />
+                    <TextInput autoCorrect={false} spellCheck={false}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      onFocus={() => scrollToField('confirmPassword')}
+                      placeholder="Confirm your password"
+                      placeholderTextColor="#6B6B6B"
+                      secureTextEntry={!showConfirmPassword}
+                      autoCapitalize="none"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                    <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
+                      {showConfirmPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+
+              <Pressable
+                onPress={handleSignup}
+                disabled={loading || isPending}
+                className={`bg-[#C3F400] rounded-xl py-3.5 items-center flex-row justify-center mb-6 ${(loading || isPending) ? 'opacity-70' : 'active:opacity-80'}`}
+              >
+                {(loading || isPending) && <ActivityIndicator color="#000" size="small" style={{ marginRight: 8 }} />}
+                <Text className="text-black font-semibold text-[15px]">Sign Up</Text>
               </Pressable>
-            </View>
-          </View>
 
-          <View onLayout={(e) => registerField('confirmPassword', e.nativeEvent.layout.y)}>
-            <Text className="text-white text-[13px] font-medium mb-2">Confirm Password <Text className="text-red-500">*</Text></Text>
-            <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-              <LockKey size={18} color="#6B6B6B" />
-              <TextInput autoCorrect={false} spellCheck={false}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                onFocus={() => scrollToField('confirmPassword')}
-                placeholder="Confirm your password"
-                placeholderTextColor="#6B6B6B"
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-                className="flex-1 text-white text-[14px] p-0 font-medium"
-              />
-              <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
-                {showConfirmPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
+              <View className="flex-row items-center justify-center">
+                <View className="flex-1 h-[1px] bg-[#1E1E1E]" />
+                <Text className="text-[#6B6B6B] text-[13px] mx-4">Already have an account?</Text>
+                <View className="flex-1 h-[1px] bg-[#1E1E1E]" />
+              </View>
+
+              <Pressable onPress={() => router.back()} className="items-center mt-4 p-2">
+                <Text className="text-[#C3F400] font-semibold text-[14px]">Login</Text>
               </Pressable>
-            </View>
-          </View>
-        </View>
 
-        <Pressable
-          onPress={handleSignup}
-          disabled={loading || isPending}
-          className={`bg-[#C3F400] rounded-xl py-3.5 items-center flex-row justify-center mb-6 ${(loading || isPending) ? 'opacity-70' : 'active:opacity-80'}`}
-        >
-          {(loading || isPending) && <ActivityIndicator color="#000" size="small" style={{ marginRight: 8 }} />}
-          <Text className="text-black font-semibold text-[15px]">Sign Up</Text>
-        </Pressable>
+            </ScrollView>
 
-        <View className="flex-row items-center justify-center">
-          <View className="flex-1 h-[1px] bg-[#1E1E1E]" />
-          <Text className="text-[#6B6B6B] text-[13px] mx-4">Already have an account?</Text>
-          <View className="flex-1 h-[1px] bg-[#1E1E1E]" />
-        </View>
+          <ActionSheet
+            visible={genderModalVisible}
+            onClose={() => setGenderModalVisible(false)}
+            title="Select Gender"
+            options={['Male', 'Female', 'Others']}
+            onSelect={(idx) => {
+              if (idx === 0) setGender('Male');
+              if (idx === 1) setGender('Female');
+              if (idx === 2) setGender('Others');
+            }}
+          />
 
-        <Pressable onPress={() => router.back()} className="items-center mt-4 p-2">
-          <Text className="text-[#C3F400] font-semibold text-[14px]">Login</Text>
-        </Pressable>
+          <DatePickerModal
+            visible={dobModalVisible}
+            title="Select Date of Birth"
+            initialDate={dob || '1998-01-01'}
+            onClose={() => setDobModalVisible(false)}
+            onSelectDate={setDob}
+            minYear={1940}
+            maxYear={new Date().getFullYear()}
+          />
 
-      </ScrollView>
-
-      <ActionSheet
-        visible={genderModalVisible}
-        onClose={() => setGenderModalVisible(false)}
-        title="Select Gender"
-        options={['Male', 'Female', 'Others']}
-        onSelect={(idx) => {
-          if (idx === 0) setGender('Male');
-          if (idx === 1) setGender('Female');
-          if (idx === 2) setGender('Others');
-        }}
-      />
-
-      <DatePickerModal
-        visible={dobModalVisible}
-        title="Select Date of Birth"
-        initialDate={dob || '1998-01-01'}
-        onClose={() => setDobModalVisible(false)}
-        onSelectDate={setDob}
-        minYear={1940}
-        maxYear={new Date().getFullYear()}
-      />
-    </SafeAreaView>
-  );
-}
+          <SearchableModalPicker
+            visible={planModalVisible}
+            onClose={() => setPlanModalVisible(false)}
+            data={planPickerData}
+            onSelect={(val: string) => setSelectedPlanId(val)}
+            placeholder="Select Membership Plan"
+            selectedValue={selectedPlanId}
+            onExploreWeb={handleExplorePlansOnWeb}
+          />
+        </SafeAreaView>
+        );
+  }

@@ -1,3 +1,4 @@
+import { assignInitialIndividualCustomerPlan } from '@/helpers/individual/membership/individualCustomerPlan';
 import React, { useState } from 'react';
 import {
   View,
@@ -80,13 +81,20 @@ export default function OtpAuthScreen() {
   }, []);
   React.useEffect(() => {
     const fetchGym = async () => {
+      if (typeId === 'individual' || typeId === 'global_trainer') {
+        await clearSelectedGym();
+        if (isMounted.current) {
+          setSelectedGymState(null);
+        }
+        return;
+      }
       const gym = await getSelectedGym();
       if (isMounted.current) {
         setSelectedGymState(gym);
       }
     };
     fetchGym();
-  }, []);
+  }, [typeId]);
 
   React.useEffect(() => {
     const checkAndNavigate = async () => {
@@ -111,9 +119,21 @@ export default function OtpAuthScreen() {
               await supabase.auth.signOut();
               return;
             }
+            if (normType === 'individual') {
+              const isBlocked = normalizedRole === 'owner' || normalizedRole === 'trainer' || normalizedRole === 'gymtrainer' || normalizedRole === 'globaltrainer';
+              if (isBlocked) {
+                await supabase.auth.signOut();
+                return;
+              }
+            } else if (normalizedRole === 'individual') {
+              await supabase.auth.signOut();
+              return;
+            }
           }
 
-          if (normalizedRole === 'customer' || normalizedRole === 'trainer' || normalizedRole === 'owner') {
+          if (normType === 'individual' || normalizedRole === 'individual') {
+            await clearSelectedGym();
+          } else if (normalizedRole === 'customer' || normalizedRole === 'trainer' || normalizedRole === 'owner') {
             const autoSelectedGym = await getSelectedGym();
             if (autoSelectedGym?.gymId) {
               const { data: { session } } = await supabase.auth.getSession();
@@ -136,7 +156,6 @@ export default function OtpAuthScreen() {
         }
       }
     };
-
     checkAndNavigate();
   }, [role, userLoading, isGymSuspended, typeId]);
 
@@ -194,24 +213,64 @@ export default function OtpAuthScreen() {
         await supabase.auth.signOut();
         const normType = (typeId || '').trim().toLowerCase().replace(/[\s_-]/g, '');
 
+        if (normType === 'individual') {
+          await clearSelectedGym();
+        }
+
         // 1. PRE-CHECK: Validate role & gym boundary BEFORE creating a Supabase session
         const currentSelectedGym = await getSelectedGym();
         const selectedGymId = currentSelectedGym?.gymId;
 
         try {
-          const { data: uRec } = await supabase
+          let userQuery = supabase
             .from('users')
-            .select('userId, role')
-            .ilike('email', targetEmail)
-            .maybeSingle();
+            .select('userId, role, email, phone');
+
+          if (targetEmail.includes('@')) {
+            userQuery = userQuery.ilike('email', targetEmail);
+          } else {
+            const cleanedDigits = targetEmail.replace(/[^0-9]/g, '');
+            if (cleanedDigits.length >= 10) {
+              const last10 = cleanedDigits.slice(-10);
+              userQuery = userQuery.or(`phone.ilike.%${last10}%,email.ilike.${targetEmail}`);
+            } else {
+              userQuery = userQuery.ilike('email', targetEmail);
+            }
+          }
+          const { data: uRec } = await userQuery.maybeSingle();
 
           const preUserId = uRec?.userId;
           const preRole = uRec?.role;
-          const normalizedPreRole = (preRole || '').trim().toLowerCase();
+          const normalizedPreRole = (preRole || '').trim().toLowerCase().replace(/[\s_-]/g, '');
           const isSuperAdmin = normalizedPreRole === 'superadmin';
 
           // Pure global roles are never gym-restricted
-          const isGlobalRole = isSuperAdmin || normalizedPreRole === 'global_trainer';
+          const isGlobalRole = isSuperAdmin || normalizedPreRole === 'globaltrainer' || normalizedPreRole === 'individual' || normType === 'individual';
+
+          if (normType === 'individual') {
+            // For individual login: Allow 'individual' and 'customer'. Block owner/trainer/globaltrainer.
+            if (uRec) {
+              const isBlocked = normalizedPreRole === 'owner' || normalizedPreRole === 'trainer' || normalizedPreRole === 'gymtrainer' || normalizedPreRole === 'globaltrainer';
+              if (isBlocked) {
+                const errText = 'Invalid credentials or check role';
+                setAuthErrorMessage(errText);
+                toast.error(errText);
+                setLoading(false);
+                isManualLoginRef.current = false;
+                return;
+              }
+            }
+          } else if (normType) {
+            // If the user's role in the users table is explicitly 'individual', block from logging in under gym roles
+            if (normalizedPreRole === 'individual') {
+              const errText = 'Please log in using Individual account type.';
+              setAuthErrorMessage(errText);
+              toast.error(errText);
+              setLoading(false);
+              isManualLoginRef.current = false;
+              return;
+            }
+          }
 
           if (selectedGymId && !isGlobalRole) {
             const custOr = [`email.ilike.${targetEmail}`];
@@ -264,18 +323,16 @@ export default function OtpAuthScreen() {
             }
           }
 
-          if (normType) {
+          if (normType && normType !== 'individual') {
             let preIsOwner = false;
             let preIsCustomer = false;
             let preIsTrainer = false;
             let preIsGlobalTrainer = false;
-            let preIsIndividual = false;
 
             if (normalizedPreRole === 'owner') preIsOwner = true;
             if (normalizedPreRole === 'customer') preIsCustomer = true;
             if (normalizedPreRole === 'trainer' || normalizedPreRole === 'gymtrainer') preIsTrainer = true;
             if (normalizedPreRole === 'globaltrainer') preIsGlobalTrainer = true;
-            if (normalizedPreRole === 'individual') preIsIndividual = true;
 
             const userFilter = preUserId ? `,userId.eq.${preUserId}` : '';
 
@@ -297,7 +354,6 @@ export default function OtpAuthScreen() {
                 preRoleValid = true;
               }
             } else {
-              // If user is a global trainer, they must not have access to any other account type
               if (preIsGlobalTrainer) {
                 const errText = 'Please log in using Global Trainer account type.';
                 setAuthErrorMessage(errText);
@@ -307,12 +363,7 @@ export default function OtpAuthScreen() {
                 return;
               }
 
-              if (normType === 'individual') {
-                if (preIsIndividual || (!preIsOwner && !preIsCustomer && !preIsTrainer && !preIsGlobalTrainer)) {
-                  preRoleValid = true;
-                }
-              } else if (normType === 'owner') {
-                // Allow gym owners AND superadmins in gym owner login
+              if (normType === 'owner') {
                 if (preIsOwner || isSuperAdmin) preRoleValid = true;
               } else if (normType === 'customer') {
                 if (preIsCustomer) preRoleValid = true;
@@ -323,7 +374,7 @@ export default function OtpAuthScreen() {
               }
             }
 
-            if (!preRoleValid && (uRec || preIsOwner || preIsCustomer || preIsTrainer || preIsGlobalTrainer || preIsIndividual)) {
+            if (!preRoleValid && (uRec || preIsOwner || preIsCustomer || preIsTrainer || preIsGlobalTrainer)) {
               const errText = 'Invalid credentials or check role';
               setAuthErrorMessage(errText);
               toast.error(errText);
@@ -369,8 +420,9 @@ export default function OtpAuthScreen() {
           if (isMounted.current) {
             const errText = authError.message?.toLowerCase().includes('invalid login credentials')
               ? 'Invalid email or password. Please check your credentials.'
-              : 'Invalid credentials or check role';
+              : (authError.message || 'Invalid credentials or check role');
             setAuthErrorMessage(errText);
+            toast.error(errText);
             setLoading(false);
           }
           isManualLoginRef.current = false;
@@ -380,11 +432,22 @@ export default function OtpAuthScreen() {
         if (authData?.user?.id) {
           const userId = authData.user.id;
           const userAuthEmail = (authData.user.email || targetEmail).trim().toLowerCase();
-          const { data: profile } = await supabase
+
+          // Query profile by userId, and fallback to email if not matched
+          let { data: profile } = await supabase
             .from('users')
             .select('role')
             .eq('userId', userId)
             .maybeSingle();
+
+          if (!profile && userAuthEmail) {
+            const { data: emailProfile } = await supabase
+              .from('users')
+              .select('role')
+              .ilike('email', userAuthEmail)
+              .maybeSingle();
+            profile = emailProfile;
+          }
 
           let fetchedRole = profile?.role;
 
@@ -406,6 +469,8 @@ export default function OtpAuthScreen() {
             fetchedRole = metadata.role || fallbackRole;
           }
 
+          let cleanFetchedRole = (fetchedRole || '').trim().toLowerCase().replace(/[\s_-]/g, '');
+
           // Check if user is a global trainer
           const userAuthFilter = `userId.eq.${userId},email.ilike.${userAuthEmail}`;
           const { data: gtRecord } = await supabase
@@ -415,7 +480,6 @@ export default function OtpAuthScreen() {
             .eq('is_deleted', false)
             .maybeSingle();
 
-          let cleanFetchedRole = (fetchedRole || '').trim().toLowerCase().replace(/[\s_-]/g, '');
           const isUserGlobalTrainer = cleanFetchedRole === 'globaltrainer' || !!gtRecord;
 
           if (normType === 'globaltrainer') {
@@ -438,8 +502,42 @@ export default function OtpAuthScreen() {
               }
             }
             await clearSelectedGym();
+          } else if (normType === 'individual') {
+            // For individual login: block owners, trainers, global trainers
+            const isBlockedRole = cleanFetchedRole === 'owner' || cleanFetchedRole === 'trainer' || cleanFetchedRole === 'gymtrainer' || cleanFetchedRole === 'globaltrainer';
+            if (isBlockedRole) {
+              await supabase.auth.signOut();
+              if (isMounted.current) {
+                toast.error('Invalid credentials or check role');
+                setLoading(false);
+              }
+              isManualLoginRef.current = false;
+              return;
+            }
+
+            // Sync role to individual if it is currently customer or missing
+            if (cleanFetchedRole === 'customer' || !cleanFetchedRole) {
+              try {
+                await supabase.from('users').update({ role: 'individual' }).eq('userId', userId);
+                fetchedRole = 'individual';
+                cleanFetchedRole = 'individual';
+              } catch (updateRoleErr) {
+                console.warn('[SignIn] Non-fatal error syncing role to individual:', updateRoleErr);
+              }
+            }
+            await clearSelectedGym();
           } else if (normType) {
-            // User chose any other account type in account-type.tsx
+            // User chose another account type (owner, customer, gymtrainer)
+            if (cleanFetchedRole === 'individual') {
+              await supabase.auth.signOut();
+              if (isMounted.current) {
+                toast.error('Please log in using Individual account type.');
+                setLoading(false);
+              }
+              isManualLoginRef.current = false;
+              return;
+            }
+
             if (isUserGlobalTrainer) {
               await supabase.auth.signOut();
               if (isMounted.current) {
@@ -501,7 +599,7 @@ export default function OtpAuthScreen() {
             }
           }
 
-          if (normType !== 'globaltrainer') {
+          if (normType !== 'globaltrainer' && normType !== 'individual' && cleanFetchedRole !== 'individual') {
             try {
               const fullProfile = await fetchUserAndRoleProfile(userId, targetEmail);
               if (fullProfile?.gymId) {
@@ -522,13 +620,13 @@ export default function OtpAuthScreen() {
           }
 
           cleanFetchedRole = (fetchedRole || '').trim().toLowerCase().replace(/[\s_-]/g, '');
-          if (cleanFetchedRole === 'globaltrainer' || cleanFetchedRole === 'superadmin' || cleanFetchedRole === 'individual') {
+          if (cleanFetchedRole === 'globaltrainer' || cleanFetchedRole === 'superadmin' || cleanFetchedRole === 'individual' || normType === 'individual') {
             await clearSelectedGym();
           }
 
           // POST-AUTH GYM MEMBERSHIP VERIFICATION (MANDATORY & BULLETPROOF)
           const postSelectedGym = await getSelectedGym();
-          if (postSelectedGym?.gymId && cleanFetchedRole !== 'globaltrainer') {
+          if (postSelectedGym?.gymId && cleanFetchedRole !== 'globaltrainer' && cleanFetchedRole !== 'individual' && normType !== 'individual') {
             const gymAuth = await verifyUserGymMembership(userId, targetEmail, postSelectedGym.gymId);
             if (!gymAuth.isAuthorized) {
               console.warn(`[SignIn] Access denied for user ${targetEmail} in gym ${postSelectedGym.gymId}. Reason: ${gymAuth.reason}`);
@@ -548,7 +646,6 @@ export default function OtpAuthScreen() {
               return;
             }
           }
-
           await refreshUserContext();
           if (isMounted.current) {
             toast.success('Signed in successfully!');
@@ -623,6 +720,13 @@ export default function OtpAuthScreen() {
               address: address.trim(),
               role: targetRole,
             });
+            if (targetRole === 'individual') {
+              try {
+                await assignInitialIndividualCustomerPlan(authData.user.id);
+              } catch (pErr) {
+                console.warn('[otp-auth] assignInitialIndividualCustomerPlan failed:', pErr);
+              }
+            }
           } catch {
           }
         }
@@ -814,7 +918,7 @@ export default function OtpAuthScreen() {
         </View>
 
         <View className="flex-1 px-6">
-          {selectedGym && (
+          {selectedGym && typeId !== 'global_trainer' && typeId !== 'individual' && (
             <View className="bg-[#121212] border border-[#1E1E1E] rounded-xl p-4 mb-6 flex-row items-center justify-between">
               <View className="flex-row items-center flex-1">
                 <View className="w-10 h-10 rounded-full bg-[#1A1A1A] items-center justify-center mr-3 border border-[#2A2A2A] overflow-hidden">

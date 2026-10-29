@@ -9,10 +9,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from '@/context/UserContext';
 import { useUserById } from '@/hooks/users';
 import { useCustomerOnboardingStatus, sessionSkippedUsers } from '@/hooks/auth/useCustomerOnboardingStatus';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function Step1() {
   const { data, updateData } = useOnboarding();
   const { userId, role } = useUser();
+  const queryClient = useQueryClient();
   const { data: userRecord } = useUserById(userId);
   const [skipModalVisible, setSkipModalVisible] = useState(false);
   const [doNotAskAgain, setDoNotAskAgain] = useState(false);
@@ -68,13 +70,17 @@ export default function Step1() {
   );
 
   const handleSkip = async () => {
-    if (!userId) return;
-    if (doNotAskAgain) {
+    if (userId) {
       await AsyncStorage.setItem(`@onboarding_skipped_${userId}`, 'true');
-    } else {
       sessionSkippedUsers.add(userId);
     }
+    await AsyncStorage.setItem('@onboarding_skipped_global', 'true');
+    queryClient.setQueryData(['customerOnboardingStatus', userId], { isOnboarded: false, isSkipped: true });
+    queryClient.invalidateQueries({ queryKey: ['customerOnboardingStatus', userId] });
     setSkipModalVisible(false);
+    if (router.canDismiss()) {
+      router.dismissAll();
+    }
     router.replace('/(customer)/home');
   };
 

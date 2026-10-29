@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
-import { View, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { toast } from '@/lib/toast';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
+import { queryClient } from '@/lib/react-query';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { ActionSheetModal } from '@/components/community/ActionSheetModal';
+import { useUpdateProfilePhoto, useDeleteProfilePhoto } from '@/hooks/auth/useUpdateCustomerProfile';
+import * as ImagePicker from 'expo-image-picker';
 import {
   CaretLeft,
   PencilSimple,
@@ -15,19 +20,117 @@ import {
   Headphones,
   SignOut,
   CaretRight,
-  WarningCircle
+  WarningCircle,
+  Camera
 } from 'phosphor-react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmModal from '@/components/ConfirmModal';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 
 export default function SuperAdminProfileScreen() {
-  const { name, email, role, profilePhoto } = useUser();
+  const { userId, name, email, role, profilePhoto, refreshUserContext } = useUser();
   const insets = useSafeAreaInsets();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [photoOptionsVisible, setPhotoOptionsVisible] = useState(false);
+
+  const updatePhotoMutation = useUpdateProfilePhoto();
+  const deletePhotoMutation = useDeleteProfilePhoto();
+
+  const hasProfilePhoto = Boolean(
+    profilePhoto &&
+    typeof profilePhoto === 'string' &&
+    profilePhoto.trim() !== '' &&
+    profilePhoto !== 'null' &&
+    profilePhoto !== 'undefined' &&
+    !profilePhoto.includes('pravatar.cc')
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      typeof refreshUserContext === 'function' ? refreshUserContext() : Promise.resolve(),
+      queryClient.invalidateQueries({ queryKey: ['userProfile', userId] }),
+    ]);
+    setRefreshing(false);
+  }, [refreshUserContext, userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (typeof refreshUserContext === 'function') refreshUserContext();
+    }, [refreshUserContext])
+  );
+
+  const handlePickImage = async (useCamera: boolean) => {
+    try {
+      let permissionResult;
+      if (useCamera) {
+        permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      } else {
+        permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      }
+
+      if (permissionResult.granted === false) {
+        toast.error('Camera or gallery permission is required.');
+        setPhotoOptionsVisible(false);
+        return;
+      }
+
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      };
+
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+
+      setPhotoOptionsVisible(false);
+
+      if (!result.canceled && result.assets && result.assets.length > 0 && userId) {
+        updatePhotoMutation.mutate(
+          { userId, imageUri: result.assets[0].uri },
+          {
+            onSuccess: async () => {
+              toast.success('Profile picture updated!');
+              await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
+              if (typeof refreshUserContext === 'function') {
+                await refreshUserContext();
+              }
+            },
+            onError: (err: any) => toast.error(err.message || 'Upload failed.')
+          }
+        );
+      }
+    } catch (error: any) {
+      setPhotoOptionsVisible(false);
+      console.error('ImagePicker Error:', error);
+      toast.error(error.message || 'Unexpected error picking image.');
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    if (!userId) return;
+    try {
+      await deletePhotoMutation.mutateAsync({
+        userId,
+        fileName: profilePhoto,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
+      if (typeof refreshUserContext === 'function') {
+        await refreshUserContext();
+      }
+      toast.success('Profile picture removed!');
+    } catch (err: any) {
+      console.error('[SuperAdminProfile] Error deleting photo:', err);
+      toast.error('Failed to remove profile picture.');
+    }
+  };
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -70,7 +173,10 @@ export default function SuperAdminProfileScreen() {
             <Text className="text-white text-xl font-semibold">Profile</Text>
             <Text className="text-[#8E8E93] text-xs">Super Admin</Text>
           </View>
-          <Pressable className="w-10 h-10 border border-[#2A2A2D] rounded-xl items-center justify-center active:opacity-70">
+          <Pressable 
+            onPress={() => setPhotoOptionsVisible(true)}
+            className="w-10 h-10 border border-[#2A2A2D] rounded-xl items-center justify-center active:opacity-70"
+          >
             <PencilSimple size={20} color="#D4FF00" weight="regular" />
           </Pressable>
         </View>
@@ -79,15 +185,22 @@ export default function SuperAdminProfileScreen() {
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 120 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-5">
           <View className="items-center mb-6">
-            <StaticAvatar
-              uri={profilePhoto}
-              name={name || 'Super Admin'}
-              size={80}
-              className="w-24 h-24 rounded-full mb-3"
-            />
+            <Pressable onPress={() => setPhotoOptionsVisible(true)} className="relative active:opacity-80">
+              <StaticAvatar
+                uri={profilePhoto}
+                userId={userId}
+                name={name || 'Super Admin'}
+                size={80}
+                className="w-24 h-24 rounded-full mb-3"
+              />
+              <View className="absolute bottom-3 right-0 w-7 h-7 rounded-full bg-[#18181B] border border-[#2A2A2D] items-center justify-center">
+                <Camera size={14} color="#D4FF00" weight="fill" />
+              </View>
+            </Pressable>
             <Text className="text-[#D4FF00] text-xs font-semibold mb-1">GKfitness</Text>
             <Text className="text-white text-2xl font-semibold mb-3">{name || 'Amit Verma'}</Text>
             <View className="border border-[#D4FF00] rounded-full px-4 py-1">
@@ -170,6 +283,23 @@ export default function SuperAdminProfileScreen() {
             <WarningCircle size={28} color="#EF4444" weight="fill" />
           </View>
         }
+      />
+
+      <ActionSheetModal
+        visible={photoOptionsVisible}
+        onClose={() => setPhotoOptionsVisible(false)}
+        title="Update Profile Picture"
+        options={[
+          { label: 'Take Photo', keepOpen: true, onPress: () => handlePickImage(true) },
+          { label: 'Choose from Gallery', keepOpen: true, onPress: () => handlePickImage(false) },
+          ...(hasProfilePhoto ? [
+            {
+              label: 'Delete Existing',
+              destructive: true,
+              onPress: handleDeletePhoto,
+            }
+          ] : [])
+        ]}
       />
     </View>
   );

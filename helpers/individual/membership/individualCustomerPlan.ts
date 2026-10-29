@@ -6,8 +6,10 @@ export interface IndividualCustomerPlanAttributes {
     subscriptionPlanId: string;
     userId?: string | null;
     customAmount?: number | null;
-    startDate: string | Date;
-    endDate: string | Date;
+    status?: string | null;
+    transactionId?: string | null;
+    startDate?: string | Date | null;
+    endDate?: string | Date | null;
     isActive?: boolean;
     createdAt?: string | Date;
     updatedAt?: string | Date;
@@ -42,6 +44,8 @@ export interface SaveIndividualCustomerPlanParams {
     subscriptionPlanId: string;
     userId?: string | null;
     customAmount?: number | null;
+    status?: string | null;
+    transactionId?: string | null;
     startDate?: string | Date | null;
     endDate?: string | Date | null;
     isActive?: boolean;
@@ -72,7 +76,7 @@ const BASE_PLAN_SELECT = `
   )
 `;
 
-export async function fetchIndividualCustomerPlans(userId?: string, subscriptionPlanId?: string) {
+export async function fetchIndividualCustomerPlans(userId?: string | null, subscriptionPlanId?: string) {
     let query = supabase
         .from('individual_customer_plans')
         .select(BASE_PLAN_SELECT)
@@ -168,21 +172,8 @@ export async function saveIndividualCustomerPlan(planData: SaveIndividualCustome
         }
     }
 
-    let finalStartDate = planData.startDate ? new Date(planData.startDate).toISOString() : null;
-    let finalEndDate = planData.endDate ? new Date(planData.endDate).toISOString() : null;
-
-    if (!finalStartDate || !finalEndDate) {
-        const nowDate = new Date();
-        finalStartDate = nowDate.toISOString();
-
-        const calculatedEnd = new Date(nowDate);
-        const targetDay = nowDate.getDate();
-        calculatedEnd.setMonth(calculatedEnd.getMonth() + 1);
-        if (calculatedEnd.getDate() !== targetDay) {
-            calculatedEnd.setDate(0);
-        }
-        finalEndDate = calculatedEnd.toISOString();
-    }
+    const finalStartDate = planData.startDate ? new Date(planData.startDate).toISOString() : null;
+    const finalEndDate = planData.endDate ? new Date(planData.endDate).toISOString() : null;
 
     let finalAmount = planData.customAmount;
     if (finalAmount === undefined || finalAmount === null) {
@@ -202,17 +193,30 @@ export async function saveIndividualCustomerPlan(planData: SaveIndividualCustome
     const finalIsActive = planData.isActive !== undefined ? planData.isActive : true;
 
     if (isUpdate && targetPlanId) {
+        const updatePayload: Record<string, any> = {
+            subscriptionPlanId: planData.subscriptionPlanId,
+            userId: planData.userId || null,
+            customAmount: finalAmount ?? null,
+            isActive: finalIsActive,
+            updatedAt: now,
+        };
+
+        if (planData.startDate !== undefined) {
+            updatePayload.startDate = finalStartDate;
+        }
+        if (planData.endDate !== undefined) {
+            updatePayload.endDate = finalEndDate;
+        }
+        if (planData.status !== undefined) {
+            updatePayload.status = planData.status;
+        }
+        if (planData.transactionId !== undefined) {
+            updatePayload.transactionId = planData.transactionId;
+        }
+
         const { data, error } = await supabase
             .from('individual_customer_plans')
-            .update({
-                subscriptionPlanId: planData.subscriptionPlanId,
-                userId: planData.userId || null,
-                customAmount: finalAmount ?? null,
-                startDate: finalStartDate,
-                endDate: finalEndDate,
-                isActive: finalIsActive,
-                updatedAt: now,
-            })
+            .update(updatePayload)
             .eq('individualCustomerPlanId', targetPlanId)
             .select(BASE_PLAN_SELECT);
 
@@ -232,6 +236,8 @@ export async function saveIndividualCustomerPlan(planData: SaveIndividualCustome
             startDate: finalStartDate,
             endDate: finalEndDate,
             isActive: finalIsActive,
+            status: planData.status ?? 'pending',
+            transactionId: planData.transactionId ?? null,
             createdAt: now,
             updatedAt: now,
             deletedAt: null,
@@ -353,4 +359,130 @@ export async function fetchIndividualCustomerPlansPaginated(
         data: (data as IndividualCustomerPlanAttributes[]) ?? [],
         total: count ?? 0,
     };
+}
+
+
+/**
+ * Assigns an initial pending individual customer plan upon registration with null startDate and endDate.
+ */
+export async function assignInitialIndividualCustomerPlan(
+  userId: string,
+  subscriptionPlanId?: string,
+  customAmount?: number | null
+): Promise<IndividualCustomerPlanAttributes | null> {
+  try {
+    let subPlanId = subscriptionPlanId;
+    let amount = customAmount;
+
+    if (!subPlanId) {
+      const { data: defaultSub } = await supabase
+        .from('subscriptions')
+        .select('subscriptionPlanId, price')
+        .eq('planFor', 'customer')
+        .eq('isActive', true)
+        .eq('is_deleted', false)
+        .order('createdAt', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (defaultSub) {
+        subPlanId = defaultSub.subscriptionPlanId;
+        if (amount === undefined || amount === null) {
+          amount = defaultSub.price ? Number(defaultSub.price) : 0;
+        }
+      }
+    }
+
+    if (!subPlanId) {
+      console.warn('[individualCustomerPlanHelper] No customer subscription plan available to assign for user:', userId);
+      return null;
+    }
+
+    // Check if user already has a plan assigned
+    const existingPlan = await fetchActiveIndividualCustomerPlan(userId);
+    if (existingPlan) {
+      if (subPlanId && existingPlan.subscriptionPlanId !== subPlanId && existingPlan.status === 'pending') {
+        const updatedPlan = await saveIndividualCustomerPlan({
+          individualCustomerPlanId: existingPlan.individualCustomerPlanId,
+          subscriptionPlanId: subPlanId,
+          userId,
+          customAmount: amount ?? 0,
+          startDate: null,
+          endDate: null,
+          isActive: true,
+          status: 'pending',
+          transactionId: null,
+        });
+
+        if (updatedPlan?.individualCustomerPlanId) {
+          try {
+            await supabase.from('individual_customer_plan_histories').insert([{
+              individualCustomerPlanHistoryId: Crypto.randomUUID(),
+              individualCustomerPlanId: updatedPlan.individualCustomerPlanId,
+              subscriptionPlanId: subPlanId,
+              userId,
+              actionType: 'ASSIGNED',
+              customAmount: amount ?? 0,
+              unusedCredit: 0,
+              daysCarriedOver: 0,
+              startDate: null,
+              endDate: null,
+              paymentStatus: 'pending',
+              transactionId: null,
+              isActive: true,
+              is_deleted: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }]);
+          } catch (histErr) {
+            console.warn('[individualCustomerPlanHelper] Error logging updated history:', histErr);
+          }
+        }
+        return updatedPlan;
+      }
+      return existingPlan;
+    }
+
+    // Save with startDate and endDate set to null
+    const newPlan = await saveIndividualCustomerPlan({
+      subscriptionPlanId: subPlanId,
+      userId,
+      customAmount: amount ?? 0,
+      startDate: null,
+      endDate: null,
+      isActive: true,
+      status: 'pending',
+      transactionId: null,
+    });
+
+    if (newPlan?.individualCustomerPlanId) {
+      try {
+        await supabase.from('individual_customer_plan_histories').insert([{
+          individualCustomerPlanHistoryId: Crypto.randomUUID(),
+          individualCustomerPlanId: newPlan.individualCustomerPlanId,
+          subscriptionPlanId: subPlanId,
+          userId,
+          actionType: 'ASSIGNED',
+          customAmount: amount ?? 0,
+          unusedCredit: 0,
+          daysCarriedOver: 0,
+          startDate: null,
+          endDate: null,
+          paymentStatus: 'pending',
+          transactionId: null,
+          isActive: true,
+          is_deleted: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }]);
+      } catch (histErr) {
+        console.warn('[individualCustomerPlanHelper] Error logging assigned history:', histErr);
+      }
+    }
+
+    return newPlan;
+  } catch (err) {
+    console.error('[individualCustomerPlanHelper] assignInitialIndividualCustomerPlan Error:', err);
+    return null;
+  }
 }

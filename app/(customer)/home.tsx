@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getLocalDateString, getCalendarDaysDifference } from '@/lib/dateUtils';
-import { View, ScrollView, Image, Pressable, ActivityIndicator, BackHandler, Platform } from 'react-native';
+import { View, ScrollView, Image, Pressable, ActivityIndicator, BackHandler, Platform, Linking } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -16,6 +16,7 @@ import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/custom
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 import { fetchGymCustomerMembershipPlans, toggleGymCustomerMembershipPlanActiveStatus } from '@/helpers/gymCustomerMembershipPlans/gymCustomerMembershipPlans';
+import { fetchIndividualCustomerPlans } from '@/helpers/individual/membership/individualCustomerPlan';
 import {
   useIndividualCustomerPlans,
   useToggleIndividualCustomerPlanActiveStatus,
@@ -61,20 +62,23 @@ export default function CustomerHome() {
   const todayDuration = dashboardData?.todayWorkout?.duration?.toString() || '0';
   const todayExercisesCount = dashboardData?.todayWorkout?.exercisesCount?.toString() || '0';
 
-  const isIndividual = role === 'individual';
   const {
     data: individualCustomerPlans,
     isLoading: isIndivCustomerPlansLoading,
     refetch: refetchIndivCustomerPlans,
-  } = useIndividualCustomerPlans(isIndividual && userId ? userId : undefined, undefined, {
-    enabled: isIndividual && !!userId,
+  } = useIndividualCustomerPlans(userId || undefined, undefined, {
+    enabled: !!userId,
   });
+  const hasIndividualPlan = Boolean(individualCustomerPlans && individualCustomerPlans.length > 0);
+  const isIndividual = role === 'individual' || hasIndividualPlan;
   const { mutateAsync: toggleIndivPlanActiveStatus } = useToggleIndividualCustomerPlanActiveStatus();
 
   const [planName, setPlanName] = useState<string>('MEMBER');
   const [daysLeft, setDaysLeft] = useState<number | string>('--');
   const [progressPercentage, setProgressPercentage] = useState<number>(0);
   const [isLoadingMembership, setIsLoadingMembership] = useState(true);
+  const [membershipStatus, setMembershipStatus] = useState<'active' | 'pending_activation' | 'expired' | 'no_plan'>('no_plan');
+  const [individualPlanPrice, setIndividualPlanPrice] = useState<number>(0);
   const [pendingTierUpdate, setPendingTierUpdate] = useState<{
     pendingPlanId: string;
     pendingPlanName: string;
@@ -102,11 +106,38 @@ export default function CustomerHome() {
     try {
       syncAllLocalReminders(userId).catch(console.error);
 
-      if (isIndividual) {
+      let indivPlans = individualCustomerPlans;
+      if (!indivPlans || indivPlans.length === 0) {
+        try {
+          indivPlans = await fetchIndividualCustomerPlans(userId);
+        } catch (e) {
+          indivPlans = [];
+        }
+      }
+
+      const hasIndiv = (indivPlans && indivPlans.length > 0) || role === 'individual';
+
+      if (hasIndiv && indivPlans && indivPlans.length > 0) {
         setPendingTierUpdate(null);
-        const queryRes = await refetchIndivCustomerPlans();
-        const indivPlans = queryRes.data || individualCustomerPlans || [];
-        const activePlan = indivPlans.find((p: any) => p.isActive && p.endDate) || (indivPlans.length > 0 && indivPlans[0].isActive ? indivPlans[0] : null);
+        const latestPlan = indivPlans[0];
+        const isPending = Boolean(
+          latestPlan &&
+          (latestPlan.status === 'pending' ||
+           !latestPlan.transactionId ||
+           !latestPlan.startDate)
+        );
+
+        if (isPending) {
+          const rawPrice = latestPlan.customAmount ?? latestPlan.subscription?.price ?? 0;
+          setIndividualPlanPrice(rawPrice);
+          setMembershipStatus('pending_activation');
+          setDaysLeft(0);
+          setProgressPercentage(0);
+          setPlanName((latestPlan.subscription?.planName || 'INDIVIDUAL PLAN').toUpperCase());
+          return;
+        }
+
+        const activePlan = indivPlans.find((p: any) => p.isActive && p.endDate && p.status !== 'pending' && p.transactionId) || (latestPlan.isActive && latestPlan.endDate ? latestPlan : null);
 
         if (activePlan && activePlan.endDate) {
           const diffDays = getCalendarDaysDifference(activePlan.endDate);
@@ -121,11 +152,13 @@ export default function CustomerHome() {
             }
             setDaysLeft(0);
             setProgressPercentage(0);
+            setMembershipStatus('expired');
             setPlanName((activePlan.subscription?.planName || 'EXPIRED').toUpperCase());
             return;
           }
 
           setDaysLeft(currentDaysLeft);
+          setMembershipStatus('active');
 
           let percentage = 0;
           if (activePlan.startDate) {
@@ -142,7 +175,7 @@ export default function CustomerHome() {
         } else {
           setDaysLeft(0);
           setProgressPercentage(0);
-          const latestPlan = indivPlans.length > 0 ? indivPlans[0] : null;
+          setMembershipStatus('expired');
           setPlanName(latestPlan?.subscription?.planName ? `${latestPlan.subscription.planName.toUpperCase()} (EXPIRED)` : 'NO ACTIVE PLAN');
         }
       } else {
@@ -158,7 +191,7 @@ export default function CustomerHome() {
           setPendingTierUpdate(null);
         }
 
-        const activePlan = plans.find((p: any) => p.is_Active && p.endDate);
+        const activePlan = plans?.find((p: any) => p.is_Active && p.endDate);
         if (activePlan) {
           const diffDays = getCalendarDaysDifference(activePlan.endDate);
           const currentDaysLeft = diffDays > 0 ? diffDays : 0;
@@ -167,11 +200,13 @@ export default function CustomerHome() {
             await toggleGymCustomerMembershipPlanActiveStatus(activePlan.GymCustomerMembershipPlanId, true);
             setDaysLeft(0);
             setProgressPercentage(0);
+            setMembershipStatus('expired');
             setPlanName('EXPIRED');
             return;
           }
 
           setDaysLeft(currentDaysLeft);
+          setMembershipStatus('active');
 
           let percentage = 0;
           if (activePlan.startDate) {
@@ -195,6 +230,7 @@ export default function CustomerHome() {
         } else {
           setDaysLeft(0);
           setProgressPercentage(0);
+          setMembershipStatus('no_plan');
           setPlanName('NO PLAN');
         }
       }
@@ -203,11 +239,30 @@ export default function CustomerHome() {
     } finally {
       setIsLoadingMembership(false);
     }
-  }, [userId, isIndividual, refetchIndivCustomerPlans, individualCustomerPlans, toggleIndivPlanActiveStatus]);
+  }, [userId, role, individualCustomerPlans, toggleIndivPlanActiveStatus]);
 
   useEffect(() => {
-    if (!isIndividual || !individualCustomerPlans) return;
-    const activePlan = individualCustomerPlans.find((p: any) => p.isActive && p.endDate) || (individualCustomerPlans.length > 0 && individualCustomerPlans[0].isActive ? individualCustomerPlans[0] : null);
+    if (!individualCustomerPlans || individualCustomerPlans.length === 0) return;
+    const latestPlan = individualCustomerPlans[0];
+    const isPending = Boolean(
+      latestPlan &&
+      (latestPlan.status === 'pending' ||
+       !latestPlan.transactionId ||
+       !latestPlan.startDate)
+    );
+
+    if (isPending) {
+      const rawPrice = latestPlan.customAmount ?? latestPlan.subscription?.price ?? 0;
+      setIndividualPlanPrice(rawPrice);
+      setMembershipStatus('pending_activation');
+      setDaysLeft(0);
+      setProgressPercentage(0);
+      setPlanName((latestPlan.subscription?.planName || 'INDIVIDUAL PLAN').toUpperCase());
+      setIsLoadingMembership(false);
+      return;
+    }
+
+    const activePlan = individualCustomerPlans.find((p: any) => p.isActive && p.endDate && p.status !== 'pending' && p.transactionId) || (latestPlan.isActive && latestPlan.endDate ? latestPlan : null);
 
     if (activePlan && activePlan.endDate) {
       const diffDays = getCalendarDaysDifference(activePlan.endDate);
@@ -216,6 +271,7 @@ export default function CustomerHome() {
       if (diffDays <= 0) {
         setDaysLeft(0);
         setProgressPercentage(0);
+        setMembershipStatus('expired');
         setPlanName((activePlan.subscription?.planName || 'EXPIRED').toUpperCase());
         if (activePlan.individualCustomerPlanId && activePlan.isActive) {
           toggleIndivPlanActiveStatus({
@@ -228,6 +284,7 @@ export default function CustomerHome() {
       }
 
       setDaysLeft(currentDaysLeft);
+      setMembershipStatus('active');
 
       let percentage = 0;
       if (activePlan.startDate) {
@@ -242,11 +299,11 @@ export default function CustomerHome() {
     } else {
       setDaysLeft(0);
       setProgressPercentage(0);
-      const latestPlan = individualCustomerPlans.length > 0 ? individualCustomerPlans[0] : null;
+      setMembershipStatus('expired');
       setPlanName(latestPlan?.subscription?.planName ? `${latestPlan.subscription.planName.toUpperCase()} (EXPIRED)` : 'NO ACTIVE PLAN');
     }
     setIsLoadingMembership(false);
-  }, [isIndividual, individualCustomerPlans, toggleIndivPlanActiveStatus]);
+  }, [individualCustomerPlans, toggleIndivPlanActiveStatus]);
 
   const today = getLocalDateString(new Date());
   const { steps, calories, syncSteps } = usePedometer();
@@ -390,6 +447,40 @@ export default function CustomerHome() {
 
         {isMembershipLoading ? (
           <ActivityIndicator size="small" color="#D7FF00" className="self-start my-4" />
+        ) : membershipStatus === 'pending_activation' ? (
+          <View className="mt-1 bg-[#1C160C] border border-[#F59E0B]/30 rounded-2xl p-3.5">
+            <View className="flex-row items-center mb-1.5">
+              <View className="w-2 h-2 rounded-full bg-[#F59E0B] mr-2" />
+              <Text className="text-[#F59E0B] text-[10px] font-semibold tracking-widest uppercase">
+                PENDING ACTIVATION
+              </Text>
+            </View>
+            <Text className="text-white text-base font-semibold mb-1">
+              {planName}
+            </Text>
+            <Text className="text-[#8E8E93] text-xs leading-4 mb-3.5">
+              {Platform.OS === 'ios'
+                ? 'Your assigned plan is pending activation. Review your plan details to proceed.'
+                : 'Complete your payment to activate your membership plan.'}
+            </Text>
+            <Pressable
+              onPress={() => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('https://www.gkgymlife.com/customer?action=activate').catch(() => {
+                    router.push('/(customer)/memberships' as any);
+                  });
+                } else {
+                  router.push('/(customer)/memberships' as any);
+                }
+              }}
+              className="w-full bg-[#D7FF00] py-2.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-85"
+            >
+              <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5">
+                {Platform.OS === 'ios' ? 'ACTIVATE ACCESS' : 'ACTIVATE MEMBERSHIP'}
+              </Text>
+              <ArrowRight size={14} color="#000000" weight="bold" />
+            </Pressable>
+          </View>
         ) : typeof daysLeft === 'number' && daysLeft > 0 ? (
           <>
             <View className="flex-row items-baseline gap-2 mb-3">
@@ -414,7 +505,7 @@ export default function CustomerHome() {
                   className="w-full bg-[#D7FF00] py-2.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-85"
                 >
                   <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5">
-                    {Platform.OS === 'ios' ? 'ACTIVATE FACILITY ACCESS' : 'PAY UPGRADE'}
+                    {Platform.OS === 'ios' ? 'ACTIVATE FACILITY ACCESS' : 'ACTIVATE UPGRADE'}
                   </Text>
                   <ArrowRight size={14} color="#000000" weight="bold" />
                 </Pressable>
@@ -450,7 +541,7 @@ export default function CustomerHome() {
                   className="w-full bg-[#D7FF00] py-2.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-85"
                 >
                   <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5">
-                    {Platform.OS === 'ios' ? 'ACTIVATE FACILITY ACCESS' : 'PAY UPGRADE'}
+                    {Platform.OS === 'ios' ? 'ACTIVATE FACILITY ACCESS' : 'ACTIVATE UPGRADE'}
                   </Text>
                   <ArrowRight size={14} color="#000000" weight="bold" />
                 </Pressable>
@@ -469,7 +560,7 @@ export default function CustomerHome() {
         )}
       </View>
 
-      {role === 'individual' && (
+      {(role === 'individual' || isIndividual) && (
         <Pressable
           onPress={() => router.push('/(customer)/explore-gyms' as any)}
           className="w-full rounded-3xl overflow-hidden mb-4 border border-[#222222] bg-[#0A0D08] relative active:opacity-95"

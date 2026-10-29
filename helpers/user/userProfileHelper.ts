@@ -16,6 +16,7 @@ export interface UserProfile {
   pincode?: number | null;
   role: string | null;
   profilePhoto?: string | null;
+  profilePic?: string | null;
   createdAt?: string | null;
 
   // Role-specific IDs
@@ -47,11 +48,15 @@ export async function fetchUserAndRoleProfile(
   };
 
   try {
-    let { data: userRecord, error } = await supabase
+    let { data: userRecord, error: fetchErr } = await supabase
       .from('users')
       .select('userId, name, email, phone, gender, dob, address, country, state, city, pincode, role, profilePhoto, createdAt')
       .eq('userId', authUserId)
       .maybeSingle();
+
+    if (fetchErr) {
+      console.warn('[userProfileHelper] Error fetching user by authUserId:', fetchErr);
+    }
 
     if (!userRecord && authEmail) {
       const emailRes = await supabase
@@ -59,6 +64,9 @@ export async function fetchUserAndRoleProfile(
         .select('userId, name, email, phone, gender, dob, address, country, state, city, pincode, role, profilePhoto, createdAt')
         .eq('email', authEmail)
         .maybeSingle();
+      if (emailRes.error) {
+        console.warn('[userProfileHelper] Error fetching user by authEmail:', emailRes.error);
+      }
       userRecord = emailRes.data;
     }
 
@@ -87,15 +95,44 @@ export async function fetchUserAndRoleProfile(
           if (createdProfile) {
             userRecord = createdProfile;
           }
-        } catch (createError) {
+        } catch (createError: any) {
           console.error('[userProfileHelper] Auto-creation failed:', createError);
+          // If already exists, fetch the existing user record immediately
+          if (createError?.code === '23505' || createError?.message?.includes('duplicate key')) {
+            const { data: existingUser } = await supabase
+              .from('users')
+              .select('userId, name, email, phone, gender, dob, address, country, state, city, pincode, role, profilePhoto, createdAt')
+              .or(`userId.eq.${authUserId},email.eq.${authEmail}`)
+              .maybeSingle();
+            if (existingUser) {
+              userRecord = existingUser;
+            }
+          }
         }
+      }
+    }
+
+    const rawPic = (userRecord as any)?.profilePhoto || null;
+    let resolvedPhotoUrl: string | null = null;
+    let cleanFileName: string | null = null;
+
+    if (rawPic) {
+      if (rawPic.startsWith('http://') || rawPic.startsWith('https://')) {
+        resolvedPhotoUrl = rawPic;
+        cleanFileName = rawPic.split('/').pop() || null;
+      } else {
+        cleanFileName = rawPic;
+        const pathInBucket = rawPic.includes('/') ? rawPic : `${userRecord?.userId || authUserId}/${rawPic}`;
+        const { data: pUrl } = supabase.storage.from('profile_photos').getPublicUrl(pathInBucket);
+        resolvedPhotoUrl = pUrl?.publicUrl || null;
       }
     }
 
     const profile: UserProfile = {
       ...defaultProfile,
       ...userRecord,
+      profilePhoto: resolvedPhotoUrl,
+      profilePic: cleanFileName || resolvedPhotoUrl,
     };
 
     if (userRecord && userRecord.userId) {
@@ -126,8 +163,8 @@ export async function fetchUserAndRoleProfile(
     }
 
     if (!userRecord) {
-      console.warn('[userProfileHelper] Profile missing in DB. Fallback to superadmin.');
-      profile.role = 'superadmin';
+      console.warn('[userProfileHelper] Profile missing in DB. Setting role to null.');
+      profile.role = null;
     }
 
     if (profile.role) {
@@ -290,7 +327,7 @@ export async function fetchUserAndRoleProfile(
     console.error('[userProfileHelper] Failed to fetch user profile:', err);
     return {
       ...defaultProfile,
-      role: 'superadmin',
+      role: null,
     };
   }
 }

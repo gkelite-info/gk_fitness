@@ -1,13 +1,40 @@
 import React from 'react';
-import { View, Text } from 'react-native';
-import { router } from 'expo-router';
+import { View, Text, BackHandler } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { CheckCircle } from 'phosphor-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUser } from '@/context/UserContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function Step5() {
-  const handleContinue = () => {
+  const { userId } = useUser();
+  const queryClient = useQueryClient();
+
+  const handleContinue = async () => {
+    if (userId) {
+      await AsyncStorage.setItem(`@onboarding_completed_${userId}`, 'true');
+    }
+    await AsyncStorage.setItem('@onboarding_completed_global', 'true');
+    queryClient.setQueryData(['customerOnboardingStatus', userId], { isOnboarded: true, isSkipped: false });
+    queryClient.invalidateQueries({ queryKey: ['customerOnboardingStatus', userId] });
+
+    if (router.canDismiss()) {
+      router.dismissAll();
+    }
     router.replace('/(customer)/home');
   };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        handleContinue();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [userId])
+  );
 
   const Title = (
     <Text className="text-white text-3xl font-semibold mb-2">

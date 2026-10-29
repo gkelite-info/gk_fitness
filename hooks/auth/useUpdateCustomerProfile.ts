@@ -123,34 +123,129 @@ export function useUpdateProfilePhoto() {
       const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: 'base64' });
       const arrayBuffer = base64ToArrayBuffer(base64);
       const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${userId}/profile_${Date.now()}.${ext}`;
+      const fileOnlyName = `profile_${Date.now()}.${ext}`;
+      const storagePath = `${userId}/${fileOnlyName}`;
 
-      // 2. Upload to Supabase Storage
+      // 2. Upload to Supabase Storage at user's directory
       const { error: uploadError } = await supabase.storage
         .from('profile_photos')
-        .upload(fileName, arrayBuffer, { contentType: `image/${ext}`, upsert: true });
+        .upload(storagePath, arrayBuffer, { contentType: `image/${ext}`, upsert: true });
 
       if (uploadError) throw uploadError;
 
-      // 3. Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('profile_photos')
-        .getPublicUrl(fileName);
-
-      const profilePhoto = publicUrlData.publicUrl;
-
-      // 4. Update the users table
+      // 3. Update the users table storing ONLY the file name (e.g. 'profile_1793257994478.jpeg') in profilePhoto
       const { error: updateError } = await supabase
         .from('users')
-        .update({ profilePhoto })
+        .update({ profilePhoto: fileOnlyName, updatedAt: new Date().toISOString() })
         .eq('userId', userId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('[useUpdateProfilePhoto] Error updating users table:', updateError);
+        throw updateError;
+      }
 
-      return profilePhoto;
+      // Also keep gym_trainers or global_trainers synchronized if applicable
+      try {
+        await supabase
+          .from('gym_trainers')
+          .update({ profilePic: fileOnlyName })
+          .eq('userId', userId);
+      } catch (_) { }
+
+      try {
+        await supabase
+          .from('global_trainers')
+          .update({ profilePic: fileOnlyName, profilePhoto: fileOnlyName })
+          .eq('userId', userId);
+      } catch (_) { }
+
+      return fileOnlyName;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['customerProfile', variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile', variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ['customerProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['gymTrainer'] });
+      queryClient.invalidateQueries({ queryKey: ['globalTrainer'] });
+    },
+  });
+}
+
+export function useDeleteProfilePhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, fileName }: { userId: string; fileName?: string | null }) => {
+      // 1. Try to delete the file from Supabase Storage if fileName exists
+      if (fileName && typeof fileName === 'string' && fileName !== 'null' && fileName !== 'undefined') {
+        try {
+          let storagePath = fileName;
+          if (storagePath.includes('/profile_photos/')) {
+            storagePath = storagePath.split('/profile_photos/')[1];
+          } else if (storagePath.startsWith('http://') || storagePath.startsWith('https://')) {
+            storagePath = storagePath.split('/').pop() || '';
+          }
+          if (storagePath && !storagePath.includes('/') && userId) {
+            storagePath = `${userId}/${storagePath}`;
+          }
+
+          if (storagePath) {
+            await supabase.storage.from('profile_photos').remove([storagePath]);
+          }
+        } catch (storageErr) {
+          console.warn('[useDeleteProfilePhoto] Storage remove non-fatal error:', storageErr);
+        }
+      }
+
+      // Also clean up any files in the user's directory in the bucket if possible
+      if (userId) {
+        try {
+          const { data: userFiles } = await supabase.storage.from('profile_photos').list(userId);
+          if (userFiles && userFiles.length > 0) {
+            const filePaths = userFiles.map((f) => `${userId}/${f.name}`);
+            await supabase.storage.from('profile_photos').remove(filePaths);
+          }
+        } catch (listErr) {
+          console.warn('[useDeleteProfilePhoto] List/remove user directory non-fatal:', listErr);
+        }
+      }
+
+      // 2. Set profilePhoto to null in users table
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ profilePhoto: null, updatedAt: new Date().toISOString() })
+        .eq('userId', userId);
+
+      if (updateError) {
+        console.error('[useDeleteProfilePhoto] Error updating users table:', updateError);
+        throw updateError;
+      }
+
+      // Keep trainer tables in sync if applicable
+      try {
+        await supabase
+          .from('gym_trainers')
+          .update({ profilePic: null })
+          .eq('userId', userId);
+      } catch (_) { }
+
+      try {
+        await supabase
+          .from('global_trainers')
+          .update({ profilePic: null, profilePhoto: null })
+          .eq('userId', userId);
+      } catch (_) { }
+
+      return true;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['customerProfile', variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile', variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ['customerProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['gymTrainer'] });
+      queryClient.invalidateQueries({ queryKey: ['globalTrainer'] });
     },
   });
 }

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, ScrollView, TextInput, Pressable, Platform, Modal, FlatList, ActivityIndicator, Image as RNImage, Keyboard, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
@@ -119,8 +119,9 @@ export default function SignupScreen() {
   };
 
   const scrollToField = (name: string) => {
-    focusedFieldRef.current = name;
-    const relativeY = fieldPositions.current[name];
+    const fieldName = name === 'cityRow' ? 'address' : name;
+    focusedFieldRef.current = fieldName;
+    const relativeY = fieldPositions.current[fieldName];
     if (relativeY !== undefined) {
       const targetY = Math.max(0, formContainerY.current + relativeY - 80);
       scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
@@ -132,19 +133,16 @@ export default function SignupScreen() {
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const showSub = Keyboard.addListener(showEvent, (e) => {
-      const h = e.endCoordinates.height;
+      const h = e?.endCoordinates?.height ?? 0;
       setKeyboardHeight(h);
       if (focusedFieldRef.current) {
-        const relativeY = fieldPositions.current[focusedFieldRef.current];
+        const fieldName = focusedFieldRef.current === 'cityRow' ? 'address' : focusedFieldRef.current;
+        const relativeY = fieldPositions.current[fieldName];
         if (relativeY !== undefined) {
           const targetY = Math.max(0, formContainerY.current + relativeY - 80);
-          if (Platform.OS === 'android') {
-            setTimeout(() => {
-              scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
-            }, 60);
-          } else {
+          setTimeout(() => {
             scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
-          }
+          }, 60);
         }
       }
     });
@@ -243,9 +241,7 @@ export default function SignupScreen() {
 
   const handlePhoneInput = (setter: React.Dispatch<React.SetStateAction<string>>) => (val: string) => {
     const cleaned = val.replace(/[^0-9]/g, '');
-    if (cleaned.length === 0 || /^[6-9]/.test(cleaned)) {
-      setter(cleaned);
-    }
+    setter(cleaned);
   };
 
   const pickImage = async () => {
@@ -610,8 +606,8 @@ export default function SignupScreen() {
 
   const AccountIcon = getAccountTypeIcon();
 
-  const countries = Country.getAllCountries().map(c => ({ label: c.name, value: c.isoCode }));
-  const states = country ? State.getStatesOfCountry(country).map(s => ({ label: s.name, value: s.isoCode })) : [];
+  const countries = useMemo(() => Country.getAllCountries().map(c => ({ label: c.name, value: c.isoCode })), []);
+  const states = useMemo(() => (country ? State.getStatesOfCountry(country).map(s => ({ label: s.name, value: s.isoCode })) : []), [country]);
 
   return (
     <SafeAreaView className="flex-1 bg-[#09090B]">
@@ -1202,7 +1198,7 @@ export default function SignupScreen() {
                   </View>
                 </View>
 
-                <View className="flex-row gap-3" onLayout={(e) => registerField('cityRow', e.nativeEvent.layout.y)}>
+                <View className="flex-row gap-3">
                   <View className="flex-1">
                     <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">City <Text className="text-red-500">*</Text></Text>
                     <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
@@ -1210,7 +1206,7 @@ export default function SignupScreen() {
                       <TextInput autoCorrect={false} spellCheck={false}
                         value={city}
                         onChangeText={setCity}
-                        onFocus={() => scrollToField('cityRow')}
+                        onFocus={() => scrollToField('address')}
                         placeholder="City"
                         placeholderTextColor="#6B6B6B"
                         className="flex-1 text-white text-[14px] p-0 font-medium"
@@ -1224,7 +1220,7 @@ export default function SignupScreen() {
                       <TextInput autoCorrect={false} spellCheck={false}
                         value={pinCode}
                         onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
-                        onFocus={() => scrollToField('cityRow')}
+                        onFocus={() => scrollToField('address')}
                         placeholder="PIN Code"
                         placeholderTextColor="#6B6B6B"
                         keyboardType="number-pad"

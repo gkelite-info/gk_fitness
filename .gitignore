@@ -28,3 +28,8 @@ android
 
 # Database SQL scripts & migrations
 *.sql
+
+# Wear OS build outputs & Gradle cache
+wear-os/build/
+wear-os/.gradle/
+.gradle/

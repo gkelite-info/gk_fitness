@@ -15,8 +15,10 @@ import { useCurrentPlanWeek } from '@/hooks/customerWorkouts/useCurrentPlanWeek'
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useUser } from '@/context/UserContext';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function WorkoutSession() {
+  const insets = useSafeAreaInsets();
   const { dayId: initialDayId, isTrainer } = useLocalSearchParams<{ dayId: string; isTrainer?: string }>();
   const [activeDayId, setActiveDayId] = useState(initialDayId);
   const [planId, setPlanId] = useState<string | undefined>();
@@ -189,7 +191,7 @@ export default function WorkoutSession() {
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] pt-12 px-4">
+    <View className="flex-1 bg-[#0A0A0A] px-4 pt-3">
       <View className="flex-row items-center mb-6">
         <Pressable onPress={() => router.push('/(customer)/home')} className="mr-4">
           <ArrowLeft size={24} color="#fff" />
@@ -205,7 +207,7 @@ export default function WorkoutSession() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
         refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">

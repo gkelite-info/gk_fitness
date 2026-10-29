@@ -81,7 +81,7 @@ export default function CustomerScanScreen() {
 
   return (
     <View className="flex-1 bg-black">
-      <View className="absolute top-16 left-6 z-50">
+      <View className="absolute top-4 left-6 z-50">
         <Pressable
           onPress={() => handleBack()}
           className="bg-black/50 p-3 rounded-full border border-white/20 active:opacity-70"
@@ -89,7 +89,7 @@ export default function CustomerScanScreen() {
           <ArrowLeft size={24} color="#FFFFFF" />
         </Pressable>
       </View>
-      <View className="absolute top-16 right-6 z-50">
+      <View className="absolute top-4 right-6 z-50">
         <Pressable
           onPress={() => setFlashOn(!flashOn)}
           className={`p-3 rounded-full border active:opacity-70 ${flashOn ? 'bg-[#CCFF00] border-[#CCFF00]' : 'bg-black/50 border-white/20'}`}
@@ -99,27 +99,31 @@ export default function CustomerScanScreen() {
       </View>
 
       {!scanResult ? (
-        <CameraView
-          style={StyleSheet.absoluteFill}
-          facing="back"
-          enableTorch={flashOn}
-          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-        >
-          <View className="flex-1 bg-black/40 items-center justify-center">
-            <View className="w-64 h-64 border-2 border-[#CCFF00] rounded-3xl items-center justify-center bg-transparent">
+        <>
+          <CameraView
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            enableTorch={flashOn}
+            barcodeScannerSettings={{
+              barcodeTypes: ['qr'],
+            }}
+            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+          />
+          <View pointerEvents="box-none" style={StyleSheet.absoluteFill} className="items-center justify-center bg-black/40 px-6">
+            <View pointerEvents="none" className="w-64 h-64 border-2 border-[#CCFF00] rounded-3xl items-center justify-center bg-transparent mb-6">
               {isLoggingAttendance && <Text className="text-[#CCFF00] font-semibold">Verifying...</Text>}
             </View>
-            <View className="absolute bottom-32 items-center">
-              <View className="mb-3 opacity-80">
-                <CameraIcon size={32} color="#FFFFFF" />
+            <View pointerEvents="none" className="items-center">
+              <View className="mb-2.5 opacity-80">
+                <CameraIcon size={30} color="#FFFFFF" />
               </View>
-              <Text className="text-white text-lg font-semibold tracking-wider">SCAN GYM QR CODE</Text>
-              <Text className="text-gray-400 text-sm mt-2 px-8 text-center">
+              <Text className="text-white text-base font-semibold tracking-wider">SCAN GYM QR CODE</Text>
+              <Text className="text-gray-400 text-xs mt-1.5 px-8 text-center leading-4">
                 Point your camera at the gym's QR screen to mark attendance.
               </Text>
             </View>
           </View>
-        </CameraView>
+        </>
       ) : (
         <View className="flex-1 items-center justify-center p-6 bg-black">
           {scanResult.success ? (

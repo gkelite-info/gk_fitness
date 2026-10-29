@@ -239,9 +239,9 @@ export default function MembershipDetailsScreen() {
                     <View className="w-5 h-5 rounded-md bg-[#CCFF00]/10 items-center justify-center mr-2">
                       <Wallet size={12} color="#CCFF00" weight="fill" />
                     </View>
-                    <Text className="text-[#9CA3AF] text-[8px] font-semibold tracking-widest uppercase">Last Payment</Text>
+                    <Text className="text-[#9CA3AF] text-[8px] font-semibold tracking-widest uppercase">Payment Status</Text>
                   </View>
-                  <Text className="text-[#CCFF00] text-sm font-semibold mt-1">{lastPayment}</Text>
+                  <Text className="text-[#CCFF00] text-sm font-semibold mt-1">Active</Text>
                 </View>
               )}
             </View>
@@ -266,7 +266,7 @@ export default function MembershipDetailsScreen() {
                 <Text className="text-white text-sm font-semibold">{formattedDate}</Text>
               </View>
               <View className="flex-row items-center">
-                <Text className="text-white text-sm font-semibold mr-4">₹{item.amountPaid}</Text>
+                <Text className="text-white text-sm font-semibold mr-4">Completed</Text>
                 <View className="flex-row items-center">
                   <CheckCircle size={14} color="#22C55E" weight="fill" />
                   <Text className="text-[#22C55E] text-[10px] font-semibold ml-1 uppercase">SUCCESSFUL</Text>

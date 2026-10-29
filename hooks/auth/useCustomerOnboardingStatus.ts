@@ -10,15 +10,27 @@ export function useCustomerOnboardingStatus(userId: string | null | undefined) {
     queryFn: async () => {
       if (!userId) return { isOnboarded: false, isSkipped: false };
 
+      // 1. Check in-memory skip
       if (sessionSkippedUsers.has(userId)) {
         return { isOnboarded: false, isSkipped: true };
       }
 
+      // 2. Check device persistent storage (skipped)
       const skipped = await AsyncStorage.getItem(`@onboarding_skipped_${userId}`);
-      if (skipped === 'true') {
+      const globalSkipped = await AsyncStorage.getItem('@onboarding_skipped_global');
+      if (skipped === 'true' || globalSkipped === 'true') {
+        sessionSkippedUsers.add(userId);
         return { isOnboarded: false, isSkipped: true };
       }
 
+      // 3. Check device persistent storage (completed)
+      const completed = await AsyncStorage.getItem(`@onboarding_completed_${userId}`);
+      const globalCompleted = await AsyncStorage.getItem('@onboarding_completed_global');
+      if (completed === 'true' || globalCompleted === 'true') {
+        return { isOnboarded: true, isSkipped: false };
+      }
+
+      // 4. Check database for existing onboarding record
       const { data, error } = await supabase
         .from('customer_onboarding')
         .select('onboardingId')
@@ -30,7 +42,12 @@ export function useCustomerOnboardingStatus(userId: string | null | undefined) {
         return { isOnboarded: false, isSkipped: false };
       }
 
-      return { isOnboarded: !!data, isSkipped: false };
+      if (data) {
+        await AsyncStorage.setItem(`@onboarding_completed_${userId}`, 'true');
+        return { isOnboarded: true, isSkipped: false };
+      }
+
+      return { isOnboarded: false, isSkipped: false };
     },
     enabled: !!userId,
   });

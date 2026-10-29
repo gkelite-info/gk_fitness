@@ -72,26 +72,30 @@ function ProfileView({
     setRefreshing(true);
     await Promise.all([
       typeof refetchProfile === 'function' ? refetchProfile() : Promise.resolve(),
+      typeof fallbackUser?.refreshUserContext === 'function' ? fallbackUser.refreshUserContext() : Promise.resolve(),
       typeof refetchAssignedTrainers === 'function' ? refetchAssignedTrainers() : Promise.resolve(),
       typeof refetchIndividualTrainers === 'function' ? refetchIndividualTrainers() : Promise.resolve(),
       typeof refetchTrainerRequests === 'function' ? refetchTrainerRequests() : Promise.resolve(),
       typeof refetchStreak === 'function' ? refetchStreak() : Promise.resolve(),
       queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] }),
+      queryClient.invalidateQueries({ queryKey: ['userProfile', userId] }),
       queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
       queryClient.invalidateQueries({ queryKey: ['assignedTrainers'] }),
       queryClient.invalidateQueries({ queryKey: ['personalTrainerRequests'] }),
       queryClient.invalidateQueries({ queryKey: ['workoutStreak'] }),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, refetchAssignedTrainers, refetchIndividualTrainers, refetchTrainerRequests, refetchStreak, userId]);
+  }, [refetchProfile, fallbackUser, refetchAssignedTrainers, refetchIndividualTrainers, refetchTrainerRequests, refetchStreak, userId]);
 
   useFocusEffect(
     useCallback(() => {
+      if (typeof refetchProfile === 'function') refetchProfile();
+      if (typeof fallbackUser?.refreshUserContext === 'function') fallbackUser.refreshUserContext();
       if (typeof refetchAssignedTrainers === 'function') refetchAssignedTrainers();
       if (typeof refetchIndividualTrainers === 'function') refetchIndividualTrainers();
       if (typeof refetchTrainerRequests === 'function') refetchTrainerRequests();
       if (typeof refetchStreak === 'function') refetchStreak();
-    }, [refetchAssignedTrainers, refetchIndividualTrainers, refetchTrainerRequests, refetchStreak])
+    }, [refetchProfile, fallbackUser, refetchAssignedTrainers, refetchIndividualTrainers, refetchTrainerRequests, refetchStreak])
   );
 
   const activeIndividualAssignment = individualTrainers?.find((a: any) => {
@@ -191,7 +195,8 @@ function ProfileView({
       >
         <View className="bg-[#1A1A1A] rounded-3xl p-5 flex-row items-center mt-2 border border-[#27272A]">
           <StaticAvatar
-            uri={fallbackUser?.profilePhoto}
+            uri={fallbackUser?.profilePhoto || fallbackUser?.profilePic || customerData?.profilePhoto || customerData?.profilePic}
+            userId={userId}
             name={displayFullName}
             size={80}
             className="w-20 h-20 rounded-full"

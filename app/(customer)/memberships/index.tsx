@@ -19,22 +19,24 @@ import { triggerMediumHaptic } from '@/lib/haptics';
 export default function MembershipsScreen() {
   const router = useRouter();
   const { userId, role } = useUser();
-  const isIndividual = role === 'individual';
   const insets = useSafeAreaInsets();
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: plans, isLoading: isGymCustomerPlansLoading, refetch: refetchPlans } = useGymCustomerMembershipPlans(
-    undefined,
-    !isIndividual && userId ? userId : undefined
-  );
   const {
     data: individualCustomerPlans,
     isLoading: isIndivCustomerPlansLoading,
     refetch: refetchIndivCustomerPlans,
-  } = useIndividualCustomerPlans(isIndividual && userId ? userId : undefined, undefined, {
-    enabled: isIndividual && !!userId,
+  } = useIndividualCustomerPlans(userId || undefined, undefined, {
+    enabled: !!userId,
   });
+  const hasIndividualPlan = Boolean(individualCustomerPlans && individualCustomerPlans.length > 0);
+  const isIndividual = role === 'individual' || hasIndividualPlan;
+
+  const { data: plans, isLoading: isGymCustomerPlansLoading, refetch: refetchPlans } = useGymCustomerMembershipPlans(
+    undefined,
+    !hasIndividualPlan && userId ? userId : undefined
+  );
 
   const { data: customerProfileData, refetch: refetchProfile } = useCustomerProfile(userId);
 
@@ -49,13 +51,17 @@ export default function MembershipsScreen() {
       if (!individualCustomerPlans || individualCustomerPlans.length === 0) return null;
       const first = individualCustomerPlans[0];
       return {
+        individualCustomerPlanId: first.individualCustomerPlanId,
         planId: first.subscriptionPlanId,
-        customAmount: first.customAmount,
+        customAmount: first.customAmount ?? first.subscription?.price ?? 0,
+        status: first.status,
+        transactionId: first.transactionId,
         startDate: first.startDate,
         endDate: first.endDate,
         is_Active: first.isActive ?? true,
         plan: {
           planName: first.subscription?.planName || 'Individual Subscription',
+          price: first.customAmount ?? first.subscription?.price ?? 0,
         },
       };
     }
@@ -147,7 +153,9 @@ export default function MembershipsScreen() {
   }, [isIndividual, individualPlans, gymPlans, currentPlan]);
 
   const isPendingActivation = Boolean(
-    currentPlan && (!currentPlan.startDate || !currentPlan.endDate || (!currentPlan.is_Active && !currentPlan.endDate))
+    isIndividual
+      ? currentPlan && ((currentPlan as any).status === 'pending' || !(currentPlan as any).transactionId || !currentPlan.startDate)
+      : currentPlan && (!currentPlan.startDate || !currentPlan.endDate || (!currentPlan.is_Active && !currentPlan.endDate))
   );
   const isExpired = !isPendingActivation && currentPlan?.endDate ? new Date(currentPlan.endDate) < new Date() : false;
   const statusLabel = isPendingActivation ? 'Pending Activation' : (isExpired ? 'Expired' : (currentPlan?.is_Active ? 'Active' : 'Inactive'));
@@ -171,6 +179,19 @@ export default function MembershipsScreen() {
     actionOverride?: string
   ) => {
     triggerMediumHaptic();
+
+    // STRICT APPLE APP STORE COMPLIANCE:
+    // On iOS, if this is an activation or pending plan, never trigger web payment gateways with prices
+    // Redirect safely via external browser to activation link without pricing parameters
+    if (Platform.OS === 'ios' && (isPendingActivation || actionOverride === 'activate')) {
+      try {
+        await Linking.openURL('https://www.gkgymlife.com/customer?action=activate');
+        return;
+      } catch (err) {
+        console.warn('Error opening activate URL on iOS:', err);
+      }
+    }
+
     try {
       let session = (await supabase.auth.getSession()).data.session;
       if (!session?.access_token || (session.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
@@ -317,12 +338,7 @@ export default function MembershipsScreen() {
               </View>
               <View className="flex-1">
                 <Text className="text-white text-xl font-semibold mb-1">{planName}</Text>
-                {Platform.OS !== 'ios' && (
-                  <View className="flex-row items-baseline mb-2">
-                    <Text className="text-white text-lg font-semibold">{planAmount}</Text>
-                    <Text className="text-[#9CA3AF] text-xs ml-1">/ Month</Text>
-                  </View>
-                )}
+
                 <View className="flex-row items-center">
                   {statusLabel === 'Pending Activation' ? (
                     <Clock size={14} color={statusColor} weight="fill" />
@@ -349,7 +365,7 @@ export default function MembershipsScreen() {
                   onPress={() => openWebCheckout(currentPlan?.pendingPlanId, pendingPlanName, pendingAmount, 'activate')}
                 >
                   <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5">
-                    {Platform.OS === 'ios' ? 'ACTIVATE FACILITY ACCESS' : 'PAY UPGRADE'}
+                    {Platform.OS === 'ios' ? 'ACTIVATE FACILITY ACCESS' : 'ACTIVATE UPGRADE'}
                   </Text>
                   <ArrowRight size={14} color="#000000" weight="bold" />
                 </Pressable>
@@ -362,11 +378,9 @@ export default function MembershipsScreen() {
                 onPress={() => handleRenewCurrentPlan()}
               >
                 <Text className="text-black text-sm font-semibold tracking-wide mr-1 uppercase">
-                  {Platform.OS === 'ios'
-                    ? 'MEMBERSHIP DETAILS'
-                    : isPendingActivation
-                      ? 'ACTIVATE MEMBERSHIP'
-                      : 'RENEW PLAN'}
+                  {isPendingActivation
+                    ? (Platform.OS === 'ios' ? 'ACTIVATE ACCESS' : 'ACTIVATE MEMBERSHIP')
+                    : (Platform.OS === 'ios' ? 'MEMBERSHIP DETAILS' : 'RENEW PLAN')}
                 </Text>
                 <CaretRight size={16} color="#000000" weight="bold" />
               </Pressable>
@@ -392,7 +406,9 @@ export default function MembershipsScreen() {
               <View className="mt-4 pt-3.5 border-t border-[#27272A] flex-row items-center justify-between">
                 <Text className="text-[#9CA3AF] text-xs">Membership Status</Text>
                 <Text className="text-[#F59E0B] text-xs font-semibold">
-                  Awaiting Activation • Pay to start access
+                  {Platform.OS === 'ios'
+                    ? 'Pending Activation • Complete setup on web'
+                    : 'Awaiting Activation • Pay to start access'}
                 </Text>
               </View>
             ) : null}
@@ -464,8 +480,9 @@ export default function MembershipsScreen() {
                           )}
                         </View>
                         <View className="flex-row items-baseline mt-1">
-                          <Text className="text-white text-xl font-semibold">{plan.priceFormatted}</Text>
-                          <Text className="text-[#9CA3AF] text-sm ml-1">{plan.billingCycle}</Text>
+                          <Text className="text-[#CCFF00] text-xs font-semibold tracking-wide uppercase">
+                            {plan.duration || 'Access Pass'}
+                          </Text>
                         </View>
                       </View>
                     </View>

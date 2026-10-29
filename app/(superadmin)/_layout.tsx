@@ -1,8 +1,36 @@
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
 import { Navbar } from '@/components/Navbar';
 import { CustomTabBar } from '@/components/CustomTabBar';
+import { useUser } from '@/context/UserContext';
 
 export default function SuperAdminLayout() {
+  const { role, loading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading) {
+      const normalizedRole = (role || '').trim().toLowerCase().replace(/[\s_-]/g, '');
+      if (normalizedRole !== 'superadmin') {
+        router.replace('/auth/account-type');
+      }
+    }
+  }, [role, loading, router]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#09090B', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#D4FF00" />
+      </View>
+    );
+  }
+
+  const normalizedRole = (role || '').trim().toLowerCase().replace(/[\s_-]/g, '');
+  if (normalizedRole !== 'superadmin') {
+    return null;
+  }
+
   return (
     <Tabs
       initialRouteName="dashboard"

@@ -8,10 +8,11 @@ import {
   toggleIndividualCustomerPlanActiveStatus,
   fetchIndividualCustomerPlansPaginated,
   SaveIndividualCustomerPlanParams,
+  assignInitialIndividualCustomerPlan,
 } from '@/helpers/individual/membership/individualCustomerPlan';
 
 export function useIndividualCustomerPlans(
-  userId?: string,
+  userId?: string | null,
   subscriptionPlanId?: string,
   options?: { enabled?: boolean }
 ) {
@@ -153,6 +154,41 @@ export function useToggleIndividualCustomerPlanActiveStatus() {
     onError: (error) => {
       console.error(
         '[useToggleIndividualCustomerPlanActiveStatus] Error toggling status:',
+        error
+      );
+    },
+  });
+}
+
+export interface AssignInitialIndividualCustomerPlanParams {
+  userId: string;
+  subscriptionPlanId?: string;
+  customAmount?: number | null;
+}
+
+export function useAssignInitialIndividualCustomerPlan() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      subscriptionPlanId,
+      customAmount,
+    }: AssignInitialIndividualCustomerPlanParams) => {
+      return await assignInitialIndividualCustomerPlan(userId, subscriptionPlanId, customAmount);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['individualCustomerPlans'] });
+      queryClient.invalidateQueries({ queryKey: ['activeIndividualCustomerPlan'] });
+      queryClient.invalidateQueries({ queryKey: ['individualCustomerPlansPaginated'] });
+      if (variables.userId) {
+        queryClient.invalidateQueries({ queryKey: ['individualCustomerPlans', variables.userId] });
+        queryClient.invalidateQueries({ queryKey: ['activeIndividualCustomerPlan', variables.userId] });
+      }
+    },
+    onError: (error) => {
+      console.error(
+        '[useAssignInitialIndividualCustomerPlan] Error assigning initial plan:',
         error
       );
     },

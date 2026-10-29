@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
@@ -38,6 +39,11 @@ export default function Step4() {
     setSaving(true);
     try {
       await saveCustomerOnboarding(userId, data, customAllergy);
+      if (userId) {
+        await AsyncStorage.setItem(`@onboarding_completed_${userId}`, 'true');
+      }
+      await AsyncStorage.setItem('@onboarding_completed_global', 'true');
+      queryClient.setQueryData(['customerOnboardingStatus', userId], { isOnboarded: true, isSkipped: false });
       await queryClient.invalidateQueries({ queryKey: ['customerOnboardingStatus', userId] });
       await queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] });
       router.push('/(customer)/(onboarding)/step5');

@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { View, ScrollView, Pressable, Modal, Alert, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { ActionSheetModal } from '@/components/community/ActionSheetModal';
+import { useUpdateProfilePhoto, useDeleteProfilePhoto } from '@/hooks/auth/useUpdateCustomerProfile';
+import * as ImagePicker from 'expo-image-picker';
+import { toast } from '@/lib/toast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
@@ -51,14 +56,127 @@ const MenuItem = ({ icon, title, subtitle, onPress, isDanger = false }: any) => 
 export default function TrainerProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { trainerId, globalTrainerId, profilePhoto, name, role } = useUser();
+  const { userId, trainerId, globalTrainerId, profilePhoto, name, role, refreshUserContext } = useUser();
   const [modalVisible, setModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [photoOptionsVisible, setPhotoOptionsVisible] = useState(false);
+  const updatePhotoMutation = useUpdateProfilePhoto();
+  const deletePhotoMutation = useDeleteProfilePhoto();
 
   const isGlobalTrainer = (role || '').toLowerCase().replace(/[\s_-]/g, '') === 'globaltrainer';
-  const { data: trainerData } = useGymTrainerById(!isGlobalTrainer ? (trainerId ?? undefined) : undefined);
-  const { data: globalTrainerData } = useGlobalTrainer(globalTrainerId || (isGlobalTrainer ? trainerId : undefined));
+  const { data: trainerData, refetch: refetchTrainer } = useGymTrainerById(!isGlobalTrainer ? (trainerId ?? undefined) : undefined);
+  const { data: globalTrainerData, refetch: refetchGlobalTrainer } = useGlobalTrainer(globalTrainerId || (isGlobalTrainer ? trainerId : undefined));
 
   const trainer = isGlobalTrainer ? globalTrainerData : (trainerData?.trainer || globalTrainerData);
+
+  const currentPhoto = profilePhoto || trainer?.profilePhoto || trainer?.profilePic;
+  const hasProfilePhoto = Boolean(
+    currentPhoto &&
+    typeof currentPhoto === 'string' &&
+    currentPhoto.trim() !== '' &&
+    currentPhoto !== 'null' &&
+    currentPhoto !== 'undefined' &&
+    !currentPhoto.includes('pravatar.cc')
+  );
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      typeof refreshUserContext === 'function' ? refreshUserContext() : Promise.resolve(),
+      typeof refetchTrainer === 'function' ? refetchTrainer() : Promise.resolve(),
+      typeof refetchGlobalTrainer === 'function' ? refetchGlobalTrainer() : Promise.resolve(),
+      queryClient.invalidateQueries({ queryKey: ['userProfile', userId] }),
+      queryClient.invalidateQueries({ queryKey: ['gymTrainer'] }),
+      queryClient.invalidateQueries({ queryKey: ['globalTrainer'] }),
+    ]);
+    setRefreshing(false);
+  }, [refreshUserContext, refetchTrainer, refetchGlobalTrainer, userId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (typeof refreshUserContext === 'function') refreshUserContext();
+      if (typeof refetchTrainer === 'function') refetchTrainer();
+      if (typeof refetchGlobalTrainer === 'function') refetchGlobalTrainer();
+    }, [refreshUserContext, refetchTrainer, refetchGlobalTrainer])
+  );
+
+  const handlePickImage = async (useCamera: boolean) => {
+    try {
+      let permissionResult;
+      if (useCamera) {
+        permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      } else {
+        permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      }
+
+      if (permissionResult.granted === false) {
+        toast.error('Camera or gallery permission is required.');
+        setPhotoOptionsVisible(false);
+        return;
+      }
+
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      };
+
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+
+      setPhotoOptionsVisible(false);
+
+      if (!result.canceled && result.assets && result.assets.length > 0 && userId) {
+        updatePhotoMutation.mutate(
+          { userId, imageUri: result.assets[0].uri },
+          {
+            onSuccess: async () => {
+              toast.success('Profile picture updated!');
+              await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
+              if (typeof refreshUserContext === 'function') {
+                await refreshUserContext();
+              }
+            },
+            onError: (err: any) => toast.error(err.message || 'Upload failed.')
+          }
+        );
+      }
+    } catch (error: any) {
+      setPhotoOptionsVisible(false);
+      console.error('ImagePicker Error:', error);
+      toast.error(error.message || 'Unexpected error picking image.');
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    if (!userId) return;
+    try {
+      await deletePhotoMutation.mutateAsync({
+        userId,
+        fileName: currentPhoto,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['userProfile', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['gymTrainer'] }),
+        queryClient.invalidateQueries({ queryKey: ['globalTrainer'] }),
+      ]);
+      if (typeof refreshUserContext === 'function') {
+        await refreshUserContext();
+      }
+      if (typeof refetchTrainer === 'function') {
+        await refetchTrainer();
+      }
+      if (typeof refetchGlobalTrainer === 'function') {
+        await refetchGlobalTrainer();
+      }
+      toast.success('Profile picture removed!');
+    } catch (err: any) {
+      console.error('[TrainerProfile] Error deleting photo:', err);
+      toast.error('Failed to remove profile picture.');
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -105,15 +223,16 @@ export default function TrainerProfileScreen() {
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View className="bg-[#1C1C1E] rounded-3xl p-5 mt-4 border border-[#27272A]">
           {/* @ts-ignore */}
-          <Pressable className="absolute right-4 top-4 w-8 h-8 rounded-full border border-[#27272A] items-center justify-center bg-[#18181B] active:opacity-70 z-10">
+          <Pressable onPress={() => setPhotoOptionsVisible(true)} className="absolute right-4 top-4 w-8 h-8 rounded-full border border-[#27272A] items-center justify-center bg-[#18181B] active:opacity-70 z-10">
             <PencilSimple size={14} color="#C4EF18" weight="fill" />
           </Pressable>
 
           <View className="flex-row items-start mb-6">
-            <View className="relative">
+            <Pressable onPress={() => setPhotoOptionsVisible(true)} className="relative active:opacity-80">
               <View className="w-[84px] h-[84px] rounded-full border-2 border-[#27272A] bg-[#18181B] items-center justify-center overflow-hidden">
                 {profilePhoto ? (
                   <Image source={{ uri: profilePhoto }} className="w-full h-full" />
@@ -124,7 +243,7 @@ export default function TrainerProfileScreen() {
               <View className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#1A2D22] items-center justify-center border border-[#1C1C1E]">
                 <Camera size={12} color="#C4EF18" weight="fill" />
               </View>
-            </View>
+            </Pressable>
 
             <View className="ml-4 pt-1 flex-1">
               <Text className="text-white text-xl font-semibold mb-1">{trainer?.fullName || name || 'Trainer'}</Text>
@@ -264,6 +383,23 @@ export default function TrainerProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      <ActionSheetModal
+        visible={photoOptionsVisible}
+        onClose={() => setPhotoOptionsVisible(false)}
+        title="Update Profile Picture"
+        options={[
+          { label: 'Take Photo', keepOpen: true, onPress: () => handlePickImage(true) },
+          { label: 'Choose from Gallery', keepOpen: true, onPress: () => handlePickImage(false) },
+          ...(hasProfilePhoto ? [
+            {
+              label: 'Delete Existing',
+              destructive: true,
+              onPress: handleDeletePhoto,
+            }
+          ] : [])
+        ]}
+      />
     </View>
   );
 }

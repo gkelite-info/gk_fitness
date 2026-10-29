@@ -8,7 +8,8 @@ import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
-import { useUpdateCustomerProfile, useUpdateProfilePhoto } from '@/hooks/auth/useUpdateCustomerProfile';
+import { useUpdateCustomerProfile, useUpdateProfilePhoto, useDeleteProfilePhoto } from '@/hooks/auth/useUpdateCustomerProfile';
+import { useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ActionSheetModal } from '@/components/community/ActionSheetModal';
 import { DatePickerModal } from '@/components/DatePickerModal';
@@ -86,6 +87,19 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
 
   const updateMutation = useUpdateCustomerProfile();
   const updatePhotoMutation = useUpdateProfilePhoto();
+  const deletePhotoMutation = useDeleteProfilePhoto();
+  const queryClient = useQueryClient();
+  const { refreshUserContext } = useUser();
+
+  const currentPhoto = fallbackUser?.profilePhoto || fallbackUser?.profilePic || customerData?.profilePhoto || customerData?.profilePic;
+  const hasProfilePhoto = Boolean(
+    currentPhoto &&
+    typeof currentPhoto === 'string' &&
+    currentPhoto.trim() !== '' &&
+    currentPhoto !== 'null' &&
+    currentPhoto !== 'undefined' &&
+    !currentPhoto.includes('pravatar.cc')
+  );
 
   const [photoOptionsVisible, setPhotoOptionsVisible] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -174,7 +188,14 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
         updatePhotoMutation.mutate(
           { userId, imageUri: result.assets[0].uri },
           {
-            onSuccess: () => toast.success('Profile picture updated!'),
+            onSuccess: async () => {
+              toast.success('Profile picture updated!');
+              await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
+              await queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] });
+              if (typeof refreshUserContext === 'function') {
+                await refreshUserContext();
+              }
+            },
             onError: (err: any) => Alert.alert('Upload Failed', err.message)
           }
         );
@@ -183,6 +204,25 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
       setPhotoOptionsVisible(false);
       console.error("ImagePicker Error:", error);
       Alert.alert('Error', error.message || 'An unexpected error occurred while opening the image picker.');
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    if (!userId) return;
+    try {
+      await deletePhotoMutation.mutateAsync({
+        userId,
+        fileName: fallbackUser?.profilePic || fallbackUser?.profilePhoto || customerData?.profilePic || customerData?.profilePhoto,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
+      await queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] });
+      if (typeof refreshUserContext === 'function') {
+        await refreshUserContext();
+      }
+      toast.success('Profile picture removed!');
+    } catch (err: any) {
+      console.error('[EditProfile] Error deleting photo:', err);
+      toast.error('Failed to remove profile picture.');
     }
   };
 
@@ -238,28 +278,32 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
             <Pressable
               className="relative active:opacity-70"
               onPress={() => setPhotoOptionsVisible(true)}
-              disabled={updatePhotoMutation.isPending}
+              disabled={updatePhotoMutation.isPending || deletePhotoMutation.isPending}
             >
-              {updatePhotoMutation.isPending ? (
-                <View className="w-24 h-24 rounded-full bg-[#27272A] items-center justify-center border-2 border-[#1F1F22]">
-                  <ActivityIndicator color="#C4EF00" />
-                </View>
-              ) : (
-                <StaticAvatar
-                  uri={fallbackUser?.profilePhoto}
-                  name={form.fullName}
-                  size={96}
-                  className="w-24 h-24 rounded-full border-2 border-[#1F1F22]"
-                />
-              )}
-              <View className="absolute bottom-0 right-0 bg-[#C4EF00] p-1.5 rounded-full border-2 border-[#0A0A0A]">
+              {
+                updatePhotoMutation.isPending || deletePhotoMutation.isPending ? (
+                  <View className="w-24 h-24 rounded-full bg-[#27272A] items-center justify-center border-2 border-[#1F1F22]">
+                    <ActivityIndicator color="#C4EF00" />
+                  </View>
+                ) : (
+                  <StaticAvatar
+                    uri={fallbackUser?.profilePhoto || fallbackUser?.profilePic || customerData?.profilePhoto || customerData?.profilePic}
+                    userId={userId}
+                    name={form.fullName}
+                    size={96}
+                    className="w-24 h-24 rounded-full border-2 border-[#1F1F22]"
+                  />
+                )
+              }
+              < View className="absolute bottom-0 right-0 bg-[#C4EF00] p-1.5 rounded-full border-2 border-[#0A0A0A]">
                 <PencilSimple size={14} color="#0A0A0A" weight="bold" />
               </View>
             </Pressable>
             <Text className="text-white text-xl font-semibold mt-4">{form.fullName}</Text>
             <Text className="text-[#A1A1AA] text-[15px] mt-1">{form.email}</Text>
           </View>
-        )}
+        )
+        }
 
         <Text className="text-[#8E8E93] text-[10px] font-semibold tracking-[1px] mb-3 mt-2 ml-1">PERSONAL DETAILS</Text>
 
@@ -374,7 +418,7 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
         <Pressable className="border border-[#27272A] bg-transparent rounded-xl py-4 items-center justify-center mt-3 active:opacity-50" onPress={() => router.navigate('/(customer)/profile')}>
           <Text className="text-[#D4FF00] text-base font-semibold">Cancel</Text>
         </Pressable>
-      </ScrollView>
+      </ScrollView >
 
       <BottomSelector
         visible={selectorState.visible}
@@ -391,7 +435,14 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
         title="Update Profile Picture"
         options={[
           { label: 'Take Photo', keepOpen: true, onPress: () => handlePickImage(true) },
-          { label: 'Choose from Gallery', keepOpen: true, onPress: () => handlePickImage(false) }
+          { label: 'Choose from Gallery', keepOpen: true, onPress: () => handlePickImage(false) },
+          ...(hasProfilePhoto ? [
+            {
+              label: 'Delete Existing',
+              destructive: true,
+              onPress: handleDeletePhoto,
+            }
+          ] : [])
         ]}
       />
 
@@ -406,7 +457,7 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
           setForm(prev => ({ ...prev, dateOfBirth: formatToDDMMYYYY(dateString) }));
         }}
       />
-    </View>
+    </View >
   );
 }
 

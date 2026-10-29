@@ -80,7 +80,7 @@ export async function autoSeedTrainerPlanDayExercises(planDayId: string, targetG
     const seenNames = new Set<string>();
 
     for (const row of wvRows) {
-      const rowGender = (row.workouts?.role || 'all').toLowerCase();
+      const rowGender = ((Array.isArray(row.workouts) ? (row.workouts[0] as any)?.role : (row.workouts as any)?.role) || 'all').toLowerCase();
       if (rowGender !== 'all' && rowGender !== preferredRole) continue;
 
       const norm = (row.exerciseName || '').toLowerCase().replace(/[^a-z0-9]/g, '');

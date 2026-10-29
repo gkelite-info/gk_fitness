@@ -238,16 +238,14 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
               <Pressable
                 key={preset.label}
                 onPress={() => handleApplyPreset(preset.muscles)}
-                className={`px-3 py-1.5 rounded-full border ${
-                  allActive
-                    ? 'bg-[#C4EF00]/20 border-[#C4EF00]'
-                    : 'bg-[#18181B] border-[#27272A]'
-                }`}
+                className={`px-3 py-1.5 rounded-full border ${allActive
+                  ? 'bg-[#C4EF00]/20 border-[#C4EF00]'
+                  : 'bg-[#18181B] border-[#27272A]'
+                  }`}
               >
                 <Text
-                  className={`text-xs font-semibold ${
-                    allActive ? 'text-[#C4EF00]' : 'text-[#A1A1AA]'
-                  }`}
+                  className={`text-xs font-semibold ${allActive ? 'text-[#C4EF00]' : 'text-[#A1A1AA]'
+                    }`}
                 >
                   +{preset.label}
                 </Text>
@@ -297,13 +295,12 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
         statusBarTranslucent
       >
         <View
-          className="flex-1 bg-[#09090B]"
+          className="flex-1 bg-[#09090B] pt-14"
           style={{
-            paddingTop: Math.max(insets.top, 16),
-            paddingBottom: Math.max(insets.bottom, 16),
+            // paddingTop: Math.max(insets.top, 16),
+            paddingBottom: Math.max(insets.bottom, 20),
           }}
         >
-          {/* Full Screen Header */}
           <View className="flex-row items-center justify-between px-5 pb-3 border-b border-[#27272A]">
             <View>
               <Text className="text-lg font-semibold text-white">
@@ -331,7 +328,6 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
             showsVerticalScrollIndicator={false}
           >
-            {/* Quick Presets in Full Screen */}
             <View className="py-3">
               <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
                 {PRESETS.map((preset) => {
@@ -340,16 +336,14 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
                     <Pressable
                       key={preset.label}
                       onPress={() => handleApplyPreset(preset.muscles)}
-                      className={`px-3.5 py-1.5 rounded-full border ${
-                        allActive
-                          ? 'bg-[#C4EF00]/25 border-[#C4EF00]'
-                          : 'bg-[#18181B] border-[#27272A]'
-                      }`}
+                      className={`px-3.5 py-1.5 rounded-full border mr-1.5 ${allActive
+                        ? 'bg-[#C4EF00]/25 border-[#C4EF00]'
+                        : 'bg-[#18181B] border-[#27272A]'
+                        }`}
                     >
                       <Text
-                        className={`text-xs font-semibold ${
-                          allActive ? 'text-[#C4EF00]' : 'text-[#A1A1AA]'
-                        }`}
+                        className={`text-xs font-semibold ${allActive ? 'text-[#C4EF00]' : 'text-[#A1A1AA]'
+                          }`}
                       >
                         +{preset.label}
                       </Text>
@@ -427,27 +421,24 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
                 </View>
               </View>
             )}
-          </ScrollView>
-
-          {/* Sticky Bottom Apply Action Bar */}
-          <View className="px-5 pt-3 border-t border-[#27272A] bg-[#09090B]">
-            <Pressable
-              onPress={() => {
-                triggerLightHaptic();
-                setIsFullScreen(false);
-              }}
-              className="w-full bg-[#C4EF00] py-3.5 rounded-2xl flex-row items-center justify-center gap-2 active:opacity-90"
-            >
-              <Check size={18} color="#000000" weight="bold" />
-              <Text className="text-sm font-semibold text-black">
-                {selectedMuscles.length === 0
-                  ? 'Done'
-                  : `Apply Selection (${selectedMuscles.length} Muscle${
-                      selectedMuscles.length === 1 ? '' : 's'
+            <View className="px-0 mt-5 pt-3 border-t border-[#27272A] bg-[#09090B]">
+              <Pressable
+                onPress={() => {
+                  triggerLightHaptic();
+                  setIsFullScreen(false);
+                }}
+                className="w-full bg-[#C4EF00] py-3.5 rounded-2xl flex-row items-center justify-center gap-2 active:opacity-90"
+              >
+                <Check size={18} color="#000000" weight="bold" />
+                <Text className="text-sm font-semibold text-black">
+                  {selectedMuscles.length === 0
+                    ? 'Done'
+                    : `Apply Selection (${selectedMuscles.length} Muscle${selectedMuscles.length === 1 ? '' : 's'
                     })`}
-              </Text>
-            </Pressable>
-          </View>
+                </Text>
+              </Pressable>
+            </View>
+          </ScrollView>
         </View>
       </Modal>
     </View>

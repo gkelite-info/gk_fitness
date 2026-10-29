@@ -274,7 +274,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
     try {
       setSigningOut(true);
       triggerMediumHaptic();
-      await unregisterPushToken(userId ?? undefined).catch(() => {});
+      await unregisterPushToken(userId ?? undefined).catch(() => { });
       await supabase.auth.signOut();
       setConfirmModalVisible(false);
       onClose();

@@ -1,3 +1,4 @@
+import { assignInitialIndividualCustomerPlan } from '@/helpers/individual/membership/individualCustomerPlan';
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 import * as Crypto from 'expo-crypto';
@@ -45,6 +46,8 @@ export interface CreateUserParams {
   city?: string | null;
   pincode?: number | null;
   role?: string;
+  subscriptionPlanId?: string;
+  customAmount?: number | null;
 }
 
 export async function createUser(userData: CreateUserParams) {
@@ -78,6 +81,14 @@ export async function createUser(userData: CreateUserParams) {
   if (error) {
     console.error('[otpHelper] createUser Error from supabase:', error);
     throw error;
+  }
+
+  if (userData.role === 'individual' && insertData.userId) {
+    try {
+      await assignInitialIndividualCustomerPlan(insertData.userId, userData.subscriptionPlanId, userData.customAmount);
+    } catch (planErr) {
+      console.warn('[otpHelper] assignInitialIndividualCustomerPlan failed:', planErr);
+    }
   }
 
   return data ? data[0] : null;

@@ -73,8 +73,10 @@ export default function Index() {
       return <Redirect href="/(doctor)/patients" />;
     } else if (normalizedRole === 'trainer' || normalizedRole === 'gymtrainer' || normalizedRole === 'globaltrainer') {
       return <Redirect href={"/(trainer)/home" as any} />;
-    } else {
+    } else if (normalizedRole === 'individual' || normalizedRole === 'customer') {
       return <Redirect href="/(customer)/home" />;
+    } else {
+      return <Redirect href="/auth/account-type" />;
     }
   }
 

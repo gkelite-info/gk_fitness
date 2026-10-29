@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { View, ScrollView, Pressable, Modal, Alert, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { ActionSheetModal } from '@/components/community/ActionSheetModal';
+import { useUpdateProfilePhoto, useDeleteProfilePhoto } from '@/hooks/auth/useUpdateCustomerProfile';
+import * as ImagePicker from 'expo-image-picker';
+import { toast } from '@/lib/toast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
@@ -59,10 +64,24 @@ const MenuItem = ({ icon, title, subtitle, onPress, isDanger = false }: any) => 
 export default function OwnerProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { userId, gymId } = useUser();
+  const { userId, gymId, profilePhoto, refreshUserContext } = useUser();
   const [modalVisible, setModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [photoOptionsVisible, setPhotoOptionsVisible] = useState(false);
+  const updatePhotoMutation = useUpdateProfilePhoto();
+  const deletePhotoMutation = useDeleteProfilePhoto();
 
-  const { data: gym } = useGym(gymId ?? null);
+  const currentPhoto = profilePhoto;
+  const hasProfilePhoto = Boolean(
+    currentPhoto &&
+    typeof currentPhoto === 'string' &&
+    currentPhoto.trim() !== '' &&
+    currentPhoto !== 'null' &&
+    currentPhoto !== 'undefined' &&
+    !currentPhoto.includes('pravatar.cc')
+  );
+
+  const { data: gym, refetch: refetchGym } = useGym(gymId ?? null);
 
   const { data: customers } = useGymCustomers(gymId ?? undefined);
   const activeCustomersCount = customers?.filter(c => c.is_Active === true).length || 0;
@@ -71,8 +90,95 @@ export default function OwnerProfileScreen() {
   const totalTrainers = trainers?.length || 0;
   const activeTrainersCount = trainers?.filter((t: any) => t.is_Active !== false).length || 0;
 
-  const { data: membershipPlans } = useGymMembershipPlans(userId ?? null);
+  const { data: membershipPlans, refetch: refetchPlans } = useGymMembershipPlans(userId ?? null);
   const totalPlans = membershipPlans?.length || 0;
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      typeof refreshUserContext === 'function' ? refreshUserContext() : Promise.resolve(),
+      typeof refetchGym === 'function' ? refetchGym() : Promise.resolve(),
+      typeof refetchPlans === 'function' ? refetchPlans() : Promise.resolve(),
+      queryClient.invalidateQueries({ queryKey: ['userProfile', userId] }),
+      queryClient.invalidateQueries({ queryKey: ['gym', gymId] }),
+    ]);
+    setRefreshing(false);
+  }, [refreshUserContext, refetchGym, refetchPlans, userId, gymId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (typeof refreshUserContext === 'function') refreshUserContext();
+      if (typeof refetchGym === 'function') refetchGym();
+    }, [refreshUserContext, refetchGym])
+  );
+
+  const handlePickImage = async (useCamera: boolean) => {
+    try {
+      let permissionResult;
+      if (useCamera) {
+        permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      } else {
+        permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      }
+
+      if (permissionResult.granted === false) {
+        toast.error('Camera or gallery permission is required.');
+        setPhotoOptionsVisible(false);
+        return;
+      }
+
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      };
+
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+
+      setPhotoOptionsVisible(false);
+
+      if (!result.canceled && result.assets && result.assets.length > 0 && userId) {
+        updatePhotoMutation.mutate(
+          { userId, imageUri: result.assets[0].uri },
+          {
+            onSuccess: async () => {
+              toast.success('Profile picture updated!');
+              await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
+              if (typeof refreshUserContext === 'function') {
+                await refreshUserContext();
+              }
+            },
+            onError: (err: any) => toast.error(err.message || 'Upload failed.')
+          }
+        );
+      }
+    } catch (error: any) {
+      setPhotoOptionsVisible(false);
+      console.error('ImagePicker Error:', error);
+      toast.error(error.message || 'Unexpected error picking image.');
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    if (!userId) return;
+    try {
+      await deletePhotoMutation.mutateAsync({
+        userId,
+        fileName: profilePhoto,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
+      if (typeof refreshUserContext === 'function') {
+        await refreshUserContext();
+      }
+      toast.success('Profile picture removed!');
+    } catch (err: any) {
+      console.error('[OwnerProfile] Error deleting photo:', err);
+      toast.error('Failed to remove profile picture.');
+    }
+  };
 
   const getNetGrowthThisMonth = (items?: any[]) => {
     if (!items) return 0;
@@ -140,18 +246,21 @@ export default function OwnerProfileScreen() {
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View className="bg-[#161616] rounded-3xl p-6 items-center mt-2 border border-[#1F1F22]">
-          <View className="w-[84px] h-[84px] rounded-2xl bg-[#000000] border border-[#C4EF00] items-center justify-center mb-4 overflow-hidden">
-            {gym?.logo ? (
-              <Image source={{ uri: gym.logo }} className="w-full h-full" />
-            ) : (
-              <>
-                <Barbell size={32} color="#C4EF00" weight="fill" />
-                <Text className="text-[#C4EF00] text-[8px] font-semibold tracking-wider mt-1 text-center px-1" numberOfLines={1}>{gym?.gymName?.toUpperCase() || 'GYM'}</Text>
-              </>
-            )}
-          </View>
+          <Pressable onPress={() => setPhotoOptionsVisible(true)} className="relative active:opacity-80 mb-4">
+            <View className="w-[84px] h-[84px] rounded-2xl bg-[#000000] border border-[#C4EF00] items-center justify-center overflow-hidden">
+              {profilePhoto || gym?.logo ? (
+                <Image source={{ uri: profilePhoto || gym?.logo }} className="w-full h-full" />
+              ) : (
+                <>
+                  <Barbell size={32} color="#C4EF00" weight="fill" />
+                  <Text className="text-[#C4EF00] text-[8px] font-semibold tracking-wider mt-1 text-center px-1" numberOfLines={1}>{gym?.gymName?.toUpperCase() || 'GYM'}</Text>
+                </>
+              )}
+            </View>
+          </Pressable>
 
           <Pressable 
             className="border border-[#C4EF00] rounded-full px-5 py-1.5 mb-4 flex-row items-center active:opacity-70"
@@ -360,6 +469,23 @@ export default function OwnerProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      <ActionSheetModal
+        visible={photoOptionsVisible}
+        onClose={() => setPhotoOptionsVisible(false)}
+        title="Update Profile Picture"
+        options={[
+          { label: 'Take Photo', keepOpen: true, onPress: () => handlePickImage(true) },
+          { label: 'Choose from Gallery', keepOpen: true, onPress: () => handlePickImage(false) },
+          ...(hasProfilePhoto ? [
+            {
+              label: 'Delete Existing',
+              destructive: true,
+              onPress: handleDeletePhoto,
+            }
+          ] : [])
+        ]}
+      />
     </View>
   );
 }

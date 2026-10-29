@@ -152,7 +152,7 @@ export default function GymEditProfileScreen() {
           {icon}
         </View>
         <TextInput
-          className="flex-1 text-white text-[15px]"
+          className="flex-1 text-white text-[15px] font-sans"
           value={value}
           onChangeText={onChangeText}
           editable={editable}
@@ -165,7 +165,7 @@ export default function GymEditProfileScreen() {
   );
 
   return (
-    <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-[#0F0F0F] pb-28" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center px-4 py-3 border-b border-[#1A1A1A]">
         <Pressable onPress={() => router.navigate('/(owner)/profile' as any)} className="p-2">
           <CaretLeft size={24} color="#FFFFFF" weight="bold" />
@@ -257,21 +257,21 @@ export default function GymEditProfileScreen() {
             keyboardType="number-pad"
           />
         </View>
+        <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#0F0F0F] border-t border-[#1A1A1A]" style={{ paddingBottom: Math.max(insets.bottom, 20) }}>
+          <Pressable
+            className="bg-[#C4EF00] h-14 rounded-full items-center justify-center flex-row shadow-sm active:opacity-80"
+            onPress={handleSave}
+            disabled={updateDetailsMutation.isPending}
+          >
+            {updateDetailsMutation.isPending ? (
+              <ActivityIndicator color="#000000" />
+            ) : (
+              <Text className="text-black text-[16px] font-semibold tracking-wide">Save Changes</Text>
+            )}
+          </Pressable>
+        </View>
       </ScrollView>
 
-      <View className="absolute bottom-0 left-0 right-0 p-5 bg-[#0F0F0F] border-t border-[#1A1A1A]" style={{ paddingBottom: Math.max(insets.bottom, 20) }}>
-        <Pressable
-          className="bg-[#C4EF00] h-14 rounded-full items-center justify-center flex-row shadow-sm active:opacity-80"
-          onPress={handleSave}
-          disabled={updateDetailsMutation.isPending}
-        >
-          {updateDetailsMutation.isPending ? (
-            <ActivityIndicator color="#000000" />
-          ) : (
-            <Text className="text-black text-[16px] font-semibold tracking-wide">Save Changes</Text>
-          )}
-        </Pressable>
-      </View>
 
       <ActionSheetModal
         visible={photoOptionsVisible}

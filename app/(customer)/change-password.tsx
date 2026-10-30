@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeft, Lock, Eye, EyeClosed, ShieldCheck, Check } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
+import * as Crypto from 'expo-crypto';
+import { hashPassword } from '@/helpers/auth/passwordHelper';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
@@ -60,13 +62,24 @@ export default function ChangePasswordScreen() {
         throw new Error('Current password is incorrect.');
       }
 
-      // 2. Update to new password
+      // 2. Update to new password in Supabase Auth
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword
       });
 
       if (updateError) {
         throw updateError;
+      }
+
+      // 3. Keep users table password column in sync with bcrypt ($2b$10$...) hash
+      try {
+        const passwordHash = await hashPassword(newPassword);
+        await supabase
+          .from('users')
+          .update({ password: passwordHash })
+          .ilike('email', email.trim().toLowerCase());
+      } catch (hashErr) {
+        console.warn('[ChangePassword] Non-fatal error updating database password column:', hashErr);
       }
 
       setStep(2);

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
+import { hashPassword } from '@/helpers/auth/passwordHelper';
 
 export type CustomerGender = 'male' | 'female' | 'other';
 
@@ -162,6 +163,7 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
 
   const uuid = Crypto.randomUUID();
   const temporaryPassword = `CS-${uuid.substring(0, 5).toUpperCase()}-${uuid.substring(9, 10).toUpperCase()}`;
+  const hashedPassword = await hashPassword(temporaryPassword);
 
   let targetUserId = params.customerId;
   let isNewUser = false;
@@ -177,6 +179,7 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
         options: {
           data: {
             name: params.fullName.trim(),
+            full_name: params.fullName.trim(),
             phone: cleanPhone,
             role: 'customer',
           },
@@ -227,7 +230,11 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
       const { error: userUpErr } = await supabase
         .from('users')
         .update({
+          name: params.fullName.trim(),
           role: 'customer',
+          password: hashedPassword,
+          phone: cleanPhone,
+          email: cleanEmail,
           updatedAt: now,
           ...(params.gender ? { gender: params.gender.toLowerCase() === 'other' ? 'others' : params.gender.toLowerCase() } : {}),
         })
@@ -245,6 +252,7 @@ export async function saveGymCustomer(params: SaveGymCustomerParams) {
           gender: params.gender ? (params.gender.toLowerCase() === 'other' ? 'others' : params.gender.toLowerCase()) : 'male',
           role: 'customer',
           status: 'active',
+          password: hashedPassword,
           isEmailVerified: false,
           isPhoneVerified: false,
           createdAt: now,

@@ -135,6 +135,8 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
 
     if (!fullName.trim() || fullName.trim().length < 3) {
       newErrors.fullName = 'Please enter a full name (minimum 3 characters).';
+    } else if (fullName.includes('@')) {
+      newErrors.fullName = 'Full Name cannot be an email address.';
     }
 
     if (!dateOfBirth.trim()) {
@@ -444,6 +446,11 @@ export function TrainerRegistrationForm({ onRegisterSubmit }: TrainerRegistratio
           <TextInput
             placeholder="Enter full name"
             placeholderTextColor="#666"
+            autoCapitalize="words"
+            autoCorrect={false}
+            spellCheck={false}
+            autoComplete="name"
+            textContentType="name"
             clearButtonMode="while-editing"
             value={fullName}
             onChangeText={(txt) => {

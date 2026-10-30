@@ -46,6 +46,7 @@ export interface CreateUserParams {
   city?: string | null;
   pincode?: number | null;
   role?: string;
+  password?: string | null;
   subscriptionPlanId?: string;
   customAmount?: number | null;
 }
@@ -63,6 +64,7 @@ export async function createUser(userData: CreateUserParams) {
     city: userData.city || null,
     pincode: userData.pincode || null,
     role: userData.role || 'customer',
+    password: userData.password || null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -108,6 +110,7 @@ export async function updateUser(userId: string, userData: Partial<CreateUserPar
   if (userData.state !== undefined) updateData.state = userData.state;
   if (userData.city !== undefined) updateData.city = userData.city;
   if (userData.pincode !== undefined) updateData.pincode = userData.pincode;
+  if (userData.password !== undefined) updateData.password = userData.password;
 
   const { data, error } = await supabase
     .from('users')

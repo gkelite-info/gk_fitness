@@ -34,13 +34,15 @@ import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 import { getSelectedGym, SelectedGym, clearSelectedGym, verifyUserGymMembership } from '@/helpers/tenantHelper';
 import * as Crypto from 'expo-crypto';
+import { hashPassword, verifyPassword } from '@/helpers/auth/passwordHelper';
 import { fetchGymLeadByIdentifier } from '@/helpers/gymLeads/gymLeadsHelper';
 import { fetchUserAndRoleProfile } from '@/helpers/user/userProfileHelper';
 import { fetchGymById } from '@/helpers/gym/gymHelper';
 import { fetchGlobalTrainerLeadByIdentifier } from '@/helpers/globalTrainerLeads/globalTrainerLeadsHelper';
+import { clearFallbackAuthUser } from '@/helpers/auth/fallbackAuthHelper';
 
 export default function OtpAuthScreen() {
-  const { role, loading: userLoading, refreshUserContext, isGymSuspended } = useUser();
+  const { role, loading: userLoading, refreshUserContext, isGymSuspended, setFallbackUserSession } = useUser();
   const router = useRouter();
   const params = useLocalSearchParams();
   const typeId = params.type as string;
@@ -445,6 +447,7 @@ export default function OtpAuthScreen() {
           }
         }
 
+        // 1. Primary: Attempt Supabase Auth login
         const firstAttempt = await supabase.auth.signInWithPassword({
           email: signinEmail,
           password: password,
@@ -452,6 +455,7 @@ export default function OtpAuthScreen() {
 
         if (!firstAttempt.error) {
           authData = firstAttempt.data;
+          authError = null;
         } else {
           let secondAttempt: any = null;
           if (password.trim() !== password) {
@@ -463,22 +467,83 @@ export default function OtpAuthScreen() {
 
           if (secondAttempt && !secondAttempt.error) {
             authData = secondAttempt.data;
+            authError = null;
           } else {
-            try {
-              const passwordHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password.trim());
-              const thirdAttempt = await supabase.auth.signInWithPassword({
-                email: signinEmail,
-                password: passwordHash,
-              });
+            authError = firstAttempt.error;
+          }
+        }
 
-              if (!thirdAttempt.error) {
-                authData = thirdAttempt.data;
-              } else {
-                authError = firstAttempt.error;
-              }
-            } catch {
-              authError = firstAttempt.error;
+        // 2. Fallback: If Supabase Auth failed (unverified email, mailbox full, or credential mismatch)
+        // Check public.users table and verify SHA-256 hashed password
+        if (authError) {
+          console.log('[SignIn] Supabase Auth unconfirmed/failed, checking database password fallback for:', signinEmail);
+          try {
+            let userQuery = supabase
+              .from('users')
+              .select('userId, name, email, phone, role, status, isEmailVerified, isPhoneVerified, password');
+
+            if (signinEmail && signinEmail.includes('@')) {
+              userQuery = userQuery.ilike('email', signinEmail.trim().toLowerCase());
+            } else if (targetEmail && targetEmail.includes('@')) {
+              userQuery = userQuery.ilike('email', targetEmail.trim().toLowerCase());
+            } else {
+              const cleanDigits = targetEmail.replace(/[^0-9]/g, '');
+              const last10 = cleanDigits.slice(-10);
+              userQuery = userQuery.or(`phone.ilike.%${last10}%,email.ilike.%${last10}%`);
             }
+
+            const { data: dbUser } = await userQuery.maybeSingle();
+
+            if (dbUser && dbUser.password) {
+              const isPasswordMatch = await verifyPassword(password, dbUser.password);
+
+              if (isPasswordMatch) {
+                console.log('[SignIn] Successfully authenticated via database password for user:', dbUser.userId);
+
+                // Auto-upgrade legacy hash format to bcrypt ($2b$10$...) on successful verification
+                if (!dbUser.password.startsWith('$2')) {
+                  try {
+                    const upgradedHash = await hashPassword(password);
+                    await supabase.from('users').update({ password: upgradedHash }).eq('userId', dbUser.userId);
+                    console.log('[SignIn] Auto-upgraded user password to bcrypt format for user:', dbUser.userId);
+                  } catch (upgradeErr) {
+                    console.warn('[SignIn] Failed to auto-upgrade password to bcrypt:', upgradeErr);
+                  }
+                }
+
+                authError = null;
+                authData = {
+                  user: {
+                    id: dbUser.userId,
+                    email: dbUser.email,
+                    user_metadata: {
+                      role: dbUser.role,
+                      name: dbUser.name,
+                      phone: dbUser.phone,
+                    },
+                  },
+                };
+
+                // Store fallback user in context/storage for seamless session continuity
+                if (setFallbackUserSession) {
+                  await setFallbackUserSession({
+                    id: dbUser.userId,
+                    email: dbUser.email,
+                    role: dbUser.role,
+                    name: dbUser.name,
+                  });
+                }
+
+                // Auto-verify email status in users table if previously unverified
+                if (!dbUser.isEmailVerified) {
+                  try {
+                    await supabase.from('users').update({ isEmailVerified: true }).eq('userId', dbUser.userId);
+                  } catch {}
+                }
+              }
+            }
+          } catch (fallbackCheckErr) {
+            console.error('[SignIn] Error checking database password fallback:', fallbackCheckErr);
           }
         }
 
@@ -566,6 +631,8 @@ export default function OtpAuthScreen() {
           if (normType === 'globaltrainer') {
             if (!isUserGlobalTrainer) {
               await supabase.auth.signOut();
+              await clearFallbackAuthUser();
+              if (setFallbackUserSession) await setFallbackUserSession(null);
               if (isMounted.current) {
                 const errText = 'Invalid credentials or check role';
                 setAuthErrorMessage(errText);
@@ -637,6 +704,8 @@ export default function OtpAuthScreen() {
 
               // Block all other roles (owner, trainer, global trainer, or gym customer)
               await supabase.auth.signOut();
+              await clearFallbackAuthUser();
+              if (setFallbackUserSession) await setFallbackUserSession(null);
               if (isMounted.current) {
                 const errText = 'Invalid credentials or check role';
                 setAuthErrorMessage(errText);
@@ -663,6 +732,8 @@ export default function OtpAuthScreen() {
 
                 if (!oRec) {
                   await supabase.auth.signOut();
+                  await clearFallbackAuthUser();
+                  if (setFallbackUserSession) await setFallbackUserSession(null);
                   if (isMounted.current) {
                     const errText = 'Invalid credentials or check role';
                     setAuthErrorMessage(errText);
@@ -742,6 +813,8 @@ export default function OtpAuthScreen() {
 
               if (!belongsToChosenGym) {
                 await supabase.auth.signOut();
+                await clearFallbackAuthUser();
+                if (setFallbackUserSession) await setFallbackUserSession(null);
                 if (isMounted.current) {
                   let errText = 'No membership found for this gym. Please check your credentials or select your registered gym.';
                   if (customerRecords && customerRecords.length > 0) {
@@ -824,6 +897,8 @@ export default function OtpAuthScreen() {
 
               if (!belongsToChosenGym) {
                 await supabase.auth.signOut();
+                await clearFallbackAuthUser();
+                if (setFallbackUserSession) await setFallbackUserSession(null);
                 if (isMounted.current) {
                   let errText = 'No trainer record found for this gym. Please check your credentials or select your registered gym.';
                   if (trainerRecords && trainerRecords.length > 0) {
@@ -936,6 +1011,7 @@ export default function OtpAuthScreen() {
 
           if (authData?.user?.id) {
             try {
+              const hashedPassword = await hashPassword(password);
               await createUser({
                 userId: authData.user.id,
                 name: name.trim(),
@@ -943,6 +1019,7 @@ export default function OtpAuthScreen() {
                 phone: fullPhone,
                 address: address.trim(),
                 role: targetRole,
+                password: hashedPassword,
               });
               if (targetRole === 'individual') {
                 try {

@@ -62,7 +62,7 @@ export async function fetchUserAndRoleProfile(
       const emailRes = await supabase
         .from('users')
         .select('userId, name, email, phone, gender, dob, address, country, state, city, pincode, role, profilePhoto, createdAt')
-        .eq('email', authEmail)
+        .ilike('email', authEmail.trim())
         .maybeSingle();
       if (emailRes.error) {
         console.warn('[userProfileHelper] Error fetching user by authEmail:', emailRes.error);
@@ -99,10 +99,11 @@ export async function fetchUserAndRoleProfile(
           console.error('[userProfileHelper] Auto-creation failed:', createError);
           // If already exists, fetch the existing user record immediately
           if (createError?.code === '23505' || createError?.message?.includes('duplicate key')) {
+            const emailFilter = authEmail ? `,email.ilike.${authEmail.trim()}` : '';
             const { data: existingUser } = await supabase
               .from('users')
               .select('userId, name, email, phone, gender, dob, address, country, state, city, pincode, role, profilePhoto, createdAt')
-              .or(`userId.eq.${authUserId},email.eq.${authEmail}`)
+              .or(`userId.eq.${authUserId}${emailFilter}`)
               .maybeSingle();
             if (existingUser) {
               userRecord = existingUser;

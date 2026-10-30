@@ -66,9 +66,10 @@ export async function verifyUserGymMembership(
       .maybeSingle();
 
     const role = (userRec?.role || '').trim().toLowerCase();
+    const cleanRole = role.replace(/[\s_-]/g, '');
 
     // Pure global/admin roles that are never gym-restricted
-    if (role === 'superadmin' || role === 'global_trainer') {
+    if (cleanRole === 'superadmin' || cleanRole === 'globaltrainer' || cleanRole === 'individual') {
       return { isAuthorized: true, role, reason: 'NOT_GYM_BOUND' };
     }
 
@@ -148,7 +149,7 @@ export async function verifyUserGymMembership(
     }
 
     // If role in users table is explicitly gym-bound, but no membership in selected gym was found:
-    if (['customer', 'trainer', 'owner'].includes(role)) {
+    if (['customer', 'trainer', 'owner'].includes(cleanRole)) {
       return {
         isAuthorized: false,
         role,

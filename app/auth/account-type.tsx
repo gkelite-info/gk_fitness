@@ -70,21 +70,27 @@ export default function AccountTypeScreen() {
     if (typeId === 'individual') {
       await clearSelectedGym();
       router.push({ pathname: '/auth/otp-auth', params: { type: 'individual' } });
-    } else if (typeId === 'customer' || typeId === 'gym_trainer') {
-      router.push({ pathname: '/auth/find-organization', params: { type: typeId } });
-    } else if (typeId === 'owner' || typeId === 'global_trainer') {
-      router.push({ pathname: '/auth/otp-auth', params: { type: typeId } });
+    } else if (typeId === 'customer') {
+      router.push({ pathname: '/auth/find-organization', params: { type: 'customer' } });
+    } else if (typeId === 'gym_trainer') {
+      router.push({ pathname: '/auth/find-organization', params: { type: 'gym_trainer' } });
+    } else if (typeId === 'owner') {
+      await clearSelectedGym();
+      router.push({ pathname: '/auth/otp-auth', params: { type: 'owner' } });
+    } else if (typeId === 'global_trainer') {
+      await clearSelectedGym();
+      router.push({ pathname: '/auth/otp-auth', params: { type: 'global_trainer' } });
     }
   };
 
   return (
     <View className="flex-1 bg-[#09090B]">
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView 
+      <ScrollView
         className="flex-1"
-        contentContainerStyle={{ 
-          flexGrow: 1, 
-          paddingTop: insets.top + 40, 
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: insets.top + 40,
           paddingBottom: insets.bottom + 24,
           paddingHorizontal: 24
         }}

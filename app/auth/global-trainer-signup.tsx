@@ -28,6 +28,7 @@ import { Country, State } from 'country-state-city';
 import { toast } from '@/lib/toast';
 import { useCreateGlobalTrainerLead } from '@/hooks/globalTrainerLeads/useCreateGlobalTrainerLead';
 import * as Crypto from 'expo-crypto';
+import { hashPassword } from '@/helpers/auth/passwordHelper';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { ActionSheet } from '@/components/ActionSheet';
 
@@ -185,7 +186,7 @@ export default function GlobalTrainerSignupScreen() {
 
     setLoading(true);
     try {
-      const passwordHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
+      const passwordHash = await hashPassword(password);
 
       const newLead = await createGlobalTrainerLead({
         fullName: fullName.trim(),

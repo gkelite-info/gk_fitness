@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
+import { hashPassword } from '@/helpers/auth/passwordHelper';
 import { createUser } from '@/helpers/otpHelper';
 import { rollbackRegistrationData } from '@/helpers/registrationRollbackHelper';
 
@@ -266,8 +267,11 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
 
   const uuid = Crypto.randomUUID();
   const temporaryPassword = `TR-${uuid.substring(0, 5).toUpperCase()}-${uuid.substring(9, 10).toUpperCase()}`;
+  const hashedPassword = await hashPassword(temporaryPassword);
 
   let targetUserId = params.gymTrainerId;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const originalSession = sessionData?.session;
   let isNewUser = false;
   let isNewAuthUser = false;
 
@@ -300,6 +304,7 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
         options: {
           data: {
             name: params.fullName.trim(),
+            full_name: params.fullName.trim(),
             phone: cleanPhone,
             role: 'trainer',
           },
@@ -307,7 +312,20 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
       });
 
       if (authError && !authError.message?.toLowerCase().includes('already registered')) {
+        if (originalSession) {
+          await supabase.auth.setSession({
+            access_token: originalSession.access_token,
+            refresh_token: originalSession.refresh_token,
+          });
+        }
         throw authError;
+      }
+
+      if (originalSession) {
+        await supabase.auth.setSession({
+          access_token: originalSession.access_token,
+          refresh_token: originalSession.refresh_token,
+        });
       }
 
       targetUserId = authData?.user?.id;
@@ -340,7 +358,11 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
       const { error: userUpErr } = await supabase
         .from('users')
         .update({
+          name: params.fullName.trim(),
           role: 'trainer',
+          password: hashedPassword,
+          phone: cleanPhone,
+          email: cleanEmail,
           updatedAt: now,
           ...(params.gender ? { gender: String(params.gender).toLowerCase() === 'other' ? 'others' : String(params.gender).toLowerCase() } : {}),
         })
@@ -355,6 +377,7 @@ export async function saveGymTrainer(params: SaveGymTrainerParams) {
         phone: cleanPhone,
         gender: params.gender ? (String(params.gender).toLowerCase() === 'other' ? 'others' : String(params.gender).toLowerCase()) : 'male',
         role: 'trainer',
+        password: hashedPassword,
       });
       if (!createdUser || !createdUser.userId) {
         throw new Error('Table 1 (users) insertion failed.');

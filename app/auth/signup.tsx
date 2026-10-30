@@ -38,6 +38,7 @@ import { useSubscriptions } from '@/hooks/superadmin/subscriptions';
 import { useSaveIndividualCustomerPlan } from '@/hooks/individual/membership/individualCustomerPlan';
 import { useSaveIndividualCustomerPlanHistory } from '@/hooks/individual/membership/individualCustomerPlanHistories';
 import { useSaveUser } from '@/hooks/users';
+import { hashPassword } from '@/helpers/auth/passwordHelper';
 import { ActionSheet } from '@/components/ActionSheet';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { toast } from '@/lib/toast';
@@ -240,8 +241,28 @@ export default function SignupScreen() {
   };
 
   const handlePhoneInput = (setter: React.Dispatch<React.SetStateAction<string>>) => (val: string) => {
-    const cleaned = val.replace(/[^0-9]/g, '');
-    setter(cleaned);
+    let cleaned = val.replace(/[^0-9]/g, '');
+
+    // Allow user to clear input
+    if (!cleaned) {
+      setter('');
+      return;
+    }
+
+    // Strip leading country code 91 or 0 if pasted
+    if (cleaned.startsWith('91') && cleaned.length > 10) {
+      cleaned = cleaned.slice(2);
+    } else if (cleaned.startsWith('0') && cleaned.length > 10) {
+      cleaned = cleaned.slice(1);
+    }
+
+    // Validation: Only accept 6, 7, 8, and 9 as initial digit
+    if (!['6', '7', '8', '9'].includes(cleaned[0])) {
+      toast.error('Mobile number must start with 6, 7, 8, or 9.');
+      return;
+    }
+
+    setter(cleaned.slice(0, 10));
   };
 
   const pickImage = async () => {
@@ -294,6 +315,14 @@ export default function SignupScreen() {
         toast.error('Please enter Owner Mobile Number.');
         return;
       }
+      if (!/^[6-9]\d{9}$/.test(phone.trim())) {
+        toast.error('Owner Mobile Number must start with 6, 7, 8, or 9 and be 10 digits.');
+        return;
+      }
+      if (alternatePhone.trim() && !/^[6-9]\d{9}$/.test(alternatePhone.trim())) {
+        toast.error('Owner Alternate Mobile Number must start with 6, 7, 8, or 9 and be 10 digits.');
+        return;
+      }
       if (!address.trim()) {
         toast.error('Please enter Owner Address.');
         return;
@@ -312,6 +341,14 @@ export default function SignupScreen() {
       }
       if (!gymMobile.trim()) {
         toast.error('Please enter Gym Mobile Number.');
+        return;
+      }
+      if (!/^[6-9]\d{9}$/.test(gymMobile.trim())) {
+        toast.error('Gym Mobile Number must start with 6, 7, 8, or 9 and be 10 digits.');
+        return;
+      }
+      if (gymAlternateMobile.trim() && !/^[6-9]\d{9}$/.test(gymAlternateMobile.trim())) {
+        toast.error('Gym Alternate Mobile Number must start with 6, 7, 8, or 9 and be 10 digits.');
         return;
       }
       if (!gymAddress.trim()) {
@@ -393,7 +430,7 @@ export default function SignupScreen() {
           website: website.trim() || null,
           logo: finalLogoUrl,
           status: 'submitted' as const,
-          password: await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password),
+          password: await hashPassword(password),
         };
 
         const result = await createGymLead(payload);
@@ -424,6 +461,10 @@ export default function SignupScreen() {
     }
     if (!phone.trim()) {
       toast.error('Please enter Mobile Number.');
+      return;
+    }
+    if (!/^[6-9]\d{9}$/.test(phone.trim())) {
+      toast.error('Mobile Number must start with 6, 7, 8, or 9 and be 10 digits.');
       return;
     }
     if (gender === 'Select gender' || !gender) {
@@ -507,6 +548,9 @@ export default function SignupScreen() {
 
         const newUserId = authData.user.id;
 
+        // Hash password with bcrypt ($2b$10$...) for users table
+        const hashedPassword = await hashPassword(password);
+
         // 1. Save in users table
         await saveUserMutation({
           userId: newUserId,
@@ -522,6 +566,7 @@ export default function SignupScreen() {
           pincode: pinCode ? parseInt(pinCode, 10) : null,
           role: 'individual',
           status: 'active',
+          password: hashedPassword,
         });
 
         // 2. Save in individual_customer_plans table

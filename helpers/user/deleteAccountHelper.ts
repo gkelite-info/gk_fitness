@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { clearFallbackAuthUser } from '@/helpers/auth/fallbackAuthHelper';
 
 export async function deleteCustomerAccount(userId: string) {
   try {
@@ -9,6 +10,7 @@ export async function deleteCustomerAccount(userId: string) {
     }
     
     // Sign out after successful deletion
+    await clearFallbackAuthUser();
     await supabase.auth.signOut();
     
     return { success: true };

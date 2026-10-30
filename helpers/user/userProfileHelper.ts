@@ -15,9 +15,13 @@ export interface UserProfile {
   city?: string | null;
   pincode?: number | null;
   role: string | null;
+  status?: string | null;
+  isEmailVerified?: boolean;
+  isPhoneVerified?: boolean;
   profilePhoto?: string | null;
   profilePic?: string | null;
   createdAt?: string | null;
+  updatedAt?: string | null;
 
   // Role-specific IDs
   gymOwnerId?: string | null;
@@ -43,14 +47,24 @@ export async function fetchUserAndRoleProfile(
     gender: null,
     dob: null,
     address: null,
+    country: null,
+    state: null,
+    city: null,
+    pincode: null,
     role: 'customer',
+    status: 'active',
+    isEmailVerified: false,
+    isPhoneVerified: false,
+    profilePhoto: null,
+    profilePic: null,
     createdAt: null,
+    updatedAt: null,
   };
 
   try {
     let { data: userRecord, error: fetchErr } = await supabase
       .from('users')
-      .select('userId, name, email, phone, gender, dob, address, country, state, city, pincode, role, profilePhoto, createdAt')
+      .select('*')
       .eq('userId', authUserId)
       .maybeSingle();
 
@@ -61,7 +75,7 @@ export async function fetchUserAndRoleProfile(
     if (!userRecord && authEmail) {
       const emailRes = await supabase
         .from('users')
-        .select('userId, name, email, phone, gender, dob, address, country, state, city, pincode, role, profilePhoto, createdAt')
+        .select('*')
         .ilike('email', authEmail.trim())
         .maybeSingle();
       if (emailRes.error) {
@@ -102,7 +116,7 @@ export async function fetchUserAndRoleProfile(
             const emailFilter = authEmail ? `,email.ilike.${authEmail.trim()}` : '';
             const { data: existingUser } = await supabase
               .from('users')
-              .select('userId, name, email, phone, gender, dob, address, country, state, city, pincode, role, profilePhoto, createdAt')
+              .select('*')
               .or(`userId.eq.${authUserId}${emailFilter}`)
               .maybeSingle();
             if (existingUser) {

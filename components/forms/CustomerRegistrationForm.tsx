@@ -200,6 +200,8 @@ export function CustomerRegistrationForm({ onRegisterSubmit, enquiryId }: Custom
 
     if (!fullName.trim() || fullName.trim().length < 3) {
       newErrors.fullName = 'Please enter customer full name (minimum 3 characters).';
+    } else if (fullName.includes('@')) {
+      newErrors.fullName = 'Full Name cannot be an email address.';
     }
 
     if (!dateOfBirth) {
@@ -546,6 +548,11 @@ export function CustomerRegistrationForm({ onRegisterSubmit, enquiryId }: Custom
           <TextInput
             placeholder="Enter full name"
             placeholderTextColor="#666"
+            autoCapitalize="words"
+            autoCorrect={false}
+            spellCheck={false}
+            autoComplete="name"
+            textContentType="name"
             clearButtonMode="while-editing"
             value={fullName}
             onChangeText={(txt) => {

@@ -44,7 +44,7 @@ export function useCustomerDashboardData(userId: string | null | undefined) {
       const completedPlanDayIds = new Set(userLogs?.map(l => l.planDayId) || []);
 
       const formattedDays = dayOrder.map(dayStr => {
-        const dayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === dayStr);
+        const dayData = days.find((d: any) => d.dayOfWeek?.toLowerCase() === dayStr);
         const isToday = dayStr === todayString;
         const dayIdx = dayOrder.indexOf(dayStr);
         let status = 'rest';
@@ -78,7 +78,7 @@ export function useCustomerDashboardData(userId: string | null | undefined) {
 
       const todayFormatted = formattedDays.find(d => d.dayStr === todayString);
       if (todayFormatted && todayFormatted.type !== 'Rest') {
-        const rawTodayData = days.find((d: any) => d.dayOfWeek.toLowerCase() === todayString);
+        const rawTodayData = days.find((d: any) => d.dayOfWeek?.toLowerCase() === todayString);
         if (rawTodayData) {
           const exs = await fetchWorkoutPlanDayExercises(rawTodayData.planDayId);
           todayFormatted.exercisesCount = exs?.length || 0;

@@ -78,15 +78,21 @@ export async function fetchWorkoutPlanDayById(planDayId: string) {
   return data;
 }
 
+const isValidUUID = (id?: string | null): boolean => {
+  if (!id || typeof id !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim());
+};
+
 export async function saveWorkoutPlanDay(dayData: SaveWorkoutPlanDayParams) {
   const now = new Date().toISOString();
+  const safeWorkoutId = isValidUUID(dayData.workoutId) ? dayData.workoutId : null;
 
   if (dayData.planDayId) {
     const { data, error } = await supabase
       .from('workout_plan_days')
       .update({
         planId: dayData.planId,
-        workoutId: dayData.workoutId,
+        workoutId: safeWorkoutId,
         dayOfWeek: dayData.dayOfWeek,
         workoutType: dayData.workoutType,
         weekNumber: dayData.weekNumber || 1,
@@ -110,7 +116,7 @@ export async function saveWorkoutPlanDay(dayData: SaveWorkoutPlanDayParams) {
         {
           planDayId: generatedPlanDayId,
           planId: dayData.planId,
-          workoutId: dayData.workoutId || null,
+          workoutId: safeWorkoutId,
           dayOfWeek: dayData.dayOfWeek,
           workoutType: dayData.workoutType,
           weekNumber: dayData.weekNumber || 1,

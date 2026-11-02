@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   PencilSimple, Scales, Fire, CalendarBlank,
   User, Target, BookOpen, Star, Bell, ShieldCheck, Question, SignOut, CaretRight, ClipboardText, WarningCircle,
-  UserGear
+  UserGear, Watch
 } from 'phosphor-react-native';
 
 import { mockProfileData } from '@/constants/mockProfileData';
@@ -295,6 +295,12 @@ function ProfileView({
             title="Membership & Subscription"
             subtitle={Platform.OS === 'ios' ? 'View membership status' : 'Manage your plan and billing'}
             onPress={() => router.push('/(customer)/memberships' as any)}
+          />
+          <MenuItem
+            icon={<Watch size={20} color="#D4FF00" />}
+            title="Smartwatch & Wearables"
+            subtitle="Wear OS companion & live tracking"
+            onPress={() => router.push('/(customer)/smartwatch' as any)}
           />
           <MenuItem icon={<Bell size={20} color="#D4FF00" />} title="Notifications" subtitle="Manage your notification preferences" onPress={() => router.push('/(customer)/notifications/preferences' as any)} />
           <MenuItem

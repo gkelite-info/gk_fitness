@@ -458,20 +458,28 @@ export async function fetchWorkoutPlanDayExerciseById(dayExerciseId: string) {
   return data;
 }
 
+const isValidUUID = (id?: string | null): boolean => {
+  if (!id || typeof id !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim());
+};
+
 export async function saveWorkoutPlanDayExercise(exerciseData: SaveWorkoutPlanDayExerciseParams) {
   const now = new Date().toISOString();
+  const safeWorkoutVideoId = isValidUUID(exerciseData.workoutVideoId) ? exerciseData.workoutVideoId : null;
+  const safeSets = Number(exerciseData.sets) > 0 ? Number(exerciseData.sets) : 3;
+  const safeReps = exerciseData.reps?.toString().trim() || '10-12';
 
   if (exerciseData.dayExerciseId) {
     const { data, error } = await supabase
       .from('workout_plan_day_exercises')
       .update({
         planDayId: exerciseData.planDayId,
-        workoutVideoId: exerciseData.workoutVideoId,
+        workoutVideoId: safeWorkoutVideoId,
         exerciseName: exerciseData.exerciseName,
         category: exerciseData.category,
-        reps: exerciseData.reps,
+        reps: safeReps,
         order: exerciseData.order,
-        sets: exerciseData.sets,
+        sets: safeSets,
         image: exerciseData.image,
         videoUrl: exerciseData.videoUrl,
         updatedAt: now,
@@ -493,12 +501,12 @@ export async function saveWorkoutPlanDayExercise(exerciseData: SaveWorkoutPlanDa
         {
           dayExerciseId: generatedDayExerciseId,
           planDayId: exerciseData.planDayId,
-          workoutVideoId: exerciseData.workoutVideoId || null,
+          workoutVideoId: safeWorkoutVideoId,
           exerciseName: exerciseData.exerciseName,
           category: exerciseData.category,
-          reps: exerciseData.reps,
+          reps: safeReps,
           order: exerciseData.order,
-          sets: exerciseData.sets,
+          sets: safeSets,
           image: exerciseData.image || null,
           videoUrl: exerciseData.videoUrl || null,
           createdAt: now,

@@ -48,7 +48,9 @@ export async function buildWatchWorkoutPayload(options: BuildPayloadOptions): Pr
     console.warn('[watchPayloadBuilder] Failed to read rest timer preferences:', err);
   }
 
-  const todayIso = new Date().toISOString().split('T')[0];
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const todayIso = d.toISOString();
 
   const normalizedExercises: WatchExercise[] = (exercises || []).map((ex, index) => {
     let setsCount = 3;

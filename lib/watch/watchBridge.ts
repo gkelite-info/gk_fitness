@@ -4,6 +4,7 @@ import {
   WatchSetLog,
   WatchWorkoutSummary,
   WatchHeartRateLog,
+  WatchWaterLog,
   WatchConnectionStatus,
   WATCH_DATA_PATHS,
 } from './watchTypes';
@@ -114,6 +115,45 @@ class WatchBridgeService {
         console.error('[WatchBridge] Failed to parse heart rate event:', err);
       }
     });
+  }
+
+  /**
+   * Subscribes to water logs logged on the smartwatch.
+   */
+  onWaterLogReceived(callback: (log: WatchWaterLog) => void): EmitterSubscription {
+    return DeviceEventEmitter.addListener('Watch_WaterLogReceived', (data: string | WatchWaterLog) => {
+      try {
+        const parsed: WatchWaterLog = typeof data === 'string' ? JSON.parse(data) : data;
+        callback(parsed);
+      } catch (err) {
+        console.error('[WatchBridge] Failed to parse water log event:', err);
+      }
+    });
+  }
+
+  /**
+   * Subscribes to smartwatch requesting active workout sync.
+   */
+  onRequestActiveWorkout(callback: () => void): EmitterSubscription {
+    return DeviceEventEmitter.addListener('Watch_RequestActiveWorkout', () => {
+      callback();
+    });
+  }
+
+  /**
+   * Pushes daily water total to watch so the watch display stays in sync with the phone.
+   */
+  async syncWaterToWatch(waterIntakeMl: number, waterGoalMl: number): Promise<boolean> {
+    if (!this.isAvailable) return false;
+    try {
+      if (WatchBridgeModule && typeof WatchBridgeModule.pushWaterSync === 'function') {
+        return await WatchBridgeModule.pushWaterSync(waterIntakeMl, waterGoalMl);
+      }
+      return false;
+    } catch (e) {
+      console.warn('[WatchBridge] syncWaterToWatch failed:', e);
+      return false;
+    }
   }
 }
 

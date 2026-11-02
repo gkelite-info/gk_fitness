@@ -22,6 +22,7 @@ import com.gkeliteinfo.gkgymlife.wear.theme.TextMuted
 fun HomeScreen(
     repository: WatchSyncRepository,
     healthManager: WatchHealthManager,
+    onRequestPermissions: () -> Unit,
     onStartWorkout: () -> Unit
 ) {
     val activePayload by repository.activePayload.collectAsState()
@@ -29,6 +30,7 @@ fun HomeScreen(
     val heartRate by healthManager.heartRate.collectAsState()
     val waterIntake by healthManager.waterIntakeMl.collectAsState()
     val waterGoal by healthManager.waterGoalMl.collectAsState()
+    val hasPermissions = remember(steps, heartRate) { healthManager.hasPermissions() }
 
     var isPhoneConnected by remember { mutableStateOf<Boolean?>(null) }
     var connectedPhoneName by remember { mutableStateOf<String?>(null) }
@@ -37,6 +39,9 @@ fun HomeScreen(
         repository.checkPhoneConnection { connected, name ->
             isPhoneConnected = connected
             connectedPhoneName = name
+            if (connected && activePayload == null) {
+                repository.requestTodayWorkoutFromPhone()
+            }
         }
     }
 
@@ -59,6 +64,18 @@ fun HomeScreen(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
+            }
+
+            // Permissions Needed Warning
+            if (!hasPermissions) {
+                item {
+                    CompactChip(
+                        onClick = onRequestPermissions,
+                        label = { Text("⚠️ Enable Sensors", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                        colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFFFF9800), contentColor = Color.Black),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             // Phone Connection Status Card
@@ -151,6 +168,43 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth(0.9f)
                     )
                 }
+            } else {
+                item {
+                    Card(
+                        onClick = {
+                            repository.requestTodayWorkoutFromPhone()
+                            repository.checkPhoneConnection { connected, name ->
+                                isPhoneConnected = connected
+                                connectedPhoneName = name
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        backgroundPainter = CardDefaults.cardBackgroundPainter(
+                            startBackgroundColor = SurfaceDark,
+                            endBackgroundColor = SurfaceDark
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "TODAY'S WORKOUT",
+                                color = TextMuted,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (isPhoneConnected == true) "🔄 Tap to Sync Workout" else "📱 Connect Phone to Sync",
+                                color = PrimaryLime,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
             }
 
             // Daily Health Metrics Card (Steps & Heart Rate)
@@ -181,7 +235,12 @@ fun HomeScreen(
                         )
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("❤️ PULSE", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                            Text("$heartRate bpm", color = PrimaryLime, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (heartRate > 0) "$heartRate bpm" else "Reading...",
+                                color = PrimaryLime,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }

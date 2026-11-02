@@ -58,6 +58,13 @@ export interface WatchHeartRateLog {
   source: 'wearos' | 'watchos';
 }
 
+export interface WatchWaterLog {
+  sessionDate: string;
+  waterIntakeMl: number;
+  addedMl: number;
+  timestamp: number;
+}
+
 export interface WatchConnectionStatus {
   isPaired: boolean;
   isReachable: boolean;
@@ -72,4 +79,7 @@ export const WATCH_DATA_PATHS = {
   SET_LOG_MESSAGE: '/gk/set-log',
   WORKOUT_COMPLETE_MESSAGE: '/gk/workout-complete',
   HEART_RATE_MESSAGE: '/gk/heart-rate',
+  WATER_LOG: '/gk/water-log',
+  WATER_SYNC: '/gk/water-sync',
+  REQUEST_ACTIVE_WORKOUT: '/gk/request-active-workout',
 } as const;

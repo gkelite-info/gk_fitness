@@ -26,6 +26,9 @@ export function useCustomerWeeklyPlan(userId: string | null | undefined) {
       
       for (const { d, exs } of results) {
         const weekNum = d.weekNumber || 1;
+        if (!loadedPlanDays[weekNum]) {
+          loadedPlanDays[weekNum] = {};
+        }
         loadedPlanDays[weekNum][d.dayOfWeek] = {
           dayOfWeek: d.dayOfWeek,
           workoutType: d.workoutType,

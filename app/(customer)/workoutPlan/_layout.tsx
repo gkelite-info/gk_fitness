@@ -69,6 +69,7 @@ export default function WorkoutPlanLayout() {
         <Stack.Screen name="choose-muscle" />
         <Stack.Screen name="customize-workout" />
         <Stack.Screen name="review-plan" />
+        <Stack.Screen name="success" />
       </Stack>
     </WorkoutPlanContext.Provider>
   );

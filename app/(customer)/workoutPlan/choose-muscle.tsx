@@ -47,6 +47,14 @@ export default function ChooseMuscleGroup() {
     try {
       if (!day) return;
 
+      const isValidUUID = (id?: string | null): boolean => {
+        if (!id || typeof id !== 'string') return false;
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim());
+      };
+
+      const resolvedWorkout = workouts?.find(w => w.workoutType?.toLowerCase() === type.toLowerCase());
+      const safeWorkoutId = isValidUUID(workoutId) ? workoutId : (resolvedWorkout?.workoutId || null);
+
       setPlanDays(prev => {
         const weekData = prev[currentEditingWeek] || {};
         return {
@@ -57,7 +65,7 @@ export default function ChooseMuscleGroup() {
               ...(weekData[day] || {}),
               dayOfWeek: day,
               workoutType: type,
-              workoutId: workoutId,
+              workoutId: safeWorkoutId,
               exercises: weekData[day]?.exercises || []
             }
           }

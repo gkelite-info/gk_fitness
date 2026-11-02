@@ -75,11 +75,16 @@ const ALL_DAYS = [
             const workoutType = isWorkoutDay && dayPlan?.workoutType ? dayPlan.workoutType : 'Rest';
             const durationMinutes = isWorkoutDay ? (dayPlan?.durationMinutes || 45) : null;
 
+            const rawWorkoutId = isWorkoutDay ? dayPlan?.workoutId : null;
+            const safeWorkoutId = (rawWorkoutId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawWorkoutId))
+              ? rawWorkoutId
+              : null;
+
             const insertedDay = await saveWorkoutPlanDay({
               planId,
               dayOfWeek: day,
               workoutType,
-              workoutId: isWorkoutDay ? dayPlan?.workoutId : null,
+              workoutId: safeWorkoutId,
               durationMinutes,
               weekNumber: week,
             });
@@ -92,10 +97,10 @@ const ALL_DAYS = [
                 await saveWorkoutPlanDayExercise({
                   planDayId: insertedDay.planDayId,
                   workoutVideoId: ex.workoutVideoId || null,
-                  exerciseName: ex.exerciseName,
-                  category: ex.category,
-                  sets: ex.sets!,
-                  reps: ex.reps,
+                  exerciseName: ex.exerciseName || 'Exercise',
+                  category: ex.category || 'General',
+                  sets: Number(ex.sets) || 3,
+                  reps: ex.reps?.toString() || '10-12',
                   order: idx,
                   image: ex.image || null,
                   videoUrl: ex.videoUrl || null,
@@ -115,7 +120,7 @@ const ALL_DAYS = [
 
         router.replace({
           pathname: '/(customer)/workoutPlan/success' as any,
-          params: { workoutsCount: selectedDays.length }
+          params: { workoutsCount: String(selectedDays.length) }
         });
     } catch (error) {
       console.error('[ReviewPlan] Save Error:', error);

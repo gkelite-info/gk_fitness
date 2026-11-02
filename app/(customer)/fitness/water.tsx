@@ -10,7 +10,10 @@ import {
   Switch,
   Dimensions,
   Platform,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import {
@@ -73,6 +76,7 @@ const WINDOW_PRESETS = [
 
 export default function WaterScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { userId } = useUser();
   const todayStr = useMemo(() => getLocalDateString(new Date()), []);
 
@@ -518,68 +522,91 @@ export default function WaterScreen() {
         visible={isAddWaterModalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => setIsAddWaterModalVisible(false)}
+        statusBarTranslucent
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setIsAddWaterModalVisible(false);
+        }}
       >
-        <View className="flex-1 bg-black/75 justify-end">
-          <Pressable
-            className="flex-1"
-            onPress={() => setIsAddWaterModalVisible(false)}
-          />
-          <View className="bg-[#141414] border-t border-[#2A2A2A] rounded-t-3xl p-6 pb-10">
-            <View className="flex-row items-center justify-between mb-5">
-              <View>
-                <Text className="text-white text-xl font-bold">Log Water</Text>
-                <Text className="text-[#8E8E93] text-xs mt-0.5">Quick add or enter custom amount</Text>
-              </View>
-              <Pressable
-                onPress={() => setIsAddWaterModalVisible(false)}
-                className="w-8 h-8 rounded-full bg-[#222222] items-center justify-center active:opacity-70"
-              >
-                <X size={18} color="#FFFFFF" />
-              </Pressable>
-            </View>
-
-            {/* Quick Presets Grid */}
-            <View className="flex-row gap-3 mb-6">
-              {QUICK_PRESETS.map((preset) => (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View className="flex-1 bg-black/75 justify-end">
+            <Pressable
+              className="flex-1"
+              onPress={() => {
+                Keyboard.dismiss();
+                setIsAddWaterModalVisible(false);
+              }}
+            />
+            <View
+              className="bg-[#141414] border-t border-[#2A2A2A] rounded-t-3xl p-6"
+              style={{ paddingBottom: Math.max(insets.bottom, 24) }}
+            >
+              <View className="flex-row items-center justify-between mb-5">
+                <View>
+                  <Text className="text-white text-xl font-bold">Log Water</Text>
+                  <Text className="text-[#8E8E93] text-xs mt-0.5">Quick add or enter custom amount</Text>
+                </View>
                 <Pressable
-                  key={preset.amount}
-                  onPress={() => handleLogAmount(preset.amount)}
-                  disabled={isLogging}
-                  className="flex-1 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl py-3.5 items-center active:bg-[#00B2FE]/15 active:border-[#00B2FE]"
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setIsAddWaterModalVisible(false);
+                  }}
+                  className="w-8 h-8 rounded-full bg-[#222222] items-center justify-center active:opacity-70"
                 >
-                  <Text className="text-xl mb-1">{preset.icon}</Text>
-                  <Text className="text-white font-bold text-base">{preset.amount}</Text>
-                  <Text className="text-[#8E8E93] text-[10px] uppercase font-semibold">ml</Text>
+                  <X size={18} color="#FFFFFF" />
                 </Pressable>
-              ))}
-            </View>
-
-            {/* Custom Amount Field */}
-            <Text className="text-[#8E8E93] text-xs font-semibold mb-2">CUSTOM AMOUNT (ML)</Text>
-            <View className="flex-row items-center gap-3">
-              <View className="flex-1 flex-row items-center bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl px-4 py-3">
-                <TextInput
-                  placeholder="e.g. 350"
-                  placeholderTextColor="#666666"
-                  keyboardType="numeric"
-                  value={customAmountText}
-                  onChangeText={setCustomAmountText}
-                  className="flex-1 text-white text-base font-semibold"
-                />
-                <Text className="text-[#8E8E93] text-sm font-semibold">ml</Text>
               </View>
 
-              <Pressable
-                onPress={handleCustomAdd}
-                disabled={isLogging || !customAmountText.trim()}
-                className="bg-[#00B2FE] py-3.5 px-6 rounded-2xl active:opacity-80 disabled:opacity-40"
-              >
-                <Text className="text-black font-bold text-base">Add</Text>
-              </Pressable>
+              {/* Quick Presets Grid */}
+              <View className="flex-row gap-3 mb-6">
+                {QUICK_PRESETS.map((preset) => (
+                  <Pressable
+                    key={preset.amount}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      handleLogAmount(preset.amount);
+                    }}
+                    disabled={isLogging}
+                    className="flex-1 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl py-3.5 items-center active:bg-[#00B2FE]/15 active:border-[#00B2FE]"
+                  >
+                    <Text className="text-xl mb-1">{preset.icon}</Text>
+                    <Text className="text-white font-bold text-base">{preset.amount}</Text>
+                    <Text className="text-[#8E8E93] text-[10px] uppercase font-semibold">ml</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Custom Amount Field */}
+              <Text className="text-[#8E8E93] text-xs font-semibold mb-2">CUSTOM AMOUNT (ML)</Text>
+              <View className="flex-row items-center gap-3">
+                <View className="flex-1 flex-row items-center bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl px-4 py-3">
+                  <TextInput
+                    placeholder="e.g. 350"
+                    placeholderTextColor="#666666"
+                    keyboardType="numeric"
+                    returnKeyType="done"
+                    onSubmitEditing={handleCustomAdd}
+                    value={customAmountText}
+                    onChangeText={setCustomAmountText}
+                    className="flex-1 text-white text-base font-semibold"
+                  />
+                  <Text className="text-[#8E8E93] text-sm font-semibold">ml</Text>
+                </View>
+
+                <Pressable
+                  onPress={handleCustomAdd}
+                  disabled={isLogging || !customAmountText.trim()}
+                  className="bg-[#00B2FE] py-3.5 px-6 rounded-2xl active:opacity-80 disabled:opacity-40"
+                >
+                  <Text className="text-black font-bold text-base">Add</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ============================================================

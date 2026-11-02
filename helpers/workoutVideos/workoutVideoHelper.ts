@@ -110,7 +110,7 @@ export async function fetchWorkoutVideos(
   const isRoleFilterActive = normalizedRole === 'male' || normalizedRole === 'female';
 
   if (mappedTypes.length > 0 || isRoleFilterActive || isStretching !== 'all') {
-    const buildWorkoutsQuery = () => {
+    const buildWorkoutsQuery = (applyRole: boolean = true) => {
       let q = supabase
         .from('workouts')
         .select('workoutId')
@@ -122,8 +122,8 @@ export async function fetchWorkoutVideos(
         q = q.in('workoutType', mappedTypes);
       }
 
-      // Strictly enforce gender role without cross-gender leakage
-      if (isRoleFilterActive) {
+      // Strictly enforce gender role if requested
+      if (applyRole && isRoleFilterActive) {
         q = q.eq('role', normalizedRole);
       }
 
@@ -138,19 +138,59 @@ export async function fetchWorkoutVideos(
       return q;
     };
 
-    const { data: matchedWorkouts, error: workoutsError } = await buildWorkoutsQuery();
+    let { data: matchedWorkouts, error: workoutsError } = await buildWorkoutsQuery(true);
 
     if (workoutsError) {
       console.warn('[workoutVideoHelper] workoutsQuery error:', workoutsError);
     }
 
-    const workoutIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
+    let workoutIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
+
+    // Fallback 1: If role was filtered (e.g. 'female') but 0 workouts matched, try matching without the role filter
+    if (workoutIds.length === 0 && isRoleFilterActive) {
+      const fallbackWorkoutsRes = await buildWorkoutsQuery(false);
+      workoutIds = fallbackWorkoutsRes.data?.map((w: any) => w.workoutId) || [];
+    }
 
     if (workoutIds.length > 0) {
       query = query.in('workoutId', workoutIds);
     } else {
-      // If a specific filter was requested and 0 parent workouts matched, return empty result
-      return { data: [], total: 0 };
+      // Fallback 2: If workouts table still had 0 matches, filter workout_videos directly by primaryMuscle
+      const muscleKey = mappedTypes[0] || workoutType;
+      if (muscleKey && muscleKey !== 'all') {
+        query = query.ilike('primaryMuscle', `%${muscleKey}%`);
+      } else {
+        // Fallback 3: Try RPC get_custom_workout_videos before returning empty
+        try {
+          const targetMuscles = [workoutType.toUpperCase()];
+          const { data: rpcVideos } = await supabase.rpc('get_custom_workout_videos', {
+            p_muscles: targetMuscles,
+            p_equipment: [],
+            p_limit: limit,
+            p_exclude: []
+          });
+          if (rpcVideos && rpcVideos.length > 0) {
+            return {
+              data: rpcVideos.map((r: any) => ({
+                workoutVideoId: r.workout_video_id || r.workoutVideoId,
+                workoutId: r.workout_id || r.workoutId,
+                exerciseName: r.exercise_name || r.exerciseName,
+                videoUrl: r.video_url || r.videoUrl,
+                primaryMuscle: r.muscle || r.primaryMuscle,
+                equipment: r.equipment,
+                defaultSets: r.default_sets || r.defaultSets,
+                defaultReps: r.default_reps || r.defaultReps,
+                difficulty: r.difficulty,
+                is_deleted: false,
+              })),
+              total: rpcVideos.length,
+            };
+          }
+        } catch {
+          // ignore RPC fallback error
+        }
+        return { data: [], total: 0 };
+      }
     }
   }
 
@@ -166,6 +206,53 @@ export async function fetchWorkoutVideos(
 
   // Fallback: only when not searching and on page 1, if empty, fetch neutral fallback respecting role
   if ((!data || data.length === 0) && page === 1 && workoutType !== 'all' && !cleanSearch) {
+    const muscleKey = mappedTypes[0] || workoutType;
+    if (muscleKey && muscleKey !== 'all') {
+      const byMuscleRes = await supabase
+        .from('workout_videos')
+        .select('*', { count: 'exact' })
+        .ilike('primaryMuscle', `%${muscleKey}%`)
+        .or('is_deleted.eq.false,is_deleted.is.null')
+        .order('createdAt', { ascending: false })
+        .range(from, to);
+
+      if (byMuscleRes.data && byMuscleRes.data.length > 0) {
+        return {
+          data: byMuscleRes.data,
+          total: byMuscleRes.count ?? byMuscleRes.data.length,
+        };
+      }
+    }
+
+    try {
+      const targetMuscles = [workoutType.toUpperCase()];
+      const { data: rpcVideos } = await supabase.rpc('get_custom_workout_videos', {
+        p_muscles: targetMuscles,
+        p_equipment: [],
+        p_limit: limit,
+        p_exclude: []
+      });
+      if (rpcVideos && rpcVideos.length > 0) {
+        return {
+          data: rpcVideos.map((r: any) => ({
+            workoutVideoId: r.workout_video_id || r.workoutVideoId,
+            workoutId: r.workout_id || r.workoutId,
+            exerciseName: r.exercise_name || r.exerciseName,
+            videoUrl: r.video_url || r.videoUrl,
+            primaryMuscle: r.muscle || r.primaryMuscle,
+            equipment: r.equipment,
+            defaultSets: r.default_sets || r.defaultSets,
+            defaultReps: r.default_reps || r.defaultReps,
+            difficulty: r.difficulty,
+            is_deleted: false,
+          })),
+          total: rpcVideos.length,
+        };
+      }
+    } catch {
+      // ignore
+    }
+
     let fallbackQuery = supabase
       .from('workout_videos')
       .select('*', { count: 'exact' })

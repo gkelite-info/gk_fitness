@@ -18,18 +18,28 @@ export async function fetchWorkouts(role?: string) {
     .select('*')
     .or('is_deleted.eq.false,is_deleted.is.null');
 
-  if (role && role !== 'all') {
-    const normalizedRole = role.toLowerCase().trim();
-    if (normalizedRole === 'male' || normalizedRole === 'female') {
-      query = query.eq('role', normalizedRole);
-    }
+  const normalizedRole = role && role !== 'all' ? role.toLowerCase().trim() : 'all';
+  const isRoleFilterActive = normalizedRole === 'male' || normalizedRole === 'female';
+
+  if (isRoleFilterActive) {
+    query = query.eq('role', normalizedRole);
   }
 
-  const { data, error } = await query;
+  let { data, error } = await query;
 
   if (error) {
     console.error('[workoutHelper] fetchWorkouts Error:', error);
     throw error;
+  }
+
+  // Fallback: If role was filtered (e.g. 'female') but 0 workouts exist in DB for that role,
+  // fall back to all active workouts so the user is never blocked with an empty muscle group list!
+  if ((!data || data.length === 0) && isRoleFilterActive) {
+    const fallbackRes = await supabase
+      .from('workouts')
+      .select('*')
+      .or('is_deleted.eq.false,is_deleted.is.null');
+    data = fallbackRes.data || [];
   }
 
   return data ?? [];

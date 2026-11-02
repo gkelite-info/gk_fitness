@@ -322,6 +322,15 @@ export default function CustomizeWorkout() {
           <ActivityIndicator size="large" color="#C4EF00" className="mt-10" />
         ) : (
           <>
+            {allPresets.length === 0 && (
+              <View className="py-12 items-center justify-center bg-[#141414] rounded-2xl border border-[#242424] px-6 my-6">
+                <Text className="text-white text-base font-semibold mb-1">No exercises found</Text>
+                <Text className="text-[#8E8E8E] text-xs text-center leading-4 mb-2">
+                  No exercises currently match this muscle group.
+                </Text>
+              </View>
+            )}
+
             {recommendedPresets.length > 0 && (
               <Text className="text-[#8E8E8E] text-xs font-semibold mb-4 tracking-wider">RECOMMENDED ({recommendedPresets.length})</Text>
             )}

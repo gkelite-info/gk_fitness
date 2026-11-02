@@ -5,7 +5,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, Plus, Check, MagnifyingGlass, ArrowsClockwise } from 'phosphor-react-native';
 import { useWorkoutPlan, ExerciseItem } from './_layout';
 import { useWorkoutPlanTargetExercises } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
-import { Video, ResizeMode } from '@/components/ui/Video';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 import { useUser } from '@/context/UserContext';
@@ -66,22 +65,10 @@ const ExerciseMediaItem = ({ videoUrl, muscleGroup, opacity = false }: { videoUr
 
   return (
     <View className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] overflow-hidden bg-black ${opacity ? 'opacity-70' : ''}`}>
-      <Video
-        source={{ uri: publicUrl }}
+      <Image
+        source={exerciseImage}
         style={{ width: '100%', height: '100%' }}
-        resizeMode={ResizeMode.COVER}
-        useNativeControls={false}
-        shouldPlay={false}
-        isLooping={true}
-        isMuted={true}
-        fallback={
-          <Image
-            source={exerciseImage}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-          />
-        }
-        onError={() => setHasError(true)}
+        resizeMode="cover"
       />
     </View>
   );

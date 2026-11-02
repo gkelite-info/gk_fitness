@@ -12,91 +12,187 @@ export interface TargetExerciseVideo {
   difficulty?: string;
 }
 
-function isCardioExercise(name: string): boolean {
-  const lower = (name || '').toLowerCase();
-  return /treadmill|elliptical|spin bike|stationary bike|cycling|bicycle|rowing machine|stairmaster|air bike|ski erg/i.test(lower);
+function isCardio(name: string): boolean {
+  const l = (name || '').toLowerCase();
+  return /treadmill|elliptical|spin bike|stationary bike|cycling|bicycle|rowing machine|stairmaster|air bike|ski erg/i.test(l);
 }
 
-function inferExerciseMuscle(name: string, primaryMuscle?: string | null): string {
-  const lower = (name || '').toLowerCase();
-
-  if (isCardioExercise(name)) return 'CARDIO';
-
-  if (lower.startsWith('stretching') || lower.includes('stretch') || lower.includes('pose sequence')) {
-    return 'STRETCHING';
-  }
-
-  // Common mislabeled leg/glute exercises
-  if (
-    lower.includes('hip adduction') ||
-    lower.includes('hip extension') ||
-    lower.includes('hip flexor') ||
-    lower.includes('hip abduction') ||
-    lower.includes('rear kick') ||
-    lower.includes('bridge') ||
-    lower.includes('thrust')
-  ) {
-    return 'LEGS';
-  }
-
-  // High-confidence name heuristics that override mislabeled primaryMuscle
-  if (lower.includes('calf') || lower.includes('calves')) return 'CALVES';
-  if (lower.includes('hamstring') || lower.includes('leg curl') || lower.includes('rdl') || lower.includes('romanian deadlift') || lower.includes('stiff leg')) return 'LEGS';
-  if (lower.includes('glute') || lower.includes('hip thrust') || lower.includes('glute bridge') || lower.includes('abductor') || lower.includes('adductor') || lower.includes('donkey kick')) return 'LEGS';
-  if (lower.includes('squat') || lower.includes('leg extension') || lower.includes('leg press') || lower.includes('lunge') || lower.includes('hack') || lower.includes('step up') || lower.includes('leg wide press')) return 'LEGS';
-
-  if (lower.includes('wrist curl') || lower.includes('forearm') || lower.includes('dead hang')) return 'FOREARMS';
-  if (lower.includes('bicep') || (lower.includes('curl') && !lower.includes('leg curl') && !lower.includes('wrist')) || lower.includes('preacher') || lower.includes('hammer curl')) return 'BICEPS';
-  if (lower.includes('tricep') || lower.includes('pushdown') || lower.includes('skull crusher') || lower.includes('kickback') || lower.includes('close grip bench') || lower.includes('diamond push') || lower.includes('dip')) return 'TRICEPS';
-
-  if (lower.includes('shrug') || lower.includes('trap')) return 'TRAPS';
-  if (lower.includes('shoulder') || lower.includes('overhead press') || lower.includes('military press') || lower.includes('lateral raise') || lower.includes('front raise') || lower.includes('rear delt') || lower.includes('face pull') || lower.includes('arnold') || lower.includes('deltoid') || lower.includes('pike')) return 'SHOULDERS';
-
-  if (lower.includes('russian twist') || lower.includes('side plank') || lower.includes('woodchopper') || lower.includes('side bend') || lower.includes('oblique')) return 'ABS';
-  if (lower.includes('crunch') || lower.includes('plank') || lower.includes('sit up') || lower.includes('situp') || lower.includes('ab wheel') || lower.includes('hanging leg') || lower.includes('hanging knee') || lower.includes('flutter kick')) return 'ABS';
-
-  if (lower.includes('bench press') || lower.includes('chest press') || lower.includes('chest fly') || lower.includes('pec deck') || lower.includes('push-up') || lower.includes('push up') || lower.includes('pushup') || lower.includes('incline press') || lower.includes('decline press') || lower.includes('crossover') || lower.includes('chest') || lower.includes('pullover')) return 'CHEST';
-  if (lower.includes('lat pulldown') || lower.includes('pull-up') || lower.includes('pull up') || lower.includes('pullup') || lower.includes('chin-up') || lower.includes('chin up') || lower.includes('chinup') || lower.includes('seated row') || lower.includes('bent-over row') || lower.includes('bent over row') || lower.includes('t-bar') || lower.includes('pulldown') || lower.includes('inverted row') || lower.includes('row') || lower.includes('back')) return 'BACK';
-
-  if (primaryMuscle) {
-    const pm = primaryMuscle.toUpperCase().trim();
-    if (pm === 'QUADRICEPS' || pm === 'HAMSTRINGS' || pm === 'GLUTES' || pm === 'CALVES' || pm === 'LEGS') return 'LEGS';
-    if (pm === 'ABDOMINALS' || pm === 'OBLIQUES' || pm === 'ABS') return 'ABS';
-    return pm;
-  }
-
-  return 'OTHER';
+function isStretching(name: string): boolean {
+  const l = (name || '').toLowerCase();
+  return l.startsWith('stretching') || l.includes('stretch') || l.includes('pose sequence');
 }
 
-function matchesTargetMuscle(exerciseName: string, primaryMuscle: string | null | undefined, targetGroup: string): boolean {
-  const target = targetGroup.toUpperCase().trim();
-  const inferred = inferExerciseMuscle(exerciseName, primaryMuscle);
+function isStrictChest(name: string, primaryMuscle?: string | null): boolean {
+  const l = (name || '').toLowerCase();
+  if (isCardio(name) || isStretching(name)) return false;
 
-  if (target === 'LEGS' || target === 'LEG' || target === 'LOWER BODY') {
-    return inferred === 'LEGS' || inferred === 'CALVES';
+  // Strict disqualifiers for Chest
+  if (/leg|femoral|calf|calves|squat|lunge|hip|thrust|glute|adduct|abduct|deadlift|pulldown|pull-up|pull up|pullup|chin-up|chin up|chinup|row|shrug|military press|shoulder press|overhead press|arnold|lateral raise|front raise|rear delt|bicep|tricep extension|pushdown|crunch|plank|sit up|situp|twist|clean and press|snatch/i.test(l)) {
+    return false;
   }
-  if (target === 'ABS' || target === 'CORE') {
-    return inferred === 'ABS';
+
+  // Must match chest movement
+  if (/bench press|chest press|chest fly|pec deck|pec fly|push-up|push up|pushup|incline press|decline press|crossover|chest dip|chest|pullover|flat dumbbell press|incline dumbbell press|decline dumbbell press|hammer press/i.test(l)) {
+    return true;
   }
-  if (target === 'CHEST') {
-    return inferred === 'CHEST';
+
+  if (primaryMuscle?.toUpperCase() === 'CHEST') {
+    return /press|fly|flye|dip/i.test(l);
   }
-  if (target === 'BACK') {
-    return inferred === 'BACK';
+
+  return false;
+}
+
+function isStrictBack(name: string, primaryMuscle?: string | null): boolean {
+  const l = (name || '').toLowerCase();
+  if (isCardio(name) || isStretching(name)) return false;
+
+  // Strict disqualifiers for Back (back exercises NEVER contain press, bench, chest, etc.)
+  if (/press|chest|bench|pec|push-up|push up|pushup|bicep curl|tricep|skull crusher|lateral raise|front raise|upright row|crunch|sit up|situp|plank|twist|squat|lunge|leg press|leg extension|leg curl|calf|calves|fly|flye/i.test(l)) {
+    return false;
   }
-  if (target === 'SHOULDERS' || target === 'SHOULDER') {
-    return inferred === 'SHOULDERS' || inferred === 'TRAPS';
+
+  // Back indicators
+  if (/pull-up|pull up|pullup|chin-up|chin up|chinup|lat|pulldown|pullover|seated row|bent-over row|bent over row|t-bar|inverted row|hyperextension|back extension|deadlift/i.test(l)) {
+    return true;
   }
-  if (target === 'BICEPS' || target === 'BICEP') {
-    return inferred === 'BICEPS';
+  if (/row/i.test(l) && !/upright row/i.test(l)) {
+    return true;
   }
-  if (target === 'TRICEPS' || target === 'TRICEP') {
-    return inferred === 'TRICEPS';
+
+  if (primaryMuscle?.toUpperCase() === 'BACK') {
+    return /row|pull|lat|deadlift/i.test(l);
   }
-  if (target === 'ARMS' || target === 'ARM') {
-    return inferred === 'BICEPS' || inferred === 'TRICEPS' || inferred === 'FOREARMS';
+
+  return false;
+}
+
+function isStrictShoulders(name: string, primaryMuscle?: string | null): boolean {
+  const l = (name || '').toLowerCase();
+  if (isCardio(name) || isStretching(name)) return false;
+
+  // Disqualifiers
+  if (/pulldown|pull-up|pull up|pullup|chin-up|chin up|chinup|bench press|chest|pec|leg|squat|lunge|calf|bicep curl|tricep pushdown|skull crusher|crunch|sit up|situp/i.test(l)) {
+    return false;
   }
-  return inferred === target;
+
+  // Shoulder indicators
+  if (/shoulder|overhead press|military press|arnold|lateral raise|side raise|front raise|rear delt|reverse fly|face pull|deltoid|pike push|upright row|shrug/i.test(l)) {
+    return true;
+  }
+
+  if (primaryMuscle?.toUpperCase() === 'SHOULDERS' || primaryMuscle?.toUpperCase() === 'TRAPS') {
+    return /press|raise|delt|shrug/i.test(l);
+  }
+
+  return false;
+}
+
+function isStrictLegs(name: string, primaryMuscle?: string | null): boolean {
+  const l = (name || '').toLowerCase();
+  if (isCardio(name) || isStretching(name)) return false;
+
+  // Disqualifiers
+  if (/bench press|chest|pec|push-up|push up|pushup|pulldown|pull-up|pull up|pullup|chin-up|chin up|chinup|row|bicep curl|tricep pushdown|skull crusher|overhead press|military press|shoulder press|arnold|lateral raise|front raise|shrug|clean and press/i.test(l)) {
+    return false;
+  }
+
+  // Leg indicators
+  if (/squat|lunge|leg press|leg extension|leg curl|hamstring|quad|calf|calves|glute|hip thrust|glute bridge|rdl|romanian deadlift|stiff leg|hack squat|sissy|split squat|abductor|adductor|femoral|step up|hip abduction|hip adduction|hip extension/i.test(l)) {
+    return true;
+  }
+
+  const pm = primaryMuscle?.toUpperCase();
+  if (pm === 'QUADRICEPS' || pm === 'HAMSTRINGS' || pm === 'GLUTES' || pm === 'CALVES' || pm === 'LEGS') {
+    return true;
+  }
+
+  return false;
+}
+
+function isStrictBiceps(name: string, primaryMuscle?: string | null): boolean {
+  const l = (name || '').toLowerCase();
+  if (isCardio(name) || isStretching(name)) return false;
+
+  // Disqualifiers (NEVER allow press, row, pull-up, tricep, leg)
+  if (/press|row|pull-up|pull up|pullup|pulldown|tricep|skull crusher|kickback|bench|chest|squat|lunge|leg|calf|shoulder|lateral raise|crunch|sit up/i.test(l)) {
+    return false;
+  }
+
+  // Bicep indicators
+  if (/bicep|preacher|concentration|drag curl/i.test(l)) {
+    return true;
+  }
+  if (/curl/i.test(l) && !/leg curl|wrist curl/i.test(l)) {
+    return true;
+  }
+
+  if (primaryMuscle?.toUpperCase() === 'BICEPS') {
+    return /curl/i.test(l);
+  }
+
+  return false;
+}
+
+function isStrictTriceps(name: string, primaryMuscle?: string | null): boolean {
+  const l = (name || '').toLowerCase();
+  if (isCardio(name) || isStretching(name)) return false;
+
+  // Disqualifiers
+  if (/bicep|curl|squat|lunge|leg|chest fly|pulldown|pull-up|chin-up|one leg/i.test(l)) {
+    return false;
+  }
+
+  // Tricep indicators
+  if (/tricep|pushdown|skull crusher|overhead extension|triceps extension|close grip bench|diamond push|tricep dip|bench dip/i.test(l)) {
+    return true;
+  }
+  if (/kickback/i.test(l) && !/one leg|leg|band one/i.test(l)) {
+    return true;
+  }
+
+  if (primaryMuscle?.toUpperCase() === 'TRICEPS') {
+    return /extension|pushdown|dip|press/i.test(l);
+  }
+
+  return false;
+}
+
+function isStrictAbs(name: string, primaryMuscle?: string | null): boolean {
+  const l = (name || '').toLowerCase();
+  if (isCardio(name) || isStretching(name)) return false;
+
+  // Disqualifiers (NEVER allow row, press, bench, pulldown, squat)
+  if (/row|press|bench|squat|lunge|leg press|bicep curl|tricep pushdown|pulldown|shoulder/i.test(l)) {
+    return false;
+  }
+
+  // Abs indicators
+  if (/crunch|plank|sit up|situp|leg raise|knee raise|ab wheel|flutter kick|v-up|side bend|woodchopper|hollow|spell caster|otis-up|deadbug|russian twist/i.test(l)) {
+    return true;
+  }
+  if (/twist/i.test(l) && !/row|pulldown/i.test(l)) {
+    return true;
+  }
+
+  const pm = primaryMuscle?.toUpperCase();
+  if (pm === 'ABDOMINALS' || pm === 'OBLIQUES' || pm === 'ABS') {
+    return true;
+  }
+
+  return false;
+}
+
+function matchesStrictMuscle(name: string, primaryMuscle: string | null | undefined, targetGroup: string): boolean {
+  const target = targetGroup.toLowerCase().trim();
+  if (target === 'chest') return isStrictChest(name, primaryMuscle);
+  if (target === 'back') return isStrictBack(name, primaryMuscle);
+  if (target.startsWith('shoulder')) return isStrictShoulders(name, primaryMuscle);
+  if (target === 'legs' || target === 'leg' || target === 'lower body') return isStrictLegs(name, primaryMuscle);
+  if (target.startsWith('bicep')) return isStrictBiceps(name, primaryMuscle);
+  if (target.startsWith('tricep')) return isStrictTriceps(name, primaryMuscle);
+  if (target === 'abs' || target === 'core') return isStrictAbs(name, primaryMuscle);
+  return false;
 }
 
 function getRpcMusclesForTarget(targetGroup: string): string[] {
@@ -112,7 +208,7 @@ function getRpcMusclesForTarget(targetGroup: string): string[] {
   return [targetGroup.toUpperCase()];
 }
 
-// Built-in high-quality presets if database returns few or zero items
+// Built-in presets for offline or edge fallback
 const FALLBACK_TARGET_EXERCISES: Record<string, Array<{ name: string; sets: number; reps: string }>> = {
   chest: [
     { name: 'Barbell Bench Press', sets: 3, reps: '8-12' },
@@ -121,12 +217,10 @@ const FALLBACK_TARGET_EXERCISES: Record<string, Array<{ name: string; sets: numb
     { name: 'Machine Chest Press', sets: 3, reps: '10-12' },
     { name: 'Pec Deck Fly', sets: 3, reps: '12-15' },
     { name: 'Push-ups', sets: 3, reps: '15-20' },
-    { name: 'Dumbbell Chest Fly', sets: 3, reps: '12-15' },
   ],
   back: [
     { name: 'Lat Pulldown', sets: 3, reps: '10-12' },
     { name: 'Seated Cable Row', sets: 3, reps: '10-12' },
-    { name: 'Machine Seated Row', sets: 3, reps: '10-12' },
     { name: 'Wide Grip Pull-up', sets: 3, reps: '6-10' },
     { name: 'Barbell Bent-Over Row', sets: 3, reps: '8-12' },
     { name: 'Single-Arm Dumbbell Row', sets: 3, reps: '10-12' },
@@ -138,7 +232,6 @@ const FALLBACK_TARGET_EXERCISES: Record<string, Array<{ name: string; sets: numb
     { name: 'Dumbbell Lateral Raise', sets: 3, reps: '12-15' },
     { name: 'Cable Face Pull', sets: 3, reps: '15-20' },
     { name: 'Machine Shoulder Press', sets: 3, reps: '10-12' },
-    { name: 'Cable Lateral Raise', sets: 3, reps: '12-15' },
     { name: 'Pike Push-ups', sets: 3, reps: '10-12' },
   ],
   legs: [
@@ -148,8 +241,6 @@ const FALLBACK_TARGET_EXERCISES: Record<string, Array<{ name: string; sets: numb
     { name: 'Leg Extension Machine', sets: 3, reps: '12-15' },
     { name: 'Lying Leg Curl Machine', sets: 3, reps: '10-12' },
     { name: 'Barbell Romanian Deadlift', sets: 3, reps: '8-10' },
-    { name: 'Bulgarian Split Squat', sets: 3, reps: '10-12' },
-    { name: 'Standing Calf Raise Machine', sets: 3, reps: '15-20' },
   ],
   biceps: [
     { name: 'Standing Barbell Curl', sets: 3, reps: '8-12' },
@@ -157,14 +248,12 @@ const FALLBACK_TARGET_EXERCISES: Record<string, Array<{ name: string; sets: numb
     { name: 'Dumbbell Hammer Curl', sets: 3, reps: '10-12' },
     { name: 'Preacher Curl Machine', sets: 3, reps: '10-12' },
     { name: 'Cable Bicep Curl', sets: 3, reps: '10-12' },
-    { name: 'Incline Dumbbell Curl', sets: 3, reps: '10-12' },
   ],
   triceps: [
     { name: 'Cable Tricep Pushdown', sets: 3, reps: '12-15' },
     { name: 'Cable Overhead Tricep Extension', sets: 3, reps: '10-12' },
     { name: 'Barbell Skull Crusher', sets: 3, reps: '10-12' },
     { name: 'Overhead Dumbbell Tricep Extension', sets: 3, reps: '10-12' },
-    { name: 'Machine Tricep Dip', sets: 3, reps: '10-12' },
     { name: 'Diamond Push-ups', sets: 3, reps: '10-15' },
   ],
   abs: [
@@ -173,7 +262,6 @@ const FALLBACK_TARGET_EXERCISES: Record<string, Array<{ name: string; sets: numb
     { name: 'Hanging Knee Raise', sets: 3, reps: '12-15' },
     { name: 'Kneeling Cable Crunch', sets: 3, reps: '15-20' },
     { name: 'Russian Twists', sets: 3, reps: '20-30' },
-    { name: 'Side Plank', sets: 3, reps: '30-45s' },
   ],
 };
 
@@ -188,7 +276,6 @@ export async function fetchTargetMuscleExercises(
   const seenNames = new Set<string>();
   const cleanList: TargetExerciseVideo[] = [];
 
-  // Helper to add clean exercise item
   const addItem = (
     id: string,
     name: string,
@@ -201,7 +288,7 @@ export async function fetchTargetMuscleExercises(
     const norm = name.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (seenNames.has(norm)) return;
 
-    if (!matchesTargetMuscle(name, primaryMuscle, normTarget)) return;
+    if (!matchesStrictMuscle(name, primaryMuscle, normTarget)) return;
 
     seenNames.add(norm);
     cleanList.push({
@@ -215,12 +302,12 @@ export async function fetchTargetMuscleExercises(
     });
   };
 
-  // 1. Primary Strategy: RPC get_custom_workout_videos
+  // 1. Primary Strategy: RPC get_custom_workout_videos with larger pool
   try {
     const { data: rpcData, error: rpcError } = await supabase.rpc('get_custom_workout_videos', {
       p_muscles: rpcMuscles,
       p_equipment: [],
-      p_limit: 100,
+      p_limit: 150,
       p_exclude: [],
     });
 
@@ -237,7 +324,7 @@ export async function fetchTargetMuscleExercises(
       }
     }
   } catch (err) {
-    console.warn('[useWorkoutPlanTargetExercises] RPC failed, trying fallback:', err);
+    console.warn('[useWorkoutPlanTargetExercises] RPC failed, trying direct query:', err);
   }
 
   // 2. Direct Supabase Query Strategy (if RPC had fewer than 10 clean exercises)
@@ -249,7 +336,7 @@ export async function fetchTargetMuscleExercises(
         .or('is_deleted.eq.false,is_deleted.is.null')
         .not('videoUrl', 'is', null)
         .order('createdAt', { ascending: false })
-        .limit(100);
+        .limit(150);
 
       const muscleKey = rpcMuscles[0];
       if (muscleKey) {
@@ -274,9 +361,9 @@ export async function fetchTargetMuscleExercises(
     }
   }
 
-  // 3. Fallback Library Presets (guarantees the user is never left with an empty screen)
+  // 3. Fallback Library Presets
   const fallbackKey = Object.keys(FALLBACK_TARGET_EXERCISES).find(k => normTarget.includes(k));
-  if (fallbackKey && cleanList.length < 6) {
+  if (fallbackKey && cleanList.length < 5) {
     const presets = FALLBACK_TARGET_EXERCISES[fallbackKey] || [];
     for (let i = 0; i < presets.length; i++) {
       const p = presets[i];
@@ -304,4 +391,3 @@ export function useWorkoutPlanTargetExercises(targetMuscle: string, preferredGen
     staleTime: 5 * 60 * 1000,
   });
 }
-

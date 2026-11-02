@@ -15,20 +15,33 @@ class WearDataLayerListenerService : WearableListenerService() {
     private val gson = Gson()
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
-        if (messageEvent.path == "/gk/workout-session") {
-            try {
-                val payloadJson = String(messageEvent.data, StandardCharsets.UTF_8)
-                if (payloadJson.isNotEmpty()) {
-                    val payload = gson.fromJson(payloadJson, WatchWorkoutPayload::class.java)
-                    WatchSyncRepository.getInstance(applicationContext).updateActivePayload(payload)
+        when (messageEvent.path) {
+            "/gk/workout-session" -> {
+                try {
+                    val payloadJson = String(messageEvent.data, StandardCharsets.UTF_8)
+                    if (payloadJson.isNotEmpty()) {
+                        val payload = gson.fromJson(payloadJson, WatchWorkoutPayload::class.java)
+                        WatchSyncRepository.getInstance(applicationContext).updateActivePayload(payload)
 
-                    val intent = Intent(applicationContext, MainActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        val intent = Intent(applicationContext, MainActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        }
+                        startActivity(intent)
                     }
-                    startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
+            }
+            "/gk/water-sync" -> {
+                try {
+                    val json = String(messageEvent.data, StandardCharsets.UTF_8)
+                    val map = gson.fromJson(json, Map::class.java)
+                    val intake = (map["waterIntakeMl"] as? Number)?.toInt() ?: 0
+                    val goal = (map["waterGoalMl"] as? Number)?.toInt()
+                    WatchHealthManager.getInstance(applicationContext).updateWaterFromPhone(intake, goal)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
@@ -37,22 +50,34 @@ class WearDataLayerListenerService : WearableListenerService() {
         for (event in dataEvents) {
             if (event.type == DataEvent.TYPE_CHANGED) {
                 val uri = event.dataItem.uri
-                if (uri.path == "/gk/workout-session") {
-                    try {
-                        val dataMapItem = DataMapItem.fromDataItem(event.dataItem)
-                        val payloadJson = dataMapItem.dataMap.getString("payload")
-                        if (!payloadJson.isNullOrEmpty()) {
-                            val payload = gson.fromJson(payloadJson, WatchWorkoutPayload::class.java)
-                            WatchSyncRepository.getInstance(applicationContext).updateActivePayload(payload)
+                when (uri.path) {
+                    "/gk/workout-session" -> {
+                        try {
+                            val dataMapItem = DataMapItem.fromDataItem(event.dataItem)
+                            val payloadJson = dataMapItem.dataMap.getString("payload")
+                            if (!payloadJson.isNullOrEmpty()) {
+                                val payload = gson.fromJson(payloadJson, WatchWorkoutPayload::class.java)
+                                WatchSyncRepository.getInstance(applicationContext).updateActivePayload(payload)
 
-                            // Bring up MainActivity if needed
-                            val intent = Intent(applicationContext, MainActivity::class.java).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                                // Bring up MainActivity if needed
+                                val intent = Intent(applicationContext, MainActivity::class.java).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                                }
+                                startActivity(intent)
                             }
-                            startActivity(intent)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                    }
+                    "/gk/water-sync" -> {
+                        try {
+                            val dataMapItem = DataMapItem.fromDataItem(event.dataItem)
+                            val intake = dataMapItem.dataMap.getInt("waterIntakeMl", 0)
+                            val goal = dataMapItem.dataMap.getInt("waterGoalMl", 3000)
+                            WatchHealthManager.getInstance(applicationContext).updateWaterFromPhone(intake, goal)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
                     }
                 }
             }

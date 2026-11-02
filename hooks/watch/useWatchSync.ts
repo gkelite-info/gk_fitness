@@ -2,10 +2,112 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@/context/UserContext';
 import { watchBridge } from '@/lib/watch/watchBridge';
-import { WatchSetLog, WatchWorkoutSummary, WatchHeartRateLog } from '@/lib/watch/watchTypes';
+import {
+  WatchSetLog,
+  WatchWorkoutSummary,
+  WatchHeartRateLog,
+  WatchWaterLog,
+} from '@/lib/watch/watchTypes';
 import { upsertSetLog } from '@/helpers/customerWorkoutPlans/workoutSetLogs';
 import { supabase } from '@/lib/supabase';
+import { supabaseFitnessService } from '@/lib/services/supabaseFitnessService';
+import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
+import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
+import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
+import { buildWatchWorkoutPayload } from '@/lib/watch/watchPayloadBuilder';
 import * as Crypto from 'expo-crypto';
+
+function normalizeSessionDate(rawDate?: string): string {
+  if (!rawDate) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString();
+  }
+  if (rawDate.length === 10) {
+    return `${rawDate}T00:00:00.000Z`;
+  }
+  return rawDate;
+}
+
+/**
+ * Pushes today's active workout plan & exercises from Supabase to the smartwatch.
+ */
+export async function pushTodayWorkoutToWatch(userId: string): Promise<boolean> {
+  try {
+    const plans = await fetchCustomerWorkoutPlans(userId);
+    const activePlan = plans?.find((p: any) => p.isActive);
+    if (!activePlan) {
+      console.log('[pushTodayWorkoutToWatch] No active plan found for user:', userId);
+      return false;
+    }
+
+    const planCreatedAt = new Date(activePlan.createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - planCreatedAt.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const currentWeekNumber = Math.min(Math.ceil(diffDays / 7), 4) || 1;
+
+    const allDays = await fetchWorkoutPlanDays(activePlan.planId);
+    let days = allDays.filter((d: any) => (d.weekNumber || 1) === currentWeekNumber);
+    if (days.length === 0) {
+      days = allDays.filter((d: any) => (d.weekNumber || 1) === 1);
+    }
+
+    const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const currentDayIndex = new Date().getDay();
+    const todayIndex = currentDayIndex === 0 ? 6 : currentDayIndex - 1;
+    const todayString = dayOrder[todayIndex];
+
+    const todayDay = days.find((d: any) => d.dayOfWeek?.toLowerCase() === todayString);
+    if (!todayDay || todayDay.workoutType === 'Rest') {
+      console.log('[pushTodayWorkoutToWatch] Today is Rest or no day found:', todayString);
+      return false;
+    }
+
+    const exercises = await fetchWorkoutPlanDayExercises(todayDay.planDayId);
+    if (!exercises || exercises.length === 0) {
+      console.log('[pushTodayWorkoutToWatch] No exercises for day:', todayDay.planDayId);
+      return false;
+    }
+
+    const payload = await buildWatchWorkoutPayload({
+      userId,
+      planDayId: todayDay.planDayId,
+      workoutType: todayDay.workoutType || 'Workout',
+      durationMinutes: todayDay.durationMinutes || 45,
+      isTrainerPlan: false,
+      isCustom: false,
+      exercises,
+    });
+
+    const success = await watchBridge.pushWorkoutToWatch(payload);
+    console.log('[pushTodayWorkoutToWatch] Pushed today workout to watch:', todayDay.workoutType, success);
+    return success;
+  } catch (err) {
+    console.warn('[pushTodayWorkoutToWatch] Failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Pushes today's daily water intake & goal from Supabase to the smartwatch.
+ */
+export async function pushDailyWaterToWatch(userId: string): Promise<boolean> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const [intake, goal] = await Promise.all([
+      supabaseFitnessService.getDailyTotalWater(userId, today),
+      supabaseFitnessService.getWaterGoal(userId),
+    ]);
+
+    const success = await watchBridge.syncWaterToWatch(intake, goal);
+    console.log('[pushDailyWaterToWatch] Water synced to watch:', intake, '/', goal, 'ml', success);
+    return success;
+  } catch (err) {
+    console.warn('[pushDailyWaterToWatch] Failed:', err);
+    return false;
+  }
+}
 
 export function useWatchSync() {
   const { userId } = useUser();
@@ -14,25 +116,62 @@ export function useWatchSync() {
   useEffect(() => {
     if (!userId) return;
 
+    // Helper: Register / update connected smartwatch in watch_devices
+    const syncWatchDevice = async () => {
+      try {
+        const current = await watchBridge.getConnectionStatus();
+        if (current.isPaired && current.nodeId) {
+          await supabase
+            .from('watch_devices')
+            .upsert(
+              {
+                deviceId: Crypto.randomUUID(),
+                userId,
+                platform: current.platform || 'wearos',
+                deviceName: current.deviceName || 'Smartwatch',
+                nodeId: current.nodeId,
+                lastSeenAt: new Date().toISOString(),
+                isActive: true,
+                createdAt: new Date().toISOString(),
+              },
+              { onConflict: 'userId, nodeId' }
+            );
+
+          // Once device is confirmed connected, push initial state
+          pushTodayWorkoutToWatch(userId);
+          pushDailyWaterToWatch(userId);
+        }
+      } catch (err) {
+        console.warn('[useWatchSync] syncWatchDevice error:', err);
+      }
+    };
+
+    // Run device registration and initial sync on mount
+    syncWatchDevice();
+
     // 1. Listen for set logs coming from the smartwatch
     const setLogSubscription = watchBridge.onSetLogReceived(async (log: WatchSetLog) => {
       try {
         console.log('[useWatchSync] Received set log from watch:', log.dayExerciseId, `Set #${log.setNumber}`);
+        const sessionDate = normalizeSessionDate(log.sessionDate);
+
         await upsertSetLog({
           userId,
           dayExerciseId: log.dayExerciseId,
           planDayId: log.planDayId,
-          sessionDate: log.sessionDate,
+          sessionDate,
           setNumber: log.setNumber,
           setType: log.setType || 'working',
           weight: log.weight,
           reps: log.reps,
           isCompleted: log.isCompleted,
           completedAt: log.completedAt || new Date().toISOString(),
+          source: log.source || 'wearos',
         });
 
         // Invalidate queries so phone UI updates immediately
         queryClient.invalidateQueries({ queryKey: ['today_set_logs', userId, log.planDayId] });
+        syncWatchDevice();
       } catch (err) {
         console.error('[useWatchSync] Failed to process incoming watch set log:', err);
       }
@@ -46,26 +185,29 @@ export function useWatchSync() {
         const safePlanDayId =
           summary.planDayId && summary.planDayId.length === 36
             ? summary.planDayId
-            : '00000000-0000-0000-0000-000000000000';
+            : null;
 
-        await supabase
-          .from('customer_workout_logs')
-          .upsert(
-            {
-              customerWorkoutLogId: Crypto.randomUUID(),
-              userId,
-              planDayId: safePlanDayId,
-              durationMinutes: summary.durationMinutes || 45,
-              completedAt: now,
-              createdAt: now,
-              updatedAt: now,
-              source: summary.source || 'wearos',
-            },
-            { onConflict: 'userId, planDayId' }
-          );
+        if (safePlanDayId) {
+          await supabase
+            .from('customer_workout_logs')
+            .upsert(
+              {
+                customerWorkoutLogId: Crypto.randomUUID(),
+                userId,
+                planDayId: safePlanDayId,
+                durationMinutes: summary.durationMinutes || 45,
+                completedAt: now,
+                createdAt: now,
+                updatedAt: now,
+                source: summary.source || 'wearos',
+              },
+              { onConflict: 'userId, planDayId' }
+            );
 
-        queryClient.invalidateQueries({ queryKey: ['workout_streak', userId] });
-        queryClient.invalidateQueries({ queryKey: ['customerDashboardData', userId] });
+          queryClient.invalidateQueries({ queryKey: ['workout_streak', userId] });
+          queryClient.invalidateQueries({ queryKey: ['customerDashboardData', userId] });
+        }
+        syncWatchDevice();
       } catch (err) {
         console.error('[useWatchSync] Failed to process incoming watch workout completion:', err);
       }
@@ -74,27 +216,61 @@ export function useWatchSync() {
     // 3. Listen for live heart rate logs from watch
     const hrSubscription = watchBridge.onHeartRateReceived(async (hrLog: WatchHeartRateLog) => {
       try {
+        const safePlanDayId =
+          hrLog.planDayId && hrLog.planDayId.length === 36 ? hrLog.planDayId : null;
+        const hrSessionDate = hrLog.sessionDate
+          ? hrLog.sessionDate.split('T')[0]
+          : new Date().toISOString().split('T')[0];
+
         await supabase
           .from('workout_heart_rate_logs')
           .insert({
             logId: Crypto.randomUUID(),
             userId,
-            planDayId: hrLog.planDayId || null,
-            sessionDate: hrLog.sessionDate || new Date().toISOString().split('T')[0],
+            planDayId: safePlanDayId,
+            sessionDate: hrSessionDate,
             heartRate: hrLog.heartRate,
             recordedAt: hrLog.recordedAt || new Date().toISOString(),
             source: hrLog.source || 'wearos',
           });
       } catch (err) {
-        // Table may not yet be migrated in production, warn softly
         console.warn('[useWatchSync] Heart rate log insert omitted/failed:', err);
       }
+    });
+
+    // 4. Listen for water logging events from watch
+    const waterSubscription = watchBridge.onWaterLogReceived(async (waterLog: WatchWaterLog) => {
+      try {
+        console.log('[useWatchSync] Received water log from watch:', waterLog.addedMl, 'ml');
+        const dateStr = waterLog.sessionDate || new Date().toISOString().split('T')[0];
+
+        await supabaseFitnessService.logWater(userId, waterLog.addedMl, dateStr);
+
+        // Invalidate queries so phone hydration screens update in real-time
+        queryClient.invalidateQueries({ queryKey: ['water_tracking', userId] });
+        queryClient.invalidateQueries({ queryKey: ['daily_fitness_stats', userId] });
+        queryClient.invalidateQueries({ queryKey: ['customerDashboardData', userId] });
+
+        // Push new daily total back to watch to ensure alignment
+        await pushDailyWaterToWatch(userId);
+      } catch (err) {
+        console.error('[useWatchSync] Failed to process incoming watch water log:', err);
+      }
+    });
+
+    // 5. Listen for smartwatch requesting active workout on-demand
+    const requestWorkoutSubscription = watchBridge.onRequestActiveWorkout(async () => {
+      console.log('[useWatchSync] Watch requested active workout & metrics sync');
+      await pushTodayWorkoutToWatch(userId);
+      await pushDailyWaterToWatch(userId);
     });
 
     return () => {
       setLogSubscription.remove();
       completeSubscription.remove();
       hrSubscription.remove();
+      waterSubscription.remove();
+      requestWorkoutSubscription.remove();
     };
   }, [userId, queryClient]);
 }

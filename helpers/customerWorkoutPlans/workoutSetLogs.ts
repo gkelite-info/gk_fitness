@@ -14,6 +14,7 @@ export interface SetLogParams {
   reps: number;
   isCompleted: boolean;
   completedAt?: string | null;
+  source?: string;
 }
 
 export async function upsertSetLog(params: SetLogParams) {
@@ -36,6 +37,7 @@ export async function upsertSetLog(params: SetLogParams) {
         completedAt: params.completedAt ?? now,
         createdAt: now,
         updatedAt: now,
+        source: params.source || 'phone',
       },
       {
         onConflict: 'userId,planDayId,dayExerciseId,sessionDate,setNumber',

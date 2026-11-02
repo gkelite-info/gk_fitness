@@ -1,6 +1,8 @@
 package com.gkeliteinfo.gkgymlife.wear.data
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -9,6 +11,8 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
+import androidx.core.content.ContextCompat
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.Wearable
@@ -33,7 +37,7 @@ class WatchHealthManager(private val context: Context) : SensorEventListener {
     private val _steps = MutableStateFlow(0)
     val steps = _steps.asStateFlow()
 
-    private val _heartRate = MutableStateFlow(72)
+    private val _heartRate = MutableStateFlow(0)
     val heartRate = _heartRate.asStateFlow()
 
     private val _waterIntakeMl = MutableStateFlow(0)
@@ -43,6 +47,7 @@ class WatchHealthManager(private val context: Context) : SensorEventListener {
     val waterGoalMl = _waterGoalMl.asStateFlow()
 
     private var initialStepOffset = -1
+    private var lastHrSentTime = 0L
 
     init {
         loadDailyWater()
@@ -56,12 +61,25 @@ class WatchHealthManager(private val context: Context) : SensorEventListener {
     private fun loadDailyWater() {
         val today = getTodayKey()
         val savedDate = prefs.getString("water_date", "")
+        val savedGoal = prefs.getInt("water_goal_ml", 3000)
+        _waterGoalMl.value = savedGoal
+
         if (savedDate == today) {
             _waterIntakeMl.value = prefs.getInt("water_ml", 0)
         } else {
             _waterIntakeMl.value = 0
             prefs.edit().putString("water_date", today).putInt("water_ml", 0).apply()
         }
+    }
+
+    fun updateWaterFromPhone(intakeMl: Int, goalMl: Int?) {
+        val today = getTodayKey()
+        _waterIntakeMl.value = intakeMl
+        if (goalMl != null && goalMl > 0) {
+            _waterGoalMl.value = goalMl
+            prefs.edit().putInt("water_goal_ml", goalMl).apply()
+        }
+        prefs.edit().putString("water_date", today).putInt("water_ml", intakeMl).apply()
     }
 
     fun addWater(amountMl: Int) {
@@ -85,16 +103,61 @@ class WatchHealthManager(private val context: Context) : SensorEventListener {
         }
     }
 
-    fun startSensors() {
-        sensorManager?.let { sm ->
-            val stepSensor = sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
-            stepSensor?.let {
-                sm.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
-            }
+    fun hasPermissions(): Boolean {
+        val hasBody = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.BODY_SENSORS
+        ) == PackageManager.PERMISSION_GRANTED
 
-            val hrSensor = sm.getDefaultSensor(Sensor.TYPE_HEART_RATE)
-            hrSensor?.let {
-                sm.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        val hasActivity = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACTIVITY_RECOGNITION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        return hasBody && hasActivity
+    }
+
+    fun startSensors() {
+        val sm = sensorManager ?: return
+
+        // Activity recognition permission for steps
+        val canReadSteps = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACTIVITY_RECOGNITION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (canReadSteps) {
+            try {
+                val stepSensor = sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+                stepSensor?.let {
+                    sm.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+                    Log.d("GKWatch", "Registered TYPE_STEP_COUNTER")
+                }
+                val stepDetector = sm.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
+                stepDetector?.let {
+                    sm.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+                    Log.d("GKWatch", "Registered TYPE_STEP_DETECTOR")
+                }
+            } catch (e: Exception) {
+                Log.w("GKWatch", "Failed to register step sensors: ${e.message}")
+            }
+        }
+
+        // Body sensors permission for Heart Rate
+        val canReadPulse = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.BODY_SENSORS
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (canReadPulse) {
+            try {
+                val hrSensor = sm.getDefaultSensor(Sensor.TYPE_HEART_RATE)
+                hrSensor?.let {
+                    sm.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+                    Log.d("GKWatch", "Registered TYPE_HEART_RATE")
+                }
+            } catch (e: Exception) {
+                Log.w("GKWatch", "Failed to register heart rate sensor: ${e.message}")
             }
         }
     }
@@ -107,22 +170,47 @@ class WatchHealthManager(private val context: Context) : SensorEventListener {
         when (event.sensor.type) {
             Sensor.TYPE_STEP_COUNTER -> {
                 val rawSteps = event.values[0].toInt()
-                if (initialStepOffset == -1) {
-                    val savedOffset = prefs.getInt("step_offset_${getTodayKey()}", -1)
-                    if (savedOffset != -1) {
-                        initialStepOffset = savedOffset
-                    } else {
-                        initialStepOffset = rawSteps
-                        prefs.edit().putInt("step_offset_${getTodayKey()}", rawSteps).apply()
+                if (rawSteps > 0) {
+                    if (initialStepOffset == -1) {
+                        val savedOffset = prefs.getInt("step_offset_${getTodayKey()}", -1)
+                        if (savedOffset != -1) {
+                            initialStepOffset = savedOffset
+                        } else {
+                            initialStepOffset = rawSteps
+                            prefs.edit().putInt("step_offset_${getTodayKey()}", rawSteps).apply()
+                        }
                     }
+                    val todaySteps = maxOf(0, rawSteps - initialStepOffset)
+                    _steps.value = todaySteps
                 }
-                val todaySteps = maxOf(0, rawSteps - initialStepOffset)
-                _steps.value = todaySteps
+            }
+            Sensor.TYPE_STEP_DETECTOR -> {
+                // If step counter hasn't initialized an offset yet, accumulate detected steps
+                if (initialStepOffset == -1 && event.values[0] > 0) {
+                    _steps.value += 1
+                }
             }
             Sensor.TYPE_HEART_RATE -> {
                 val bpm = event.values[0].toInt()
                 if (bpm > 0) {
                     _heartRate.value = bpm
+
+                    // Send heart rate log to phone throttled (every 10s)
+                    val now = System.currentTimeMillis()
+                    if (now - lastHrSentTime > 10000) {
+                        lastHrSentTime = now
+                        scope.launch {
+                            try {
+                                val hrPayload = mapOf(
+                                    "heartRate" to bpm,
+                                    "recordedAt" to SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date()),
+                                    "sessionDate" to getTodayKey(),
+                                    "source" to "wearos"
+                                )
+                                sendToPhone("/gk/heart-rate", gson.toJson(hrPayload))
+                            } catch (_: Exception) {}
+                        }
+                    }
                 }
             }
         }

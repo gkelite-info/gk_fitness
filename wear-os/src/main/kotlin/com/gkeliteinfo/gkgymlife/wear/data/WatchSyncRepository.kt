@@ -97,6 +97,12 @@ class WatchSyncRepository(private val context: Context) {
         }
     }
 
+    fun requestTodayWorkoutFromPhone() {
+        scope.launch {
+            sendToPhone("/gk/request-active-workout", "{}")
+        }
+    }
+
     fun logSet(
         dayExerciseId: String,
         setNumber: Int,

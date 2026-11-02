@@ -1,10 +1,14 @@
 package com.gkeliteinfo.gkgymlife.wear
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.core.content.ContextCompat
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
@@ -19,15 +23,47 @@ import com.gkeliteinfo.gkgymlife.wear.theme.GkWearTheme
 
 class MainActivity : ComponentActivity() {
 
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        val healthManager = WatchHealthManager.getInstance(applicationContext)
+        healthManager.startSensors()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val repository = WatchSyncRepository.getInstance(applicationContext)
         val healthManager = WatchHealthManager.getInstance(applicationContext)
 
+        checkAndRequestPermissions()
+
         setContent {
             GkWearTheme {
-                WearAppNavigation(repository, healthManager)
+                WearAppNavigation(
+                    repository = repository,
+                    healthManager = healthManager,
+                    onRequestPermissions = { checkAndRequestPermissions() }
+                )
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val healthManager = WatchHealthManager.getInstance(applicationContext)
+        healthManager.startSensors()
+    }
+
+    private fun checkAndRequestPermissions() {
+        val permissions = mutableListOf(
+            Manifest.permission.BODY_SENSORS,
+            Manifest.permission.ACTIVITY_RECOGNITION
+        )
+        val missing = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isNotEmpty()) {
+            permissionLauncher.launch(missing.toTypedArray())
         }
     }
 }
@@ -35,7 +71,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun WearAppNavigation(
     repository: WatchSyncRepository,
-    healthManager: WatchHealthManager
+    healthManager: WatchHealthManager,
+    onRequestPermissions: () -> Unit
 ) {
     val navController = rememberSwipeDismissableNavController()
 
@@ -47,6 +84,7 @@ fun WearAppNavigation(
             HomeScreen(
                 repository = repository,
                 healthManager = healthManager,
+                onRequestPermissions = onRequestPermissions,
                 onStartWorkout = {
                     navController.navigate("workout")
                 }

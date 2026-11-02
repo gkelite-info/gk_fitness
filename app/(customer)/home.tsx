@@ -6,15 +6,10 @@ import { useUser } from '@/context/UserContext';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { triggerMediumHaptic } from '@/lib/haptics';
-import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCustomerDashboardData } from '@/hooks/customerWorkouts/useCustomerDashboardData';
 import { useTrainerDashboardData } from '@/hooks/trainerWorkoutPlans/useTrainerDashboardData';
 import { useCustomerOnboardingStatus, sessionSkippedUsers } from '@/hooks/auth/useCustomerOnboardingStatus';
-import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
-import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
-import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 import { fetchGymCustomerMembershipPlans, toggleGymCustomerMembershipPlanActiveStatus } from '@/helpers/gymCustomerMembershipPlans/gymCustomerMembershipPlans';
 import { fetchIndividualCustomerPlans } from '@/helpers/individual/membership/individualCustomerPlan';
 import {
@@ -22,6 +17,7 @@ import {
   useToggleIndividualCustomerPlanActiveStatus,
 } from '@/hooks/individual/membership/individualCustomerPlan';
 import { syncAllLocalReminders } from '@/lib/services/notificationService';
+import { useSubscriptions } from '@/hooks/superadmin/subscriptions/subscriptions';
 import {
   Star,
   QrCode,
@@ -73,6 +69,63 @@ export default function CustomerHome() {
   const hasIndividualPlan = Boolean(individualCustomerPlans && individualCustomerPlans.length > 0);
   const isIndividual = role === 'individual' || hasIndividualPlan;
   const { mutateAsync: toggleIndivPlanActiveStatus } = useToggleIndividualCustomerPlanActiveStatus();
+
+  const { data: customerSubscriptions, refetch: refetchSubscriptions } = useSubscriptions(
+    undefined,
+    'customer',
+    { enabled: isIndividual }
+  );
+
+  const showQrCheckIn = React.useMemo(() => {
+    if (!isIndividual) {
+      return true;
+    }
+
+    if (!individualCustomerPlans || individualCustomerPlans.length === 0) {
+      return false;
+    }
+
+    const activePlan =
+      individualCustomerPlans.find(
+        (p: any) =>
+          p.isActive &&
+          p.endDate &&
+          new Date(p.endDate).getTime() > Date.now() &&
+          p.status !== 'pending' &&
+          p.transactionId
+      ) || individualCustomerPlans[0];
+
+    if (!activePlan) return false;
+
+    const validCustomerSubscriptions = (customerSubscriptions || []).filter(
+      (sub: any) =>
+        !sub.is_deleted &&
+        sub.isActive !== false &&
+        (sub.planFor === 'customer' || sub.planFor === 'customers' || sub.planFor === 'individual_customer')
+    );
+
+    const matchedSubscription = validCustomerSubscriptions.find(
+      (sub: any) => sub.subscriptionPlanId === activePlan.subscriptionPlanId
+    );
+
+    const userPlanPrice = Number(
+      matchedSubscription?.price ?? activePlan.subscription?.price ?? activePlan.customAmount ?? 0
+    );
+
+    if (userPlanPrice <= 0) {
+      return false;
+    }
+
+    if (validCustomerSubscriptions.length > 0) {
+      const maxCustomerPrice = Math.max(
+        ...validCustomerSubscriptions.map((sub: any) => Number(sub.price) || 0)
+      );
+
+      return maxCustomerPrice > 0 && userPlanPrice >= maxCustomerPrice;
+    }
+
+    return Boolean(activePlan.subscription?.price && activePlan.subscription.price > 0);
+  }, [isIndividual, individualCustomerPlans, customerSubscriptions]);
 
   const [planName, setPlanName] = useState<string>('MEMBER');
   const [daysLeft, setDaysLeft] = useState<number | string>('--');
@@ -332,6 +385,7 @@ export default function CustomerHome() {
         refetchOnboarding(),
         refetchStats(),
         isIndividual ? refetchIndivCustomerPlans() : Promise.resolve(),
+        isIndividual ? refetchSubscriptions() : Promise.resolve(),
         fetchMembershipInfo(),
         refetchWeeklyStats(),
         syncSteps?.(),
@@ -341,7 +395,7 @@ export default function CustomerHome() {
     } finally {
       setRefreshing(false);
     }
-  }, [refetchCustomerDash, refetchTrainerDash, refetchOnboarding, refetchStats, isIndividual, refetchIndivCustomerPlans, fetchMembershipInfo, refetchWeeklyStats, syncSteps]);
+  }, [refetchCustomerDash, refetchTrainerDash, refetchOnboarding, refetchStats, isIndividual, refetchIndivCustomerPlans, refetchSubscriptions, fetchMembershipInfo, refetchWeeklyStats, syncSteps]);
 
   const isMembershipLoading = isIndividual ? (isIndivCustomerPlansLoading || isLoadingMembership) : isLoadingMembership;
 
@@ -464,7 +518,6 @@ export default function CustomerHome() {
           </>
         ) : typeof daysLeft === 'number' && daysLeft > 0 ? (
           <View className="flex-row items-center justify-between">
-            {/* Left View: Plan to Pass Details */}
             <View className="flex-1 pr-3">
               <View className="flex-row items-center gap-2 mb-2">
                 <View className="w-6 h-6 rounded-full bg-[#D7FF00] items-center justify-center">
@@ -516,7 +569,7 @@ export default function CustomerHome() {
             </View>
 
             {/* Right View: QR Check-in & View button in column */}
-            {!isIndividual && (
+            {showQrCheckIn && (
               <View className="flex-col items-center justify-center gap-2 pl-1">
                 <Pressable
                   onPress={openCamera}
@@ -613,221 +666,221 @@ export default function CustomerHome() {
         </Pressable>
       )}
 
-        <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 relative overflow-hidden flex-row items-center justify-between">
-          <View className="flex-1 z-10 pr-2">
-            <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider mb-1">
-              TODAY&apos;S WORKOUT
-            </Text>
-            {todayWorkoutDayId && todayWorkoutType ? (
-              <>
-                <Text className="text-white text-2xl font-semibold mb-2">
-                  {todayWorkoutType.charAt(0).toUpperCase() + todayWorkoutType.slice(1)}
-                </Text>
+      <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 relative overflow-hidden flex-row items-center justify-between">
+        <View className="flex-1 z-10 pr-2">
+          <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider mb-1">
+            TODAY&apos;S WORKOUT
+          </Text>
+          {todayWorkoutDayId && todayWorkoutType ? (
+            <>
+              <Text className="text-white text-2xl font-semibold mb-2">
+                {todayWorkoutType.charAt(0).toUpperCase() + todayWorkoutType.slice(1)}
+              </Text>
 
-                <View className="flex-row items-center gap-3 mb-4">
-                  <View className="flex-row items-center gap-1.5">
-                    <Barbell size={16} color="#8E8E93" />
-                    <Text className="text-[#8E8E93] text-xs font-medium">{todayExercisesCount} Exercises</Text>
-                  </View>
-                  <View className="flex-row items-center gap-1.5">
-                    <Clock size={16} color="#8E8E93" />
-                    <Text className="text-[#8E8E93] text-xs font-medium">{todayDuration} min</Text>
-                  </View>
+              <View className="flex-row items-center gap-3 mb-4">
+                <View className="flex-row items-center gap-1.5">
+                  <Barbell size={16} color="#8E8E93" />
+                  <Text className="text-[#8E8E93] text-xs font-medium">{todayExercisesCount} Exercises</Text>
                 </View>
+                <View className="flex-row items-center gap-1.5">
+                  <Clock size={16} color="#8E8E93" />
+                  <Text className="text-[#8E8E93] text-xs font-medium">{todayDuration} min</Text>
+                </View>
+              </View>
 
-                {todayWorkoutType.toLowerCase() !== 'rest' && (
-                  <Pressable
-                    onPress={() => {
-                      router.push({
-                        pathname: '/(customer)/workout-countdown',
-                        params: {
-                          dayId: todayWorkoutDayId,
-                          workoutType: todayWorkoutType,
-                          duration: todayDuration,
-                          exercisesCount: todayExercisesCount,
-                          isTrainer: isTrainerPlan ? 'true' : 'false'
-                        }
-                      });
-                    }}
-                    className="bg-[#D7FF00] rounded-full py-2 px-5 flex-row items-center justify-center self-start active:opacity-90"
-                  >
-                    <Text className="text-black font-semibold text-sm mr-2">Start Workout</Text>
-                    <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
-                      <ArrowRight size={14} color="#000000" weight="bold" />
-                    </View>
-                  </Pressable>
-                )}
-                {todayWorkoutType.toLowerCase() === 'rest' && (
-                  <Text className="text-[#8E8E93] text-sm mt-1">Take it easy and recover for tomorrow.</Text>
-                )}
-              </>
-            ) : (
-              <>
-                <Text className="text-white text-lg font-semibold mb-4 leading-tight">
-                  No Workout{'\n'}Scheduled
-                </Text>
+              {todayWorkoutType.toLowerCase() !== 'rest' && (
                 <Pressable
-                  onPress={() => router.push('/(customer)/workoutPlan')}
-                  className="bg-[#D7FF00] rounded-full py-2 px-3 flex-row items-center justify-center active:opacity-90 mt-1"
+                  onPress={() => {
+                    router.push({
+                      pathname: '/(customer)/workout-countdown',
+                      params: {
+                        dayId: todayWorkoutDayId,
+                        workoutType: todayWorkoutType,
+                        duration: todayDuration,
+                        exercisesCount: todayExercisesCount,
+                        isTrainer: isTrainerPlan ? 'true' : 'false'
+                      }
+                    });
+                  }}
+                  className="bg-[#D7FF00] rounded-full py-2 px-5 flex-row items-center justify-center self-start active:opacity-90"
                 >
-                  <Text className="text-black font-semibold text-sm mr-2">Add workout plan</Text>
+                  <Text className="text-black font-semibold text-sm mr-2">Start Workout</Text>
                   <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
                     <ArrowRight size={14} color="#000000" weight="bold" />
                   </View>
                 </Pressable>
-              </>
-            )}
-          </View>
-
-          <View className="items-end justify-center">
-            <Image
-              source={require('../../assets/fit-1.png')}
-              style={{ width: 145, height: 160 }}
-              resizeMode="contain"
-            />
-          </View>
+              )}
+              {todayWorkoutType.toLowerCase() === 'rest' && (
+                <Text className="text-[#8E8E93] text-sm mt-1">Take it easy and recover for tomorrow.</Text>
+              )}
+            </>
+          ) : (
+            <>
+              <Text className="text-white text-lg font-semibold mb-4 leading-tight">
+                No Workout{'\n'}Scheduled
+              </Text>
+              <Pressable
+                onPress={() => router.push('/(customer)/workoutPlan')}
+                className="bg-[#D7FF00] rounded-full py-2 px-3 flex-row items-center justify-center active:opacity-90 mt-1"
+              >
+                <Text className="text-black font-semibold text-sm mr-2">Add workout plan</Text>
+                <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
+                  <ArrowRight size={14} color="#000000" weight="bold" />
+                </View>
+              </Pressable>
+            </>
+          )}
         </View>
 
-        <View className="flex-row flex-wrap justify-between gap-y-3 mb-4">
-          <Pressable onPress={() => router.push('/(customer)/fitness/calories')} className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4 active:opacity-80">
-            <View className="w-8 h-8 rounded-full bg-[#FF453A]/10 items-center justify-center mb-2">
-              <Flame size={20} color="#FF453A" weight="fill" />
-            </View>
-            <Text className="text-white text-3xl font-semibold mt-1">{displayCalories}</Text>
-            <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
-              CALORIES KCAL
-            </Text>
-            <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
-              <View className="h-full bg-[#FF453A] rounded-full" style={{ width: `${Math.min((displayCalories / 500) * 100, 100)}%` }} />
-            </View>
-          </Pressable>
+        <View className="items-end justify-center">
+          <Image
+            source={require('../../assets/fit-1.png')}
+            style={{ width: 145, height: 160 }}
+            resizeMode="contain"
+          />
+        </View>
+      </View>
 
-          <Pressable onPress={() => router.push('/(customer)/fitness/steps')} className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4 active:opacity-80">
-            <View className="flex-row items-center justify-between mb-2">
-              <View className="w-8 h-8 rounded-full bg-[#C3F400]/10 items-center justify-center">
-                <Footprints size={20} color="#C3F400" weight="fill" />
+      <View className="flex-row flex-wrap justify-between gap-y-3 mb-4">
+        <Pressable onPress={() => router.push('/(customer)/fitness/calories')} className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4 active:opacity-80">
+          <View className="w-8 h-8 rounded-full bg-[#FF453A]/10 items-center justify-center mb-2">
+            <Flame size={20} color="#FF453A" weight="fill" />
+          </View>
+          <Text className="text-white text-3xl font-semibold mt-1">{displayCalories}</Text>
+          <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
+            CALORIES KCAL
+          </Text>
+          <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
+            <View className="h-full bg-[#FF453A] rounded-full" style={{ width: `${Math.min((displayCalories / 500) * 100, 100)}%` }} />
+          </View>
+        </Pressable>
+
+        <Pressable onPress={() => router.push('/(customer)/fitness/steps')} className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4 active:opacity-80">
+          <View className="flex-row items-center justify-between mb-2">
+            <View className="w-8 h-8 rounded-full bg-[#C3F400]/10 items-center justify-center">
+              <Footprints size={20} color="#C3F400" weight="fill" />
+            </View>
+            <Text className="text-[#8E8E93] text-[10px] font-semibold bg-[#1C1C1E] px-2 py-0.5 rounded-full">
+              /{stepGoal >= 1000 ? `${(stepGoal / 1000).toFixed(stepGoal % 1000 === 0 ? 0 : 1)}k` : stepGoal}
+            </Text>
+          </View>
+          <Text className="text-white text-3xl font-semibold mt-1">{displaySteps.toLocaleString()}</Text>
+          <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
+            STEPS
+          </Text>
+          <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
+            <View className="h-full bg-[#C3F400] rounded-full" style={{ width: `${Math.min((displaySteps / stepGoal) * 100, 100)}%` }} />
+          </View>
+        </Pressable>
+
+        <Pressable onPress={() => router.push('/(customer)/fitness/water')} className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4 active:opacity-80">
+          <View className="w-8 h-8 rounded-full bg-[#00DBE7]/10 items-center justify-center mb-2">
+            <Drop size={20} color="#00DBE7" weight="fill" />
+          </View>
+          <Text className="text-white text-3xl font-semibold mt-1">{(waterTotal / 1000).toFixed(1)}</Text>
+          <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
+            WATER (LITERS)
+          </Text>
+          <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
+            <View className="h-full bg-[#00DBE7] rounded-full" style={{ width: `${Math.min((waterTotal / waterGoal) * 100, 100)}%` }} />
+          </View>
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push('/(customer)/streak-details')}
+          className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4 active:opacity-80"
+        >
+          <View className="w-8 h-8 rounded-full bg-[#FB923C]/10 items-center justify-center mb-2">
+            <Lightning size={20} color="#FB923C" weight="fill" />
+          </View>
+          <Text className="text-white text-3xl font-semibold mt-1">{streakData?.currentStreak || 0}</Text>
+          <Text className="text-[#8E8E8E] text-[11px] font-semibold tracking-wider mt-1">
+            WORKOUT STREAK
+          </Text>
+          <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
+            <View className="h-full bg-[#FB923C] rounded-full" style={{ width: `${Math.min(((streakData?.currentStreak || 0) / 7) * 100, 100)}%` }} />
+          </View>
+        </Pressable>
+      </View>
+
+      <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4">
+        <View className="flex-row items-center justify-between mb-4">
+          <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider">
+            WEEKLY PROGRESS
+          </Text>
+          <Pressable onPress={() => router.push('/(customer)/progress/weekly-progress')} className="flex-row items-center gap-1 active:opacity-80">
+            <Text className="text-[#8E8E93] text-xs font-medium">View All</Text>
+            <ArrowRight size={13} color="#8E8E93" />
+          </Pressable>
+        </View>
+
+        <View className="flex-row items-end justify-between">
+          <View className="justify-end mb-2">
+            <View className="flex-row items-baseline">
+              <Text className="text-white text-4xl font-semibold">{overallCompletion}</Text>
+              <Text className="text-white text-xl font-semibold ml-0.5">%</Text>
+            </View>
+            <Text className="text-[#8E8E93] text-xs font-medium mt-1">Completed</Text>
+          </View>
+
+          <View className="flex-row items-end gap-2.5">
+            {dynamicWeeklyBars.map((item, index) => (
+              <View key={index} className="items-center gap-2">
+                <View className="w-3.5 h-20 bg-[#1E1E1E] rounded-full justify-end overflow-hidden">
+                  <View
+                    className="w-full rounded-full"
+                    style={{
+                      height: `${item.height}%`,
+                      backgroundColor: item.height > 5 ? `rgba(196, 239, 0, ${Math.max(item.height / 100, 0.2)})` : '#2A2A2A',
+                    }}
+                  />
+                </View>
+                <Text className="text-[#8E8E93] text-[11px] font-semibold">{item.day}</Text>
               </View>
-              <Text className="text-[#8E8E93] text-[10px] font-semibold bg-[#1C1C1E] px-2 py-0.5 rounded-full">
-                /{stepGoal >= 1000 ? `${(stepGoal / 1000).toFixed(stepGoal % 1000 === 0 ? 0 : 1)}k` : stepGoal}
-              </Text>
-            </View>
-            <Text className="text-white text-3xl font-semibold mt-1">{displaySteps.toLocaleString()}</Text>
-            <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
-              STEPS
-            </Text>
-            <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
-              <View className="h-full bg-[#C3F400] rounded-full" style={{ width: `${Math.min((displaySteps / stepGoal) * 100, 100)}%` }} />
-            </View>
-          </Pressable>
+            ))}
+          </View>
+        </View>
+      </View>
 
-          <Pressable onPress={() => router.push('/(customer)/fitness/water')} className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4 active:opacity-80">
-            <View className="w-8 h-8 rounded-full bg-[#00DBE7]/10 items-center justify-center mb-2">
-              <Drop size={20} color="#00DBE7" weight="fill" />
+      <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 relative overflow-hidden flex-row items-center justify-between">
+        <View className="flex-1 z-10 py-1">
+          <View className="w-10 h-10 rounded-2xl bg-[#C0F905]/10 items-center justify-center mb-3">
+            <BowlFood size={22} color="#C0F905" weight="fill" />
+          </View>
+
+          <Text className="text-white text-2xl font-semibold tracking-tight mb-1">Today&apos;s Meal Plan</Text>
+
+          <Text className="text-[#8E8E93] text-[11px] font-medium mb-5">
+            Dinner  <Text className="text-[#C0F905]">●</Text>  Breakfast  <Text className="text-[#C0F905]">●</Text>  Lunch  <Text className="text-[#C0F905]">●</Text>  Snack  <Text className="text-[#C0F905]">●</Text>
+          </Text>
+
+          <View className="flex-row items-center gap-2 mb-6">
+            <View className="w-8 h-8 rounded-full border-2 border-[#C0F905] items-center justify-center">
+              <ForkKnife size={14} color="#C0F905" weight="fill" />
             </View>
-            <Text className="text-white text-3xl font-semibold mt-1">{(waterTotal / 1000).toFixed(1)}</Text>
-            <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-wider mt-1">
-              WATER (LITERS)
-            </Text>
-            <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
-              <View className="h-full bg-[#00DBE7] rounded-full" style={{ width: `${Math.min((waterTotal / waterGoal) * 100, 100)}%` }} />
+            <View className="flex-row items-baseline gap-1.5">
+              <Text className="text-[#C0F905] text-lg font-semibold">3</Text>
+              <Text className="text-[#8E8E93] text-xs font-medium">of <Text className="text-[#D4D4D4] font-semibold text-sm">4</Text> meals planned</Text>
             </View>
-          </Pressable>
+          </View>
 
           <Pressable
-            onPress={() => router.push('/(customer)/streak-details')}
-            className="w-[48.5%] bg-[#141414] border border-[#222222] rounded-3xl p-4 active:opacity-80"
-          >
-            <View className="w-8 h-8 rounded-full bg-[#FB923C]/10 items-center justify-center mb-2">
-              <Lightning size={20} color="#FB923C" weight="fill" />
-            </View>
-            <Text className="text-white text-3xl font-semibold mt-1">{streakData?.currentStreak || 0}</Text>
-            <Text className="text-[#8E8E8E] text-[11px] font-semibold tracking-wider mt-1">
-              WORKOUT STREAK
-            </Text>
-            <View className="w-full h-1 bg-[#262626] rounded-full overflow-hidden mt-3">
-              <View className="h-full bg-[#FB923C] rounded-full" style={{ width: `${Math.min(((streakData?.currentStreak || 0) / 7) * 100, 100)}%` }} />
-            </View>
+            // @ts-ignore
+            onPress={() => router.push('/(customer)/nutrition')}
+            className="bg-[#C4EF00] rounded-xl py-3 px-5 flex-row items-center justify-center self-start active:opacity-90">
+            <Text className="text-black font-semibold text-sm mr-2">View Meal Plan</Text>
+            <ArrowRight size={16} color="#000000" />
           </Pressable>
         </View>
 
-        <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4">
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-[#D7FF00] text-[11px] font-semibold tracking-wider">
-              WEEKLY PROGRESS
-            </Text>
-            <Pressable onPress={() => router.push('/(customer)/progress/weekly-progress')} className="flex-row items-center gap-1 active:opacity-80">
-              <Text className="text-[#8E8E93] text-xs font-medium">View All</Text>
-              <ArrowRight size={13} color="#8E8E93" />
-            </Pressable>
-          </View>
-
-          <View className="flex-row items-end justify-between">
-            <View className="justify-end mb-2">
-              <View className="flex-row items-baseline">
-                <Text className="text-white text-4xl font-semibold">{overallCompletion}</Text>
-                <Text className="text-white text-xl font-semibold ml-0.5">%</Text>
-              </View>
-              <Text className="text-[#8E8E93] text-xs font-medium mt-1">Completed</Text>
-            </View>
-
-            <View className="flex-row items-end gap-2.5">
-              {dynamicWeeklyBars.map((item, index) => (
-                <View key={index} className="items-center gap-2">
-                  <View className="w-3.5 h-20 bg-[#1E1E1E] rounded-full justify-end overflow-hidden">
-                    <View
-                      className="w-full rounded-full"
-                      style={{
-                        height: `${item.height}%`,
-                        backgroundColor: item.height > 5 ? `rgba(196, 239, 0, ${Math.max(item.height / 100, 0.2)})` : '#2A2A2A',
-                      }}
-                    />
-                  </View>
-                  <Text className="text-[#8E8E93] text-[11px] font-semibold">{item.day}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
+        <View className="absolute -right-24 top-0 bottom-0 justify-center">
+          <Image
+            source={require('../../assets/home_diet_image.png')}
+            style={{ width: 280, height: 280 }}
+            resizeMode="contain"
+          />
         </View>
-
-        <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 relative overflow-hidden flex-row items-center justify-between">
-          <View className="flex-1 z-10 py-1">
-            <View className="w-10 h-10 rounded-2xl bg-[#C0F905]/10 items-center justify-center mb-3">
-              <BowlFood size={22} color="#C0F905" weight="fill" />
-            </View>
-
-            <Text className="text-white text-2xl font-semibold tracking-tight mb-1">Today&apos;s Meal Plan</Text>
-
-            <Text className="text-[#8E8E93] text-[11px] font-medium mb-5">
-              Dinner  <Text className="text-[#C0F905]">●</Text>  Breakfast  <Text className="text-[#C0F905]">●</Text>  Lunch  <Text className="text-[#C0F905]">●</Text>  Snack  <Text className="text-[#C0F905]">●</Text>
-            </Text>
-
-            <View className="flex-row items-center gap-2 mb-6">
-              <View className="w-8 h-8 rounded-full border-2 border-[#C0F905] items-center justify-center">
-                <ForkKnife size={14} color="#C0F905" weight="fill" />
-              </View>
-              <View className="flex-row items-baseline gap-1.5">
-                <Text className="text-[#C0F905] text-lg font-semibold">3</Text>
-                <Text className="text-[#8E8E93] text-xs font-medium">of <Text className="text-[#D4D4D4] font-semibold text-sm">4</Text> meals planned</Text>
-              </View>
-            </View>
-
-            <Pressable
-              // @ts-ignore
-              onPress={() => router.push('/(customer)/nutrition')}
-              className="bg-[#C4EF00] rounded-xl py-3 px-5 flex-row items-center justify-center self-start active:opacity-90">
-              <Text className="text-black font-semibold text-sm mr-2">View Meal Plan</Text>
-              <ArrowRight size={16} color="#000000" />
-            </Pressable>
-          </View>
-
-          <View className="absolute -right-24 top-0 bottom-0 justify-center">
-            <Image
-              source={require('../../assets/home_diet_image.png')}
-              style={{ width: 280, height: 280 }}
-              resizeMode="contain"
-            />
-          </View>
-        </View>
+      </View>
     </ScrollView>
   );
 }

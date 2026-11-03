@@ -12,23 +12,67 @@ import { supabase } from '@/lib/supabase';
 import { Modal } from 'react-native';
 import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { matchesStrictMuscle } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
 
 export default function RecommendedExercisesScreen() {
-  const { category, filterTabs: filterTabsStr } = useLocalSearchParams<{ category: string, filterTabs?: string }>();
+  const { category, filterTabs: filterTabsStr, exploreCategory } = useLocalSearchParams<{ category: string, filterTabs?: string, exploreCategory?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { userId } = useUser();
+  const userContext = useUser();
+  const { userId } = userContext;
 
   const [activeCategory, setActiveCategory] = useState(category || 'All');
-  const filterTabs = filterTabsStr ? JSON.parse(filterTabsStr) : ['All', 'Chest', 'Back', 'Shoulders', 'Legs', 'Abs'];
+  const filterTabs: string[] = React.useMemo(() => {
+    if (filterTabsStr) {
+      try {
+        return JSON.parse(filterTabsStr);
+      } catch (e) {
+        // fallback
+      }
+    }
+    if (exploreCategory === 'Upper Body Workout') {
+      return ['All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Arms'];
+    }
+    if (exploreCategory === 'Lower Body Workout') {
+      return ['All', 'Legs', 'Calves', 'Hips'];
+    }
+    if (exploreCategory === 'Abs Workout') {
+      return ['All', 'Abs'];
+    }
+    return ['All', 'Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Calves', 'Abs'];
+  }, [filterTabsStr, exploreCategory]);
 
   const { data: customerProfileData } = useCustomerProfile(userId);
-  const userGender = customerProfileData?.customerData?.gender?.toLowerCase() || 'all';
+  const userGender = React.useMemo(() => {
+    const raw = (
+      (userContext.role === 'customer' ? customerProfileData?.customerData?.gender : null) ||
+      userContext.gender ||
+      customerProfileData?.customerData?.gender ||
+      'male'
+    ).toString().trim().toLowerCase();
+    return raw.includes('female') ? 'female' : 'male';
+  }, [userContext.role, userContext.gender, customerProfileData?.customerData?.gender]);
 
   const getWorkoutType = (cat: string) => {
     const c = cat.toLowerCase();
     if (c === 'shoulders') return 'shoulder';
     if (c === 'arms') return 'arms';
+    if (c === 'all') {
+      if (exploreCategory === 'Upper Body Workout') return 'upper body';
+      if (exploreCategory === 'Lower Body Workout') return 'lower body';
+      if (exploreCategory === 'Abs Workout') return 'abs';
+      if (exploreCategory === 'Full Body Workout') return 'full body';
+      if (filterTabs && filterTabs.length > 0 && !filterTabs.includes('Legs') && filterTabs.includes('Chest')) {
+        return 'upper body';
+      }
+      if (filterTabs && filterTabs.length > 0 && filterTabs.includes('Legs') && !filterTabs.includes('Chest')) {
+        return 'lower body';
+      }
+      if (filterTabs && filterTabs.length > 0 && filterTabs.includes('Abs') && filterTabs.length <= 2) {
+        return 'abs';
+      }
+      return 'all';
+    }
     return c;
   };
 
@@ -38,11 +82,64 @@ export default function RecommendedExercisesScreen() {
   const allExercises = React.useMemo(() => {
     const uniqueRecommended: any[] = [];
     const seenNames = new Set<string>();
+
+    const isUpperCategory = exploreCategory === 'Upper Body Workout' || (filterTabs && !filterTabs.includes('Legs') && filterTabs.includes('Chest'));
+    const isLowerCategory = exploreCategory === 'Lower Body Workout' || (filterTabs && filterTabs.includes('Legs') && !filterTabs.includes('Chest'));
+    const isAbsCategory = exploreCategory === 'Abs Workout' || (filterTabs && filterTabs.includes('Abs') && filterTabs.length <= 2);
+
     for (const ex of rawExercises) {
       const name = ex.exerciseName || 'Workout Video';
-      if (!seenNames.has(name.toLowerCase())) {
-        seenNames.add(name.toLowerCase());
-        uniqueRecommended.push({ ...ex, exerciseName: name, category: activeCategory });
+      const lowerName = name.toLowerCase();
+      const videoUrl = (ex.videoUrl || '').toLowerCase();
+      const primaryMuscle = (ex.primaryMuscle || '').toLowerCase();
+
+      // Strict gender exclusion regex
+      if (userGender === 'male') {
+        if (/female|women|woman|\/female\/|_female|-female|female_/i.test(videoUrl)) continue;
+        if (/\(female\)|\(women\)|\(woman\)|female\s|women\s/i.test(lowerName)) continue;
+      } else {
+        if (/male|men|man|\/male\/|_male|-male|male_/i.test(videoUrl)) continue;
+        if (/\(male\)|\(men\)|\(man\)|male\s|men\s/i.test(lowerName)) continue;
+      }
+
+      // Strict category relevance check
+      if (activeCategory === 'All') {
+        if (isUpperCategory) {
+          if (matchesStrictMuscle(name, primaryMuscle, 'legs') ||
+              matchesStrictMuscle(name, primaryMuscle, 'calves') ||
+              matchesStrictMuscle(name, primaryMuscle, 'hips') ||
+              matchesStrictMuscle(name, primaryMuscle, 'abs')) {
+            continue;
+          }
+        } else if (isLowerCategory) {
+          if (matchesStrictMuscle(name, primaryMuscle, 'chest') ||
+              matchesStrictMuscle(name, primaryMuscle, 'back') ||
+              matchesStrictMuscle(name, primaryMuscle, 'shoulder') ||
+              matchesStrictMuscle(name, primaryMuscle, 'arms') ||
+              matchesStrictMuscle(name, primaryMuscle, 'biceps') ||
+              matchesStrictMuscle(name, primaryMuscle, 'triceps') ||
+              matchesStrictMuscle(name, primaryMuscle, 'abs')) {
+            continue;
+          }
+        } else if (isAbsCategory) {
+          if (!matchesStrictMuscle(name, primaryMuscle, 'abs')) {
+            continue;
+          }
+        }
+      } else {
+        const normTarget = activeCategory.toLowerCase().trim();
+        if (!matchesStrictMuscle(name, primaryMuscle, normTarget)) {
+          continue;
+        }
+      }
+
+      if (!seenNames.has(lowerName)) {
+        seenNames.add(lowerName);
+        uniqueRecommended.push({
+          ...ex,
+          exerciseName: name,
+          category: ex.primaryMuscle ? (ex.primaryMuscle.charAt(0).toUpperCase() + ex.primaryMuscle.slice(1)) : activeCategory
+        });
       }
     }
 
@@ -54,7 +151,7 @@ export default function RecommendedExercisesScreen() {
       }
       return { ...ex, video: videoSource || ex.video || null, reps: 'Follow along' };
     });
-  }, [rawExercises, activeCategory]);
+  }, [rawExercises, activeCategory, userGender, exploreCategory, filterTabs]);
 
   const [savedWorkouts, setSavedWorkouts] = useState<Record<string, boolean>>({});
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
@@ -158,14 +255,14 @@ export default function RecommendedExercisesScreen() {
   );
 
   return (
-    <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-[#0F0F0F]">
       {/* Header */}
       <View className="flex-row items-center px-5 py-4 border-b border-[#27272A]">
         <Pressable onPress={() => router.back()} className="mr-4 active:opacity-70 p-2 bg-[#1A1A1A] rounded-full">
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
         <Text className="text-white text-xl font-semibold flex-1">
-          Recommended {category !== 'All' ? category : ''}
+          {exploreCategory ? `${exploreCategory}` : `Recommended ${category !== 'All' ? category : ''}`}
         </Text>
       </View>
 
@@ -220,7 +317,7 @@ export default function RecommendedExercisesScreen() {
       ) : allExercises.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-[#8E8E8E] text-center leading-5 text-base">
-            No recommended exercises found for {category}.
+            No recommended exercises found for {activeCategory !== 'All' ? activeCategory : (exploreCategory || category)}.
           </Text>
         </View>
       ) : (

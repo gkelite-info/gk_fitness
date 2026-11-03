@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { ArrowLeft, CaretRight, Calendar, Lightbulb } from 'phosphor-react-native';
 import { useWorkoutPlan } from './_layout';
 import { useWorkouts } from '@/hooks/workouts/useWorkouts';
@@ -10,11 +10,13 @@ export default function AssignDays() {
   const { selectedDays, planDays, setPlanDays, planMode, currentEditingWeek, setCurrentEditingWeek } = useWorkoutPlan();
   const { data: dbWorkouts } = useWorkouts();
 
-  useEffect(() => {
-    if (selectedDays.length === 0) {
-      router.replace('/(customer)/workoutPlan' as any);
-    }
-  }, [selectedDays]);
+  useFocusEffect(
+    useCallback(() => {
+      if (selectedDays.length === 0) {
+        router.replace('/(customer)/workoutPlan' as any);
+      }
+    }, [selectedDays.length])
+  );
 
   const handleSelectDay = (day: string) => {
     try {

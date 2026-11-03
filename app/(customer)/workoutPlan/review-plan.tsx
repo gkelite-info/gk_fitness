@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import React, { useState } from 'react';
 import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
@@ -63,6 +64,9 @@ const ALL_DAYS = [
         const planId = newPlan.planId;
 
         const weeksToSave = [1, 2, 3, 4];
+        const daysToInsert: any[] = [];
+        const exercisesToInsert: any[] = [];
+        const now = new Date().toISOString();
 
         for (const week of weeksToSave) {
           // If repeat mode, always pull from week 1 (or currentEditingWeek). If custom, pull from specific week.
@@ -80,33 +84,66 @@ const ALL_DAYS = [
               ? rawWorkoutId
               : null;
 
-            const insertedDay = await saveWorkoutPlanDay({
+            const planDayId = Crypto.randomUUID();
+
+            daysToInsert.push({
+              planDayId,
               planId,
               dayOfWeek: day,
               workoutType,
               workoutId: safeWorkoutId,
               durationMinutes,
               weekNumber: week,
+              createdAt: now,
+              updatedAt: now,
             });
-
-            if (!insertedDay) throw new Error(`Failed to create workout day record for ${day} week ${week}`);
 
             if (isWorkoutDay && dayPlan?.exercises && dayPlan.exercises.length > 0) {
               for (let idx = 0; idx < dayPlan.exercises.length; idx++) {
                 const ex = dayPlan.exercises[idx];
-                await saveWorkoutPlanDayExercise({
-                  planDayId: insertedDay.planDayId,
-                  workoutVideoId: ex.workoutVideoId || null,
+                const rawVideoId = ex.workoutVideoId;
+                const safeVideoId = (rawVideoId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawVideoId))
+                  ? rawVideoId
+                  : null;
+
+                exercisesToInsert.push({
+                  dayExerciseId: Crypto.randomUUID(),
+                  planDayId,
+                  workoutVideoId: safeVideoId,
                   exerciseName: ex.exerciseName || 'Exercise',
                   category: ex.category || 'General',
-                  sets: Number(ex.sets) || 3,
-                  reps: ex.reps?.toString() || '10-12',
+                  sets: Number(ex.sets) > 0 ? Number(ex.sets) : 3,
+                  reps: ex.reps?.toString().trim() || '10-12',
                   order: idx,
                   image: ex.image || null,
                   videoUrl: ex.videoUrl || null,
+                  createdAt: now,
+                  updatedAt: now,
                 });
               }
             }
+          }
+        }
+
+        // 1. Batch insert all 28 days in 1 network call
+        const { error: daysError } = await supabase
+          .from('workout_plan_days')
+          .insert(daysToInsert);
+
+        if (daysError) {
+          console.error('[ReviewPlan] Days insert error:', daysError);
+          throw daysError;
+        }
+
+        // 2. Batch insert all exercises in 1 network call
+        if (exercisesToInsert.length > 0) {
+          const { error: exError } = await supabase
+            .from('workout_plan_day_exercises')
+            .insert(exercisesToInsert);
+
+          if (exError) {
+            console.error('[ReviewPlan] Exercises insert error:', exError);
+            throw exError;
           }
         }
 

@@ -16,8 +16,10 @@ export default function SuccessPlan() {
 
   const handleStartWorkout = () => {
     try {
-      resetPlan();
       router.replace('/(customer)/workout' as any);
+      setTimeout(() => {
+        resetPlan();
+      }, 150);
     } catch (error) {
       console.error('[SuccessPlan] handleStartWorkout Error:', error);
     }
@@ -25,8 +27,10 @@ export default function SuccessPlan() {
 
   const handleViewMonthlyPlan = () => {
     try {
-      resetPlan();
       router.replace('/(customer)/weeklyWorkoutPlan' as any);
+      setTimeout(() => {
+        resetPlan();
+      }, 150);
     } catch (error) {
       console.error('[SuccessPlan] handleViewMonthlyPlan Error:', error);
     }

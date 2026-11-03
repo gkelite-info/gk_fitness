@@ -80,9 +80,6 @@ export default function Index() {
     }
   }
 
-  if (hasSelectedGym) {
-    return <Redirect href="/auth/otp-auth" />;
-  }
-
+  // In any situation where role is missing/undefined/unauthorized, strictly move to account-type
   return <Redirect href="/auth/account-type" />;
 }

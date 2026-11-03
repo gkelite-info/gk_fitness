@@ -63,7 +63,7 @@ export async function createUser(userData: CreateUserParams) {
     state: userData.state || null,
     city: userData.city || null,
     pincode: userData.pincode || null,
-    role: userData.role || 'customer',
+    role: userData.role || null,
     password: userData.password || null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -145,9 +145,9 @@ export async function getUserRole(userId: string, email?: string): Promise<strin
 
   if (error && !data) {
     console.error('[otpHelper] Error fetching user role:', error);
-    return 'superadmin';
+    return null;
   }
-  return data?.role || 'superadmin';
+  return data?.role || null;
 }
 
 export function isAllowedForOwnerLogin(role: string | null): boolean {
@@ -170,8 +170,11 @@ export function navigateBasedOnRole(role: string | null) {
     router.replace('/(doctor)/patients');
   } else if (normalizedRole === 'trainer' || normalizedRole === 'globaltrainer') {
     router.replace('/(trainer)/home' as any);
-  } else {
+  } else if (normalizedRole === 'individual' || normalizedRole === 'customer') {
     router.replace('/(customer)/home');
+  } else {
+    // In any situation, do not fall back to customer. Strictly move to account-type!
+    router.replace('/auth/account-type');
   }
 }
 

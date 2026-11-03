@@ -83,7 +83,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
   const insets = useSafeAreaInsets();
   const { name, email, role, profilePhoto, gymId: contextGymId, userId } = useUser();
 
-  const normalizedRole = (role || 'customer').trim().toLowerCase().replace(/[\s_-]/g, '');
+  const normalizedRole = (role || '').trim().toLowerCase().replace(/[\s_-]/g, '');
   const isGlobalOrSuperAdmin = ['superadmin', 'globaltrainer', 'individual'].includes(normalizedRole);
 
   const { data: resolvedGymId } = useQuery({
@@ -287,7 +287,7 @@ export function HamburgerMenu({ visible, onClose }: HamburgerMenuProps) {
   };
 
   const getMenuSections = (): MenuSection[] => {
-    const userRole = (role || 'customer').toLowerCase().replace(/[\s_-]/g, '');
+    const userRole = (role || '').toLowerCase().replace(/[\s_-]/g, '');
 
     if (userRole === 'owner') {
       return [

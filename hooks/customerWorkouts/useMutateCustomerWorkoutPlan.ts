@@ -1,3 +1,5 @@
+import { softDeleteEntireCustomerPlan } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
+import { useUser } from '@/context/UserContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { saveWorkoutPlanDayExercise, deleteWorkoutPlanDayExercise } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 import { saveWorkoutPlanDay } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
@@ -92,6 +94,7 @@ export function useSwapWorkoutDays() {
             workoutType: targetData.workoutType,
             workoutId: targetData.workoutId,
             durationMinutes: targetData.durationMinutes,
+            weekNumber: sourceData.weekNumber || 1,
           });
 
           await saveWorkoutPlanDay({
@@ -100,6 +103,7 @@ export function useSwapWorkoutDays() {
             workoutType: sourceData.workoutType,
             workoutId: sourceData.workoutId,
             durationMinutes: sourceData.durationMinutes,
+            weekNumber: targetData.weekNumber || 1,
           });
 
           for (const ex of sourceExs) {
@@ -120,6 +124,7 @@ export function useSwapWorkoutDays() {
             workoutType: sourceData.workoutType,
             workoutId: sourceData.workoutId,
             durationMinutes: sourceData.durationMinutes,
+            weekNumber: sourceData.weekNumber || 1,
           });
 
           await saveWorkoutPlanDay({
@@ -147,6 +152,7 @@ export function useSwapWorkoutDays() {
             workoutType: targetData.workoutType,
             workoutId: targetData.workoutId,
             durationMinutes: targetData.durationMinutes,
+            weekNumber: targetData.weekNumber || 1,
           });
 
           await saveWorkoutPlanDay({
@@ -174,3 +180,25 @@ export function useSwapWorkoutDays() {
   });
 }
 
+
+
+export function useResetCustomerWorkoutPlan() {
+  const queryClient = useQueryClient();
+  const { userId } = useUser();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!userId) throw new Error('User not authenticated');
+      return await softDeleteEntireCustomerPlan(userId);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] }),
+        queryClient.invalidateQueries({ queryKey: ['customerWeeklyPlan'] }),
+        queryClient.invalidateQueries({ queryKey: ['customerWorkoutPlans'] }),
+        queryClient.invalidateQueries({ queryKey: ['workoutPlanDay'] }),
+        queryClient.invalidateQueries({ queryKey: ['workoutPlanDayExercises'] }),
+      ]);
+    },
+  });
+}

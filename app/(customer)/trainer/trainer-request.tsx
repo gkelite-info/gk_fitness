@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CaretLeft, CaretRight, Hourglass, Record, User, CalendarBlank, FileText, Bell, Trash, Warning, CheckCircle,
-  Lightning, Fire, Clock, PaperPlaneRight, ClipboardText, CreditCard, Tag, ShieldCheck
+  Lightning, Fire, Clock, PaperPlaneRight, ClipboardText, CreditCard, Tag, ShieldCheck, Globe, ArrowSquareOut
 } from 'phosphor-react-native';
 import { useTrainerStore } from '@/constants/trainerStore';
 import { useUser } from '@/context/UserContext';
@@ -57,7 +57,6 @@ export default function TrainerRequestScreen() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [paidPaymentInfo, setPaidPaymentInfo] = useState<{ paymentId: string; amount: number; method: string } | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -123,13 +122,28 @@ export default function TrainerRequestScreen() {
       'Trainer'
     );
 
-  // Query payments for individual customer
+  // Query payments for individual customer from individual_customer_trainer_payments
   const { data: userPayments } = useIndividualCustomerPayments(
     userId || undefined,
     targetTrainerId ? (targetTrainerId as string) : undefined,
     { enabled: isIndividual && !!userId }
   );
+  const successfulPayment = useMemo(() => {
+    if (!userPayments || userPayments.length === 0) return null;
+    return userPayments.find(p => p.status === 'successful') || null;
+  }, [userPayments]);
   const latestPayment = userPayments?.[0];
+
+  useEffect(() => {
+    if (activeIndividualAssignment) {
+      if (selectedDays.length === 0 && activeIndividualAssignment.weekDays && activeIndividualAssignment.weekDays.length > 0) {
+        setSelectedDays(activeIndividualAssignment.weekDays);
+      }
+      if (!selectedTime && activeIndividualAssignment.timings) {
+        setSelectedTime(activeIndividualAssignment.timings);
+      }
+    }
+  }, [activeIndividualAssignment]);
 
   useEffect(() => {
     if (!isIndividual && activeRequest?.applicationStatus === 'submitted' && step === 'form') {
@@ -210,11 +224,18 @@ export default function TrainerRequestScreen() {
     router.replace('/(customer)/profile');
   };
 
-  const openWebCheckout = async () => {
+  const openWebCheckout = async (trainerIdOverride?: string) => {
     triggerMediumHaptic();
     setIsProcessingPayment(true);
-    const anyTrainer = trainer as any;
-    const resolvedTrainerId = id || targetTrainerId || anyTrainer?.globalTrainerId || anyTrainer?.id;
+    const resolvedTrainerId =
+      trainerIdOverride ||
+      id ||
+      targetTrainerId ||
+      activeIndividualAssignment?.globalTrainerId ||
+      parsedTrainer?.globalTrainerId ||
+      parsedTrainer?.id ||
+      (trainer as any)?.globalTrainerId ||
+      (trainer as any)?.id;
 
     try {
       let session = (await supabase.auth.getSession()).data.session;
@@ -278,59 +299,14 @@ export default function TrainerRequestScreen() {
         controlsColor: '#CCFF00',
       });
 
-      // Record booking & payment in DB after browser flow
-      if (userId && resolvedTrainerId) {
-        const txnId = `pay_web_${Date.now()}`;
-        try {
-          if (typeof saveIndividualCustomerPaymentMutation === 'function') {
-            await saveIndividualCustomerPaymentMutation({
-              userId,
-              globalTrainerId: resolvedTrainerId as string,
-              paymentMode: 'upi',
-              amountPaid: trainerFee,
-              transactionId: txnId,
-              status: 'successful',
-            });
-          }
-        } catch (payErr) {
-          console.warn('[TrainerRequest] Payment record notice:', payErr);
-        }
-
-        try {
-          const payload: SaveIndividualCustomerTrainerParams = {
-            userId,
-            globalTrainerId: resolvedTrainerId as string,
-            weekDays: selectedDays.length > 0 ? selectedDays : (activeIndividualAssignment?.weekDays || ['Mon', 'Wed', 'Fri']),
-            timings: selectedTime || activeIndividualAssignment?.timings || '6:00 AM',
-            assignedOn: null,
-            status: 'pending',
-            isActive: true,
-          };
-          if (typeof saveIndividualCustomerTrainerMutation === 'function') {
-            await saveIndividualCustomerTrainerMutation(payload);
-          }
-        } catch (saveErr) {
-          console.warn('[TrainerRequest] Assignment record notice:', saveErr);
-        }
-
-        setPaidPaymentInfo({
-          paymentId: txnId,
-          amount: trainerFee,
-          method: 'upi',
-        });
-      }
-
-      try {
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
-          queryClient.invalidateQueries({ queryKey: ['individualCustomerTrainers'] }),
-          queryClient.invalidateQueries({ queryKey: ['individualCustomerPayments'] }),
-          queryClient.invalidateQueries({ queryKey: ['customerProfile'] }),
-          queryClient.invalidateQueries({ queryKey: ['assignedTrainers'] }),
-        ]);
-      } catch (invErr) {
-        console.warn('[TrainerRequest] Query invalidation warning:', invErr);
-      }
+      // User returned from browser. Invalidate to check payments from web!
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['individualCustomerPayments'] }),
+        queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
+        queryClient.invalidateQueries({ queryKey: ['individualCustomerTrainers'] }),
+        queryClient.invalidateQueries({ queryKey: ['customerProfile'] }),
+        queryClient.invalidateQueries({ queryKey: ['assignedTrainers'] }),
+      ]);
 
       setStep('pending');
     } catch (err) {
@@ -348,57 +324,95 @@ export default function TrainerRequestScreen() {
     }
   };
 
-  const confirmAndSend = async () => {
-    const anyTrainer = trainer as any;
-    const resolvedTrainerId = id || targetTrainerId || anyTrainer?.globalTrainerId || anyTrainer?.gymTrainerId || anyTrainer?.id;
-
-    if (!userId || !resolvedTrainerId) {
-      console.warn('[TrainerRequest] Missing required credentials. userId:', userId, 'targetTrainerId:', resolvedTrainerId);
-      setShowConfirmModal(false);
+  const handleAssignAndOpenWeb = async () => {
+    if (!userId) {
+      Alert.alert('Login Required', 'Please log in to continue.');
       return;
     }
 
-    if (isIndividual) {
-      setShowConfirmModal(false);
-      if (trainerFee > 0) {
-        await openWebCheckout();
-        return;
-      }
+    const resolvedTrainerId =
+      id ||
+      targetTrainerId ||
+      activeIndividualAssignment?.globalTrainerId ||
+      parsedTrainer?.globalTrainerId ||
+      parsedTrainer?.id ||
+      (trainer as any)?.globalTrainerId ||
+      (trainer as any)?.id;
 
-      // Free / zero price booking
+    if (!resolvedTrainerId) {
+      Alert.alert('Trainer Not Found', 'Could not determine trainer details. Please select a trainer again.');
+      return;
+    }
+
+    triggerMediumHaptic();
+    setIsProcessingPayment(true);
+
+    try {
+      // 1. Assign trainer in individual_customer_trainers table with status 'pending'
+      const days = selectedDays.length > 0 ? selectedDays : (activeIndividualAssignment?.weekDays || ['Mon', 'Wed', 'Fri']);
+      const timeSlot = selectedTime || activeIndividualAssignment?.timings || '6:00 AM';
+
       const payload: SaveIndividualCustomerTrainerParams = {
         userId,
         globalTrainerId: resolvedTrainerId as string,
-        weekDays: selectedDays,
-        timings: selectedTime,
+        weekDays: days,
+        timings: timeSlot,
         assignedOn: null,
         status: 'pending',
         isActive: true,
       };
 
-      try {
-        if (typeof saveIndividualCustomerTrainerMutation === 'function') {
-          await saveIndividualCustomerTrainerMutation(payload);
-        }
-      } catch (error: any) {
-        console.warn('[TrainerRequest] saveIndividualCustomerTrainer warning:', error);
-      }
-    } else {
-      setShowConfirmModal(false);
-      const payload = {
-        requestedBy: userId,
-        gymTrainerId: resolvedTrainerId as string,
-        preferredWorkoutDays: selectedDays,
-        preferredWorkoutTime: selectedTime
-      };
+      await saveIndividualCustomerTrainerMutation(payload);
 
-      try {
-        if (typeof saveTrainerRequest === 'function') {
-          await saveTrainerRequest(payload);
-        }
-      } catch (error: any) {
-        console.warn('[TrainerRequest] saveTrainerRequest warning:', error);
+      // Invalidate queries so the assignment is immediately reflected
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
+        queryClient.invalidateQueries({ queryKey: ['individualCustomerTrainers'] }),
+        queryClient.invalidateQueries({ queryKey: ['customerProfile'] }),
+      ]);
+
+      // Move to pending state
+      setStep('pending');
+
+      // 2. Open web portal via SSO for payment
+      await openWebCheckout(resolvedTrainerId as string);
+    } catch (err: any) {
+      console.error('[TrainerRequest] handleAssignAndOpenWeb error:', err);
+      Alert.alert('Error', err?.message || 'Could not complete trainer assignment.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const confirmAndSend = async () => {
+    setShowConfirmModal(false);
+
+    if (isIndividual) {
+      await handleAssignAndOpenWeb();
+      return;
+    }
+
+    const anyTrainer = trainer as any;
+    const resolvedTrainerId = id || targetTrainerId || anyTrainer?.globalTrainerId || anyTrainer?.gymTrainerId || anyTrainer?.id;
+
+    if (!userId || !resolvedTrainerId) {
+      console.warn('[TrainerRequest] Missing required credentials. userId:', userId, 'targetTrainerId:', resolvedTrainerId);
+      return;
+    }
+
+    const payload = {
+      requestedBy: userId,
+      gymTrainerId: resolvedTrainerId as string,
+      preferredWorkoutDays: selectedDays,
+      preferredWorkoutTime: selectedTime
+    };
+
+    try {
+      if (typeof saveTrainerRequest === 'function') {
+        await saveTrainerRequest(payload);
       }
+    } catch (error: any) {
+      console.warn('[TrainerRequest] saveTrainerRequest warning:', error);
     }
 
     await Promise.all([
@@ -553,7 +567,7 @@ export default function TrainerRequestScreen() {
 
   if (step === 'form') {
     return (
-      <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
+      <View className="flex-1 bg-[#0F0F0F]">
         <View className="flex-row items-center px-4 py-3 border-b border-[#1A1A1A]">
           <Pressable onPress={handleBack} className="p-2 -ml-2 active:opacity-70">
             <CaretLeft size={20} color="#FFFFFF" weight="bold" />
@@ -562,7 +576,6 @@ export default function TrainerRequestScreen() {
         </View>
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
-          {/* Trainer Info Header Card */}
           <View className="bg-[#1A1A1A] border border-[#27272A] rounded-2xl p-4 flex-row items-center mt-4 mb-5">
             <StaticAvatar
               uri={trainerProfilePic}
@@ -729,54 +742,49 @@ export default function TrainerRequestScreen() {
               </View>
             )
           )}
-        </ScrollView>
-
-        {/* Fixed bottom action button */}
-        <View
-          className="absolute bottom-0 left-0 right-0 p-4 bg-[#0F0F0F]/95 border-t border-[#1A1A1A]"
-          style={{ paddingBottom: Math.max(insets.bottom, 16) }}
-        >
-          <Pressable
-            onPress={() => {
-              if (selectedDays.length > 0 && selectedTime) {
-                if (isIndividual && trainerFee > 0) {
-                  openWebCheckout();
-                } else {
+          <View
+            className="mt-2 p-4 px-0 bg-[#0F0F0F]/95 border-t border-[#1A1A1A]"
+            style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+          >
+            <Pressable
+              onPress={() => {
+                if (selectedDays.length > 0 && selectedTime) {
                   setShowConfirmModal(true);
                 }
-              }
-            }}
-            disabled={selectedDays.length === 0 || !selectedTime || isSaving}
-            className={`flex-row justify-center items-center py-4 rounded-2xl active:opacity-80 ${selectedDays.length > 0 && selectedTime ? 'bg-[#CCFF00]' : 'bg-[#1A1A1A]'}`}
-          >
-            {isIndividual && trainerFee > 0 ? (
-              <>
-                <CreditCard size={20} color={selectedDays.length > 0 && selectedTime ? "#000000" : "#6C6C70"} weight="bold" />
-                <Text className={`font-semibold text-base ml-2 ${selectedDays.length > 0 && selectedTime ? 'text-black' : 'text-[#6C6C70]'}`}>
-                  {isProcessingPayment
-                    ? "Connecting Web Portal..."
-                    : (Platform.OS === 'ios' ? 'CONFIRM & MANAGE PLAN' : `PAY ₹${trainerFee} & ACTIVATE`)}
-                </Text>
-                <CaretRight size={16} color={selectedDays.length > 0 && selectedTime ? "#000000" : "#6C6C70"} weight="bold" style={{ marginLeft: 4 }} />
-              </>
-            ) : (
-              <>
-                <PaperPlaneRight size={20} color={selectedDays.length > 0 && selectedTime ? "#000000" : "#6C6C70"} weight="fill" />
-                <Text className={`font-semibold text-base ml-2 ${selectedDays.length > 0 && selectedTime ? 'text-black' : 'text-[#6C6C70]'}`}>
-                  {isSaving ? "Sending..." : "Send Request"}
-                </Text>
-              </>
+              }}
+              disabled={selectedDays.length === 0 || !selectedTime || isSaving || isProcessingPayment}
+              className={`flex-row justify-center items-center py-4 rounded-2xl active:opacity-80 ${selectedDays.length > 0 && selectedTime ? 'bg-[#CCFF00]' : 'bg-[#1A1A1A]'}`}
+            >
+              {isIndividual ? (
+                <>
+                  <Globe size={20} color={selectedDays.length > 0 && selectedTime ? "#000000" : "#6C6C70"} weight="bold" />
+                  <Text className={`font-semibold text-base ml-2 ${selectedDays.length > 0 && selectedTime ? 'text-black' : 'text-[#6C6C70]'}`}>
+                    {isProcessingPayment
+                      ? "Connecting Web Portal..."
+                      : (Platform.OS === 'ios' ? 'MANAGE ON WEB' : 'MANAGE ON WEB & PAY')}
+                  </Text>
+                  <ArrowSquareOut size={16} color={selectedDays.length > 0 && selectedTime ? "#000000" : "#6C6C70"} weight="bold" style={{ marginLeft: 6 }} />
+                </>
+              ) : (
+                <>
+                  <PaperPlaneRight size={20} color={selectedDays.length > 0 && selectedTime ? "#000000" : "#6C6C70"} weight="fill" />
+                  <Text className={`font-semibold text-base ml-2 ${selectedDays.length > 0 && selectedTime ? 'text-black' : 'text-[#6C6C70]'}`}>
+                    {isSaving ? "Sending..." : "Send Request"}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+
+            {isIndividual && (
+              <Text className="text-[#8E8E93] text-[11px] text-center mt-2 leading-4">
+                {Platform.OS === 'ios'
+                  ? "Assign coach and manage your training subscription securely on our web portal."
+                  : "Assign coach and complete payment securely on our web portal."}
+              </Text>
             )}
-          </Pressable>
+          </View>
+        </ScrollView>
 
-          {Platform.OS === 'ios' && isIndividual && trainerFee > 0 && (
-            <Text className="text-[#8E8E93] text-[11px] text-center mt-2 leading-4">
-              View and manage your training plan and coach assignment securely on our web portal.
-            </Text>
-          )}
-        </View>
-
-        {/* Confirmation Modal */}
         <Modal
           animationType="fade"
           transparent={true}
@@ -787,8 +795,8 @@ export default function TrainerRequestScreen() {
             <View className="bg-[#18181B] w-full max-w-[340px] rounded-3xl p-6 items-center border border-[#27272A] shadow-2xl">
               <View className="relative mb-4 mt-1">
                 <View className="w-18 h-18 rounded-full border-2 border-[#CCFF00] items-center justify-center bg-[#1A1A1A] p-4">
-                  {isIndividual && trainerFee > 0 ? (
-                    <CreditCard size={28} color="#CCFF00" weight="bold" />
+                  {isIndividual ? (
+                    <Globe size={28} color="#CCFF00" weight="bold" />
                   ) : (
                     <ClipboardText size={28} color="#CCFF00" weight="regular" />
                   )}
@@ -799,16 +807,14 @@ export default function TrainerRequestScreen() {
               </View>
 
               <Text className="text-white text-lg font-semibold text-center mb-1">
-                {isIndividual && trainerFee > 0
-                  ? (Platform.OS === 'ios' ? 'Manage Training Plan' : 'Activate Trainer Plan')
+                {isIndividual
+                  ? (Platform.OS === 'ios' ? 'Manage on Web' : 'Manage on Web & Pay')
                   : 'Send Trainer Request?'}
               </Text>
 
               <Text className="text-[#A1A1AA] text-xs text-center leading-5 mb-5 px-2">
-                {isIndividual && trainerFee > 0
-                  ? (Platform.OS === 'ios'
-                    ? `Continue to web portal to manage your schedule and training plan with ${nameToDisplay}.`
-                    : `Activate your training plan with ${nameToDisplay}.`)
+                {isIndividual
+                  ? `Assign ${nameToDisplay} as your personal coach and continue to the web portal to complete payment and manage training.`
                   : `You're about to send a request to ${nameToDisplay} to be your personal trainer.`}
               </Text>
 
@@ -844,17 +850,18 @@ export default function TrainerRequestScreen() {
 
               <Pressable
                 onPress={confirmAndSend}
-                disabled={isSaving}
-                className={`w-full py-3.5 rounded-2xl items-center flex-row justify-center mb-3 active:opacity-80 ${isSaving ? 'bg-[#CCFF00]/50' : 'bg-[#CCFF00]'}`}
+                disabled={isSaving || isProcessingPayment}
+                className={`w-full py-3.5 rounded-2xl items-center flex-row justify-center mb-3 active:opacity-80 ${(isSaving || isProcessingPayment) ? 'bg-[#CCFF00]/50' : 'bg-[#CCFF00]'}`}
               >
-                {isIndividual && trainerFee > 0 ? (
+                {isIndividual ? (
                   <>
-                    <CreditCard size={18} color="#000000" weight="bold" style={{ marginRight: 6 }} />
+                    <Globe size={18} color="#000000" weight="bold" style={{ marginRight: 6 }} />
                     <Text className="text-black font-semibold text-sm">
-                      {isSaving
+                      {isProcessingPayment
                         ? "Connecting Web Portal..."
-                        : (Platform.OS === 'ios' ? 'CONTINUE TO WEB PORTAL' : `ACTIVATE PLAN (₹${trainerFee})`)}
+                        : (Platform.OS === 'ios' ? 'MANAGE ON WEB' : 'MANAGE ON WEB & PAY')}
                     </Text>
+                    <ArrowSquareOut size={15} color="#000000" weight="bold" style={{ marginLeft: 4 }} />
                   </>
                 ) : (
                   <>
@@ -880,7 +887,7 @@ export default function TrainerRequestScreen() {
   }
 
   return (
-    <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-[#0F0F0F]">
       <View className="flex-row items-center px-4 py-3 border-b border-[#1A1A1A]">
         <Pressable onPress={handleBack} className="p-2 -ml-2 active:opacity-70">
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
@@ -905,57 +912,98 @@ export default function TrainerRequestScreen() {
             <View className="flex-row items-center justify-between pb-3 border-b border-[#27272A]">
               <View className="flex-row items-center">
                 <View className="w-10 h-10 rounded-xl bg-[#1C2307] items-center justify-center mr-3 border border-[#3E4C14]">
-                  <CreditCard size={20} color="#CCFF00" weight="fill" />
+                  {successfulPayment ? (
+                    <ShieldCheck size={20} color="#CCFF00" weight="fill" />
+                  ) : (
+                    <CreditCard size={20} color="#CCFF00" weight="fill" />
+                  )}
                 </View>
                 <View>
                   <Text className="text-[#8E8E93] text-[10px] font-semibold uppercase tracking-wider">
-                    {Platform.OS === 'ios' ? 'Training Access' : 'Trainer Plan'}
+                    {Platform.OS === 'ios' ? 'Training Access' : 'Trainer Subscription'}
                   </Text>
                   <Text className="text-white text-sm font-semibold">
-                    {latestPayment || paidPaymentInfo ? 'Verified Plan' : (Platform.OS === 'ios' ? 'Personal Coaching' : 'Online Payment')}
+                    {successfulPayment ? 'Plan Verified & Active' : (Platform.OS === 'ios' ? 'Personal Coaching' : 'Payment on Web')}
                   </Text>
                 </View>
               </View>
               {Platform.OS !== 'ios' && (
                 <View className="items-end">
                   <Text className="text-[#CCFF00] text-lg font-semibold">
-                    ₹{paidPaymentInfo?.amount ?? latestPayment?.amountPaid ?? (trainerFee > 0 ? trainerFee : 0)}
+                    ₹{successfulPayment?.amountPaid ?? (trainerFee > 0 ? trainerFee : 0)}
                   </Text>
                   <Text className="text-[#8E8E93] text-[10px]">Monthly Fee</Text>
                 </View>
               )}
             </View>
 
-            {latestPayment || paidPaymentInfo ? (
-              <View className="pt-3 flex-row items-center justify-between">
-                <View className="flex-row items-center">
-                  <ShieldCheck size={16} color="#34C759" weight="fill" style={{ marginRight: 5 }} />
-                  <Text className="text-[#34C759] text-xs font-semibold">Plan Verified & Active</Text>
+            {successfulPayment ? (
+              <View className="pt-3">
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="flex-row items-center">
+                    <ShieldCheck size={16} color="#34C759" weight="fill" style={{ marginRight: 5 }} />
+                    <Text className="text-[#34C759] text-xs font-semibold">
+                      {Platform.OS === 'ios'
+                        ? 'Coaching Plan Verified & Active'
+                        : `Payment Successful (${successfulPayment.paymentMode ? successfulPayment.paymentMode.toUpperCase() : 'ONLINE'})`}
+                    </Text>
+                  </View>
+                  <Text className="text-[#8E8E93] text-[10px]">
+                    {requestedDate}
+                  </Text>
                 </View>
-                <Text className="text-[#8E8E93] text-[10px]">
-                  {requestedDate}
-                </Text>
+
+                {successfulPayment.transactionId && Platform.OS !== 'ios' && (
+                  <View className="bg-[#1A1A1A] rounded-lg px-2.5 py-1.5 mb-3 border border-[#27272A] flex-row justify-between items-center">
+                    <Text className="text-[#8E8E93] text-[10px]">Transaction ID</Text>
+                    <Text className="text-white text-[10px] font-mono">{successfulPayment.transactionId}</Text>
+                  </View>
+                )}
+
+                <Pressable
+                  onPress={handleAssignAndOpenWeb}
+                  disabled={isProcessingPayment}
+                  className="bg-[#27272A] py-3 rounded-xl items-center flex-row justify-center active:opacity-80 border border-[#3E4C14]"
+                >
+                  <Globe size={16} color="#CCFF00" weight="bold" style={{ marginRight: 6 }} />
+                  <Text className="text-[#CCFF00] font-semibold text-xs uppercase tracking-wide mr-1">
+                    Manage on Web
+                  </Text>
+                  <ArrowSquareOut size={14} color="#CCFF00" weight="bold" />
+                </Pressable>
               </View>
             ) : (
               <View className="pt-3">
+                <View className="flex-row items-center mb-2">
+                  <Clock size={15} color="#FF9F0A" weight="bold" style={{ marginRight: 6 }} />
+                  <Text className="text-[#FF9F0A] text-xs font-semibold">
+                    Payment Pending on Web Portal
+                  </Text>
+                </View>
+
+                <Text className="text-[#8E8E93] text-[11px] leading-4 mb-3.5">
+                  Your trainer assignment is saved in our system. Please complete payment on the web portal to activate your personal training sessions.
+                </Text>
+
                 <Pressable
-                  onPress={openWebCheckout}
+                  onPress={handleAssignAndOpenWeb}
                   disabled={isProcessingPayment}
                   className={`bg-[#CCFF00] py-3.5 rounded-xl items-center flex-row justify-center active:opacity-80 ${isProcessingPayment ? 'opacity-70' : ''}`}
                 >
+                  <Globe size={18} color="#000000" weight="bold" style={{ marginRight: 6 }} />
                   <Text className="text-black font-semibold text-xs uppercase tracking-wide mr-1">
                     {isProcessingPayment
                       ? "Connecting Web Portal..."
-                      : (Platform.OS === 'ios' ? 'MANAGE TRAINING PLAN' : 'ACTIVATE TRAINING PLAN')}
+                      : "MANAGE ON WEB"}
                   </Text>
-                  <CaretRight size={14} color="#000000" weight="bold" />
+                  <ArrowSquareOut size={14} color="#000000" weight="bold" />
                 </Pressable>
 
-                {Platform.OS === 'ios' && (
-                  <Text className="text-[#8E8E93] text-[11px] text-center mt-2.5 leading-4">
-                    Manage your trainer plan and coach assignment securely on our web portal.
-                  </Text>
-                )}
+                <Text className="text-[#8E8E93] text-[11px] text-center mt-2.5 leading-4">
+                  {Platform.OS === 'ios'
+                    ? "Manage your trainer plan and coach assignment securely on our web portal."
+                    : "Complete subscription payment securely on our web portal via Razorpay."}
+                </Text>
               </View>
             )}
           </View>
@@ -1029,21 +1077,22 @@ export default function TrainerRequestScreen() {
             </View>
           </View>
         </View>
+
+        <View
+          className="mt-2 p-4 bg-[#0F0F0F]/95 border-t border-[#1A1A1A]"
+          style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+        >
+          <Pressable
+            onPress={() => setShowCancelModal(true)}
+            className="flex-row justify-center items-center py-4 border border-[#551818] rounded-2xl bg-[#1D0909] active:opacity-75"
+          >
+            <Trash size={18} color="#FF3B30" weight="bold" />
+            <Text className="text-[#FF3B30] font-semibold text-base ml-2">Cancel Request</Text>
+          </Pressable>
+        </View>
       </ScrollView>
 
       {/* Cancel Request bottom action bar */}
-      <View
-        className="absolute bottom-0 left-0 right-0 p-4 bg-[#0F0F0F]/95 border-t border-[#1A1A1A]"
-        style={{ paddingBottom: Math.max(insets.bottom, 16) }}
-      >
-        <Pressable
-          onPress={() => setShowCancelModal(true)}
-          className="flex-row justify-center items-center py-4 border border-[#551818] rounded-2xl bg-[#1D0909] active:opacity-75"
-        >
-          <Trash size={18} color="#FF3B30" weight="bold" />
-          <Text className="text-[#FF3B30] font-semibold text-base ml-2">Cancel Request</Text>
-        </Pressable>
-      </View>
 
       {/* Cancel Confirmation Modal */}
       <Modal

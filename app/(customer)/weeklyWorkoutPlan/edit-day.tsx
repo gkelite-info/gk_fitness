@@ -11,6 +11,7 @@ import { useWorkoutPlanDayById } from '@/hooks/customerWorkouts/useWorkoutPlanDa
 import { useWorkoutPlanDayExercises } from '@/hooks/customerWorkouts/useWorkoutPlanDayExercises';
 import { useSaveWorkoutDayExercises, useMakeRestDay } from '@/hooks/customerWorkouts/useMutateCustomerWorkoutPlan';
 import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
+import { matchesStrictMuscle } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
 import { supabase } from '@/lib/supabase';
 import ConfirmModal from '@/components/ConfirmModal';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
@@ -20,7 +21,11 @@ export default function EditWorkoutDay() {
   const { day, weekNumber } = useLocalSearchParams<{ day: string; weekNumber?: string }>();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { userId } = useUser();
+  const { userId, gender } = useUser();
+  const userGender = React.useMemo(() => {
+    const raw = (gender || 'male').toString().trim().toLowerCase();
+    return raw.includes('female') ? 'female' : 'male';
+  }, [gender]);
   const [dayInfo, setDayInfo] = useState<any>(null);
   const [exercises, setExercises] = useState<any[]>([]);
   const [deletedExerciseIds, setDeletedExerciseIds] = useState<string[]>([]);
@@ -48,7 +53,12 @@ export default function EditWorkoutDay() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const currentWorkoutType = dayData?.workoutType || 'all';
-  const { data: globalVideosData, isFetching: isFetchingSuggestions, refetch: refetchSuggestions } = useWorkoutVideos(page, limit, currentWorkoutType);
+  const { data: globalVideosData, isFetching: isFetchingSuggestions, refetch: refetchSuggestions } = useWorkoutVideos(
+    page,
+    limit,
+    currentWorkoutType,
+    userGender
+  );
 
   const queryClient = useQueryClient();
 
@@ -240,10 +250,14 @@ export default function EditWorkoutDay() {
         </View>
       ) : (
         <FlatList
-          data={accumulatedSuggestions.filter(ex =>
-            !exercises.some(e => e.exerciseName === ex.exerciseName) &&
-            (ex.exerciseName || '').toLowerCase().includes(searchQuery.toLowerCase())
-          )}
+          data={accumulatedSuggestions.filter(ex => {
+            if (exercises.some(e => e.exerciseName === ex.exerciseName)) return false;
+            if (searchQuery && !(ex.exerciseName || '').toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            if (currentWorkoutType && currentWorkoutType !== 'all' && currentWorkoutType.toLowerCase() !== 'rest') {
+              return matchesStrictMuscle(ex.exerciseName || '', ex.primaryMuscle, currentWorkoutType);
+            }
+            return true;
+          })}
           keyExtractor={(item) => item.workoutVideoId || Math.random().toString()}
           numColumns={2}
           columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 16 }}

@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, Plus, Check, MagnifyingGlass, ArrowsClockwise } from 'phosphor-react-native';
 import { useWorkoutPlan, ExerciseItem } from './_layout';
 import { useWorkoutPlanTargetExercises } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
+import { Video, ResizeMode } from '@/components/ui/Video';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 import { useUser } from '@/context/UserContext';
@@ -65,10 +66,22 @@ const ExerciseMediaItem = ({ videoUrl, muscleGroup, opacity = false }: { videoUr
 
   return (
     <View className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] overflow-hidden bg-black ${opacity ? 'opacity-70' : ''}`}>
-      <Image
-        source={exerciseImage}
+      <Video
+        source={{ uri: publicUrl }}
         style={{ width: '100%', height: '100%' }}
-        resizeMode="cover"
+        resizeMode={ResizeMode.COVER}
+        useNativeControls={false}
+        shouldPlay={true}
+        isLooping={true}
+        isMuted={true}
+        fallback={
+          <Image
+            source={exerciseImage}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        }
+        onError={() => setHasError(true)}
       />
     </View>
   );
@@ -99,7 +112,7 @@ export default function CustomizeWorkout() {
 
   const normalizedMuscleGroup = (muscleGroup || 'all').toLowerCase();
 
-  const [displayCount, setDisplayCount] = useState(20);
+  const [displayCount, setDisplayCount] = useState(12);
 
   const { data: cleanExercises = [], isLoading: isVideosLoading, isFetching } = useWorkoutPlanTargetExercises(
     normalizedMuscleGroup,
@@ -113,7 +126,7 @@ export default function CustomizeWorkout() {
   const hasMore = displayCount < cleanExercises.length;
 
   useEffect(() => {
-    setDisplayCount(20);
+    setDisplayCount(12);
     setSearchQuery('');
   }, [userGender, normalizedMuscleGroup]);
 
@@ -161,7 +174,7 @@ export default function CustomizeWorkout() {
       .filter(p => !p.isRecommended && !selectedExercises.some(ex => ex.exerciseName === p.name));
 
     if (!searchQuery) return others;
-    return others.filter(ex => ex.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    return others.filter(ex => ex.name.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 15);
   }, [cleanExercises, visibleExercises, searchQuery, selectedExercises, muscleGroup]);
 
   const isChecked = (name: string) => {
@@ -471,7 +484,7 @@ export default function CustomizeWorkout() {
               {hasMore && !searchQuery && (
                 <View className="py-4 items-center">
                   <Pressable
-                    onPress={() => setDisplayCount(prev => prev + 20)}
+                    onPress={() => setDisplayCount(prev => prev + 8)}
                     disabled={isFetching}
                     className="flex-row items-center gap-x-2 bg-[#141414] border border-[#2A2A2A] px-4 py-2.5 rounded-xl active:opacity-70"
                   >

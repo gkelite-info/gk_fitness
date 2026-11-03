@@ -57,13 +57,12 @@ export interface SaveGlobalTrainerParams {
 
 export const GLOBAL_TRAINER_SELECT = `
   *,
-  users:users!global_trainers_userId_fkey!inner (
+  users:users!global_trainers_userId_fkey (
     userId,
     name,
     email,
     phone,
     profilePhoto,
-    profilePic:profilePhoto,
     status,
     createdAt
   )
@@ -81,11 +80,27 @@ export async function fetchGlobalTrainers(searchQuery?: string) {
     query = query.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
   }
 
-  const { data, error } = await query;
+  let { data, error } = await query;
 
   if (error) {
-    console.error('[globalTrainerHelper] fetchGlobalTrainers Error:', error);
-    throw error;
+    console.warn('[globalTrainerHelper] fetchGlobalTrainers join failed, attempting fallback to simple select:', error.message || error);
+    let fallbackQuery = supabase
+      .from('global_trainers')
+      .select('*')
+      .eq('is_deleted', false)
+      .order('createdAt', { ascending: false });
+
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.trim();
+      fallbackQuery = fallbackQuery.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
+    }
+
+    const fallbackRes = await fallbackQuery;
+    if (fallbackRes.error) {
+      console.error('[globalTrainerHelper] fetchGlobalTrainers fallback Error:', fallbackRes.error);
+      throw fallbackRes.error;
+    }
+    data = fallbackRes.data;
   }
 
   return (data as any[])?.map((trainer: any) => {
@@ -93,8 +108,8 @@ export async function fetchGlobalTrainers(searchQuery?: string) {
     const userPic = userObj?.profilePic || userObj?.profilePhoto || null;
     return {
       ...trainer,
-      profilePic: userPic || trainer.profilePhoto || null,
-      profilePhoto: userPic || trainer.profilePhoto || null,
+      profilePic: trainer.profilePic || trainer.profilePhoto || userPic || null,
+      profilePhoto: trainer.profilePhoto || trainer.profilePic || userPic || null,
     };
   }) ?? [];
 }
@@ -126,11 +141,32 @@ export async function fetchGlobalTrainersPaginated(
 
   query = query.range(from, to);
 
-  const { data, count, error } = await query;
+  let { data, count, error } = await query;
 
   if (error) {
-    console.error('[globalTrainerHelper] fetchGlobalTrainersPaginated Error:', error);
-    throw error;
+    console.warn('[globalTrainerHelper] fetchGlobalTrainersPaginated join failed, attempting fallback:', error.message || error);
+    let fallbackQuery = supabase
+      .from('global_trainers')
+      .select('*', { count: 'exact' })
+      .eq('is_deleted', false);
+
+    if (statusFilter && statusFilter !== 'all') {
+      fallbackQuery = fallbackQuery.eq('isActive', statusFilter === 'active');
+    }
+
+    if (searchQuery) {
+      fallbackQuery = fallbackQuery.or(`fullName.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,mobile.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,state.ilike.%${searchQuery}%`);
+    }
+
+    fallbackQuery = fallbackQuery.order('createdAt', { ascending: sortOrder === 'oldest' }).range(from, to);
+
+    const fallbackRes = await fallbackQuery;
+    if (fallbackRes.error) {
+      console.error('[globalTrainerHelper] fetchGlobalTrainersPaginated fallback Error:', fallbackRes.error);
+      throw fallbackRes.error;
+    }
+    data = fallbackRes.data;
+    count = fallbackRes.count;
   }
 
   const mappedData = (data as any[])?.map((trainer: any) => {
@@ -138,8 +174,8 @@ export async function fetchGlobalTrainersPaginated(
     const userPic = userObj?.profilePic || userObj?.profilePhoto || null;
     return {
       ...trainer,
-      profilePic: userPic || trainer.profilePhoto || null,
-      profilePhoto: userPic || trainer.profilePhoto || null,
+      profilePic: trainer.profilePic || trainer.profilePhoto || userPic || null,
+      profilePhoto: trainer.profilePhoto || trainer.profilePic || userPic || null,
     };
   }) ?? [];
 
@@ -147,7 +183,7 @@ export async function fetchGlobalTrainersPaginated(
 }
 
 export async function fetchGlobalTrainerById(globalTrainerId: string) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('global_trainers')
     .select(GLOBAL_TRAINER_SELECT)
     .eq('globalTrainerId', globalTrainerId)
@@ -155,8 +191,19 @@ export async function fetchGlobalTrainerById(globalTrainerId: string) {
     .maybeSingle();
 
   if (error) {
-    console.error('[globalTrainerHelper] fetchGlobalTrainerById Error:', error);
-    throw error;
+    console.warn('[globalTrainerHelper] fetchGlobalTrainerById join failed, attempting fallback:', error.message || error);
+    const fallbackRes = await supabase
+      .from('global_trainers')
+      .select('*')
+      .eq('globalTrainerId', globalTrainerId)
+      .eq('is_deleted', false)
+      .maybeSingle();
+
+    if (fallbackRes.error) {
+      console.error('[globalTrainerHelper] fetchGlobalTrainerById fallback Error:', fallbackRes.error);
+      throw fallbackRes.error;
+    }
+    data = fallbackRes.data;
   }
 
   if (!data) return null;
@@ -165,13 +212,13 @@ export async function fetchGlobalTrainerById(globalTrainerId: string) {
   const userPic = userObj?.profilePic || userObj?.profilePhoto || null;
   return {
     ...data,
-    profilePic: userPic || (data as any).profilePhoto || null,
-    profilePhoto: userPic || (data as any).profilePhoto || null,
+    profilePic: (data as any).profilePic || (data as any).profilePhoto || userPic || null,
+    profilePhoto: (data as any).profilePhoto || (data as any).profilePic || userPic || null,
   };
 }
 
 export async function fetchGlobalTrainerByUserId(userId: string) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('global_trainers')
     .select(GLOBAL_TRAINER_SELECT)
     .eq('userId', userId)
@@ -179,8 +226,19 @@ export async function fetchGlobalTrainerByUserId(userId: string) {
     .maybeSingle();
 
   if (error) {
-    console.error('[globalTrainerHelper] fetchGlobalTrainerByUserId Error:', error);
-    throw error;
+    console.warn('[globalTrainerHelper] fetchGlobalTrainerByUserId join failed, attempting fallback:', error.message || error);
+    const fallbackRes = await supabase
+      .from('global_trainers')
+      .select('*')
+      .eq('userId', userId)
+      .eq('is_deleted', false)
+      .maybeSingle();
+
+    if (fallbackRes.error) {
+      console.error('[globalTrainerHelper] fetchGlobalTrainerByUserId fallback Error:', fallbackRes.error);
+      throw fallbackRes.error;
+    }
+    data = fallbackRes.data;
   }
 
   if (!data) return null;
@@ -189,8 +247,8 @@ export async function fetchGlobalTrainerByUserId(userId: string) {
   const userPic = userObj?.profilePic || userObj?.profilePhoto || null;
   return {
     ...data,
-    profilePic: userPic || (data as any).profilePhoto || null,
-    profilePhoto: userPic || (data as any).profilePhoto || null,
+    profilePic: (data as any).profilePic || (data as any).profilePhoto || userPic || null,
+    profilePhoto: (data as any).profilePhoto || (data as any).profilePic || userPic || null,
   };
 }
 

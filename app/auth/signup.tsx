@@ -24,7 +24,9 @@ import {
   UploadSimple,
   CalendarBlank,
   Crown,
-  ArrowSquareOut
+  ArrowSquareOut,
+  CheckCircle,
+  ShieldCheck
 } from 'phosphor-react-native';
 import { Country, State } from 'country-state-city';
 import * as ImagePicker from 'expo-image-picker';
@@ -39,6 +41,7 @@ import { useSaveIndividualCustomerPlan } from '@/hooks/individual/membership/ind
 import { useSaveIndividualCustomerPlanHistory } from '@/hooks/individual/membership/individualCustomerPlanHistories';
 import { useSaveUser } from '@/hooks/users';
 import { hashPassword } from '@/helpers/auth/passwordHelper';
+import { sendMobileRegistrationOtp, verifyMobileRegistrationOtp } from '@/helpers/sms/fast2smsHelper';
 import { ActionSheet } from '@/components/ActionSheet';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { toast } from '@/lib/toast';
@@ -198,6 +201,27 @@ export default function SignupScreen() {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [planModalVisible, setPlanModalVisible] = useState(false);
 
+  // Fast2SMS OTP States
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const pendingSignupRef = useRef(false);
+
+  useEffect(() => {
+    let timer: any;
+    if (otpCountdown > 0) {
+      timer = setTimeout(() => {
+        setOtpCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [otpCountdown]);
+
   const { data: rawSubscriptions, isLoading: isSubscriptionsLoading } = useSubscriptions(undefined, 'customer');
   const { mutateAsync: createUser, isPending: isCreateUserPending } = useCreateUser();
   const { mutateAsync: saveUserMutation, isPending: isSaveUserPending } = useSaveUser();
@@ -246,6 +270,9 @@ export default function SignupScreen() {
     // Allow user to clear input
     if (!cleaned) {
       setter('');
+      if (setter === setPhone) {
+        setIsPhoneVerified(false);
+      }
       return;
     }
 
@@ -263,6 +290,9 @@ export default function SignupScreen() {
     }
 
     setter(cleaned.slice(0, 10));
+    if (setter === setPhone) {
+      setIsPhoneVerified(false);
+    }
   };
 
   const pickImage = async () => {
@@ -301,98 +331,234 @@ export default function SignupScreen() {
     }
   };
 
-  const handleSignup = async () => {
+  const handleSendOtp = async (targetPhone?: string) => {
+    const rawNumber = targetPhone || phone;
+    const cleanNumber = (rawNumber || '').trim();
+    if (!cleanNumber) {
+      toast.error('Please enter a mobile number first.');
+      return false;
+    }
+    if (!/^[6-9]\d{9}$/.test(cleanNumber)) {
+      toast.error('Mobile number must start with 6, 7, 8, or 9 and be 10 digits.');
+      return false;
+    }
+
+    setIsSendingOtp(true);
+    try {
+      const res = await sendMobileRegistrationOtp({ phone: cleanNumber });
+      if (res.success) {
+        toast.success(res.message || 'OTP sent successfully!');
+        setOtpCountdown(30);
+        setOtpModalVisible(true);
+        return true;
+      } else {
+        toast.error(res.message || 'Failed to send OTP via Fast2SMS.');
+        return false;
+      }
+    } catch (err: any) {
+      console.error('[handleSendOtp] Error:', err);
+      toast.error(err?.message || 'Error triggering OTP. Check Fast2SMS API key.');
+      return false;
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode || otpCode.trim().length === 0) {
+      toast.error('Please enter the 6-digit OTP code.');
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    try {
+      const res = await verifyMobileRegistrationOtp(phone, otpCode.trim());
+      if (res.success) {
+        toast.success('Mobile number verified successfully!');
+        setIsPhoneVerified(true);
+        setOtpModalVisible(false);
+        setOtpCode('');
+
+        if (pendingSignupRef.current) {
+          pendingSignupRef.current = false;
+          await executeSignup();
+        }
+      } else {
+        toast.error(res.message || 'Invalid or expired OTP.');
+      }
+    } catch (err: any) {
+      console.error('[handleVerifyOtp] Error:', err);
+      toast.error(err?.message || 'Failed to verify OTP.');
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const validateSignupForm = (): boolean => {
     if (typeId === 'owner') {
       if (!fullName.trim()) {
         toast.error('Please enter Owner Name.');
-        return;
+        return false;
       }
       if (!email.trim()) {
         toast.error('Please enter Owner Email.');
-        return;
+        return false;
       }
       if (!phone.trim()) {
         toast.error('Please enter Owner Mobile Number.');
-        return;
+        return false;
       }
       if (!/^[6-9]\d{9}$/.test(phone.trim())) {
         toast.error('Owner Mobile Number must start with 6, 7, 8, or 9 and be 10 digits.');
-        return;
+        return false;
       }
       if (alternatePhone.trim() && !/^[6-9]\d{9}$/.test(alternatePhone.trim())) {
         toast.error('Owner Alternate Mobile Number must start with 6, 7, 8, or 9 and be 10 digits.');
-        return;
+        return false;
       }
       if (!address.trim()) {
         toast.error('Please enter Owner Address.');
-        return;
+        return false;
       }
       if (!pinCode.trim()) {
         toast.error('Please enter Owner PIN Code.');
-        return;
+        return false;
       }
       if (!gymName.trim()) {
         toast.error('Please enter Gym Name.');
-        return;
+        return false;
       }
       if (!gymEmail.trim()) {
         toast.error('Please enter Gym Email.');
-        return;
+        return false;
       }
       if (!gymMobile.trim()) {
         toast.error('Please enter Gym Mobile Number.');
-        return;
+        return false;
       }
       if (!/^[6-9]\d{9}$/.test(gymMobile.trim())) {
         toast.error('Gym Mobile Number must start with 6, 7, 8, or 9 and be 10 digits.');
-        return;
+        return false;
       }
       if (gymAlternateMobile.trim() && !/^[6-9]\d{9}$/.test(gymAlternateMobile.trim())) {
         toast.error('Gym Alternate Mobile Number must start with 6, 7, 8, or 9 and be 10 digits.');
-        return;
+        return false;
       }
       if (!gymAddress.trim()) {
         toast.error('Please enter Gym Address.');
-        return;
+        return false;
       }
       if (!country) {
         toast.error('Please select Gym Country.');
-        return;
+        return false;
       }
       if (!state) {
         toast.error('Please select Gym State.');
-        return;
+        return false;
       }
       if (!city.trim()) {
         toast.error('Please enter Gym City.');
-        return;
+        return false;
       }
       if (!gymPincode.trim()) {
         toast.error('Please enter Gym PIN Code.');
-        return;
+        return false;
       }
       if (!branches.trim()) {
         toast.error('Please enter Number of Branches.');
-        return;
+        return false;
       }
       if (!establishYear.trim()) {
         toast.error('Please enter Establish Year.');
-        return;
+        return false;
       }
       if (!password) {
         toast.error('Please enter Password.');
-        return;
+        return false;
       }
       if (!confirmPassword) {
         toast.error('Please enter Confirm Password.');
-        return;
+        return false;
       }
       if (password !== confirmPassword) {
         toast.error('Passwords do not match.');
-        return;
+        return false;
       }
-      setLoading(true);
-      try {
+      return true;
+    }
+
+    if (!fullName.trim()) {
+      toast.error('Please enter Full Name.');
+      return false;
+    }
+    if (!email.trim()) {
+      toast.error('Please enter Email.');
+      return false;
+    }
+    if (!phone.trim()) {
+      toast.error('Please enter Mobile Number.');
+      return false;
+    }
+    if (!/^[6-9]\d{9}$/.test(phone.trim())) {
+      toast.error('Mobile Number must start with 6, 7, 8, or 9 and be 10 digits.');
+      return false;
+    }
+    if (gender === 'Select gender' || !gender) {
+      toast.error('Please select Gender.');
+      return false;
+    }
+    if (typeId === 'individual' && !selectedPlanId) {
+      toast.error('Please select a Membership Plan.');
+      return false;
+    }
+    if (!dob || !dob.trim()) {
+      toast.error('Please select Date of Birth.');
+      return false;
+    }
+    if (!address.trim()) {
+      toast.error('Please enter Address.');
+      return false;
+    }
+    if (!country) {
+      toast.error('Please select Country.');
+      return false;
+    }
+    if (!state) {
+      toast.error('Please select State.');
+      return false;
+    }
+    if (!city.trim()) {
+      toast.error('Please enter City.');
+      return false;
+    }
+    if (!pinCode.trim()) {
+      toast.error('Please enter PIN Code.');
+      return false;
+    }
+    if (pinCode.trim().length !== 6) {
+      toast.error('PIN Code must be 6 digits.');
+      return false;
+    }
+    if (!password) {
+      toast.error('Please enter Password.');
+      return false;
+    }
+    if (!confirmPassword) {
+      toast.error('Please enter Confirm Password.');
+      return false;
+    }
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const executeSignup = async () => {
+    setLoading(true);
+    try {
+      if (typeId === 'owner') {
         let finalLogoUrl = logo || null;
 
         const isLocalLogo = logo && !logo.startsWith('http');
@@ -403,7 +569,7 @@ export default function SignupScreen() {
               finalLogoUrl = uploadedUrl;
             }
           } catch (uploadError) {
-            console.error('[handleSignup] Logo upload failed:', uploadError);
+            console.error('[executeSignup] Logo upload failed:', uploadError);
             toast.error('Failed to upload logo, continuing without it.');
             finalLogoUrl = null;
           }
@@ -441,84 +607,9 @@ export default function SignupScreen() {
         } else {
           router.replace('/auth/otp-auth');
         }
-      } catch (error: any) {
-        console.error('[handleSignup] Error creating gym lead:', error);
-        console.error('[handleSignup] Error full details:', JSON.stringify(error, null, 2));
-        toast.error('Failed to submit request. Please try again.');
-      } finally {
-        setLoading(false);
+        return;
       }
-      return;
-    }
 
-    if (!fullName.trim()) {
-      toast.error('Please enter Full Name.');
-      return;
-    }
-    if (!email.trim()) {
-      toast.error('Please enter Email.');
-      return;
-    }
-    if (!phone.trim()) {
-      toast.error('Please enter Mobile Number.');
-      return;
-    }
-    if (!/^[6-9]\d{9}$/.test(phone.trim())) {
-      toast.error('Mobile Number must start with 6, 7, 8, or 9 and be 10 digits.');
-      return;
-    }
-    if (gender === 'Select gender' || !gender) {
-      toast.error('Please select Gender.');
-      return;
-    }
-    if (typeId === 'individual' && !selectedPlanId) {
-      toast.error('Please select a Membership Plan.');
-      return;
-    }
-    if (!dob || !dob.trim()) {
-      toast.error('Please select Date of Birth.');
-      return;
-    }
-    if (!address.trim()) {
-      toast.error('Please enter Address.');
-      return;
-    }
-    if (!country) {
-      toast.error('Please select Country.');
-      return;
-    }
-    if (!state) {
-      toast.error('Please select State.');
-      return;
-    }
-    if (!city.trim()) {
-      toast.error('Please enter City.');
-      return;
-    }
-    if (!pinCode.trim()) {
-      toast.error('Please enter PIN Code.');
-      return;
-    }
-    if (pinCode.trim().length !== 6) {
-      toast.error('PIN Code must be 6 digits.');
-      return;
-    }
-    if (!password) {
-      toast.error('Please enter Password.');
-      return;
-    }
-    if (!confirmPassword) {
-      toast.error('Please enter Confirm Password.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast.error('Passwords do not match.');
-      return;
-    }
-
-    setLoading(true);
-    try {
       if (typeId === 'individual') {
         const chosenPlan = subscriptionPlans.find((p: any) => p.subscriptionPlanId === selectedPlanId);
         const planAmount = chosenPlan?.price ? Number(chosenPlan.price) : 0;
@@ -538,7 +629,7 @@ export default function SignupScreen() {
         });
 
         if (authError) {
-          console.error('[handleSignup] Auth signUp error:', authError);
+          console.error('[executeSignup] Auth signUp error:', authError);
           throw authError;
         }
 
@@ -608,7 +699,7 @@ export default function SignupScreen() {
         toast.error('Only individual signup is implemented currently.');
       }
     } catch (error: any) {
-      console.error('[handleSignup] Error creating account:', error);
+      console.error('[executeSignup] Error creating account:', error);
       let errorMessage = 'Failed to create account. Please try again.';
 
       if (error?.code === '42501') {
@@ -629,6 +720,22 @@ export default function SignupScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSignup = async () => {
+    if (!validateSignupForm()) return;
+
+    // Trigger mobile OTP verification if not yet verified
+    if (!isPhoneVerified) {
+      pendingSignupRef.current = true;
+      const sent = await handleSendOtp(phone);
+      if (sent) {
+        toast.info('Please enter the OTP sent to your phone to complete registration.');
+      }
+      return;
+    }
+
+    await executeSignup();
   };
 
   const getAccountTypeLabel = () => {
@@ -752,7 +859,15 @@ export default function SignupScreen() {
               </View>
 
               <View>
-                <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Owner Mobile Number <Text className="text-red-500">*</Text></Text>
+                <View className="flex-row items-center justify-between mb-2">
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium">Owner Mobile Number <Text className="text-red-500">*</Text></Text>
+                  {isPhoneVerified && (
+                    <View className="flex-row items-center gap-1 bg-[#C3F400]/10 px-2 py-0.5 rounded-full border border-[#C3F400]/30">
+                      <CheckCircle size={12} color="#C3F400" weight="fill" />
+                      <Text className="text-[#C3F400] text-[11px] font-semibold">Verified</Text>
+                    </View>
+                  )}
+                </View>
                 <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                   <Phone size={18} color="#6B6B6B" />
                   <TextInput autoCorrect={false} spellCheck={false}
@@ -764,6 +879,19 @@ export default function SignupScreen() {
                     maxLength={10}
                     className="flex-1 text-white text-[14px] p-0 font-medium"
                   />
+                  {phone.length === 10 && !isPhoneVerified && (
+                    <Pressable
+                      onPress={() => handleSendOtp(phone)}
+                      disabled={isSendingOtp}
+                      className="bg-[#C3F400]/15 border border-[#C3F400]/40 px-2.5 py-1 rounded-lg active:opacity-75"
+                    >
+                      {isSendingOtp ? (
+                        <ActivityIndicator size="small" color="#C3F400" />
+                      ) : (
+                        <Text className="text-[#C3F400] text-[12px] font-semibold">Verify</Text>
+                      )}
+                    </Pressable>
+                  )}
                 </View>
               </View>
 
@@ -1102,7 +1230,15 @@ export default function SignupScreen() {
               </View>
 
               <View onLayout={(e) => registerField('phone', e.nativeEvent.layout.y)}>
-                <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Mobile Number <Text className="text-red-500">*</Text></Text>
+                <View className="flex-row items-center justify-between mb-2">
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium">Mobile Number <Text className="text-red-500">*</Text></Text>
+                  {isPhoneVerified && (
+                    <View className="flex-row items-center gap-1 bg-[#C3F400]/10 px-2 py-0.5 rounded-full border border-[#C3F400]/30">
+                      <CheckCircle size={12} color="#C3F400" weight="fill" />
+                      <Text className="text-[#C3F400] text-[11px] font-semibold">Verified</Text>
+                    </View>
+                  )}
+                </View>
                 <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                   <Phone size={18} color="#6B6B6B" />
                   <TextInput autoCorrect={false} spellCheck={false}
@@ -1115,6 +1251,19 @@ export default function SignupScreen() {
                     maxLength={10}
                     className="flex-1 text-white text-[14px] p-0 font-medium"
                   />
+                  {phone.length === 10 && !isPhoneVerified && (
+                    <Pressable
+                      onPress={() => handleSendOtp(phone)}
+                      disabled={isSendingOtp}
+                      className="bg-[#C3F400]/15 border border-[#C3F400]/40 px-2.5 py-1 rounded-lg active:opacity-75"
+                    >
+                      {isSendingOtp ? (
+                        <ActivityIndicator size="small" color="#C3F400" />
+                      ) : (
+                        <Text className="text-[#C3F400] text-[12px] font-semibold">Verify</Text>
+                      )}
+                    </Pressable>
+                  )}
                 </View>
               </View>
 
@@ -1372,6 +1521,81 @@ export default function SignupScreen() {
             selectedValue={selectedPlanId}
             onExploreWeb={handleExplorePlansOnWeb}
           />
+
+          <Modal
+            visible={otpModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setOtpModalVisible(false)}
+          >
+            <View className="flex-1 justify-center items-center bg-black/80 px-5">
+              <View className="bg-[#141414] border border-[#262626] rounded-3xl p-6 w-full max-w-[360px]">
+                <View className="flex-row justify-between items-center mb-4">
+                  <View className="flex-row items-center gap-2.5">
+                    <View className="w-9 h-9 rounded-full bg-[#C3F400]/10 items-center justify-center border border-[#C3F400]/30">
+                      <ShieldCheck size={20} color="#C3F400" weight="bold" />
+                    </View>
+                    <Text className="text-white text-lg font-bold">Verify Mobile</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => setOtpModalVisible(false)}
+                    className="p-1 rounded-full bg-[#1E1E1E]"
+                  >
+                    <X size={18} color="#8E8E93" />
+                  </Pressable>
+                </View>
+
+                <Text className="text-[#8E8E93] text-[13px] mb-5 leading-5">
+                  Enter the 6-digit OTP code sent via SMS to{' '}
+                  <Text className="text-[#C3F400] font-semibold">+91 {phone}</Text>
+                </Text>
+
+                <View className="mb-4">
+                  <TextInput autoCorrect={false} spellCheck={false}
+                    value={otpCode}
+                    onChangeText={(val) => setOtpCode(val.replace(/[^0-9]/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    placeholderTextColor="#444444"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    className="bg-[#1A1A1A] border border-[#2E2E2E] rounded-xl text-white text-center text-2xl font-bold tracking-[8px] py-3.5 px-4"
+                    autoFocus
+                  />
+                </View>
+
+                <Pressable
+                  onPress={handleVerifyOtp}
+                  disabled={isVerifyingOtp || otpCode.length !== 6}
+                  className={`bg-[#C3F400] rounded-xl py-3.5 items-center flex-row justify-center mb-3 ${
+                    (isVerifyingOtp || otpCode.length !== 6) ? 'opacity-60' : 'active:opacity-85'
+                  }`}
+                >
+                  {isVerifyingOtp && <ActivityIndicator color="#000" size="small" style={{ marginRight: 8 }} />}
+                  <Text className="text-black font-bold text-[14px]">Verify & Continue</Text>
+                </Pressable>
+
+                <View className="flex-row items-center justify-center pt-2">
+                  {otpCountdown > 0 ? (
+                    <Text className="text-[#6B6B6B] text-[12px]">
+                      Resend OTP in <Text className="text-[#A0A0A0] font-semibold">{otpCountdown}s</Text>
+                    </Text>
+                  ) : (
+                    <Pressable
+                      onPress={() => handleSendOtp(phone)}
+                      disabled={isSendingOtp}
+                      className="flex-row items-center gap-1 active:opacity-70 p-1"
+                    >
+                      {isSendingOtp ? (
+                        <ActivityIndicator size="small" color="#C3F400" />
+                      ) : (
+                        <Text className="text-[#C3F400] text-[13px] font-semibold">Resend OTP</Text>
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+            </View>
+          </Modal>
         </SafeAreaView>
         );
   }

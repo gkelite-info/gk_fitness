@@ -597,7 +597,7 @@ export default function OtpAuthScreen() {
           if (!profile && !fetchedRole) {
             const metadata = authData.user.user_metadata || {};
             const userPhone = metadata.phone || (phone ? '+91' + phone.replace(/[^0-9]/g, '') : '');
-            const fallbackRole = normType === 'globaltrainer' ? 'globaltrainer' : (normType === 'individual' ? 'individual' : 'customer');
+            const fallbackRole = normType === 'globaltrainer' ? 'globaltrainer' : (normType === 'individual' ? 'individual' : (normType === 'owner' ? 'owner' : (normType === 'gymtrainer' ? 'trainer' : (normType === 'customer' ? 'customer' : null))));
             try {
               await createUser({
                 userId: userId,
@@ -951,7 +951,11 @@ export default function OtpAuthScreen() {
             }
             if (!hasNavigated.current) {
               hasNavigated.current = true;
-              navigateBasedOnRole(fetchedRole);
+              if (fetchedRole) {
+                navigateBasedOnRole(fetchedRole);
+              } else {
+                router.replace('/auth/account-type');
+              }
             }
             return;
           }

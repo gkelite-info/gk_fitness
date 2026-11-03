@@ -4,7 +4,7 @@ import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, Plus, Check, MagnifyingGlass, ArrowsClockwise } from 'phosphor-react-native';
 import { useWorkoutPlan, ExerciseItem } from './_layout';
-import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
+import { useWorkoutPlanTargetExercises } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
 import { Video, ResizeMode } from '@/components/ui/Video';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
@@ -71,7 +71,7 @@ const ExerciseMediaItem = ({ videoUrl, muscleGroup, opacity = false }: { videoUr
         style={{ width: '100%', height: '100%' }}
         resizeMode={ResizeMode.COVER}
         useNativeControls={false}
-        shouldPlay={false}
+        shouldPlay={true}
         isLooping={true}
         isMuted={true}
         fallback={
@@ -112,54 +112,38 @@ export default function CustomizeWorkout() {
 
   const normalizedMuscleGroup = (muscleGroup || 'all').toLowerCase();
 
-  const [page, setPage] = useState(1);
-  const [limit] = useState(20);
-  const [accumulatedVideos, setAccumulatedVideos] = useState<any[]>([]);
+  const [displayCount, setDisplayCount] = useState(12);
 
-  const { data: fetchResult, isLoading: isVideosLoading, isFetching } = useWorkoutVideos(
-    page,
-    limit,
+  const { data: cleanExercises = [], isLoading: isVideosLoading, isFetching } = useWorkoutPlanTargetExercises(
     normalizedMuscleGroup,
     userGender
   );
 
-  const total = fetchResult?.total || 0;
-  const totalPages = Math.ceil(total / limit) || 1;
-  const hasMore = page < totalPages;
+  const visibleExercises = useMemo(() => {
+    return cleanExercises.slice(0, displayCount);
+  }, [cleanExercises, displayCount]);
+
+  const hasMore = displayCount < cleanExercises.length;
 
   useEffect(() => {
-    setPage(1);
-    setAccumulatedVideos([]);
+    setDisplayCount(12);
+    setSearchQuery('');
   }, [userGender, normalizedMuscleGroup]);
-
-  useEffect(() => {
-    if (fetchResult?.data) {
-      if (page === 1) {
-        setAccumulatedVideos(fetchResult.data);
-      } else {
-        setAccumulatedVideos((prev) => {
-          const prevIds = new Set(prev.map((v) => v.workoutVideoId));
-          const newUnique = fetchResult.data.filter((v: any) => !prevIds.has(v.workoutVideoId));
-          return [...prev, ...newUnique];
-        });
-      }
-    }
-  }, [fetchResult, page]);
 
   const currentPlan = planDays[currentEditingWeek]?.[day || ''];
 
   const allPresets = useMemo(() => {
-    const total = accumulatedVideos.length;
+    const total = visibleExercises.length;
     const recommendedCutoff = total <= 5 ? Math.max(1, Math.floor(total / 2)) : 5;
-    return accumulatedVideos.map((video: any, index: number) => ({
+    return visibleExercises.map((video: any, index: number) => ({
       name: video.exerciseName || 'Unknown Exercise',
-      category: 'Exercise',
+      category: video.category || (muscleGroup ? muscleGroup.charAt(0).toUpperCase() + muscleGroup.slice(1) : 'Exercise'),
       reps: '10-12 reps',
       isRecommended: index < recommendedCutoff,
       videoUrl: video.videoUrl,
       workoutVideoId: video.workoutVideoId,
     }));
-  }, [accumulatedVideos]);
+  }, [visibleExercises, muscleGroup]);
 
   const [selectedExercises, setSelectedExercises] = useState<ExerciseItem[]>(() => {
     if (currentPlan && currentPlan.exercises && currentPlan.exercises.length > 0) {
@@ -176,10 +160,22 @@ export default function CustomizeWorkout() {
   }, [allPresets, selectedExercises]);
 
   const otherPresets = useMemo(() => {
-    const others = allPresets.filter(p => !p.isRecommended && !selectedExercises.some(ex => ex.exerciseName === p.name));
+    // When user searches, search across ALL clean exercises for this muscle
+    const pool = searchQuery ? cleanExercises : visibleExercises;
+    const others = pool
+      .map((video: any, index: number) => ({
+        name: video.exerciseName || 'Unknown Exercise',
+        category: video.category || (muscleGroup ? muscleGroup.charAt(0).toUpperCase() + muscleGroup.slice(1) : 'Exercise'),
+        reps: '10-12 reps',
+        isRecommended: !searchQuery && index < 5,
+        videoUrl: video.videoUrl,
+        workoutVideoId: video.workoutVideoId,
+      }))
+      .filter(p => !p.isRecommended && !selectedExercises.some(ex => ex.exerciseName === p.name));
+
     if (!searchQuery) return others;
-    return others.filter(ex => ex.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  }, [allPresets, searchQuery, selectedExercises]);
+    return others.filter(ex => ex.name.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 15);
+  }, [cleanExercises, visibleExercises, searchQuery, selectedExercises, muscleGroup]);
 
   const isChecked = (name: string) => {
     return selectedExercises.some(ex => ex.exerciseName === name);
@@ -318,7 +314,7 @@ export default function CustomizeWorkout() {
           </View>
         </View>
 
-        {isVideosLoading && page === 1 ? (
+        {isVideosLoading ? (
           <ActivityIndicator size="large" color="#C4EF00" className="mt-10" />
         ) : (
           <>
@@ -488,7 +484,7 @@ export default function CustomizeWorkout() {
               {hasMore && !searchQuery && (
                 <View className="py-4 items-center">
                   <Pressable
-                    onPress={() => setPage(p => p + 1)}
+                    onPress={() => setDisplayCount(prev => prev + 8)}
                     disabled={isFetching}
                     className="flex-row items-center gap-x-2 bg-[#141414] border border-[#2A2A2A] px-4 py-2.5 rounded-xl active:opacity-70"
                   >

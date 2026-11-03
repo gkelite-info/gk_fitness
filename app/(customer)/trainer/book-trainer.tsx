@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, ScrollView, Pressable, TextInput, Image, Dimensions, ActivityIndicator, Platform } from 'react-native';
+import { View, ScrollView, Pressable, TextInput, Image, Dimensions, ActivityIndicator, Platform, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { useUser } from '@/context/UserContext';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import { useGlobalTrainers } from '@/hooks/globalTrainers/useGlobalTrainers';
+import { useIndividualCustomerPlans } from '@/hooks/individual/membership/individualCustomerPlan';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { useQueryClient } from '@tanstack/react-query';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
@@ -49,11 +50,19 @@ export default function BookTrainerScreen() {
   }, [searchQuery]);
 
   const { userId, role } = useUser();
-  const isIndividual = role === 'individual';
+  const { data: individualPlans } = useIndividualCustomerPlans(userId || undefined);
+  const hasIndividualPlan = Boolean(individualPlans && individualPlans.length > 0);
+
   const { data: profile, isLoading: isProfileLoading, refetch: refetchProfile } = useCustomerProfile(userId || undefined);
 
+  const roleNormalized = (role || '').trim().toLowerCase();
+  const isIndividual =
+    roleNormalized === 'individual' ||
+    hasIndividualPlan ||
+    (!isProfileLoading && !profile?.customerData?.gymId);
+
   const gymId = isIndividual ? null : profile?.customerData?.gymId;
-  const shouldFetchGlobal = isIndividual || !gymId;
+  const shouldFetchGlobal = isIndividual || (!isProfileLoading && !gymId);
 
   const { data: gymTrainers, isLoading: isGymTrainersLoading } = useGymTrainers(
     gymId,
@@ -61,7 +70,7 @@ export default function BookTrainerScreen() {
     debouncedSearchQuery
   );
   const { data: globalTrainers, isLoading: isGlobalTrainersLoading } = useGlobalTrainers(
-    shouldFetchGlobal && !isProfileLoading,
+    shouldFetchGlobal,
     debouncedSearchQuery
   );
 
@@ -186,7 +195,7 @@ export default function BookTrainerScreen() {
     lastNavigatedAtRef.current = now;
 
     const targetId = trainer.gymTrainerId || trainer.globalTrainerId || trainer.id;
-    (router as any).navigate({
+    (router as any).push({
       pathname: `/(customer)/trainer/${targetId}`,
       params: { trainerData: JSON.stringify(trainer), from: 'book-trainer' }
     });
@@ -391,9 +400,9 @@ export default function BookTrainerScreen() {
   };
 
   const trainers = shouldFetchGlobal ? (globalTrainers || []) : (gymTrainers || []);
-  const isLoading = isProfileLoading || (shouldFetchGlobal ? isGlobalTrainersLoading : isGymTrainersLoading);
+  const isLoading = shouldFetchGlobal ? isGlobalTrainersLoading : (isProfileLoading || isGymTrainersLoading);
 
-  const filteredTrainers = trainers;
+  const filteredTrainers = trainers.filter((t: any) => !t.is_deleted && t.isActive !== false);
 
   const sortedTrainers = [...filteredTrainers].sort((a: any, b: any) => {
     const aId = a.gymTrainerId || a.globalTrainerId || a.id;
@@ -405,13 +414,22 @@ export default function BookTrainerScreen() {
     return 0;
   });
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
+  const handleBack = useCallback(() => {
+    try {
+      (router as any).replace('/(customer)/profile');
+    } catch {
       router.push('/(customer)/profile');
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleBack]);
 
   return (
     <View className="flex-1 bg-[#0F0F0F] pt-2">
@@ -585,11 +603,10 @@ export default function BookTrainerScreen() {
                 <Pressable
                   key={trainerId}
                   onPress={() => isThisTrainerActive ? router.push('/(customer)/my-trainer') : handleOpenTrainerProfile(trainer)}
-                  className={`rounded-2xl p-3 border active:opacity-95 ${
-                    isThisTrainerActive
-                      ? 'bg-[#15190D] border-[#D7FF00]/80 shadow-lg'
-                      : 'bg-[#1A1A1A] border-[#27272A]'
-                  }`}
+                  className={`rounded-2xl p-3 border active:opacity-95 ${isThisTrainerActive
+                    ? 'bg-[#15190D] border-[#D7FF00]/80 shadow-lg'
+                    : 'bg-[#1A1A1A] border-[#27272A]'
+                    }`}
                 >
                   <View className="flex-row">
                     <View className="w-[120px] h-[150px] relative rounded-xl overflow-hidden mr-3">
@@ -644,12 +661,12 @@ export default function BookTrainerScreen() {
                           <Text className="text-[#8E8E93] text-[10px] ml-1">{displayClientsCount || 0} Clients</Text>
                         </View>
 
-                        {trainer.price != null && Platform.OS !== 'ios' && (
+                        {(trainer.price != null || trainer.personalTrainingFee != null) && Platform.OS !== 'ios' && (
                           <View className="flex-row items-center mt-1">
                             <View className="bg-[#1C2307] border border-[#3E4C14] px-2 py-0.5 rounded-md flex-row items-center">
                               <Tag size={10} color="#CCFF00" weight="bold" style={{ marginRight: 4 }} />
                               <Text className="text-[#CCFF00] text-[11px] font-semibold">
-                                ₹{trainer.price}
+                                ₹{trainer.price ?? trainer.personalTrainingFee}
                               </Text>
                               <Text className="text-[#8E8E93] text-[10px] ml-0.5">/mo</Text>
                             </View>

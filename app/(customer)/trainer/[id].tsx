@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { View, ScrollView, Pressable, Image, Modal, ActivityIndicator, Platform } from 'react-native';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { View, ScrollView, Pressable, Image, Modal, ActivityIndicator, Platform, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,16 +32,16 @@ export default function TrainerProfileScreen() {
     }
   }, [trainerData]);
 
-  const { data: gymTrainerResult, isLoading: isGymTrainerLoading } = useGymTrainerById(id);
-  const { data: globalTrainerResult, isLoading: isGlobalTrainerLoading } = useGlobalTrainer(id);
-  const fetchedTrainer = gymTrainerResult?.trainer || globalTrainerResult;
-
-  const trainer = parsedTrainer || fetchedTrainer;
-
   const { userId, role } = useUser();
   const { data: customerProfile } = useCustomerProfile(userId || undefined);
   const gymId = customerProfile?.customerData?.gymId;
   const isIndividual = role === 'individual' || (!gymId && !!userId);
+
+  const { data: gymTrainerResult, isLoading: isGymTrainerLoading } = useGymTrainerById(!isIndividual ? id : undefined);
+  const { data: globalTrainerResult, isLoading: isGlobalTrainerLoading } = useGlobalTrainer(isIndividual ? id : id);
+  const fetchedTrainer = isIndividual ? (globalTrainerResult || gymTrainerResult?.trainer) : (gymTrainerResult?.trainer || globalTrainerResult);
+
+  const trainer = parsedTrainer || fetchedTrainer;
   const customerId = customerProfile?.customerData?.customerId || userId;
   const { data: assignedTrainers } = useAssignedTrainersByCustomer(customerId, userId);
 
@@ -98,22 +98,25 @@ export default function TrainerProfileScreen() {
 
     if (from === 'my-trainer') {
       router.replace('/(customer)/my-trainer');
+    } else if (router.canGoBack()) {
+      router.back();
     } else {
-      try {
-        (router as any).navigate('/(customer)/trainer/book-trainer');
-      } catch {
-        if (router.canGoBack()) {
-          router.back();
-        } else {
-          router.replace('/(customer)/trainer/book-trainer');
-        }
-      }
+      router.replace('/(customer)/trainer/book-trainer');
     }
 
     setTimeout(() => {
       isBackNavigatingRef.current = false;
-    }, 800);
+    }, 600);
   }, [from, router]);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleBack]);
 
   if ((isGymTrainerLoading || isGlobalTrainerLoading) && !trainer) {
     return (
@@ -257,7 +260,7 @@ export default function TrainerProfileScreen() {
           </View>
         </View>
 
-        {trainer.price != null && Platform.OS !== 'ios' && (
+        {(trainer.price != null || trainer.personalTrainingFee != null) && Platform.OS !== 'ios' && (
           <View className="mx-4 mb-3 bg-[#14180A] rounded-2xl p-4 border border-[#3E4C14] flex-row items-center justify-between">
             <View className="flex-row items-center flex-1 mr-3">
               <View className="w-10 h-10 rounded-xl bg-[#1C2307] items-center justify-center mr-3 border border-[#445000]">
@@ -274,7 +277,7 @@ export default function TrainerProfileScreen() {
             </View>
             <View className="items-end">
               <View className="flex-row items-baseline">
-                <Text className="text-[#CCFF00] text-xl font-semibold">₹{trainer.price}</Text>
+                <Text className="text-[#CCFF00] text-xl font-semibold">₹{trainer.price ?? trainer.personalTrainingFee}</Text>
                 <Text className="text-[#8E8E93] text-xs ml-1">/mo</Text>
               </View>
               <Text className="text-[#8E8E93] text-[10px]">Monthly Subscription</Text>
@@ -293,7 +296,11 @@ export default function TrainerProfileScreen() {
               onPress={() => {
                 if (isNavigatingRef.current) return;
                 isNavigatingRef.current = true;
-                (router as any).navigate('/(customer)/trainer/book-trainer');
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/(customer)/trainer/book-trainer');
+                }
                 setTimeout(() => { isNavigatingRef.current = false; }, 800);
               }}
               className="bg-[#3E3218] border border-[#FF9F0A] py-4 rounded-full flex-row justify-center items-center active:opacity-80"
@@ -309,7 +316,11 @@ export default function TrainerProfileScreen() {
               onPress={() => {
                 if (isNavigatingRef.current) return;
                 isNavigatingRef.current = true;
-                (router as any).navigate('/(customer)/trainer/book-trainer');
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/(customer)/trainer/book-trainer');
+                }
                 setTimeout(() => { isNavigatingRef.current = false; }, 800);
               }}
               className="bg-[#1C180E] border border-[#FF9F0A]/40 py-4 rounded-full flex-row justify-center items-center active:opacity-80"
@@ -343,7 +354,7 @@ export default function TrainerProfileScreen() {
               <Text className="text-black text-base font-semibold mr-2">
                 {Platform.OS === 'ios'
                   ? `Choose ${fullName} as My Trainer`
-                  : `Choose ${fullName} as My Trainer ${trainer.price != null ? `• ₹${trainer.price}` : ''}`}
+                  : `Choose ${fullName} as My Trainer ${(trainer.price ?? trainer.personalTrainingFee) != null ? `• ₹${trainer.price ?? trainer.personalTrainingFee}` : ''}`}
               </Text>
               <ArrowRight size={18} color="#000000" weight="bold" />
             </Pressable>

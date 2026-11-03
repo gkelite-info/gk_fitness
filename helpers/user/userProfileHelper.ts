@@ -51,7 +51,7 @@ export async function fetchUserAndRoleProfile(
     state: null,
     city: null,
     pincode: null,
-    role: 'customer',
+    role: null,
     status: 'active',
     isEmailVerified: false,
     isPhoneVerified: false,
@@ -103,7 +103,7 @@ export async function fetchUserAndRoleProfile(
             state: metadata.state || null,
             city: metadata.city || null,
             pincode: metadata.pincode || null,
-            role: metadata.role || 'customer',
+            role: metadata.role || null,
           });
 
           if (createdProfile) {
@@ -177,8 +177,8 @@ export async function fetchUserAndRoleProfile(
       }
     }
 
-    if (!userRecord) {
-      console.warn('[userProfileHelper] Profile missing in DB. Setting role to null.');
+    if (!userRecord || !userRecord.role) {
+      console.warn('[userProfileHelper] User record or role missing in DB. Setting role to null.');
       profile.role = null;
     }
 

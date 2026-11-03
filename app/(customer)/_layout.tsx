@@ -20,8 +20,16 @@ export default function CustomerLayout() {
     async function checkTenantBoundary() {
       if (userLoading) return;
 
-      if (!userId || (role && role !== 'customer')) {
+      if (!userId || !role) {
         if (isMounted) setTenantValidating(false);
+        router.replace('/auth/account-type');
+        return;
+      }
+
+      const normalizedRole = role.trim().toLowerCase().replace(/[\s_-]/g, '');
+      if (normalizedRole !== 'customer' && normalizedRole !== 'individual') {
+        if (isMounted) setTenantValidating(false);
+        router.replace('/auth/account-type');
         return;
       }
 

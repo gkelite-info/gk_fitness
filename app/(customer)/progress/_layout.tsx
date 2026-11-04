@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 
 export default function ProgressLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false }} initialRouteName="index">
       <Stack.Screen name="index" />
       <Stack.Screen name="weight" />
       <Stack.Screen name="log-weight" options={{ presentation: 'modal' }} />

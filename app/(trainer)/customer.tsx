@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { View, Text, Image, Pressable, TextInput, ActivityIndicator, FlatList } from 'react-native';
-import { CaretLeft, MagnifyingGlass, User, Users, Phone, CaretRight, ArrowsClockwise, Clock } from 'phosphor-react-native';
+import { CaretLeft, MagnifyingGlass, User, Users, Phone, CaretRight, ArrowsClockwise, Clock, CalendarBlank } from 'phosphor-react-native';
 import { useRouter } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { usePaginatedAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
@@ -11,7 +11,7 @@ import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function PTCustomersScreen() {
   const router = useRouter();
-  const { userId, email, role, globalTrainerId } = useUser();
+  const { userId, email, role, globalTrainerId: userGlobalTrainerId } = useUser();
   const isGlobalTrainer = (role || '').toLowerCase().replace(/[\s_-]/g, '') === 'globaltrainer';
   const [activeTab, setActiveTab] = useState<'gym' | 'individual'>(isGlobalTrainer ? 'individual' : 'gym');
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,7 +49,7 @@ export default function PTCustomersScreen() {
     enabled: !!userId,
   });
 
-  const effectiveGlobalTrainerId = globalTrainerId || globalTrainerRecord?.globalTrainerId;
+  const effectiveGlobalTrainerId = globalTrainerRecord?.globalTrainerId || userGlobalTrainerId;
 
   const {
     data: individualAssignments,
@@ -57,7 +57,7 @@ export default function PTCustomersScreen() {
     refetch: refetchIndividual,
   } = useIndividualCustomerTrainers(
     effectiveGlobalTrainerId
-      ? { globalTrainerId: effectiveGlobalTrainerId }
+      ? { globalTrainerId: effectiveGlobalTrainerId, status: 'approved' }
       : undefined,
     { enabled: !!effectiveGlobalTrainerId }
   );
@@ -96,9 +96,12 @@ export default function PTCustomersScreen() {
 
   const filteredIndividual = useMemo(() => {
     if (!individualAssignments) return [];
-    if (!debouncedSearch.trim()) return individualAssignments;
+    const approvedOnly = individualAssignments.filter(
+      (a: any) => !a.status || a.status.toLowerCase() === 'approved'
+    );
+    if (!debouncedSearch.trim()) return approvedOnly;
     const q = debouncedSearch.toLowerCase().trim();
-    return individualAssignments.filter((a: any) => {
+    return approvedOnly.filter((a: any) => {
       const name = a.user?.name?.toLowerCase() || '';
       const em = a.user?.email?.toLowerCase() || '';
       const ph = a.user?.phone || '';
@@ -108,16 +111,27 @@ export default function PTCustomersScreen() {
 
   const expiringSoonCount = useMemo(() => {
     const now = new Date();
-    const sevenDaysFromNow = new Date();
-    sevenDaysFromNow.setDate(now.getDate() + 7);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const sevenDaysFromNow = new Date(startOfToday);
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+    sevenDaysFromNow.setHours(23, 59, 59, 999);
 
-    const listToCount = activeTab === 'gym' ? accumulatedCustomers : (individualAssignments || []);
+    const listToCount = activeTab === 'gym' ? accumulatedCustomers : (filteredIndividual || []);
     return listToCount.filter((assignment: any) => {
       if (!assignment.expiryOn) return false;
       const expiryDate = new Date(assignment.expiryOn);
-      return expiryDate >= now && expiryDate <= sevenDaysFromNow;
+      const expiryEndOfDay = new Date(
+        expiryDate.getFullYear(),
+        expiryDate.getMonth(),
+        expiryDate.getDate(),
+        23,
+        59,
+        59,
+        999
+      );
+      return expiryEndOfDay >= startOfToday && expiryEndOfDay <= sevenDaysFromNow;
     }).length;
-  }, [activeTab, accumulatedCustomers, individualAssignments]);
+  }, [activeTab, accumulatedCustomers, filteredIndividual]);
 
   const currentTotal = activeTab === 'gym' ? gymTotal : (individualAssignments?.length || 0);
 
@@ -202,7 +216,7 @@ export default function PTCustomersScreen() {
                     </Text>
                     <Text className="text-white text-3xl font-semibold mt-1 mb-1">{currentTotal}</Text>
                     <Text className="text-[#A3A3A3] text-xs font-sans">
-                      {activeTab === 'gym' ? 'Assigned from Gym' : 'Direct Clients'}
+                      {activeTab === 'gym' ? 'Assigned from Gym' : 'individual_customer_trainers'}
                     </Text>
                   </View>
                 </View>
@@ -272,85 +286,65 @@ export default function PTCustomersScreen() {
               );
             } else {
               const userRec = assignment.user;
-              const profilePic = userRec?.profilePhoto || null;
+              // Fetch customer profilePic from table users (innerjoin on userId from table individual_customer_trainers)
+              let image = userRec?.profilePic || userRec?.profilePhoto || null;
+              if (image && typeof image === 'string' && !image.startsWith('http://') && !image.startsWith('https://') && !image.startsWith('file:') && !image.startsWith('data:')) {
+                const pathInBucket = image.includes('/') ? image : `${userRec?.userId || assignment.userId}/${image}`;
+                const { data: pUrl } = supabase.storage.from('profile_photos').getPublicUrl(pathInBucket);
+                image = pUrl?.publicUrl || null;
+              }
+
               const formattedDate = assignment.assignedOn ? new Date(assignment.assignedOn).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Pending';
+              const formattedExpiryDate = assignment.expiryOn ? new Date(assignment.expiryOn).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
 
               const now = new Date();
-              const sevenDaysFromNow = new Date();
-              sevenDaysFromNow.setDate(now.getDate() + 7);
+              const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+              const sevenDaysFromNow = new Date(startOfToday);
+              sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+              sevenDaysFromNow.setHours(23, 59, 59, 999);
 
               let isExpiring = false;
               let isExpired = false;
               if (assignment.expiryOn) {
                 const expiryDate = new Date(assignment.expiryOn);
-                isExpired = expiryDate < now;
-                isExpiring = !isExpired && expiryDate <= sevenDaysFromNow;
+                // Expiry date is valid through the end of today (local time).
+                // If the expiry date has passed away (before today), display status as Expired.
+                const expiryEndOfDay = new Date(
+                  expiryDate.getFullYear(),
+                  expiryDate.getMonth(),
+                  expiryDate.getDate(),
+                  23,
+                  59,
+                  59,
+                  999
+                );
+                isExpired = expiryEndOfDay < startOfToday;
+                isExpiring = !isExpired && expiryEndOfDay <= sevenDaysFromNow;
               }
 
-              const displayStatus = assignment.status === 'pending'
-                ? 'Pending Review'
-                : isExpired
-                  ? 'Expired'
-                  : isExpiring
-                    ? 'Expiring Soon'
-                    : 'Active';
+              const displayStatus = isExpired
+                ? 'Expired'
+                : isExpiring
+                  ? 'Expiring Soon'
+                  : 'Active';
 
               return (
-                <Pressable
+                <CustomerCard
                   key={assignment.individualCustomerTrainerId}
-                  className="bg-[#18181B] rounded-[24px] p-4 border border-[#27272A] mb-4 flex-row items-center active:opacity-80"
-                >
-                  <View className="w-16 h-16 bg-gray-700 rounded-full mr-4 overflow-hidden items-center justify-center">
-                    {profilePic ? (
-                      <Image source={{ uri: profilePic }} className="w-full h-full" />
-                    ) : (
-                      <User size={24} color="#A3A3A3" weight="fill" />
-                    )}
-                  </View>
-                  <View className="flex-1">
-                    <View className="flex-row items-start justify-between mb-1">
-                      <View>
-                        <Text className="text-white text-lg font-semibold">{userRec?.name || 'Direct Customer'}</Text>
-                        <View className="bg-[#09090B] px-2 py-1 rounded-md self-start mt-1.5 border border-[#27272A]/50">
-                          <Text className="text-[#A3A3A3] text-[10px] font-medium">{userRec?.email || 'Individual'}</Text>
-                        </View>
-                      </View>
-                      <View className={`px-2 py-1 rounded-md border ${assignment.status === 'pending'
-                        ? 'bg-[#09090B] border-[#CCFF00]/40'
-                        : isExpired
-                          ? 'bg-[#09090B] border-red-500/20'
-                          : isExpiring
-                            ? 'bg-[#09090B] border-[#F59E0B]/20'
-                            : 'bg-[#09090B] border-[#CCFF00]/20'
-                        }`}>
-                        <Text className={`text-[10px] font-semibold ${assignment.status === 'pending'
-                          ? 'text-[#CCFF00]'
-                          : isExpired
-                            ? 'text-red-400'
-                            : isExpiring
-                              ? 'text-[#F59E0B]'
-                              : 'text-[#CCFF00]'
-                          }`}>{displayStatus}</Text>
-                      </View>
-                    </View>
-
-                    <View className="flex-row items-end justify-between mt-2">
-                      <View className="flex-row items-center">
-                        <Phone size={14} color="#A3A3A3" style={{ marginRight: 1.5 }} />
-                        <Text className="text-[#A3A3A3] text-xs font-medium">{userRec?.phone || 'No phone'}</Text>
-                      </View>
-                      <View className="flex-row items-center">
-                        <View className="items-end mr-3">
-                          <Text className="text-[#A3A3A3] text-[10px] mb-0.5">Expires</Text>
-                          <Text className="text-white text-xs font-semibold">
-                            {assignment.expiryOn ? new Date(assignment.expiryOn).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Never'}
-                          </Text>
-                        </View>
-                        <CaretRight size={16} color="#A3A3A3" />
-                      </View>
-                    </View>
-                  </View>
-                </Pressable>
+                  userId={userRec?.userId || assignment.userId}
+                  name={userRec?.name || 'Customer'}
+                  phone={userRec?.phone || userRec?.email || '—'}
+                  status={displayStatus}
+                  dateText="Assigned on"
+                  date={formattedDate}
+                  expiryOn={assignment.expiryOn}
+                  expiryDate={formattedExpiryDate}
+                  image={image}
+                  isExpiring={isExpiring}
+                  isExpired={isExpired}
+                  timings={assignment.timings || 'Flexible Schedule'}
+                  isIndividual={true}
+                />
               );
             }
           }}
@@ -360,7 +354,23 @@ export default function PTCustomersScreen() {
   );
 }
 
-function CustomerCard({ customerId, name, id, phone, status, dateText, date, image, isExpiring }: any) {
+function CustomerCard({
+  customerId,
+  userId,
+  name,
+  id,
+  phone,
+  status,
+  dateText,
+  date,
+  expiryOn,
+  expiryDate,
+  image,
+  isExpiring,
+  isExpired,
+  timings,
+  isIndividual,
+}: any) {
   const router = useRouter();
 
   const handlePress = () => {
@@ -371,6 +381,16 @@ function CustomerCard({ customerId, name, id, phone, status, dateText, date, ima
       } as any);
     }
   };
+
+  const displayExpiry =
+    expiryDate ||
+    (expiryOn
+      ? new Date(expiryOn).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+      : null);
 
   return (
     <Pressable onPress={handlePress} className="bg-[#18181B] rounded-[24px] p-4 border border-[#27272A] mb-4 flex-row items-center active:opacity-80">
@@ -385,14 +405,58 @@ function CustomerCard({ customerId, name, id, phone, status, dateText, date, ima
         <View className="flex-row items-start justify-between mb-1">
           <View>
             <Text className="text-white text-lg font-semibold">{name}</Text>
-            <View className="bg-[#09090B] px-2 py-1 rounded-md self-start mt-1.5 border border-[#27272A]/50">
-              <Text className="text-[#A3A3A3] text-[10px] font-medium">{id}</Text>
-            </View>
+            {isIndividual ? (
+              <View className="bg-[#09090B] px-2 py-1 rounded-md self-start mt-1.5 border border-[#27272A]/50">
+                <Text className="text-[#CCFF00] text-[10px] font-medium">Individual PT</Text>
+              </View>
+            ) : (
+              <View className="bg-[#09090B] px-2 py-1 rounded-md self-start mt-1.5 border border-[#27272A]/50">
+                <Text className="text-[#A3A3A3] text-[10px] font-medium">{id}</Text>
+              </View>
+            )}
           </View>
-          <View className={`px-2 py-1 rounded-md border ${isExpiring ? 'bg-[#09090B] border-[#F59E0B]/20' : 'bg-[#09090B] border-[#CCFF00]/20'}`}>
-            <Text className={`text-[10px] font-semibold ${isExpiring ? 'text-[#F59E0B]' : 'text-[#CCFF00]'}`}>{status}</Text>
+          <View
+            className={`px-2 py-1 rounded-md border ${isExpiring
+              ? 'bg-[#09090B] border-[#F59E0B]/20'
+              : isExpired
+                ? 'bg-[#09090B] border-red-500/20'
+                : 'bg-[#09090B] border-[#CCFF00]/20'
+              }`}
+          >
+            <Text
+              className={`text-[10px] font-semibold ${isExpiring
+                ? 'text-[#F59E0B]'
+                : isExpired
+                  ? 'text-red-400'
+                  : 'text-[#CCFF00]'
+                }`}
+            >
+              {status}
+            </Text>
           </View>
         </View>
+
+        {isIndividual && (
+          <View className="flex-row items-center mt-2">
+            <Clock size={12} color="#A3A3A3" style={{ marginRight: 4 }} />
+            <Text className="text-[#A3A3A3] text-xs">{timings || 'Flexible Schedule'}</Text>
+          </View>
+        )}
+
+        {displayExpiry && (
+          <View className="flex-row items-center mt-1.5">
+            <CalendarBlank size={12} color="#A3A3A3" style={{ marginRight: 4 }} />
+            <Text className="text-[#A3A3A3] text-xs font-sans">
+              {isExpired ? 'Expired on: ' : 'Expires on: '}
+              <Text
+                className={`font-semibold ${isExpired ? 'text-red-400' : isExpiring ? 'text-[#F59E0B]' : 'text-white'
+                  }`}
+              >
+                {displayExpiry}
+              </Text>
+            </Text>
+          </View>
+        )}
 
         <View className="flex-row items-end justify-between mt-2">
           <View className="flex-row items-center">
@@ -401,10 +465,10 @@ function CustomerCard({ customerId, name, id, phone, status, dateText, date, ima
           </View>
           <View className="flex-row items-center">
             <View className="items-end mr-3">
-              <Text className="text-[#A3A3A3] text-[10px] mb-0.5">{dateText}</Text>
+              <Text className="text-[#A3A3A3] text-[10px] mb-0.5 font-sans">{dateText}</Text>
               <Text className="text-white text-xs font-semibold">{date}</Text>
             </View>
-            <CaretRight size={16} color="#A3A3A3" />
+            {!isIndividual && <CaretRight size={16} color="#A3A3A3" />}
           </View>
         </View>
       </View>

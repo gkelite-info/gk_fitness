@@ -26,7 +26,10 @@ export function useAssignedTrainersByCustomer(customerId?: string | null, fallba
   });
 }
 
-export function useAssignedCustomersByTrainer(gymTrainerId?: string) {
+export function useAssignedCustomersByTrainer(
+  gymTrainerId?: string,
+  options?: { enabled?: boolean; staleTime?: number; refetchOnWindowFocus?: boolean; refetchOnMount?: boolean }
+) {
   return useQuery({
     queryKey: ['customerTrainers', 'trainer', gymTrainerId],
     queryFn: async () => {
@@ -34,7 +37,8 @@ export function useAssignedCustomersByTrainer(gymTrainerId?: string) {
       const data = await fetchAssignedCustomersByTrainer(gymTrainerId);
       return data;
     },
-    enabled: !!gymTrainerId,
+    enabled: options?.enabled !== undefined ? options.enabled : !!gymTrainerId,
+    ...options,
   });
 }
 

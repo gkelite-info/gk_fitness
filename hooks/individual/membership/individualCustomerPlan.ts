@@ -22,7 +22,6 @@ export function useIndividualCustomerPlans(
       return await fetchIndividualCustomerPlans(userId, subscriptionPlanId);
     },
     enabled: options?.enabled !== undefined ? options.enabled : (!!userId || !!subscriptionPlanId),
-    ...options,
   });
 }
 
@@ -48,7 +47,6 @@ export function useActiveIndividualCustomerPlan(
       return await fetchActiveIndividualCustomerPlan(userId);
     },
     enabled: options?.enabled !== undefined ? options.enabled : !!userId,
-    ...options,
   });
 }
 

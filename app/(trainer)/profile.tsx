@@ -94,9 +94,9 @@ export default function TrainerProfileScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (typeof refreshUserContext === 'function') refreshUserContext();
-      if (typeof refetchTrainer === 'function') refetchTrainer();
-      if (typeof refetchGlobalTrainer === 'function') refetchGlobalTrainer();
+      // Preserves cached profile; manual pull-to-refresh available via onRefresh
+
+
     }, [refreshUserContext, refetchTrainer, refetchGlobalTrainer])
   );
 

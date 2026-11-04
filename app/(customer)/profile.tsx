@@ -89,12 +89,12 @@ function ProfileView({
 
   useFocusEffect(
     useCallback(() => {
-      if (typeof refetchProfile === 'function') refetchProfile();
-      if (typeof fallbackUser?.refreshUserContext === 'function') fallbackUser.refreshUserContext();
-      if (typeof refetchAssignedTrainers === 'function') refetchAssignedTrainers();
-      if (typeof refetchIndividualTrainers === 'function') refetchIndividualTrainers();
-      if (typeof refetchTrainerRequests === 'function') refetchTrainerRequests();
-      if (typeof refetchStreak === 'function') refetchStreak();
+      // Keep cached data; manual refresh via onRefresh
+
+
+
+
+
     }, [refetchProfile, fallbackUser, refetchAssignedTrainers, refetchIndividualTrainers, refetchTrainerRequests, refetchStreak])
   );
 

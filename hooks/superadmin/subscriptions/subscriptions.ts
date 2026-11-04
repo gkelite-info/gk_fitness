@@ -17,7 +17,7 @@ export function useSubscriptions(
   return useQuery({
     queryKey: ["subscriptions", createdBy, planFor],
     queryFn: () => fetchSubscriptions(createdBy, planFor),
-    ...options,
+    enabled: options?.enabled,
   });
 }
 

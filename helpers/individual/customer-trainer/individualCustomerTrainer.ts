@@ -112,7 +112,7 @@ export interface PaginatedResult<T> {
 
 export const BASE_INDIVIDUAL_CUSTOMER_TRAINER_SELECT = `
   *,
-  user:users!individual_customer_trainers_userId_fkey (
+  user:users!individual_customer_trainers_userId_fkey!inner (
     userId,
     name,
     email,
@@ -214,7 +214,31 @@ export async function fetchIndividualCustomerTrainers(
 
 function mapIndividualCustomerTrainerRecord(item: any): IndividualCustomerTrainerAttributes {
   if (!item) return item;
+
+  let mappedUser = item.user;
+  if (mappedUser) {
+    const rawPic = mappedUser.profilePic || mappedUser.profilePhoto || null;
+    let resolvedUrl: string | null = null;
+    if (rawPic && typeof rawPic === 'string' && rawPic.trim() !== '' && rawPic !== 'null' && rawPic !== 'undefined') {
+      const cleanPic = rawPic.trim();
+      if (cleanPic.startsWith('http://') || cleanPic.startsWith('https://') || cleanPic.startsWith('file:') || cleanPic.startsWith('data:')) {
+        resolvedUrl = cleanPic;
+      } else {
+        const pathInBucket = cleanPic.includes('/') ? cleanPic : `${mappedUser.userId || item.userId}/${cleanPic}`;
+        const { data: pUrl } = supabase.storage.from('profile_photos').getPublicUrl(pathInBucket);
+        resolvedUrl = pUrl?.publicUrl || null;
+      }
+    }
+
+    mappedUser = {
+      ...mappedUser,
+      profilePic: resolvedUrl,
+      profilePhoto: resolvedUrl,
+    };
+  }
+
   const gt = item.globalTrainer;
+  let mappedGt = gt;
   if (gt) {
     const pic =
       gt.users?.profilePic ||
@@ -224,16 +248,31 @@ function mapIndividualCustomerTrainerRecord(item: any): IndividualCustomerTraine
       gt.profilePic ||
       gt.profilePhoto ||
       null;
-    return {
-      ...item,
-      globalTrainer: {
-        ...gt,
-        profilePic: pic,
-        profilePhoto: pic,
-      },
+
+    let resolvedGtUrl: string | null = null;
+    if (pic && typeof pic === 'string' && pic.trim() !== '' && pic !== 'null' && pic !== 'undefined') {
+      const cleanPic = pic.trim();
+      if (cleanPic.startsWith('http://') || cleanPic.startsWith('https://') || cleanPic.startsWith('file:') || cleanPic.startsWith('data:')) {
+        resolvedGtUrl = cleanPic;
+      } else {
+        const pathInBucket = cleanPic.includes('/') ? cleanPic : `${gt.userId || gt.globalTrainerId}/${cleanPic}`;
+        const { data: pUrl } = supabase.storage.from('profile_photos').getPublicUrl(pathInBucket);
+        resolvedGtUrl = pUrl?.publicUrl || null;
+      }
+    }
+
+    mappedGt = {
+      ...gt,
+      profilePic: resolvedGtUrl,
+      profilePhoto: resolvedGtUrl,
     };
   }
-  return item;
+
+  return {
+    ...item,
+    user: mappedUser,
+    globalTrainer: mappedGt,
+  };
 }
 
 /**

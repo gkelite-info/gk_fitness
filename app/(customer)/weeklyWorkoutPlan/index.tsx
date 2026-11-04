@@ -46,12 +46,8 @@ export default function WeeklyWorkoutPlan() {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (isTrainerPlan) {
-        refetchTrainer();
-      } else {
-        refetchCustomer();
-      }
-    }, [isTrainerPlan, refetchTrainer, refetchCustomer])
+      // Keep cached data; manual refresh via onRefresh
+    }, [])
   );
 
   const weeklyPlan = React.useMemo(() => {

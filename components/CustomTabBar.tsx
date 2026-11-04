@@ -77,7 +77,11 @@ export function CustomTabBar({
                 canPreventDefault: true,
               });
 
-              if (!isFocused && !event.defaultPrevented) {
+              if (event.defaultPrevented) return;
+
+              if (route.name === 'progress') {
+                navigation.navigate('progress', { screen: 'index' });
+              } else if (!isFocused) {
                 navigation.navigate(route.name);
               }
             };

@@ -107,9 +107,9 @@ export default function MyTrainerScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      refetchAssigned();
-      refetchIndividual();
-      refetchWeeklyPlan();
+      // Keep cached trainer data; manual refresh via onRefresh
+
+
     }, [refetchAssigned, refetchIndividual, refetchWeeklyPlan])
   );
 

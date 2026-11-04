@@ -1,17 +1,65 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, Pressable, TextInput, ActivityIndicator, FlatList, Image } from 'react-native';
 import { ArrowLeft, MagnifyingGlass, Funnel, CalendarBlank, ArrowRight, User } from 'phosphor-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { usePaginatedAssignedCustomersByTrainer } from '@/hooks/customerTrainers/useCustomerTrainers';
-import { useTrainerAssignedDietPlans } from '@/hooks/trainerMealPlans/useTrainerAssignedDietPlans';
+import { useGymTrainerByUserId } from '@/hooks/trainers/useGymTrainers';
+import { useIndividualCustomerTrainers } from '@/hooks/individual/customer-trainer/individualCustomerTrainer';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function CreateDietPlanScreen() {
   const router = useRouter();
-  const { userId } = useUser();
+  const { userId, email, role, globalTrainerId: userGlobalTrainerId } = useUser();
 
-  const { data: trainerPlans } = useTrainerAssignedDietPlans(userId ?? undefined);
+  // Resolve Global Trainer Record
+  const { data: globalTrainerRecord, refetch: refetchGlobalTrainerRecord } = useQuery({
+    queryKey: ['myGlobalTrainerId', userId, email],
+    queryFn: async () => {
+      if (!userId && !email) return null;
+      let query = supabase.from('global_trainers').select('globalTrainerId');
+      if (userId && email) {
+        query = query.or(`userId.eq.${userId},email.eq.${email}`);
+      } else if (userId) {
+        query = query.eq('userId', userId);
+      } else {
+        query = query.eq('email', email);
+      }
+      const { data: gt } = await query.maybeSingle();
+      return gt;
+    },
+    enabled: !!(userId || email),
+  });
+
+  const effectiveGlobalTrainerId = globalTrainerRecord?.globalTrainerId || userGlobalTrainerId;
+  const isGlobalTrainerRole = (role || '').toLowerCase().replace(/[\s_-]/g, '') === 'globaltrainer';
+  const isGlobalTrainer = isGlobalTrainerRole || !!effectiveGlobalTrainerId;
+
+  // Resolve Gym Trainer ID
+  const { data: trainerData } = useGymTrainerByUserId(userId ?? undefined);
+  const loggedInGymTrainerId = trainerData?.trainer?.gymTrainerId;
+  const effectiveGymTrainerId = loggedInGymTrainerId || userId;
+
+  const [activeTab, setActiveTab] = useState<'gym' | 'individual'>(isGlobalTrainer ? 'individual' : 'gym');
+
+  useEffect(() => {
+    if (isGlobalTrainer) {
+      setActiveTab('individual');
+    }
+  }, [isGlobalTrainer]);
+
+  const { data: trainerPlans, refetch: refetchTrainerPlans } = useQuery({
+    queryKey: ['allTrainerMealPlans', userId],
+    queryFn: async () => {
+      const { data: plans } = await supabase
+        .from('trainer_meal_plans')
+        .select('userId, planId, isActive')
+        .eq('isActive', true);
+      return plans || [];
+    },
+  });
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
@@ -33,42 +81,87 @@ export default function CreateDietPlanScreen() {
     setPage(1);
   }, [debouncedSearch]);
 
-  const { data, isLoading, isFetching, refetch } = usePaginatedAssignedCustomersByTrainer(userId ?? undefined, page, limit, debouncedSearch);
+  const {
+    data: gymData,
+    isLoading: isLoadingGym,
+    isFetching: isFetchingGym,
+    refetch: refetchGym,
+  } = usePaginatedAssignedCustomersByTrainer(effectiveGymTrainerId ?? undefined, page, limit, debouncedSearch);
+
+  const {
+    data: individualAssignments,
+    isLoading: loadingIndividual,
+    refetch: refetchIndividual,
+  } = useIndividualCustomerTrainers(
+    effectiveGlobalTrainerId
+      ? { globalTrainerId: effectiveGlobalTrainerId }
+      : undefined,
+    { enabled: !!effectiveGlobalTrainerId }
+  );
 
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    if (page === 1) {
-      await refetch();
-    } else {
-      setPage(1);
-    }
+    await Promise.all([
+      activeTab === 'gym' ? (page === 1 ? refetchGym() : setPage(1)) : refetchIndividual(),
+      refetchTrainerPlans(),
+      refetchGlobalTrainerRecord(),
+    ]);
     setRefreshing(false);
-  }, [page, refetch]);
+  }, [activeTab, page, refetchGym, refetchIndividual, refetchTrainerPlans, refetchGlobalTrainerRecord]);
 
-  const total = data?.total || 0;
-  const totalPages = Math.ceil(total / limit) || 1;
+  useFocusEffect(
+    useCallback(() => {
+      // Do not re-fetch on focus to avoid continuous background reload
+    }, [])
+  );
+
+  const gymTotal = gymData?.total || 0;
+  const totalPages = Math.ceil(gymTotal / limit) || 1;
 
   useEffect(() => {
-    if (data?.data) {
+    if (gymData?.data) {
       if (page === 1) {
-        setAccumulatedCustomers(data.data);
+        setAccumulatedCustomers(gymData.data);
       } else {
         setAccumulatedCustomers((prev) => {
           const prevIds = new Set(prev.map((a: any) => a.customerTrainerId));
-          const newUnique = data.data.filter((a: any) => !prevIds.has(a.customerTrainerId));
+          const newUnique = gymData.data.filter((a: any) => !prevIds.has(a.customerTrainerId));
           return [...prev, ...newUnique];
         });
       }
     }
-  }, [data, page]);
+  }, [gymData, page]);
 
   const hasMore = page < totalPages;
 
+  const filteredIndividual = useMemo(() => {
+    if (!individualAssignments) return [];
+    const approvedOnly = individualAssignments.filter(
+      (a: any) => !a.status || a.status.toLowerCase() === 'approved'
+    );
+    if (!debouncedSearch.trim()) return approvedOnly;
+    const q = debouncedSearch.toLowerCase().trim();
+    return approvedOnly.filter((a: any) => {
+      const name = (a.user?.name || a.user?.fullName || '').toLowerCase();
+      const em = (a.user?.email || '').toLowerCase();
+      const ph = a.user?.phone || '';
+      return name.includes(q) || em.includes(q) || ph.includes(q);
+    });
+  }, [individualAssignments, debouncedSearch]);
+
+  const individualTotal = individualAssignments?.filter(
+    (a: any) => !a.status || a.status.toLowerCase() === 'approved'
+  )?.length || 0;
+
+  const currentTotal = activeTab === 'gym' ? gymTotal : (filteredIndividual?.length || 0);
+  const currentList = activeTab === 'gym' ? accumulatedCustomers : filteredIndividual;
+  const isLoadingCurrent = activeTab === 'gym' ? (isLoadingGym && page === 1) : loadingIndividual;
+
   const renderHeader = () => (
     <>
-      <View className="flex-row items-center mb-8 pt-10">
+      <View className="flex-row items-center mb-8 pt-2">
         <Pressable
           onPress={() => router.back()}
           className="w-10 h-10 rounded-full border border-[#2A2A2A] items-center justify-center mr-4 active:opacity-70 bg-[#1A1A1A]"
@@ -81,7 +174,7 @@ export default function CreateDietPlanScreen() {
         </View>
       </View>
 
-      <View className="flex-row items-center mb-6">
+      <View className="flex-row items-center mb-5">
         <View className="flex-1 flex-row items-center bg-[#1A1A1A] rounded-2xl px-4 py-1.5 border border-[#2A2A2A] mr-3">
           <MagnifyingGlass size={20} color="#6B7280" />
           <TextInput
@@ -97,12 +190,41 @@ export default function CreateDietPlanScreen() {
         </Pressable>
       </View>
 
-      <View className="flex-row items-center justify-between mb-4">
-        <Text className="text-white text-base font-medium">Assigned PT Customers</Text>
-        <Text className="text-[#CCFF00] text-xs font-semibold">{total} Customers</Text>
+      {/* Tabs for Gym and Individual Clients */}
+      <View className="flex-row mb-6 gap-3">
+        <Pressable
+          onPress={() => {
+            setActiveTab('gym');
+            setSelectedCustomerId(null);
+          }}
+          className={`flex-1 py-3 rounded-xl items-center border active:opacity-80 ${activeTab === 'gym' ? 'bg-[#CCFF00] border-[#CCFF00]' : 'bg-[#18181B] border-[#27272A]'}`}
+        >
+          <Text className={`text-xs font-semibold ${activeTab === 'gym' ? 'text-black' : 'text-[#A3A3A3]'}`}>
+            Gym Clients ({gymTotal})
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            setActiveTab('individual');
+            setSelectedCustomerId(null);
+          }}
+          className={`flex-1 py-3 rounded-xl items-center border active:opacity-80 ${activeTab === 'individual' ? 'bg-[#CCFF00] border-[#CCFF00]' : 'bg-[#18181B] border-[#27272A]'}`}
+        >
+          <Text className={`text-xs font-semibold ${activeTab === 'individual' ? 'text-black' : 'text-[#A3A3A3]'}`}>
+            Individual Clients ({individualTotal})
+          </Text>
+        </Pressable>
       </View>
 
-      {!isLoading && accumulatedCustomers.length === 0 && (
+      <View className="flex-row items-center justify-between mb-4">
+        <Text className="text-white text-base font-medium">
+          {activeTab === 'gym' ? 'Assigned Gym Customers' : 'Assigned Individual Clients'}
+        </Text>
+        <Text className="text-[#CCFF00] text-xs font-semibold">{currentTotal} Customers</Text>
+      </View>
+
+      {!isLoadingCurrent && currentList.length === 0 && (
         <View className="py-10 items-center justify-center">
           <Text className="text-[#6B7280] text-sm">No customers found.</Text>
         </View>
@@ -111,34 +233,91 @@ export default function CreateDietPlanScreen() {
   );
 
   const renderFooter = () => {
-    if (isFetching) {
-      return (
-        <View className="py-4 items-center">
-          <ActivityIndicator size="small" color="#CCFF00" />
-        </View>
-      );
-    }
-    if (!hasMore && accumulatedCustomers.length > 0) {
-      return (
-        <View className="py-6 items-center">
-          <Text className="text-[#6B7280] text-xs font-medium">You've reached the end of the list</Text>
-        </View>
-      );
+    if (activeTab === 'gym') {
+      if (isFetchingGym) {
+        return (
+          <View className="py-4 items-center">
+            <ActivityIndicator size="small" color="#CCFF00" />
+          </View>
+        );
+      }
+      if (!hasMore && accumulatedCustomers.length > 0) {
+        return (
+          <View className="py-6 items-center">
+            <Text className="text-[#6B7280] text-xs font-medium">You've reached the end of the list</Text>
+          </View>
+        );
+      }
+    } else {
+      if (loadingIndividual) {
+        return (
+          <View className="py-4 items-center">
+            <ActivityIndicator size="small" color="#CCFF00" />
+          </View>
+        );
+      }
+      if (filteredIndividual.length > 0) {
+        return (
+          <View className="py-6 items-center">
+            <Text className="text-[#6B7280] text-xs font-medium">You've reached the end of the list</Text>
+          </View>
+        );
+      }
     }
     return null;
   };
 
   const renderItem = ({ item }: { item: any }) => {
-    const customer = item.customer;
-    if (!customer) return null;
+    const isInd = activeTab === 'individual' || !!item.individualCustomerTrainerId;
 
-    const isSelected = selectedCustomerId === customer.customerId;
-    const profilePic = customer.users?.profilePhoto;
-    const hasActivePlan = trainerPlans?.some((plan: any) => plan.userId === customer.customerId && plan.isActive);
+    let targetId: string;
+    let customerName: string;
+    let subtitle: string;
+    let profilePic: string | null = null;
+    let hasActivePlan = false;
+    let isExpired = false;
+
+    if (isInd) {
+      targetId = item.userId || item.user?.userId || item.individualCustomerTrainerId;
+      customerName = item.user?.name || item.user?.fullName || 'Customer';
+      subtitle = item.timings ? item.timings : 'Individual PT';
+
+      let image = item.user?.profilePic || item.user?.profilePhoto || null;
+      if (image && typeof image === 'string' && !image.startsWith('http') && !image.startsWith('file:') && !image.startsWith('data:')) {
+        const pathInBucket = image.includes('/') ? image : `${targetId}/${image}`;
+        const { data: pUrl } = supabase.storage.from('profile_photos').getPublicUrl(pathInBucket);
+        image = pUrl?.publicUrl || null;
+      }
+      profilePic = image;
+
+      if (item.expiryOn) {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const expDate = new Date(item.expiryOn);
+        const expiryEndOfDay = new Date(expDate.getFullYear(), expDate.getMonth(), expDate.getDate(), 23, 59, 59, 999);
+        isExpired = expiryEndOfDay < startOfToday;
+      }
+
+      hasActivePlan = !!trainerPlans?.some(
+        (plan: any) =>
+          (plan.userId === targetId || plan.userId === item.individualCustomerTrainerId || plan.userId === item.userId) &&
+          plan.isActive
+      );
+    } else {
+      const customer = item.customer;
+      if (!customer) return null;
+      targetId = customer.customerId || item.customerId;
+      customerName = customer.fullName || 'Unknown';
+      subtitle = customer.customId || 'No ID';
+      profilePic = customer.users?.profilePhoto || customer.users?.profilePic || null;
+      hasActivePlan = !!trainerPlans?.some((plan: any) => (plan.userId === targetId || plan.userId === customer.customerId) && plan.isActive);
+    }
+
+    const isSelected = selectedCustomerId === targetId;
 
     return (
       <Pressable
-        onPress={() => setSelectedCustomerId(customer.customerId)}
+        onPress={() => setSelectedCustomerId(targetId)}
         className={`bg-[#1A1A1A] rounded-[20px] p-4 mb-3 flex-row items-center border active:opacity-80 ${isSelected ? 'border-[#CCFF00]' : 'border-[#1A1A1A]'}`}
       >
         <View className="w-14 h-14 bg-[#2A2A2A] rounded-full items-center justify-center mr-4 overflow-hidden border border-[#3A3A3A]">
@@ -150,19 +329,28 @@ export default function CreateDietPlanScreen() {
         </View>
 
         <View className="flex-1">
-          <Text className="text-white text-[17px] font-semibold mb-1">{customer.fullName || 'Unknown'}</Text>
-          <View className="bg-[#2A2A2A] self-start px-2 py-0.5 rounded-md mb-2">
-            <Text className="text-[#6B7280] text-[10px] font-medium">{customer.customId || 'No ID'}</Text>
+          <Text className="text-white text-[17px] font-semibold mb-1">{customerName}</Text>
+          <View className="flex-row items-center mb-2">
+            <View className="bg-[#2A2A2A] self-start px-2 py-0.5 rounded-md mr-2">
+              <Text className="text-[#CCFF00] text-[10px] font-medium">{subtitle}</Text>
+            </View>
+            {isExpired && (
+              <View className="bg-red-950/60 border border-red-500/40 px-2 py-0.5 rounded-md">
+                <Text className="text-red-400 text-[10px] font-medium">Expired</Text>
+              </View>
+            )}
           </View>
           <View className="flex-row items-center">
-            <CalendarBlank size={12} color={hasActivePlan ? "#10B981" : "#CCFF00"} weight="regular" />
+            <CalendarBlank size={12} color={hasActivePlan ? '#10B981' : '#CCFF00'} weight="regular" />
             <Text className={`text-[11px] ml-1.5 font-medium ${hasActivePlan ? 'text-[#10B981]' : 'text-[#CCFF00]'}`}>
-              {hasActivePlan ? "Active diet plan" : "No diet plan yet"}
+              {hasActivePlan ? 'Active diet plan' : 'No diet plan yet'}
             </Text>
           </View>
         </View>
 
-        <View className={`w-[22px] h-[22px] rounded-full border-[2px] items-center justify-center ${isSelected ? 'border-[#CCFF00]' : 'border-[#6B7280]'}`}>
+        <View
+          className={`w-[22px] h-[22px] rounded-full border-[2px] items-center justify-center ${isSelected ? 'border-[#CCFF00]' : 'border-[#6B7280]'}`}
+        >
           {isSelected && <View className="w-[12px] h-[12px] rounded-full bg-[#CCFF00]" />}
         </View>
       </Pressable>
@@ -171,9 +359,19 @@ export default function CreateDietPlanScreen() {
 
   const handleContinue = () => {
     if (!selectedCustomerId) return;
-    const selectedCustomer = accumulatedCustomers.find((c: any) => c.customer?.customerId === selectedCustomerId)?.customer;
-    const customerName = selectedCustomer?.fullName || 'Customer';
-    
+    let customerName = 'Customer';
+    if (activeTab === 'individual') {
+      const selected = filteredIndividual.find(
+        (a: any) => (a.userId || a.user?.userId || a.individualCustomerTrainerId) === selectedCustomerId
+      );
+      customerName = selected?.user?.name || selected?.user?.fullName || 'Customer';
+    } else {
+      const selected = accumulatedCustomers.find(
+        (c: any) => (c.customer?.customerId || c.customerId) === selectedCustomerId
+      );
+      customerName = selected?.customer?.fullName || 'Customer';
+    }
+
     router.push({
       pathname: '/(trainer)/nutrition' as any,
       params: { targetUserId: selectedCustomerId, customerName },
@@ -183,18 +381,22 @@ export default function CreateDietPlanScreen() {
   return (
     <View className="flex-1 bg-[#09090B]">
       <FlatList
-        data={accumulatedCustomers}
-        keyExtractor={(item) => item.customerTrainerId}
+        data={currentList}
+        keyExtractor={(item) =>
+          item.individualCustomerTrainerId ||
+          item.customerTrainerId ||
+          item.userId ||
+          item.customer?.customerId ||
+          Math.random().toString()
+        }
         renderItem={renderItem}
         ListHeaderComponent={renderHeader}
         ListFooterComponent={renderFooter}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120, paddingTop: 10 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         onEndReached={() => {
-          if (hasMore && !isFetching) {
+          if (activeTab === 'gym' && hasMore && !isFetchingGym) {
             setPage((p) => p + 1);
           }
         }}
@@ -204,9 +406,8 @@ export default function CreateDietPlanScreen() {
         <Pressable
           onPress={handleContinue}
           disabled={!selectedCustomerId}
-          className={`rounded-[24px] flex-row items-center justify-center py-4 active:opacity-80 ${
-            selectedCustomerId ? 'bg-[#CCFF00]' : 'bg-[#2A2A2A] opacity-50'
-          }`}
+          className={`rounded-[24px] flex-row items-center justify-center py-4 active:opacity-80 ${selectedCustomerId ? 'bg-[#CCFF00]' : 'bg-[#2A2A2A] opacity-50'
+            }`}
         >
           <Text className={`text-[17px] font-semibold mr-2 ${selectedCustomerId ? 'text-black' : 'text-[#6B7280]'}`}>
             Continue

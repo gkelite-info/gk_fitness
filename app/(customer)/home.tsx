@@ -38,17 +38,36 @@ import { useWorkoutStreak } from '@/hooks/customerWorkouts/useWorkoutStreak';
 import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
 
 
+// Module-level persistent cache across screen navigation
+let cachedCustomerMembershipInfo: {
+  planName: string;
+  daysLeft: number | string;
+  progressPercentage: number;
+  membershipStatus: 'active' | 'pending_activation' | 'expired' | 'no_plan';
+  individualPlanPrice: number;
+  pendingTierUpdate: any;
+} | null = null;
+let cachedCustomerDashboardData: any = null;
+let cachedTrainerDashboardData: any = null;
+
 export default function CustomerHome() {
   const { name, userId, role } = useUser();
   const firstName = name?.split(' ')[0] || 'Customer';
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+
   const { data: customerDashboardData, isLoading: isLoadingCustomerDash, refetch: refetchCustomerDash } = useCustomerDashboardData(userId);
   const { data: trainerDashboardData, isLoading: isLoadingTrainerDash, refetch: refetchTrainerDash } = useTrainerDashboardData(userId);
 
-  const isTrainerPlan = !customerDashboardData?.hasPlan && (trainerDashboardData?.hasPlan ?? false);
-  const dashboardData = isTrainerPlan ? trainerDashboardData : customerDashboardData;
-  const isLoadingDashboard = isLoadingCustomerDash || isLoadingTrainerDash;
+  if (customerDashboardData) cachedCustomerDashboardData = customerDashboardData;
+  if (trainerDashboardData) cachedTrainerDashboardData = trainerDashboardData;
+
+  const effectiveCustomerDash = customerDashboardData || cachedCustomerDashboardData;
+  const effectiveTrainerDash = trainerDashboardData || cachedTrainerDashboardData;
+
+  const isTrainerPlan = !effectiveCustomerDash?.hasPlan && (effectiveTrainerDash?.hasPlan ?? false);
+  const dashboardData = isTrainerPlan ? effectiveTrainerDash : effectiveCustomerDash;
+  const isLoadingDashboard = (!effectiveCustomerDash && !effectiveTrainerDash) && (isLoadingCustomerDash || isLoadingTrainerDash);
 
   const { data: streakData } = useWorkoutStreak();
   const { data: weeklyStats, refetch: refetchWeeklyStats } = useWeeklyStats(userId);
@@ -63,9 +82,7 @@ export default function CustomerHome() {
     data: individualCustomerPlans,
     isLoading: isIndivCustomerPlansLoading,
     refetch: refetchIndivCustomerPlans,
-  } = useIndividualCustomerPlans(userId || undefined, undefined, {
-    enabled: !!userId,
-  });
+  } = useIndividualCustomerPlans(userId || undefined, undefined, { enabled: !!userId });
   const hasIndividualPlan = Boolean(individualCustomerPlans && individualCustomerPlans.length > 0);
   const isIndividual = role === 'individual' || hasIndividualPlan;
   const { mutateAsync: toggleIndivPlanActiveStatus } = useToggleIndividualCustomerPlanActiveStatus();
@@ -127,17 +144,19 @@ export default function CustomerHome() {
     return Boolean(activePlan.subscription?.price && activePlan.subscription.price > 0);
   }, [isIndividual, individualCustomerPlans, customerSubscriptions]);
 
-  const [planName, setPlanName] = useState<string>('MEMBER');
-  const [daysLeft, setDaysLeft] = useState<number | string>('--');
-  const [progressPercentage, setProgressPercentage] = useState<number>(0);
-  const [isLoadingMembership, setIsLoadingMembership] = useState(true);
-  const [membershipStatus, setMembershipStatus] = useState<'active' | 'pending_activation' | 'expired' | 'no_plan'>('no_plan');
-  const [individualPlanPrice, setIndividualPlanPrice] = useState<number>(0);
+  const [planName, setPlanName] = useState<string>(cachedCustomerMembershipInfo?.planName || 'MEMBER');
+  const [daysLeft, setDaysLeft] = useState<number | string>(cachedCustomerMembershipInfo ? cachedCustomerMembershipInfo.daysLeft : '--');
+  const [progressPercentage, setProgressPercentage] = useState<number>(cachedCustomerMembershipInfo?.progressPercentage || 0);
+  const [isLoadingMembership, setIsLoadingMembership] = useState(!cachedCustomerMembershipInfo);
+  const [membershipStatus, setMembershipStatus] = useState<'active' | 'pending_activation' | 'expired' | 'no_plan'>(
+    cachedCustomerMembershipInfo?.membershipStatus || 'no_plan'
+  );
+  const [individualPlanPrice, setIndividualPlanPrice] = useState<number>(cachedCustomerMembershipInfo?.individualPlanPrice || 0);
   const [pendingTierUpdate, setPendingTierUpdate] = useState<{
     pendingPlanId: string;
     pendingPlanName: string;
     pendingAmount?: number | null;
-  } | null>(null);
+  } | null>(cachedCustomerMembershipInfo?.pendingTierUpdate || null);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -154,149 +173,257 @@ export default function CustomerHome() {
     router.push('/(customer)/home/scan');
   };
 
-  const fetchMembershipInfo = React.useCallback(async () => {
-    if (!userId) return;
-    setIsLoadingMembership(true);
-    try {
-      syncAllLocalReminders(userId).catch(console.error);
-
-      let indivPlans = individualCustomerPlans;
-      if (!indivPlans || indivPlans.length === 0) {
-        try {
-          indivPlans = await fetchIndividualCustomerPlans(userId);
-        } catch (e) {
-          indivPlans = [];
-        }
+  const fetchMembershipInfo = React.useCallback(
+    async (forceFresh: boolean = false) => {
+      if (!userId) {
+        setIsLoadingMembership(false);
+        return;
       }
+      if (!cachedCustomerMembershipInfo && !forceFresh) {
+        setIsLoadingMembership(true);
+      }
+      try {
+        syncAllLocalReminders(userId).catch(console.error);
 
-      const hasIndiv = (indivPlans && indivPlans.length > 0) || role === 'individual';
-
-      if (hasIndiv && indivPlans && indivPlans.length > 0) {
-        setPendingTierUpdate(null);
-        const latestPlan = indivPlans[0];
-        const isPending = Boolean(
-          latestPlan &&
-          (latestPlan.status === 'pending' ||
-            !latestPlan.transactionId ||
-            !latestPlan.startDate)
-        );
-
-        if (isPending) {
-          const rawPrice = latestPlan.customAmount ?? latestPlan.subscription?.price ?? 0;
-          setIndividualPlanPrice(rawPrice);
-          setMembershipStatus('pending_activation');
-          setDaysLeft(0);
-          setProgressPercentage(0);
-          setPlanName((latestPlan.subscription?.planName || 'INDIVIDUAL PLAN').toUpperCase());
-          return;
+        let indivPlans: any[] = [];
+        if (forceFresh || !individualCustomerPlans || individualCustomerPlans.length === 0) {
+          try {
+            indivPlans = await fetchIndividualCustomerPlans(userId);
+          } catch (e) {
+            indivPlans = individualCustomerPlans || [];
+          }
+        } else {
+          indivPlans = individualCustomerPlans;
         }
 
-        const activePlan = indivPlans.find((p: any) => p.isActive && p.endDate && p.status !== 'pending' && p.transactionId) || (latestPlan.isActive && latestPlan.endDate ? latestPlan : null);
+        const hasIndiv = (indivPlans && indivPlans.length > 0) || role === 'individual';
 
-        if (activePlan && activePlan.endDate) {
-          const diffDays = getCalendarDaysDifference(activePlan.endDate);
-          const currentDaysLeft = diffDays > 0 ? diffDays : 0;
-
-          if (diffDays <= 0) {
-            if (activePlan.individualCustomerPlanId && activePlan.isActive) {
-              await toggleIndivPlanActiveStatus({
-                individualCustomerPlanId: activePlan.individualCustomerPlanId,
-                currentStatus: true,
-              });
-            }
-            setDaysLeft(0);
-            setProgressPercentage(0);
-            setMembershipStatus('expired');
-            setPlanName((activePlan.subscription?.planName || 'EXPIRED').toUpperCase());
-            return;
-          }
-
-          setDaysLeft(currentDaysLeft);
-          setMembershipStatus('active');
-
-          let percentage = 0;
-          if (activePlan.startDate) {
-            const totalDays = getCalendarDaysDifference(activePlan.endDate, activePlan.startDate);
-            if (totalDays > 0) {
-              percentage = (currentDaysLeft / totalDays) * 100;
-              percentage = Math.min(Math.max(percentage, 0), 100);
-            }
-          }
-          setProgressPercentage(percentage);
-
-          const planTitle = activePlan.subscription?.planName || 'INDIVIDUAL PLAN';
-          setPlanName(planTitle.toUpperCase());
-        } else {
-          setDaysLeft(0);
-          setProgressPercentage(0);
-          setMembershipStatus('expired');
-          setPlanName(latestPlan?.subscription?.planName ? `${latestPlan.subscription.planName.toUpperCase()} (EXPIRED)` : 'NO ACTIVE PLAN');
-        }
-      } else {
-        const plans = await fetchGymCustomerMembershipPlans(undefined, userId);
-        const latestPlan = plans && plans.length > 0 ? plans[0] : null;
-        if (latestPlan?.pendingPlanId) {
-          setPendingTierUpdate({
-            pendingPlanId: latestPlan.pendingPlanId,
-            pendingPlanName: (latestPlan as any).pendingPlan?.planName || 'Club Access Pass',
-            pendingAmount: (latestPlan as any).pendingAmount,
-          });
-        } else {
+        if (hasIndiv && indivPlans && indivPlans.length > 0) {
           setPendingTierUpdate(null);
-        }
+          const latestPlan = indivPlans[0];
+          const isPending = Boolean(
+            latestPlan &&
+            (latestPlan.status === 'pending' ||
+              !latestPlan.transactionId ||
+              !latestPlan.startDate)
+          );
 
-        const activePlan = plans?.find((p: any) => p.is_Active && p.endDate);
-        if (activePlan) {
-          const diffDays = getCalendarDaysDifference(activePlan.endDate);
-          const currentDaysLeft = diffDays > 0 ? diffDays : 0;
-
-          if (diffDays <= 0) {
-            await toggleGymCustomerMembershipPlanActiveStatus(activePlan.GymCustomerMembershipPlanId, true);
+          if (isPending) {
+            const rawPrice = latestPlan.customAmount ?? latestPlan.subscription?.price ?? 0;
+            const pName = (latestPlan.subscription?.planName || 'INDIVIDUAL PLAN').toUpperCase();
+            setIndividualPlanPrice(rawPrice);
+            setMembershipStatus('pending_activation');
             setDaysLeft(0);
             setProgressPercentage(0);
-            setMembershipStatus('expired');
-            setPlanName('EXPIRED');
+            setPlanName(pName);
+            cachedCustomerMembershipInfo = {
+              planName: pName,
+              daysLeft: 0,
+              progressPercentage: 0,
+              membershipStatus: 'pending_activation',
+              individualPlanPrice: rawPrice,
+              pendingTierUpdate: null,
+            };
             return;
           }
 
-          setDaysLeft(currentDaysLeft);
-          setMembershipStatus('active');
+          const activePlan = indivPlans.find((p: any) => p.isActive && p.endDate && p.status !== 'pending' && p.transactionId) || (latestPlan.isActive && latestPlan.endDate ? latestPlan : null);
 
-          let percentage = 0;
-          if (activePlan.startDate) {
-            const totalDays = getCalendarDaysDifference(activePlan.endDate, activePlan.startDate);
-            if (totalDays > 0) {
-              percentage = (currentDaysLeft / totalDays) * 100;
-              percentage = Math.min(Math.max(percentage, 0), 100);
+          if (activePlan && activePlan.endDate) {
+            const diffDays = getCalendarDaysDifference(activePlan.endDate);
+            const currentDaysLeft = diffDays > 0 ? diffDays : 0;
+
+            if (diffDays <= 0) {
+              if (activePlan.individualCustomerPlanId && activePlan.isActive) {
+                toggleIndivPlanActiveStatus({
+                  individualCustomerPlanId: activePlan.individualCustomerPlanId,
+                  currentStatus: true,
+                }).catch(console.warn);
+              }
+              const pName = (activePlan.subscription?.planName || 'EXPIRED').toUpperCase();
+              setDaysLeft(0);
+              setProgressPercentage(0);
+              setMembershipStatus('expired');
+              setPlanName(pName);
+              cachedCustomerMembershipInfo = {
+                planName: pName,
+                daysLeft: 0,
+                progressPercentage: 0,
+                membershipStatus: 'expired',
+                individualPlanPrice: 0,
+                pendingTierUpdate: null,
+              };
+              return;
             }
-          }
-          setProgressPercentage(percentage);
 
-          const { data: planDetails } = await supabase
-            .from('gym_membership_plans')
-            .select('planName')
-            .eq('planId', activePlan.planId)
-            .maybeSingle();
+            setDaysLeft(currentDaysLeft);
+            setMembershipStatus('active');
 
-          if (planDetails?.planName) {
-            setPlanName(planDetails.planName.toUpperCase());
+            let percentage = 0;
+            if (activePlan.startDate) {
+              const totalDays = getCalendarDaysDifference(activePlan.endDate, activePlan.startDate);
+              if (totalDays > 0) {
+                percentage = (currentDaysLeft / totalDays) * 100;
+                percentage = Math.min(Math.max(percentage, 0), 100);
+              }
+            }
+            setProgressPercentage(percentage);
+
+            const planTitle = (activePlan.subscription?.planName || 'INDIVIDUAL PLAN').toUpperCase();
+            setPlanName(planTitle);
+
+            cachedCustomerMembershipInfo = {
+              planName: planTitle,
+              daysLeft: currentDaysLeft,
+              progressPercentage: percentage,
+              membershipStatus: 'active',
+              individualPlanPrice: 0,
+              pendingTierUpdate: null,
+            };
+          } else {
+            const pName = latestPlan?.subscription?.planName ? `${latestPlan.subscription.planName.toUpperCase()} (EXPIRED)` : 'NO ACTIVE PLAN';
+            setDaysLeft(0);
+            setProgressPercentage(0);
+            setMembershipStatus('expired');
+            setPlanName(pName);
+            cachedCustomerMembershipInfo = {
+              planName: pName,
+              daysLeft: 0,
+              progressPercentage: 0,
+              membershipStatus: 'expired',
+              individualPlanPrice: 0,
+              pendingTierUpdate: null,
+            };
           }
         } else {
-          setDaysLeft(0);
-          setProgressPercentage(0);
-          setMembershipStatus('no_plan');
-          setPlanName('NO PLAN');
+          let targetCustomerId = userId;
+          try {
+            const { data: gymCust } = await supabase
+              .from('gym_customers')
+              .select('customerId')
+              .or(`userId.eq.${userId},customerId.eq.${userId}`)
+              .eq('is_deleted', false)
+              .maybeSingle();
+            if (gymCust?.customerId) {
+              targetCustomerId = gymCust.customerId;
+            }
+          } catch (e) {
+            // fallback
+          }
+
+          const plans = await fetchGymCustomerMembershipPlans(undefined, targetCustomerId);
+          const latestPlan = plans && plans.length > 0 ? plans[0] : null;
+          let pendingInfo: any = null;
+          if (latestPlan?.pendingPlanId) {
+            pendingInfo = {
+              pendingPlanId: latestPlan.pendingPlanId,
+              pendingPlanName: (latestPlan as any).pendingPlan?.planName || 'Club Access Pass',
+              pendingAmount: (latestPlan as any).pendingAmount,
+            };
+            setPendingTierUpdate(pendingInfo);
+          } else {
+            setPendingTierUpdate(null);
+          }
+
+          const activePlan = plans?.find((p: any) => p.is_Active && p.endDate);
+          if (activePlan) {
+            const diffDays = getCalendarDaysDifference(activePlan.endDate);
+            const currentDaysLeft = diffDays > 0 ? diffDays : 0;
+
+            if (diffDays <= 0) {
+              toggleGymCustomerMembershipPlanActiveStatus(activePlan.GymCustomerMembershipPlanId, true).catch(console.warn);
+              setDaysLeft(0);
+              setProgressPercentage(0);
+              setMembershipStatus('expired');
+              setPlanName('EXPIRED');
+              cachedCustomerMembershipInfo = {
+                planName: 'EXPIRED',
+                daysLeft: 0,
+                progressPercentage: 0,
+                membershipStatus: 'expired',
+                individualPlanPrice: 0,
+                pendingTierUpdate: pendingInfo,
+              };
+              return;
+            }
+
+            setDaysLeft(currentDaysLeft);
+            setMembershipStatus('active');
+
+            let percentage = 0;
+            if (activePlan.startDate) {
+              const totalDays = getCalendarDaysDifference(activePlan.endDate, activePlan.startDate);
+              if (totalDays > 0) {
+                percentage = (currentDaysLeft / totalDays) * 100;
+                percentage = Math.min(Math.max(percentage, 0), 100);
+              }
+            }
+            setProgressPercentage(percentage);
+
+            let resolvedPlanName = 'MEMBER';
+            const { data: planDetails } = await supabase
+              .from('gym_membership_plans')
+              .select('planName')
+              .eq('planId', activePlan.planId)
+              .maybeSingle();
+
+            if (planDetails?.planName) {
+              resolvedPlanName = planDetails.planName.toUpperCase();
+              setPlanName(resolvedPlanName);
+            }
+
+            cachedCustomerMembershipInfo = {
+              planName: resolvedPlanName,
+              daysLeft: currentDaysLeft,
+              progressPercentage: percentage,
+              membershipStatus: 'active',
+              individualPlanPrice: 0,
+              pendingTierUpdate: pendingInfo,
+            };
+          } else {
+            setDaysLeft(0);
+            setProgressPercentage(0);
+            setMembershipStatus('no_plan');
+            setPlanName('NO PLAN');
+            cachedCustomerMembershipInfo = {
+              planName: 'NO PLAN',
+              daysLeft: 0,
+              progressPercentage: 0,
+              membershipStatus: 'no_plan',
+              individualPlanPrice: 0,
+              pendingTierUpdate: pendingInfo,
+            };
+          }
         }
+      } catch (err) {
+        console.error('Error fetching membership info', err);
+      } finally {
+        setIsLoadingMembership(false);
       }
-    } catch (err) {
-      console.error('Error fetching membership info', err);
-    } finally {
-      setIsLoadingMembership(false);
-    }
-  }, [userId, role, individualCustomerPlans, toggleIndivPlanActiveStatus]);
+    },
+    [userId, role, individualCustomerPlans, toggleIndivPlanActiveStatus]
+  );
+
+  const hasFetchedMembershipRef = React.useRef(false);
 
   useEffect(() => {
-    if (!individualCustomerPlans || individualCustomerPlans.length === 0) return;
+    if (userId) {
+      if (!cachedCustomerMembershipInfo || !hasFetchedMembershipRef.current) {
+        hasFetchedMembershipRef.current = true;
+        fetchMembershipInfo();
+      }
+    } else {
+      setIsLoadingMembership(false);
+    }
+  }, [userId, fetchMembershipInfo]);
+
+  useEffect(() => {
+    if (!individualCustomerPlans || individualCustomerPlans.length === 0) {
+      if (isIndividual && !isIndivCustomerPlansLoading) {
+        setIsLoadingMembership(false);
+      }
+      return;
+    }
     const latestPlan = individualCustomerPlans[0];
     const isPending = Boolean(
       latestPlan &&
@@ -357,7 +484,20 @@ export default function CustomerHome() {
       setPlanName(latestPlan?.subscription?.planName ? `${latestPlan.subscription.planName.toUpperCase()} (EXPIRED)` : 'NO ACTIVE PLAN');
     }
     setIsLoadingMembership(false);
-  }, [individualCustomerPlans, toggleIndivPlanActiveStatus]);
+  }, [individualCustomerPlans, toggleIndivPlanActiveStatus, isIndividual, isIndivCustomerPlansLoading]);
+
+  useEffect(() => {
+    if (daysLeft !== '--') {
+      cachedCustomerMembershipInfo = {
+        planName,
+        daysLeft,
+        progressPercentage,
+        membershipStatus,
+        individualPlanPrice,
+        pendingTierUpdate,
+      };
+    }
+  }, [planName, daysLeft, progressPercentage, membershipStatus, individualPlanPrice, pendingTierUpdate]);
 
   const today = getLocalDateString(new Date());
   const { steps, calories, syncSteps } = usePedometer();
@@ -369,10 +509,8 @@ export default function CustomerHome() {
 
   useFocusEffect(
     React.useCallback(() => {
-      fetchMembershipInfo();
-      refetchStats();
-      refetchWeeklyStats();
-    }, [fetchMembershipInfo, refetchStats, refetchWeeklyStats])
+      // Data remains cached across screen/tab navigation; manual refresh available via pull-to-refresh
+    }, [])
   );
 
   const onRefresh = React.useCallback(async () => {
@@ -386,7 +524,7 @@ export default function CustomerHome() {
         refetchStats(),
         isIndividual ? refetchIndivCustomerPlans() : Promise.resolve(),
         isIndividual ? refetchSubscriptions() : Promise.resolve(),
-        fetchMembershipInfo(),
+        fetchMembershipInfo(true),
         refetchWeeklyStats(),
         syncSteps?.(),
       ]);
@@ -410,7 +548,8 @@ export default function CustomerHome() {
     }
   }, [userId, onboardingStatus, isCheckingOnboarding, router]);
 
-  if (isCheckingOnboarding || isLoadingDashboard) {
+  const hasLoadedDash = !!(effectiveCustomerDash || effectiveTrainerDash);
+  if (!hasLoadedDash && (isCheckingOnboarding || isLoadingDashboard)) {
     return (
       <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
         <ActivityIndicator size="large" color="#d4ff00" />

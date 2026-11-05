@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
+import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
 import { CustomWorkoutBuilder } from '@/components/workout/CustomWorkoutBuilder';
 import { matchesStrictMuscle, FALLBACK_TARGET_EXERCISES } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
 const getWorkoutImage = (type: string | undefined | null) => {
@@ -43,6 +44,13 @@ export default function CustomerWorkout() {
 
   const { data: customerDashboardData, isLoading: isLoadingCustomerPlan, isRefetching: isRefetchingCustomer } = useCustomerDashboardData(userId);
   const { data: trainerDashboardData, isLoading: isLoadingTrainerPlan, isRefetching: isRefetchingTrainer } = useTrainerDashboardData(userId);
+  const { data: weeklyStats, refetch: refetchWeeklyStats } = useWeeklyStats(userId);
+
+  const waterCompletion = Math.min((weeklyStats?.totals.water || 0) / (weeklyStats?.totals.waterGoal || 1), 1);
+  const stepsCompletion = Math.min((weeklyStats?.totals.steps || 0) / (weeklyStats?.totals.stepGoal || 1), 1);
+  const workoutCompletion = Math.min((weeklyStats?.totals.workouts || 0) / (weeklyStats?.totals.workoutGoal || 1), 1);
+
+  const overallCompletion = Math.round(((waterCompletion + stepsCompletion + workoutCompletion) / 3) * 100) || 0;
 
   const hasTrainerPlan = trainerDashboardData?.hasPlan ?? false;
   const currentDashboardData = planTab === 'trainer' ? trainerDashboardData : customerDashboardData;
@@ -59,7 +67,9 @@ export default function CustomerWorkout() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] }),
       queryClient.invalidateQueries({ queryKey: ['trainerDashboardData'] }),
-      queryClient.invalidateQueries({ queryKey: ['customerMuscleGroupWorkouts'] })
+      queryClient.invalidateQueries({ queryKey: ['customerMuscleGroupWorkouts'] }),
+      queryClient.invalidateQueries({ queryKey: ['weeklyStats'] }),
+      refetchWeeklyStats?.(),
     ]);
     setIsManualRefreshing(false);
   };
@@ -299,15 +309,15 @@ export default function CustomerWorkout() {
                   </ScrollView>
                   <View className="flex-row items-center justify-between mt-5">
                     <Text className="text-[#8E8E8E] text-xs font-medium mb-1">Weekly Progress</Text>
-                    <Text className="text-white text-xs font-semibold mb-1">0%</Text>
+                    <Text className="text-white text-xs font-semibold mb-1">{overallCompletion}%</Text>
                   </View>
                   <View className="w-full h-1.5 bg-[#27272A] rounded-full mt-1">
-                    <View className="h-full bg-[#C4EF00] rounded-full" style={{ width: '0%' }} />
+                    <View className="h-full bg-[#C4EF00] rounded-full" style={{ width: `${Math.min(overallCompletion, 100)}%` }} />
                   </View>
                 </View>
 
-                <View className='flex flex-row items-center justify-between gap-2 w-full mt-5 bg-[#191919] p-3 pb-0 rounded-xl'>
-                  <View className='w-[50%] h-full gap-3 pb-4'>
+                <View className='flex flex-row items-center justify-between gap-3 w-full mt-5 bg-[#191919] p-4 rounded-2xl overflow-hidden'>
+                  <View className='flex-1 gap-2.5 pb-1'>
                     <Text className='text-[#C4EF00] text-xs font-semibold tracking-wider'>TODAY'S WORKOUT</Text>
                     <Text className='text-xl text-white font-semibold'>
                       {(() => {
@@ -318,12 +328,12 @@ export default function CustomerWorkout() {
 
                     {todayWorkout?.type?.toLowerCase() !== 'rest' && (
                       <>
-                        <View className='flex-row items-center gap-1'>
+                        <View className='flex-row items-center gap-1.5'>
                           <Clock size={15} color='#8E8E8E' />
                           <Text className='text-[#8E8E8E] text-sm'>{todayWorkout?.duration} Mins</Text>
                         </View>
-                        <View className='flex-row items-center gap-1'>
-                          <View className='h-2 w-2 rounded-full bg-[#C4EF00]'></View>
+                        <View className='flex-row items-center gap-1.5'>
+                          <View className='h-2 w-2 rounded-full bg-[#C4EF00]' />
                           <Text className='text-[#8E8E8E] text-sm'>Exercises</Text>
                         </View>
                         <Pressable
@@ -341,7 +351,7 @@ export default function CustomerWorkout() {
                               });
                             }
                           }}
-                          className='bg-[#C4EF00] p-2 px-3 mt-1 flex-row items-center justify-center gap-2 w-fit rounded-xl'
+                          className='bg-[#C4EF00] py-2 px-3.5 mt-1 flex-row items-center justify-center gap-2 self-start rounded-xl active:opacity-80'
                         >
                           <Text className='font-semibold text-black'>Start Workout</Text>
                           <ArrowRight size={15} color='black' weight='bold' />
@@ -352,11 +362,11 @@ export default function CustomerWorkout() {
                       <Text className='text-[#8E8E8E] text-sm mt-1'>Take it easy and recover for tomorrow.</Text>
                     )}
                   </View>
-                  <View className='w-[50%] items-end justify-end'>
+                  <View className='w-[45%] max-w-[150px] aspect-square items-center justify-center overflow-hidden'>
                     {todayWorkout?.type?.toLowerCase() !== 'rest' && (
                       <Image
                         source={getWorkoutImage(todayWorkout?.type)}
-                        style={{ width: 160, height: 160, marginRight: -10, marginBottom: -10 }}
+                        style={{ width: '100%', height: '100%' }}
                         resizeMode='contain'
                       />
                     )}
@@ -442,7 +452,7 @@ export default function CustomerWorkout() {
                     resizeMode='contain'
                   />
                   <View>
-                    <Text className='text-white font-semibold'>{yesterdayWorkout.type}</Text>
+                    <Text className='text-white font-semibold capitalize'>{yesterdayWorkout.type}</Text>
                     <View className='flex-row justify-between gap-2 mt-1'>
                       <Text className='text-xs text-[#8E8E8E]'>{yesterdayWorkout.duration} mins</Text>
                       <Text className='text-xs text-[#8E8E8E]'>{yesterdayWorkout.exercisesCount || 0} Exercises</Text>
@@ -450,7 +460,7 @@ export default function CustomerWorkout() {
                   </View>
                 </View>
                 <View className='bg-blue-00 flex flex-col items-center justify-center gap-1'>
-                  <Text className={`text-[10px] font-bold uppercase ${yesterdayWorkout.isCompleted ? 'text-[#C4EF00]' : 'text-red-500'}`}>
+                  <Text className={`text-[10px] font-semibold uppercase ${yesterdayWorkout.isCompleted ? 'text-[#C4EF00]' : 'text-red-500'}`}>
                     {yesterdayWorkout.isCompleted ? 'Completed' : 'Missed'}
                   </Text>
                   <Text className='text-[#8E8E8E] text-xs'>Yesterday</Text>
@@ -954,6 +964,9 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
                                 ['All', 'Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Calves', 'Abs']
                         ),
                         exploreCategory: exploreCategory || undefined,
+                      params: {
+                        category: activeSubTab,
+                        filterTabs: filterTabs ? JSON.stringify(filterTabs) : undefined
                       }
                     })}
                     className="py-2.5 px-6 rounded-full border border-[#27272A] bg-[#111111] active:opacity-70"
@@ -985,7 +998,7 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
             <X size={24} color="#FFF" />
           </Pressable>
 
-          <Text className="text-[#C4EF00] text-xl font-bold mb-6 mx-4 text-center">{videoTitle}</Text>
+          <Text className="text-[#C4EF00] text-xl font-semibold mb-6 mx-4 text-center">{videoTitle}</Text>
 
           <View className="w-full h-80 bg-black">
             {selectedVideo && (

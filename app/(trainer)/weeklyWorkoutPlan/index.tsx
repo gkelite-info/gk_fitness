@@ -23,7 +23,7 @@ export default function WeeklyWorkoutPlan() {
 
   useFocusEffect(
     React.useCallback(() => {
-      refetch();
+      // Keep cached data; manual refresh via onRefresh
     }, [refetch])
   );
 

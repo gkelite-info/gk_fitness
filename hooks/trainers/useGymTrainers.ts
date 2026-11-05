@@ -23,13 +23,17 @@ export function useGymTrainerById(gymTrainerId?: string) {
   });
 }
 
-export function useGymTrainerByUserId(userId?: string) {
+export function useGymTrainerByUserId(
+  userId?: string,
+  options?: { enabled?: boolean; staleTime?: number; refetchOnWindowFocus?: boolean; refetchOnMount?: boolean }
+) {
   return useQuery({
     queryKey: ['trainer', 'user', userId],
     queryFn: async () => {
       if (!userId) return null;
       return await fetchTrainerByUserId(userId);
     },
-    enabled: !!userId,
+    enabled: options?.enabled !== undefined ? options.enabled : !!userId,
+    ...options,
   });
 }

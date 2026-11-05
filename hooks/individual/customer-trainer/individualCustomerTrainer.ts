@@ -21,7 +21,7 @@ export type {
 
 export function useIndividualCustomerTrainers(
   filters?: FetchIndividualCustomerTrainersFilter,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; staleTime?: number; refetchOnWindowFocus?: boolean; refetchOnMount?: boolean }
 ) {
   return useQuery({
     queryKey: ['individualCustomerTrainers', filters],
@@ -34,7 +34,7 @@ export function useIndividualCustomerTrainers(
 
 export function useIndividualCustomerTrainerById(
   individualCustomerTrainerId?: string | null,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; staleTime?: number; refetchOnWindowFocus?: boolean; refetchOnMount?: boolean }
 ) {
   return useQuery({
     queryKey: ['individualCustomerTrainer', individualCustomerTrainerId],
@@ -49,7 +49,7 @@ export function useIndividualCustomerTrainerById(
 
 export function useAssignedGlobalTrainersByUser(
   userId?: string | null,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; staleTime?: number; refetchOnWindowFocus?: boolean; refetchOnMount?: boolean }
 ) {
   return useQuery({
     queryKey: ['assignedGlobalTrainers', 'user', userId],
@@ -73,7 +73,7 @@ export function useIndividualCustomerTrainersPaginated(
     userId?: string;
     sortOrder?: 'newest' | 'oldest';
   },
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; staleTime?: number; refetchOnWindowFocus?: boolean; refetchOnMount?: boolean }
 ) {
   return useQuery({
     queryKey: ['individualCustomerTrainersPaginated', page, limit, filters],

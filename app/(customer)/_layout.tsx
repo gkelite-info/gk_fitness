@@ -90,6 +90,11 @@ export default function CustomerLayout() {
           options={{
             title: 'Progress',
           }}
+          listeners={({ navigation }) => ({
+            tabPress: () => {
+              navigation.navigate('progress', { screen: 'index' });
+            },
+          })}
         />
         <Tabs.Screen
           name="home"

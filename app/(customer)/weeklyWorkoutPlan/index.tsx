@@ -85,6 +85,8 @@ export default function WeeklyWorkoutPlan() {
       const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => subscription.remove();
     }, [isTrainerPlan, refetchTrainer, refetchCustomer, handleBack])
+      // Keep cached data; manual refresh via onRefresh
+    }, [])
   );
 
   const weeklyPlan = React.useMemo(() => {

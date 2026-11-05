@@ -86,12 +86,20 @@ export default function WeeklyProgressScreen() {
     );
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(customer)/home');
+    }
+  };
+
   return (
     <View className="flex-1 bg-[#0A0A0A]">
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 py-3.5 bg-[#141414] border-b border-[#222222]">
         <Pressable
-          onPress={() => router.back()}
+          onPress={handleBack}
           className="w-10 h-10 rounded-full bg-[#1A1A1A] border border-[#2A2A2A] items-center justify-center active:opacity-80"
         >
           <CaretLeft size={20} color="#FFFFFF" />
@@ -300,7 +308,6 @@ export default function WeeklyProgressScreen() {
           </View>
         </View>
 
-        {/* Info Box */}
         <View className="bg-[#141414] border border-[#222222] rounded-[20px] p-5 mb-4 flex-row items-center">
           <View className="mr-4">
             <Info size={24} color="#8E8E93" weight="regular" />

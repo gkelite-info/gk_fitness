@@ -67,7 +67,7 @@ export default function TrainerLayout() {
         name="create-workout-plan"
         options={{
           href: null,
-          headerShown: false,
+          headerShown: true,
         }}
       />
       <Tabs.Screen

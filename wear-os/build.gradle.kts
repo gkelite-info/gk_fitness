@@ -16,16 +16,29 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        getByName("debug") {
+            val rootKs = file("${project.rootDir}/app/debug.keystore")
+            val relativeKs = file("../android/app/debug.keystore")
+            storeFile = if (rootKs.exists()) rootKs else relativeKs
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
         debug {
-            // Must match phone application ID exactly for Google Play Services Wearable sync
+            // Must match phone application ID and signing keystore for Google Play Services Wearable sync
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
         }
     }

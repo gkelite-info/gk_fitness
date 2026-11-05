@@ -215,6 +215,14 @@ export default function CustomerLayout() {
           }}
         />
         <Tabs.Screen
+          name="fitness/activity"
+          options={{
+            href: null,
+            headerShown: false,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
           name="attendance"
           options={{
             href: null,

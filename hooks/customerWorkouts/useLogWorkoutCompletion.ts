@@ -44,6 +44,8 @@ export function useLogWorkoutCompletion() {
     onSuccess: (data) => {
       // Invalidate the streak query so it updates instantly
       queryClient.invalidateQueries({ queryKey: ['workout_streak', userId] });
+      queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] });
+      queryClient.invalidateQueries({ queryKey: ['customerWeeklyPlan'] });
     },
     onError: (error) => {
       console.error('[useLogWorkoutCompletion] Mutation Error:', error);

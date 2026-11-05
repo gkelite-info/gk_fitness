@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { Stack } from 'expo-router';
 
 export interface ExerciseItem {
@@ -55,13 +55,15 @@ export default function WorkoutPlanLayout() {
     setPlanDays({ 1: {}, 2: {}, 3: {}, 4: {} });
   }, []);
 
+  const contextValue = useMemo(() => ({
+    selectedDays, setSelectedDays, 
+    planMode, setPlanMode,
+    currentEditingWeek, setCurrentEditingWeek,
+    planDays, setPlanDays, resetPlan 
+  }), [selectedDays, planMode, currentEditingWeek, planDays, resetPlan]);
+
   return (
-    <WorkoutPlanContext.Provider value={{ 
-      selectedDays, setSelectedDays, 
-      planMode, setPlanMode,
-      currentEditingWeek, setCurrentEditingWeek,
-      planDays, setPlanDays, resetPlan 
-    }}>
+    <WorkoutPlanContext.Provider value={contextValue}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="choose-plan-mode" />

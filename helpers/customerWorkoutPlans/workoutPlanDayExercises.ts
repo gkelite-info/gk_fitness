@@ -1,3 +1,4 @@
+import { matchesStrictMuscle } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
 
@@ -151,7 +152,12 @@ export async function enrichExercisesWithVideos(exercises: any[], targetGender?:
         const idGroupMap = new Map<string, any[]>();
 
         wvRows.forEach((row: any) => {
-          const rowGender = row.workouts?.role?.toLowerCase() || row.gender?.toLowerCase() || 'all';
+          let rowGender = (Array.isArray(row.workouts) ? row.workouts[0]?.role : row.workouts?.role || row.gender || 'all').toLowerCase().trim();
+          if (row.videoUrl) {
+            const lowerUrl = row.videoUrl.toLowerCase();
+            if (/female|women|woman|\/female\/|_female|-female|female_/i.test(lowerUrl)) rowGender = 'female';
+            else if (/male|men|man|\/male\/|_male|-male|male_/i.test(lowerUrl)) rowGender = 'male';
+          }
           const rowStretching = row.workouts?.isStretching || false;
           const item = { videoUrl: row.videoUrl, gender: rowGender, isStretching: rowStretching };
 
@@ -270,7 +276,12 @@ export async function autoSeedPlanDayExercises(planDayId: string, targetGender?:
     for (const row of wvRows) {
       if (!row.videoUrl || typeof row.videoUrl !== 'string' || !isRealVideoUrl(row.videoUrl)) continue;
 
-      const rowGender = (row.workouts?.role || row.gender || 'all').toLowerCase();
+      let rowGender = (Array.isArray(row.workouts) ? row.workouts[0]?.role : row.workouts?.role || row.gender || 'all').toLowerCase().trim();
+      if (row.videoUrl) {
+        const lowerUrl = row.videoUrl.toLowerCase();
+        if (/female|women|woman|\/female\/|_female|-female|female_/i.test(lowerUrl)) rowGender = 'female';
+        else if (/male|men|man|\/male\/|_male|-male|male_/i.test(lowerUrl)) rowGender = 'male';
+      }
       if (rowGender !== 'all' && rowGender !== preferredRole) continue;
 
       const norm = normalizeName(row.exerciseName || '');
@@ -282,10 +293,10 @@ export async function autoSeedPlanDayExercises(planDayId: string, targetGender?:
       }
 
       const pMuscle = (row.primaryMuscle || '').toUpperCase();
-      const matchesMuscle = targetInfo.muscles.some(m => pMuscle === m);
-      const matchesKeyword = targetInfo.keywords.some(k => lowerExName.includes(k.toLowerCase()));
+      const isMatch = matchesStrictMuscle(row.exerciseName || '', row.primaryMuscle, workoutTypeLower) ||
+        (targetInfo && (targetInfo.muscles.some(m => pMuscle === m) || targetInfo.keywords.some(k => lowerExName.includes(k.toLowerCase()))));
 
-      if (matchesMuscle || matchesKeyword) {
+      if (isMatch) {
         seenNames.add(norm);
         candidates.push(row);
         if (candidates.length >= 6) break;

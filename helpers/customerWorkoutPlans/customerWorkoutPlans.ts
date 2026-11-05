@@ -158,3 +158,54 @@ export async function toggleCustomerWorkoutPlanActiveStatus(planId: string, curr
 
   return data ? data[0] : null;
 }
+
+
+export async function softDeleteEntireCustomerPlan(userId: string) {
+  const now = new Date().toISOString();
+
+  // 1. Find all active or non-deleted plans for this user
+  const { data: plans, error: fetchError } = await supabase
+    .from('customer_workout_plans')
+    .select('planId')
+    .eq('userId', userId)
+    .is('deletedAt', null);
+
+  if (fetchError) {
+    console.error('[customerWorkoutPlansHelper] softDeleteEntireCustomerPlan fetchError:', fetchError);
+    throw fetchError;
+  }
+
+  const planIds = plans?.map((p: any) => p.planId) || [];
+
+  if (planIds.length > 0) {
+    // 2. Soft delete the plans
+    const { error: planError } = await supabase
+      .from('customer_workout_plans')
+      .update({
+        isActive: false,
+        deletedAt: now,
+        updatedAt: now,
+      })
+      .in('planId', planIds);
+
+    if (planError) {
+      console.error('[customerWorkoutPlansHelper] softDeleteEntireCustomerPlan planError:', planError);
+      throw planError;
+    }
+
+    // 3. Soft delete the plan days
+    const { error: daysError } = await supabase
+      .from('workout_plan_days')
+      .update({
+        deletedAt: now,
+        updatedAt: now,
+      })
+      .in('planId', planIds);
+
+    if (daysError) {
+      console.warn('[customerWorkoutPlansHelper] softDeleteEntireCustomerPlan daysError:', daysError);
+    }
+  }
+
+  return true;
+}

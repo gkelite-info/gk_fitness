@@ -608,7 +608,7 @@ export default function MyTrainerScreen() {
 
             <View className="flex-row justify-between gap-x-3 mb-7">
               <Pressable
-                onPress={() => router.push('/(customer)/weeklyWorkoutPlan')}
+                onPress={() => router.push({ pathname: '/(customer)/weeklyWorkoutPlan', params: { returnTo: '/(customer)/my-trainer' } } as any)}
                 className="bg-[#141414] rounded-2xl p-4 flex-1 items-center justify-center border border-[#222222] active:opacity-75"
               >
                 <View className="mb-2">

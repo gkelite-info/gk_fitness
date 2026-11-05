@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator, Modal, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 // @ts-ignore
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { CaretLeft, CaretRight, Eye, PencilSimple, ArrowsLeftRight, Plus } from 'phosphor-react-native';
+import { CaretLeft, CaretRight, Eye, PencilSimple, ArrowsLeftRight, Plus, ArrowsClockwise, DotsThreeVertical } from 'phosphor-react-native';
+import ConfirmModal from '@/components/ConfirmModal';
+import { useResetCustomerWorkoutPlan } from '@/hooks/customerWorkouts/useMutateCustomerWorkoutPlan';
+import { toast } from '@/lib/toast';
 import { useUser } from '@/context/UserContext';
 import { useCustomerWeeklyPlan } from '@/hooks/customerWorkouts/useCustomerWeeklyPlan';
 import { useTrainerWeeklyPlan } from '@/hooks/trainerWorkoutPlans/useTrainerWeeklyPlan';
@@ -12,8 +15,16 @@ import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function WeeklyWorkoutPlan() {
   const { userId } = useUser();
-  const { planType } = useLocalSearchParams<{ planType?: string }>();
+  const { planType, returnTo } = useLocalSearchParams<{ planType?: string; returnTo?: string }>();
   const isTrainerPlan = planType === 'trainer';
+
+  const handleBack = React.useCallback(() => {
+    if (returnTo) {
+      router.replace(returnTo as any);
+    } else {
+      router.replace('/(customer)/workout' as any);
+    }
+  }, [returnTo]);
 
   const { data: customerPlanDays, isLoading: isLoadingCustomer, refetch: refetchCustomer } = useCustomerWeeklyPlan(!isTrainerPlan ? (userId || undefined) : undefined);
   const { data: trainerPlanDays, isLoading: isLoadingTrainer, refetch: refetchTrainer } = useTrainerWeeklyPlan(isTrainerPlan ? (userId || undefined) : undefined);
@@ -33,6 +44,21 @@ export default function WeeklyWorkoutPlan() {
   const isLoading = isTrainerPlan ? isLoadingTrainer : isLoadingCustomer;
 
   const [refreshing, setRefreshing] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const resetPlanMutation = useResetCustomerWorkoutPlan();
+
+  const handleStartOver = async () => {
+    try {
+      await resetPlanMutation.mutateAsync();
+      setShowResetConfirm(false);
+      toast.success('Workout plan reset successfully.');
+      router.replace('/(customer)/workoutPlan');
+    } catch (error) {
+      console.error('[WeeklyWorkoutPlan] Start Over error:', error);
+      toast.error('Failed to reset workout plan. Please try again.');
+    }
+  };
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -46,6 +72,19 @@ export default function WeeklyWorkoutPlan() {
 
   useFocusEffect(
     React.useCallback(() => {
+      if (isTrainerPlan) {
+        refetchTrainer();
+      } else {
+        refetchCustomer();
+      }
+
+      const onBackPress = () => {
+        handleBack();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [isTrainerPlan, refetchTrainer, refetchCustomer, handleBack])
       // Keep cached data; manual refresh via onRefresh
     }, [])
   );
@@ -88,161 +127,210 @@ export default function WeeklyWorkoutPlan() {
         subtitle: isRest ? 'Recovery & relax' : null
       };
     });
-  }, [loadedPlanDays]);
+}, [loadedPlanDays, selectedWeek, currentWeekNumber, isTrainerPlan]);
 
-  const handleEdit = (dayId: string) => {
-    router.push({
-      pathname: '/(customer)/weeklyWorkoutPlan/edit-day',
-      params: { day: dayId, weekNumber: selectedWeek }
-    });
-  };
+const handleEdit = (dayId: string) => {
+  router.push({
+    pathname: '/(customer)/weeklyWorkoutPlan/edit-day',
+    params: { day: dayId, weekNumber: selectedWeek }
+  });
+};
 
-  return (
-    <View className="flex-1 bg-[#0A0A0A] px-3 pt-3 pb-6">
-      <View className="mb-6">
-        <Pressable onPress={() => router.back()} className="mb-3 w-10 h-10 items-center justify-center -ml-2 active:opacity-75">
+return (
+  <View className="flex-1 bg-[#0A0A0A] px-3 pt-3 pb-6">
+    <View className="mb-6">
+      <View className="flex-row items-center justify-between mb-3">
+        <Pressable onPress={handleBack} className="w-10 h-10 items-center justify-center -ml-2 active:opacity-75">
           <CaretLeft size={24} color="#FFFFFF" />
         </Pressable>
-        <Text className="text-white text-2xl font-bold mb-1">
-          {isTrainerPlan ? 'Trainer Weekly Workout Plan' : 'Monthly Workout Plan'}
-        </Text>
-        <Text className="text-[#8E8E8E] text-sm">
-          {isTrainerPlan ? 'Review your trainer assigned weekly schedule.' : 'Review and customize your monthly schedule.'}
-        </Text>
+        {!isTrainerPlan && (
+          <Pressable
+            onPress={() => setShowOptionsMenu(true)}
+            className="w-10 h-10 items-center justify-center rounded-full active:opacity-75 -mr-2"
+          >
+            <DotsThreeVertical size={24} color="#FFFFFF" weight="bold" />
+          </Pressable>
+        )}
       </View>
+      <Text className="text-white text-2xl font-bold mb-1">
+        {isTrainerPlan ? 'Trainer Weekly Workout Plan' : 'Monthly Workout Plan'}
+      </Text>
+      <Text className="text-[#8E8E8E] text-sm">
+        {isTrainerPlan ? 'Review your trainer assigned weekly schedule.' : 'Review and customize your monthly schedule.'}
+      </Text>
+    </View>
 
-      {!isTrainerPlan && (
-        <View className="flex-row gap-2 mb-6 border-b border-[#242424] pb-4">
-          {[1, 2, 3, 4].map(w => (
-            <Pressable
-              key={w}
-              onPress={() => setSelectedWeek(w)}
-              className={`flex-1 items-center justify-center py-2 rounded-xl ${selectedWeek === w ? 'bg-[#C4EF00]' : 'bg-[#161616] border border-[#242424]'}`}
+    {!isTrainerPlan && (
+      <View className="flex-row gap-2 mb-6 border-b border-[#242424] pb-4">
+        {[1, 2, 3, 4].map(w => (
+          <Pressable
+            key={w}
+            onPress={() => setSelectedWeek(w)}
+            className={`flex-1 items-center justify-center py-2 rounded-xl ${selectedWeek === w ? 'bg-[#C4EF00]' : 'bg-[#161616] border border-[#242424]'}`}
+          >
+            <Text className={`font-semibold text-xs ${selectedWeek === w ? 'text-black' : 'text-[#8E8E8E]'}`}>Week {w}</Text>
+            {w === currentWeekNumber && (
+              <View className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#FF453A]" />
+            )}
+          </Pressable>
+        ))}
+      </View>
+    )}
+
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 100 }}
+      refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      {isLoading && !refreshing ? (
+        <View className="items-center justify-center pt-20">
+          <ActivityIndicator size="large" color="#D7FF00" />
+        </View>
+      ) : (
+        <View className="gap-4">
+          {weeklyPlan.map((day, index) => (
+            <View
+              key={index}
+              className="flex-row bg-[#111111] rounded-[24px] p-3 items-center border border-[#1A1A1A]"
             >
-              <Text className={`font-semibold text-xs ${selectedWeek === w ? 'text-black' : 'text-[#8E8E8E]'}`}>Week {w}</Text>
-              {w === currentWeekNumber && (
-                <View className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#FF453A]" />
+              <View
+                className={`w-[60px] h-[75px] rounded-xl items-center justify-center mr-4 
+                  ${day.isToday ? 'bg-[#D7FF00]' : 'bg-[#1A1A1A] border border-[#2A2A2A]'}`}
+              >
+                <Text
+                  className={`text-[11px] font-semibold tracking-wider mb-1 
+                    ${day.isToday ? 'text-black' : 'text-[#8E8E8E]'}`}
+                >
+                  {day.dayAbbr}
+                </Text>
+                <Text
+                  className={`text-2xl text-black 
+                    ${day.isToday ? 'text-black' : (day.isRest ? 'text-[#555555]' : 'text-white')}`}
+                >
+                  {day.date}
+                </Text>
+              </View>
+
+              <View className="flex-1 justify-center">
+                <View className="flex-row items-center mb-1">
+                  <View
+                    className={`w-2 h-2 rounded-full mr-2 
+                      ${day.isRest ? 'bg-[#555555]' : 'bg-[#D7FF00]'}`}
+                  />
+                  <Text className="text-white text-lg font-semibold">{day.type}</Text>
+                </View>
+                <Text className="text-[#8E8E8E] text-xs">
+                  {day.subtitle ? day.subtitle : `${day.exercises} Exercises`}
+                </Text>
+              </View>
+
+              {day.isRest ? (
+                !isTrainerPlan ? (
+                  <Pressable
+                    onPress={() => {
+                      const existingFullNames = weeklyPlan.filter(d => !d.isRest).map(d => {
+                        const map: any = { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday', SUN: 'Sunday' };
+                        return map[d.dayAbbr];
+                      });
+                      router.push({
+                        pathname: '/(customer)/workoutPlan',
+                        params: {
+                          existingDays: existingFullNames.join(','),
+                          targetDay: day.dayAbbr
+                        }
+                      });
+                    }}
+                    className="flex-row items-center bg-[#1A1A1A] border border-[#2A2A2A] px-4 py-3 rounded-xl ml-2"
+                  >
+                    <Plus size={14} color="#D7FF00" weight="bold" />
+                    <Text className="text-white text-xs font-semibold ml-2">Add Workout</Text>
+                  </Pressable>
+                ) : null
+              ) : (
+                <View className="flex-row items-center gap-1.5 ml-2">
+                  <Pressable
+                    onPress={() => router.push({
+                      pathname: '/(customer)/weeklyWorkoutPlan/view-day',
+                      params: { dayId: day.id, isTrainer: isTrainerPlan ? 'true' : 'false', weekNumber: selectedWeek }
+                    })}
+                    className="items-center justify-center bg-[#161616] border border-[#2A2A2A] w-[46px] h-[46px] rounded-xl"
+                  >
+                    <Eye size={18} color="#D7FF00" />
+                    <Text className="text-white text-[9px] font-semibold mt-1">VIEW</Text>
+                  </Pressable>
+                  {!isTrainerPlan && (
+                    <>
+                      <Pressable
+                        onPress={() => handleEdit(day.id)}
+                        className="items-center justify-center bg-[#161616] border border-[#2A2A2A] w-[46px] h-[46px] rounded-xl"
+                      >
+                        <PencilSimple size={18} color="#D7FF00" />
+                        <Text className="text-white text-[9px] font-semibold mt-1">EDIT</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => router.push({ pathname: '/(customer)/weeklyWorkoutPlan/swap-day', params: { dayId: day.id, weekNumber: selectedWeek } })}
+                        className="items-center justify-center bg-[#161616] border border-[#2A2A2A] w-[46px] h-[46px] rounded-xl mr-2"
+                      >
+                        <ArrowsLeftRight size={18} color="#D7FF00" />
+                        <Text className="text-white text-[9px] font-semibold mt-1">SWAP</Text>
+                      </Pressable>
+                    </>
+                  )}
+                  <Pressable
+                    onPress={() => router.push({
+                      pathname: '/(customer)/weeklyWorkoutPlan/view-day',
+                      params: { dayId: day.id, isTrainer: isTrainerPlan ? 'true' : 'false', weekNumber: selectedWeek }
+                    })}
+                    className="p-2 -mr-2"
+                  >
+                    <CaretRight size={16} color="#555555" />
+                  </Pressable>
+                </View>
               )}
-            </Pressable>
+            </View>
           ))}
         </View>
       )}
+    </ScrollView>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    {/* Options Dropdown Menu */}
+    <Modal
+      visible={showOptionsMenu}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowOptionsMenu(false)}
+    >
+      <Pressable
+        className="flex-1 bg-black/50"
+        onPress={() => setShowOptionsMenu(false)}
       >
-        {isLoading && !refreshing ? (
-          <View className="items-center justify-center pt-20">
-            <ActivityIndicator size="large" color="#D7FF00" />
-          </View>
-        ) : (
-          <View className="gap-4">
-            {weeklyPlan.map((day, index) => (
-              <View
-                key={index}
-                className="flex-row bg-[#111111] rounded-[24px] p-3 items-center border border-[#1A1A1A]"
-              >
-                <View
-                  className={`w-[60px] h-[75px] rounded-xl items-center justify-center mr-4 
-                  ${day.isToday ? 'bg-[#D7FF00]' : 'bg-[#1A1A1A] border border-[#2A2A2A]'}`}
-                >
-                  <Text
-                    className={`text-[11px] font-semibold tracking-wider mb-1 
-                    ${day.isToday ? 'text-black' : 'text-[#8E8E8E]'}`}
-                  >
-                    {day.dayAbbr}
-                  </Text>
-                  <Text
-                    className={`text-2xl text-black 
-                    ${day.isToday ? 'text-black' : (day.isRest ? 'text-[#555555]' : 'text-white')}`}
-                  >
-                    {day.date}
-                  </Text>
-                </View>
+        <View className="absolute top-16 right-4 bg-[#18181B] border border-[#27272A] rounded-2xl py-1 shadow-2xl min-w-[170px] overflow-hidden">
+          <Pressable
+            onPress={() => {
+              setShowOptionsMenu(false);
+              setShowResetConfirm(true);
+            }}
+            className="flex-row items-center gap-2.5 px-4 py-3 active:bg-[#27272A]"
+          >
+            <ArrowsClockwise size={18} color="#FF453A" weight="bold" />
+            <Text className="text-[#FF453A] text-sm font-semibold">Start Over</Text>
+          </Pressable>
+        </View>
+      </Pressable>
+    </Modal>
 
-                <View className="flex-1 justify-center">
-                  <View className="flex-row items-center mb-1">
-                    <View
-                      className={`w-2 h-2 rounded-full mr-2 
-                      ${day.isRest ? 'bg-[#555555]' : 'bg-[#D7FF00]'}`}
-                    />
-                    <Text className="text-white text-lg font-semibold">{day.type}</Text>
-                  </View>
-                  <Text className="text-[#8E8E8E] text-xs">
-                    {day.subtitle ? day.subtitle : `${day.exercises} Exercises`}
-                  </Text>
-                </View>
-
-                {day.isRest ? (
-                  !isTrainerPlan ? (
-                    <Pressable
-                      onPress={() => {
-                        const existingFullNames = weeklyPlan.filter(d => !d.isRest).map(d => {
-                          const map: any = { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday', SUN: 'Sunday' };
-                          return map[d.dayAbbr];
-                        });
-                        router.push({
-                          pathname: '/(customer)/workoutPlan',
-                          params: {
-                            existingDays: existingFullNames.join(','),
-                            targetDay: day.dayAbbr
-                          }
-                        });
-                      }}
-                      className="flex-row items-center bg-[#1A1A1A] border border-[#2A2A2A] px-4 py-3 rounded-xl ml-2"
-                    >
-                      <Plus size={14} color="#D7FF00" weight="bold" />
-                      <Text className="text-white text-xs font-semibold ml-2">Add Workout</Text>
-                    </Pressable>
-                  ) : null
-                ) : (
-                  <View className="flex-row items-center gap-1.5 ml-2">
-                    <Pressable
-                      onPress={() => router.push({
-                        pathname: '/(customer)/weeklyWorkoutPlan/view-day',
-                        params: { dayId: day.id, isTrainer: isTrainerPlan ? 'true' : 'false', weekNumber: selectedWeek }
-                      })}
-                      className="items-center justify-center bg-[#161616] border border-[#2A2A2A] w-[46px] h-[46px] rounded-xl"
-                    >
-                      <Eye size={18} color="#D7FF00" />
-                      <Text className="text-white text-[9px] font-semibold mt-1">VIEW</Text>
-                    </Pressable>
-                    {!isTrainerPlan && (
-                      <>
-                        <Pressable
-                          onPress={() => handleEdit(day.id)}
-                          className="items-center justify-center bg-[#161616] border border-[#2A2A2A] w-[46px] h-[46px] rounded-xl"
-                        >
-                          <PencilSimple size={18} color="#D7FF00" />
-                          <Text className="text-white text-[9px] font-semibold mt-1">EDIT</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => router.push({ pathname: '/(customer)/weeklyWorkoutPlan/swap-day', params: { dayId: day.id, weekNumber: selectedWeek } })}
-                          className="items-center justify-center bg-[#161616] border border-[#2A2A2A] w-[46px] h-[46px] rounded-xl mr-2"
-                        >
-                          <ArrowsLeftRight size={18} color="#D7FF00" />
-                          <Text className="text-white text-[9px] font-semibold mt-1">SWAP</Text>
-                        </Pressable>
-                      </>
-                    )}
-                    <Pressable
-                      onPress={() => router.push({
-                        pathname: '/(customer)/weeklyWorkoutPlan/view-day',
-                        params: { dayId: day.id, isTrainer: isTrainerPlan ? 'true' : 'false', weekNumber: selectedWeek }
-                      })}
-                      className="p-2 -mr-2"
-                    >
-                      <CaretRight size={16} color="#555555" />
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-    </View>
-  );
+    <ConfirmModal
+      visible={showResetConfirm}
+      onClose={() => setShowResetConfirm(false)}
+      onConfirm={handleStartOver}
+      title="Start Over Workout Plan?"
+      description="This will clear your current monthly workout plan so you can configure a brand new plan from scratch. Your completed workout logs will remain intact. Are you sure you want to proceed?"
+      confirmText="Start Over"
+      cancelText="Cancel"
+      confirmButtonColor="bg-red-500"
+      confirmTextColor="text-white"
+      isLoading={resetPlanMutation.isPending}
+    />
+  </View>
+);
 }

@@ -18,6 +18,7 @@ import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
 import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
 import { CustomWorkoutBuilder } from '@/components/workout/CustomWorkoutBuilder';
+import { matchesStrictMuscle, FALLBACK_TARGET_EXERCISES } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
 const getWorkoutImage = (type: string | undefined | null) => {
   if (!type) return require('../../assets/workout.png');
   const lower = type.toLowerCase();
@@ -174,11 +175,12 @@ export default function CustomerWorkout() {
               <Text className="text-white font-semibold">Back to Workout</Text>
             </Pressable>
             <MuscleGroupView
+              exploreCategory={activeTab}
               filterTabs={
-                activeTab === 'Upper Body Workout' ? ['All', 'Chest', 'Back', 'Shoulders'] :
-                  activeTab === 'Lower Body Workout' ? ['All', 'Legs'] :
+                activeTab === 'Upper Body Workout' ? ['All', 'Chest', 'Back', 'Shoulders', 'Arms'] :
+                  activeTab === 'Lower Body Workout' ? ['All', 'Legs', 'Calves', 'Hips'] :
                     activeTab === 'Abs Workout' ? ['All', 'Abs'] :
-                      undefined
+                      ['All', 'Chest', 'Back', 'Shoulders', 'Legs', 'Abs']
               }
             />
           </View>
@@ -241,7 +243,10 @@ export default function CustomerWorkout() {
                   <Pressable
                     onPress={() => router.push({
                       pathname: '/(customer)/weeklyWorkoutPlan',
-                      params: planTab === 'trainer' ? { planType: 'trainer' } : {}
+                      params: {
+                        ...(planTab === 'trainer' ? { planType: 'trainer' } : {}),
+                        returnTo: '/(customer)/workout',
+                      }
                     } as any)}
                     className='flex-row items-center gap-1 active:opacity-70'
                   >
@@ -475,8 +480,74 @@ export default function CustomerWorkout() {
   );
 }
 
-function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
-  const { userId } = useUser();
+function matchesExerciseGender(v: { video?: any; videoUrl?: string | null; exerciseName?: string }, userGender: string): boolean {
+  const url = (typeof v.video === 'string' ? v.video : v.videoUrl || '').toLowerCase();
+  const name = (v.exerciseName || '').toLowerCase();
+  if (userGender === 'male') {
+    if (/female|women|woman|\/female\/|_female|-female|female_/i.test(url)) return false;
+    if (/\(female\)|\(women\)|\(woman\)|female\s|women\s/i.test(name)) return false;
+  } else {
+    if (/male|men|man|\/male\/|_male|-male|male_/i.test(url)) return false;
+    if (/\(male\)|\(men\)|\(man\)|male\s|men\s/i.test(name)) return false;
+  }
+  return true;
+}
+
+function isExerciseRelevantForCategory(name: string, primaryMuscle: string | null | undefined, activeSubTab: string, exploreCategory?: string): boolean {
+  const normSub = (activeSubTab || '').toLowerCase().trim();
+  if (normSub !== 'all') {
+    return matchesStrictMuscle(name, primaryMuscle, normSub);
+  }
+
+  // When activeSubTab === 'All'
+  if (exploreCategory === 'Upper Body Workout') {
+    if (matchesStrictMuscle(name, primaryMuscle, 'legs') ||
+        matchesStrictMuscle(name, primaryMuscle, 'calves') ||
+        matchesStrictMuscle(name, primaryMuscle, 'hips') ||
+        matchesStrictMuscle(name, primaryMuscle, 'abs')) {
+      return false;
+    }
+    return matchesStrictMuscle(name, primaryMuscle, 'chest') ||
+           matchesStrictMuscle(name, primaryMuscle, 'back') ||
+           matchesStrictMuscle(name, primaryMuscle, 'shoulder') ||
+           matchesStrictMuscle(name, primaryMuscle, 'arms') ||
+           matchesStrictMuscle(name, primaryMuscle, 'biceps') ||
+           matchesStrictMuscle(name, primaryMuscle, 'triceps') ||
+           matchesStrictMuscle(name, primaryMuscle, 'forearms');
+  }
+
+  if (exploreCategory === 'Lower Body Workout') {
+    if (matchesStrictMuscle(name, primaryMuscle, 'chest') ||
+        matchesStrictMuscle(name, primaryMuscle, 'back') ||
+        matchesStrictMuscle(name, primaryMuscle, 'shoulder') ||
+        matchesStrictMuscle(name, primaryMuscle, 'arms') ||
+        matchesStrictMuscle(name, primaryMuscle, 'biceps') ||
+        matchesStrictMuscle(name, primaryMuscle, 'triceps') ||
+        matchesStrictMuscle(name, primaryMuscle, 'abs')) {
+      return false;
+    }
+    return matchesStrictMuscle(name, primaryMuscle, 'legs') ||
+           matchesStrictMuscle(name, primaryMuscle, 'calves') ||
+           matchesStrictMuscle(name, primaryMuscle, 'hips');
+  }
+
+  if (exploreCategory === 'Abs Workout') {
+    if (matchesStrictMuscle(name, primaryMuscle, 'chest') ||
+        matchesStrictMuscle(name, primaryMuscle, 'back') ||
+        matchesStrictMuscle(name, primaryMuscle, 'shoulder') ||
+        matchesStrictMuscle(name, primaryMuscle, 'legs') ||
+        matchesStrictMuscle(name, primaryMuscle, 'arms')) {
+      return false;
+    }
+    return matchesStrictMuscle(name, primaryMuscle, 'abs');
+  }
+
+  return true;
+}
+
+function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[]; exploreCategory?: string }) {
+  const userContext = useUser();
+  const { userId } = userContext;
   const [activeSubTab, setActiveSubTab] = useState('All');
   const [savedWorkouts, setSavedWorkouts] = useState<Record<string, boolean>>({});
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
@@ -493,6 +564,17 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
     }
   };
 
+  const { data: customerProfileData } = useCustomerProfile(userId);
+  const userGender = React.useMemo(() => {
+    const raw = (
+      (userContext.role === 'customer' ? customerProfileData?.customerData?.gender : null) ||
+      userContext.gender ||
+      customerProfileData?.customerData?.gender ||
+      'male'
+    ).toString().trim().toLowerCase();
+    return raw.includes('female') ? 'female' : 'male';
+  }, [userContext.role, userContext.gender, customerProfileData?.customerData?.gender]);
+
   const { data: recommendedExercises = [], isLoading, isFetching } = useCustomerMuscleGroupWorkouts(userId, activeSubTab);
 
   const toggleSave = (title: string) => {
@@ -504,7 +586,10 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
     { name: 'Chest', image: require('../../assets/chest-stood.png') },
     { name: 'Back', image: require('../../assets/back-stood.png') },
     { name: 'Shoulders', image: require('../../assets/shoulders-stood.png') },
+    { name: 'Arms', image: require('../../assets/dumbell.png') },
     { name: 'Legs', image: require('../../assets/workout_legs.jpg') },
+    { name: 'Calves', image: require('../../assets/workout_legs.jpg') },
+    { name: 'Hips', image: require('../../assets/workout_legs.jpg') },
     { name: 'Abs', image: require('../../assets/workout_abs.jpg') },
   ];
 
@@ -533,6 +618,15 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
       { title: 'Core Crusher', subtitle: 'Abs Focus', time: '20 min', exercisesCount: '5 Exercises', image: require('../../assets/workout_abs.jpg') },
       { title: 'Six Pack Abs', subtitle: 'Core Strength', time: '15 min', exercisesCount: '4 Exercises', image: require('../../assets/workout_abs.jpg') },
     ],
+    Arms: [
+      { title: 'Arm Blitz', subtitle: 'Biceps • Triceps', time: '35 min', exercisesCount: '5 Exercises', image: require('../../assets/dumbell-strength.png') },
+    ],
+    Calves: [
+      { title: 'Calf Raise Blast', subtitle: 'Calves Focus', time: '20 min', exercisesCount: '4 Exercises', image: require('../../assets/workout_legs.jpg') },
+    ],
+    Hips: [
+      { title: 'Glute & Hip Strength', subtitle: 'Glutes • Hips', time: '30 min', exercisesCount: '5 Exercises', image: require('../../assets/workout_legs.jpg') },
+    ],
   };
   if (filterTabs) {
     popularWorkoutsMap['All'] = filterTabs.filter(t => t !== 'All').flatMap(t => popularWorkoutsMap[t] || []);
@@ -540,14 +634,17 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
     popularWorkoutsMap['All'] = [...popularWorkoutsMap['Chest'], ...popularWorkoutsMap['Back'], ...popularWorkoutsMap['Shoulders'], ...popularWorkoutsMap['Legs'], ...popularWorkoutsMap['Abs']];
   }
 
-  const { data: customerProfileData } = useCustomerProfile(userId);
-  const userGender = customerProfileData?.customerData?.gender?.toLowerCase() || 'all';
-
   const getWorkoutType = (cat: string) => {
     const c = cat.toLowerCase();
     if (c === 'shoulders') return 'shoulder';
     if (c === 'arms') return 'arms';
-    if (c === 'all') return 'all';
+    if (c === 'all') {
+      if (exploreCategory === 'Upper Body Workout') return 'upper body';
+      if (exploreCategory === 'Lower Body Workout') return 'lower body';
+      if (exploreCategory === 'Abs Workout') return 'abs';
+      if (exploreCategory === 'Full Body Workout') return 'full body';
+      return 'all';
+    }
     return c;
   };
 
@@ -555,26 +652,35 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
 
   const popularVideos = React.useMemo(() => {
     const rawExercises = popularVideosData?.data || [];
-    const uniqueRecommended: any[] = [];
+    const uniqueList: any[] = [];
     const seenNames = new Set<string>();
 
     for (const ex of rawExercises) {
       const name = ex.exerciseName || 'Workout Video';
-      if (!seenNames.has(name.toLowerCase())) {
-        seenNames.add(name.toLowerCase());
-        uniqueRecommended.push({ ...ex, exerciseName: name, category: activeSubTab });
-      }
-    }
+      const lower = name.toLowerCase().trim();
+      if (seenNames.has(lower)) continue;
 
-    return uniqueRecommended.map(ex => {
+      const pm = ex.primaryMuscle || activeSubTab;
+      if (!isExerciseRelevantForCategory(name, pm, activeSubTab, exploreCategory)) continue;
+      if (!matchesExerciseGender(ex, userGender)) continue;
+
+      seenNames.add(lower);
       let videoSource = null;
       if (ex.videoUrl) {
         const isAbsolute = ex.videoUrl.startsWith('http://') || ex.videoUrl.startsWith('https://');
         videoSource = isAbsolute ? ex.videoUrl : supabase.storage.from('workout-videos').getPublicUrl(ex.videoUrl).data.publicUrl;
       }
-      return { ...ex, video: videoSource || ex.video || null, reps: 'Follow along' };
-    });
-  }, [popularVideosData, activeSubTab]);
+      uniqueList.push({
+        ...ex,
+        exerciseName: name,
+        category: ex.primaryMuscle ? (ex.primaryMuscle.charAt(0).toUpperCase() + ex.primaryMuscle.slice(1)) : activeSubTab,
+        video: videoSource || ex.video || null,
+        reps: 'Follow along',
+      });
+    }
+
+    return uniqueList;
+  }, [popularVideosData, activeSubTab, exploreCategory, userGender]);
 
   const placeholderRecommendedMap: Record<string, any[]> = {
     Chest: [
@@ -602,6 +708,22 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
       { exerciseName: 'Leg Press', category: 'Legs', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
       { exerciseName: 'Romanian Deadlift', category: 'Legs', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: null },
     ],
+    Arms: [
+      { exerciseName: 'Barbell Bicep Curl', category: 'Arms', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Tricep Rope Pushdown', category: 'Arms', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
+    ],
+    Calves: [
+      { exerciseName: 'Standing Calf Raises', category: 'Calves', reps: '15-20 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Seated Calf Raises', category: 'Calves', reps: '15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
+    ],
+    Hips: [
+      { exerciseName: 'Barbell Hip Thrust', category: 'Hips', reps: '10-12 reps', image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Glute Bridges', category: 'Hips', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
+    ],
+    Abs: [
+      { exerciseName: 'Hanging Leg Raises', category: 'Abs', reps: '12-15 reps', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
+      { exerciseName: 'Plank Hold', category: 'Abs', reps: '60 secs', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop', video: null },
+    ],
   };
   if (filterTabs) {
     placeholderRecommendedMap['All'] = filterTabs.filter(t => t !== 'All').flatMap(t => placeholderRecommendedMap[t] || []);
@@ -610,46 +732,58 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
   }
 
   const currentRecommended = React.useMemo(() => {
-    const uniqueRecommended: any[] = [];
+    const list: any[] = [];
     const seenNames = new Set<string>();
-    for (const ex of recommendedExercises) {
-      if (ex.exerciseName && !seenNames.has(ex.exerciseName.toLowerCase())) {
-        seenNames.add(ex.exerciseName.toLowerCase());
-        uniqueRecommended.push(ex);
-      }
-    }
 
-    const mappedRecommended = uniqueRecommended.map(ex => {
+    const addExercise = (ex: any, defaultCat?: string) => {
+      const name = ex.exerciseName || ex.name || 'Workout';
+      const lower = name.toLowerCase().trim();
+      if (seenNames.has(lower)) return;
+
+      const pm = ex.primaryMuscle || ex.category || defaultCat;
+      if (!isExerciseRelevantForCategory(name, pm, activeSubTab, exploreCategory)) return;
+      if (!matchesExerciseGender(ex, userGender)) return;
+
       let videoSource = null;
       if (ex.videoUrl) {
         const isAbsolute = ex.videoUrl.startsWith('http://') || ex.videoUrl.startsWith('https://');
         videoSource = isAbsolute ? ex.videoUrl : supabase.storage.from('workout-videos').getPublicUrl(ex.videoUrl).data.publicUrl;
+      } else if (ex.video) {
+        videoSource = ex.video;
       }
-      return { ...ex, video: videoSource || ex.video || null };
-    });
-    let recs = mappedRecommended;
-    if (filterTabs && filterTabs.length > 0) {
-      const allowedCategories = filterTabs.filter(t => t !== 'All').map(t => t.toLowerCase());
-      if (allowedCategories.length > 0) {
-        recs = recs.filter(r => {
-          const cat = r.category?.toLowerCase() || '';
-          const dayType = r.dayWorkoutType?.toLowerCase() || '';
-          if (!cat && !dayType) return true;
 
-          return allowedCategories.some(allowed =>
-            cat === allowed ||
-            cat.startsWith(allowed.slice(0, 4)) ||
-            allowed.startsWith(cat.slice(0, 4)) ||
-            dayType === allowed ||
-            dayType.startsWith(allowed.slice(0, 4)) ||
-            dayType.startsWith(dayType.slice(0, 4)) ||
-            allowed.startsWith(dayType.slice(0, 4))
-          );
-        });
+      seenNames.add(lower);
+      list.push({
+        ...ex,
+        exerciseName: name,
+        category: pm ? (pm.charAt(0).toUpperCase() + pm.slice(1)) : activeSubTab,
+        video: videoSource,
+        reps: ex.reps || '10-12 reps',
+      });
+    };
+
+    // 1. Any matching exercises from user's active plan
+    for (const ex of recommendedExercises) {
+      addExercise(ex, ex.dayWorkoutType || activeSubTab);
+    }
+
+    // 2. Verified video exercises for this category
+    const rawVideos = popularVideosData?.data || [];
+    for (const v of rawVideos) {
+      addExercise(v, v.primaryMuscle || activeSubTab);
+    }
+
+    // 3. Fallback library presets if still fewer than limit
+    if (list.length < limit) {
+      const targetKey = activeSubTab !== 'All' ? activeSubTab.toLowerCase() : (exploreCategory === 'Abs Workout' ? 'abs' : exploreCategory === 'Lower Body Workout' ? 'legs' : 'chest');
+      const fallbacks = FALLBACK_TARGET_EXERCISES[targetKey] || [];
+      for (const fb of fallbacks) {
+        addExercise({ exerciseName: fb.name, reps: fb.reps, image: require('../../assets/dumbell-strength.png') }, targetKey);
       }
     }
-    return recs;
-  }, [recommendedExercises, filterTabs]);
+
+    return list;
+  }, [recommendedExercises, popularVideosData, activeSubTab, exploreCategory, userGender]);
 
   const hasMore = currentRecommended.length > 0;
   const paginatedRecommended = currentRecommended.slice(0, limit);
@@ -756,7 +890,7 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
           </View>
         ) : currentRecommended.length === 0 ? (
           <View className="bg-[#111111] border border-[#1D1D1D] rounded-2xl p-5 mt-2">
-            <Text className="text-[#8E8E8E] text-center leading-5">No workouts have been found in your weekly plan{activeSubTab !== 'All' ? ` for ${activeSubTab}` : ''}.</Text>
+            <Text className="text-[#8E8E8E] text-center leading-5">No recommended exercises found for {activeSubTab !== 'All' ? activeSubTab : (exploreCategory || 'this category')}.</Text>
           </View>
         ) : (
           <ScrollView
@@ -821,6 +955,15 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
                   <Pressable
                     onPress={() => router.push({
                       pathname: '/(customer)/explore/recommended/[category]' as any,
+                      params: { 
+                        category: 'All',
+                        filterTabs: JSON.stringify(
+                          exploreCategory === 'Upper Body Workout' ? ['All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Arms'] :
+                            exploreCategory === 'Lower Body Workout' ? ['All', 'Legs', 'Calves', 'Hips'] :
+                              exploreCategory === 'Abs Workout' ? ['All', 'Abs'] :
+                                ['All', 'Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Calves', 'Abs']
+                        ),
+                        exploreCategory: exploreCategory || undefined,
                       params: {
                         category: activeSubTab,
                         filterTabs: filterTabs ? JSON.stringify(filterTabs) : undefined
@@ -828,7 +971,7 @@ function MuscleGroupView({ filterTabs }: { filterTabs?: string[] }) {
                     })}
                     className="py-2.5 px-6 rounded-full border border-[#27272A] bg-[#111111] active:opacity-70"
                   >
-                    <Text className="text-white text-sm font-medium">View All</Text>
+                    <Text className="text-white text-sm font-medium">Load More</Text>
                   </Pressable>
                 )}
               </View>

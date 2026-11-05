@@ -3,8 +3,9 @@ import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useUser } from '@/context/UserContext';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Flame, Lightning } from 'phosphor-react-native';
+import { ArrowLeft, Flame, Lightning, CaretRight } from 'phosphor-react-native';
 import { ProgressRing } from '@/components/fitness/ProgressRing';
+import { MiniActivityRings } from '@/components/fitness/AppleActivityRings';
 import { useFitnessTimelineData } from '@/hooks/fitness/useFitnessTimelineData';
 import { FitnessTimelineHeader } from '@/components/fitness/FitnessTimelineHeader';
 
@@ -52,6 +53,21 @@ export default function CaloriesScreen() {
           label={label}
           accentColor="#FF453A"
         />
+
+        {/* Link to Full Apple Activity 3-Rings Screen */}
+        <Pressable
+          onPress={() => router.push('/(customer)/fitness/activity')}
+          className="flex-row items-center justify-between bg-[#141414] border border-[#222222] rounded-2xl p-4 mb-4 active:opacity-80"
+        >
+          <View className="flex-row items-center gap-3">
+            <MiniActivityRings moveProgress={progress} exerciseProgress={0.4} standProgress={0.7} size={36} />
+            <View>
+              <Text className="text-white font-semibold text-sm">Apple Activity Dashboard</Text>
+              <Text className="text-[#8E8E93] text-xs">View Move, Exercise & Stand Rings</Text>
+            </View>
+          </View>
+          <CaretRight size={16} color="#8E8E93" />
+        </Pressable>
 
         {isLoading ? (
           <View className="py-12 items-center justify-center">

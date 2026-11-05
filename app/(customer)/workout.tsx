@@ -956,17 +956,14 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
                     onPress={() => router.push({
                       pathname: '/(customer)/explore/recommended/[category]' as any,
                       params: { 
-                        category: 'All',
-                        filterTabs: JSON.stringify(
+                        category: activeSubTab !== 'All' ? activeSubTab : 'All',
+                        filterTabs: filterTabs ? JSON.stringify(filterTabs) : JSON.stringify(
                           exploreCategory === 'Upper Body Workout' ? ['All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Arms'] :
                             exploreCategory === 'Lower Body Workout' ? ['All', 'Legs', 'Calves', 'Hips'] :
                               exploreCategory === 'Abs Workout' ? ['All', 'Abs'] :
                                 ['All', 'Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Calves', 'Abs']
                         ),
                         exploreCategory: exploreCategory || undefined,
-                      params: {
-                        category: activeSubTab,
-                        filterTabs: filterTabs ? JSON.stringify(filterTabs) : undefined
                       }
                     })}
                     className="py-2.5 px-6 rounded-full border border-[#27272A] bg-[#111111] active:opacity-70"

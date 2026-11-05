@@ -1,6 +1,7 @@
 package com.gkeliteinfo.gkgymlife.wear.data
 
 import android.content.Context
+import android.util.Log
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.Wearable
@@ -85,13 +86,18 @@ class WatchSyncRepository(private val context: Context) {
             try {
                 val nodeClient = Wearable.getNodeClient(context)
                 val nodes: List<Node> = Tasks.await(nodeClient.connectedNodes)
+                Log.d("GKWatchSync", "checkPhoneConnection found ${nodes.size} connected nodes")
+                for (node in nodes) {
+                    Log.d("GKWatchSync", "Connected Node: id=${node.id}, name=${node.displayName}, isNearby=${node.isNearby}")
+                }
                 if (nodes.isNotEmpty()) {
                     val primary = nodes.firstOrNull { it.isNearby } ?: nodes.first()
                     onResult(true, primary.displayName)
                 } else {
                     onResult(false, null)
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.e("GKWatchSync", "checkPhoneConnection failed: ${e.message}", e)
                 onResult(false, null)
             }
         }
@@ -211,16 +217,22 @@ class WatchSyncRepository(private val context: Context) {
             val messageClient = Wearable.getMessageClient(context)
             val nodes: List<Node> = Tasks.await(nodeClient.connectedNodes)
 
-            if (nodes.isEmpty()) return false
+            Log.d("GKWatchSync", "sendToPhone path=$path, connected nodes=${nodes.size}")
+            if (nodes.isEmpty()) {
+                Log.w("GKWatchSync", "Cannot sendToPhone: 0 connected nodes")
+                return false
+            }
 
             val data = messageJson.toByteArray(StandardCharsets.UTF_8)
             var anySuccess = false
             for (node in nodes) {
                 Tasks.await(messageClient.sendMessage(node.id, path, data))
+                Log.d("GKWatchSync", "Sent message to node ${node.id} (${node.displayName}) on path $path")
                 anySuccess = true
             }
             anySuccess
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("GKWatchSync", "sendToPhone exception for path=$path: ${e.message}", e)
             false
         }
     }

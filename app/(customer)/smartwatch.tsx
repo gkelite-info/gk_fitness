@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, ScrollView, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
@@ -15,11 +15,16 @@ import {
   ShieldCheck,
   Check,
   BluetoothConnected,
+  CaretRight,
 } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { useWatchSession } from '@/hooks/watch/useWatchSession';
 import { useWatchDevices, useWatchStats } from '@/hooks/watch/useWatchDevices';
 import { pushTodayWorkoutToWatch, pushDailyWaterToWatch } from '@/hooks/watch/useWatchSync';
+import { usePedometer } from '@/hooks/fitness/usePedometer';
+import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
+import { AppleActivityRings, RING_COLORS } from '@/components/fitness/AppleActivityRings';
+import { getLocalDateString } from '@/lib/dateUtils';
 import { toast } from '@/lib/toast';
 
 export default function SmartwatchScreen() {
@@ -30,10 +35,32 @@ export default function SmartwatchScreen() {
   const { connectionStatus, isWatchConnected, checkConnection, pingWatch } = useWatchSession();
   const { data: devices, refetch: refetchDevices } = useWatchDevices(userId);
   const { data: stats, refetch: refetchStats } = useWatchStats(userId);
+  const { steps: liveSteps, calories: liveCalories } = usePedometer();
+  const { data: weeklyStats } = useWeeklyStats(userId);
 
   const [isPinging, setIsPinging] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const todaySummary = useMemo(() => {
+    const today = new Date();
+    const todayStr = getLocalDateString(today);
+    const record = weeklyStats?.thisWeek?.find((s) => s.date === todayStr);
+    const cal = Math.max(record?.activeCalories || 0, liveCalories, Math.round(liveSteps * 0.04));
+    const calGoal = record?.calorieGoal || 1000;
+    const min = record?.activeMinutes || 0;
+    const minGoal = 30;
+    const steps = Math.max(record?.steps || 0, liveSteps);
+    const stepGoal = record?.stepGoal || 10000;
+    return {
+      move: cal,
+      moveGoal: calGoal,
+      exercise: min,
+      exerciseGoal: minGoal,
+      stand: Math.min(Math.round((steps / 1000) * 1.2), 12),
+      standGoal: 12,
+    };
+  }, [weeklyStats, liveCalories, liveSteps]);
 
   const primaryDevice = devices && devices.length > 0 ? devices[0] : null;
   const deviceName =
@@ -151,6 +178,16 @@ export default function SmartwatchScreen() {
             </View>
           </View>
 
+          {/* Native Bridge Unavailable Warning Banner */}
+          {connectionStatus.isNativeModuleAvailable === false && (
+            <View className="bg-[#2A1D07] border border-[#F59E0B]/40 rounded-xl p-3.5 mb-3">
+              <Text className="text-[#FBBF24] text-xs font-semibold">⚠️ Development APK Update Needed</Text>
+              <Text className="text-[#D1D5DB] text-[11px] mt-1 leading-4">
+                Your phone is running an older development APK compiled before native <Text className="font-mono text-[#D7FF00]">WatchBridgeModule</Text> was added. Please update your phone to the newly built APK (<Text className="text-white font-mono">app-debug.apk</Text>) to enable watch sync.
+              </Text>
+            </View>
+          )}
+
           {/* Node & Registry Info */}
           {connectionStatus.nodeId && (
             <View className="bg-[#1A1A1A] rounded-xl px-3 py-2 mb-4 border border-[#27272A]">
@@ -202,6 +239,71 @@ export default function SmartwatchScreen() {
             )}
           </Pressable>
         </View>
+
+        {/* Apple Activity Rings Glance Card */}
+        <Pressable
+          onPress={() => router.push('/(customer)/fitness/activity')}
+          className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4 active:opacity-90"
+        >
+          <View className="flex-row items-center justify-between mb-4">
+            <View>
+              <Text className="text-white text-base font-bold">Activity Rings</Text>
+              <Text className="text-[#8E8E93] text-xs">Today's Move, Exercise & Stand</Text>
+            </View>
+            <View className="flex-row items-center gap-1 bg-[#1C1C1E] px-3 py-1.5 rounded-full border border-[#2A2A2A]">
+              <Text className="text-[#D7FF00] text-xs font-semibold">View Graphs</Text>
+              <CaretRight size={12} color="#D7FF00" weight="bold" />
+            </View>
+          </View>
+
+          <View className="flex-row items-center justify-between">
+            <View className="items-center justify-center">
+              <AppleActivityRings
+                move={{ current: todaySummary.move, goal: todaySummary.moveGoal }}
+                exercise={{ current: todaySummary.exercise, goal: todaySummary.exerciseGoal }}
+                stand={{ current: todaySummary.stand, goal: todaySummary.standGoal }}
+                size={130}
+                strokeWidth={14}
+                spacing={3}
+              />
+            </View>
+
+            <View className="flex-1 ml-5 justify-around gap-2.5">
+              <View>
+                <View className="flex-row items-center gap-1.5">
+                  <View className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: RING_COLORS.move.stroke }} />
+                  <Text className="text-[#8E8E93] text-[11px] font-bold uppercase tracking-wider">Move</Text>
+                </View>
+                <Text className="text-white text-base font-bold pl-4">
+                  {todaySummary.move}
+                  <Text className="text-[#8E8E93] text-xs font-normal"> / {todaySummary.moveGoal} KCAL</Text>
+                </Text>
+              </View>
+
+              <View>
+                <View className="flex-row items-center gap-1.5">
+                  <View className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: RING_COLORS.exercise.stroke }} />
+                  <Text className="text-[#8E8E93] text-[11px] font-bold uppercase tracking-wider">Exercise</Text>
+                </View>
+                <Text className="text-white text-base font-bold pl-4">
+                  {todaySummary.exercise}
+                  <Text className="text-[#8E8E93] text-xs font-normal"> / {todaySummary.exerciseGoal} MIN</Text>
+                </Text>
+              </View>
+
+              <View>
+                <View className="flex-row items-center gap-1.5">
+                  <View className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: RING_COLORS.stand.stroke }} />
+                  <Text className="text-[#8E8E93] text-[11px] font-bold uppercase tracking-wider">Stand</Text>
+                </View>
+                <Text className="text-white text-base font-bold pl-4">
+                  {todaySummary.stand}
+                  <Text className="text-[#8E8E93] text-xs font-normal"> / {todaySummary.standGoal} HRS</Text>
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Pressable>
 
         {/* Database Sync Stats Card */}
         <View className="bg-[#141414] border border-[#222222] rounded-3xl p-5 mb-4">

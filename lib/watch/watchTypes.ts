@@ -68,6 +68,7 @@ export interface WatchWaterLog {
 export interface WatchConnectionStatus {
   isPaired: boolean;
   isReachable: boolean;
+  isNativeModuleAvailable?: boolean;
   deviceName?: string | null;
   nodeId?: string | null;
   platform: 'wearos' | 'watchos' | 'none';

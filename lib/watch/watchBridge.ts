@@ -26,6 +26,7 @@ class WatchBridgeService {
       return {
         isPaired: false,
         isReachable: false,
+        isNativeModuleAvailable: false,
         deviceName: null,
         nodeId: null,
         platform: Platform.OS === 'android' ? 'wearos' : Platform.OS === 'ios' ? 'watchos' : 'none',
@@ -33,12 +34,17 @@ class WatchBridgeService {
     }
 
     try {
-      return await WatchBridgeModule.getConnectionStatus();
+      const res = await WatchBridgeModule.getConnectionStatus();
+      return {
+        ...res,
+        isNativeModuleAvailable: true,
+      };
     } catch (e) {
       console.warn('[WatchBridge] getConnectionStatus error:', e);
       return {
         isPaired: false,
         isReachable: false,
+        isNativeModuleAvailable: true,
         platform: 'wearos',
       };
     }

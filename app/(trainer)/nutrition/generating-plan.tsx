@@ -10,6 +10,13 @@ import { calculateNutritionTargets } from '@/lib/nutritionCalculator';
 import { saveTrainerMealPlan } from '@/helpers/trainerMealPlans/trainerMealPlans';
 import { saveTrainerMealPlanDay } from '@/helpers/trainerMealPlans/mealPlanDays';
 import { saveTrainerMealPlanDayMeal } from '@/helpers/trainerMealPlans/mealPlanDayMeals';
+import {
+    saveGlobalTrainerMealPlan,
+    deactivateGlobalTrainerMealPlans
+} from '@/helpers/globalTrainerMealPlans/globalTrainerMealPlans';
+import { saveGlobalTrainerMealPlanDay } from '@/helpers/globalTrainerMealPlans/globalTrainerMealPlanDays';
+import { saveGlobalTrainerMealPlanDayMeal } from '@/helpers/globalTrainerMealPlans/globalTrainerMealPlanDayMeals';
+import { supabase } from '@/lib/supabase';
 import { fetchCustomerOnboarding } from '@/helpers/onboardingHelper';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
@@ -17,8 +24,20 @@ import { useLocalSearchParams } from 'expo-router';
 export default function GeneratingPlan() {
     const router = useRouter();
     const queryClient = useQueryClient();
-    const { targetUserId } = useLocalSearchParams<{ targetUserId: string }>();
-    const { userId } = useUser();
+    const {
+        targetUserId,
+        customerName,
+        isGlobalTrainer,
+        globalTrainerId: paramGlobalTrainerId,
+        dietType: paramDietType,
+    } = useLocalSearchParams<{
+        targetUserId: string;
+        customerName?: string;
+        isGlobalTrainer?: string;
+        globalTrainerId?: string;
+        dietType?: string;
+    }>();
+    const { userId, email, role, globalTrainerId: userGlobalTrainerId } = useUser();
     const [progress, setProgress] = useState(0);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const generationStarted = useRef(false);
@@ -33,72 +52,192 @@ export default function GeneratingPlan() {
                 const profile = await fetchCustomerOnboarding(targetUserId!);
                 if (!profile) throw new Error('Onboarding profile not found');
 
+                const effectiveDietType = paramDietType || profile.dietType || 'vegetarian';
+
                 setProgress(30);
-                const mealPlanData = await generateAlgorithmicPlan(targetUserId!);
+                const mealPlanData = await generateAlgorithmicPlan(targetUserId!, effectiveDietType);
                 setProgress(60);
 
                 const targets = await calculateNutritionTargets(targetUserId!);
 
-                const planResult = await saveTrainerMealPlan({
-                    userId: targetUserId!,
-                    isActive: true,
-                    dietType: profile.dietType || 'balanced',
-                    targetCalories: targets.targetCalories,
-                    targetProtein: targets.targetProtein,
-                    targetCarbs: targets.targetCarbs,
-                    targetFat: targets.targetFat,
-                    createdBy: userId!
-                });
+                const isGlobal = isGlobalTrainer === 'true' ||
+                    (role || '').toLowerCase().replace(/[\s_-]/g, '') === 'globaltrainer' ||
+                    !!paramGlobalTrainerId ||
+                    !!userGlobalTrainerId;
 
-                if (!planResult || !planResult.trainerMealPlanId) {
-                    throw new Error('Failed to create meal plan record.');
+                let resolvedGlobalTrainerId = paramGlobalTrainerId || userGlobalTrainerId;
+                if (!resolvedGlobalTrainerId && (userId || email)) {
+                    let query = supabase.from('global_trainers').select('globalTrainerId');
+                    if (userId && email) {
+                        query = query.or(`userId.eq.${userId},email.eq.${email}`);
+                    } else if (userId) {
+                        query = query.eq('userId', userId);
+                    } else {
+                        query = query.eq('email', email);
+                    }
+                    const { data: gt } = await query.maybeSingle();
+                    resolvedGlobalTrainerId = gt?.globalTrainerId;
                 }
 
-                setProgress(70);
+                if (!resolvedGlobalTrainerId && targetUserId) {
+                    const { data: ict } = await supabase
+                        .from('individual_customer_trainers')
+                        .select('globalTrainerId')
+                        .eq('userId', targetUserId)
+                        .order('createdAt', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+                    resolvedGlobalTrainerId = ict?.globalTrainerId;
+                }
 
-                for (const day of mealPlanData.days) {
-                    let dayTotalCalories = 0;
-                    for (const meal of day.meals) {
-                        dayTotalCalories += meal.calories;
-                    }
+                if (isGlobal && resolvedGlobalTrainerId) {
+                    // Global trainer plan: save to global_trainer_meal_plans with createdBy = globalTrainerId
+                    await deactivateGlobalTrainerMealPlans(targetUserId!);
 
-                    const savedDay = await saveTrainerMealPlanDay({
-                        trainerMealPlanId: planResult.trainerMealPlanId,
-                        dayOfWeek: day.dayOfWeek.charAt(0).toUpperCase() + day.dayOfWeek.slice(1).toLowerCase(),
-                        totalCalories: dayTotalCalories
+                    const planResult = await saveGlobalTrainerMealPlan({
+                        userId: targetUserId!,
+                        isActive: true,
+                        dietType: effectiveDietType,
+                        targetCalories: targets.targetCalories,
+                        targetProtein: targets.targetProtein,
+                        targetCarbs: targets.targetCarbs,
+                        targetFat: targets.targetFat,
+                        createdBy: resolvedGlobalTrainerId,
                     });
 
-                    if (savedDay && savedDay.trainerMealPlanDayId) {
+                    if (!planResult || !planResult.globalTrainerMealPlanId) {
+                        throw new Error('Failed to create global trainer meal plan record.');
+                    }
+
+                    setProgress(70);
+
+                    for (const day of mealPlanData.days) {
+                        let dayTotalCalories = 0;
                         for (const meal of day.meals) {
-                            await saveTrainerMealPlanDayMeal({
-                                trainerMealPlanDayId: savedDay.trainerMealPlanDayId,
-                                mealType: meal.mealType,
-                                mealName: meal.mealName,
-                                description: meal.description,
-                                calories: meal.calories,
-                                protein: meal.protein,
-                                carbs: meal.carbs,
-                                fat: meal.fat,
-                                fiber: meal.fiber || 0,
-                                order: meal.order,
-                                globalMealId: meal.globalMealId,
-                                ingredientsJson: meal.ingredientsJson,
-                                recipeInstructions: meal.recipeInstructions,
-                                imageUrl: meal.imageUrl,
-                                prepTimeMinutes: meal.prepTimeMinutes,
-                            });
+                            dayTotalCalories += meal.calories;
+                        }
+
+                        const savedDay = await saveGlobalTrainerMealPlanDay({
+                            globalTrainerMealPlanId: planResult.globalTrainerMealPlanId,
+                            dayOfWeek: (day.dayOfWeek.charAt(0).toUpperCase() + day.dayOfWeek.slice(1).toLowerCase()) as any,
+                            totalCalories: dayTotalCalories,
+                        });
+
+                        if (savedDay && savedDay.globalTrainerMealPlanDayId) {
+                            for (const meal of day.meals) {
+                                await saveGlobalTrainerMealPlanDayMeal({
+                                    globalTrainerMealPlanDayId: savedDay.globalTrainerMealPlanDayId,
+                                    mealType: meal.mealType,
+                                    mealName: meal.mealName,
+                                    description: meal.description,
+                                    calories: meal.calories,
+                                    protein: meal.protein,
+                                    carbs: meal.carbs,
+                                    fat: meal.fat,
+                                    fiber: meal.fiber || 0,
+                                    order: meal.order,
+                                    globalMealId: meal.globalMealId,
+                                    ingredientsJson: meal.ingredientsJson,
+                                    recipeInstructions: meal.recipeInstructions,
+                                    imageUrl: meal.imageUrl,
+                                    prepTimeMinutes: meal.prepTimeMinutes,
+                                });
+                            }
                         }
                     }
+
+                    setProgress(100);
+
+                    await queryClient.invalidateQueries({ queryKey: ['globalTrainerAssignedDietPlans', resolvedGlobalTrainerId] });
+                    await queryClient.invalidateQueries({ queryKey: ['globalTrainerMealPlan', targetUserId] });
+                    await queryClient.invalidateQueries({ queryKey: ['todayGlobalTrainerMealPlan', targetUserId] });
+                    await queryClient.invalidateQueries({ queryKey: ['allGlobalTrainerMealPlans'] });
+                    await queryClient.invalidateQueries({ queryKey: ['trainerAssignedDietPlans', userId] });
+                    await queryClient.invalidateQueries({ queryKey: ['trainerMealPlan', targetUserId] });
+                    await queryClient.invalidateQueries({ queryKey: ['allTrainerMealPlans'] });
+
+                    setTimeout(() => {
+                        router.replace({
+                            pathname: '/(trainer)/nutrition/my-nutrition-plan',
+                            params: {
+                                targetUserId,
+                                customerName,
+                                isGlobalTrainer: 'true',
+                                globalTrainerId: resolvedGlobalTrainerId,
+                            }
+                        } as any);
+                    }, 800);
+                } else {
+                    // Regular gym trainer plan
+                    const planResult = await saveTrainerMealPlan({
+                        userId: targetUserId!,
+                        isActive: true,
+                        dietType: effectiveDietType,
+                        targetCalories: targets.targetCalories,
+                        targetProtein: targets.targetProtein,
+                        targetCarbs: targets.targetCarbs,
+                        targetFat: targets.targetFat,
+                        createdBy: userId!
+                    });
+
+                    if (!planResult || !planResult.trainerMealPlanId) {
+                        throw new Error('Failed to create meal plan record.');
+                    }
+
+                    setProgress(70);
+
+                    for (const day of mealPlanData.days) {
+                        let dayTotalCalories = 0;
+                        for (const meal of day.meals) {
+                            dayTotalCalories += meal.calories;
+                        }
+
+                        const savedDay = await saveTrainerMealPlanDay({
+                            trainerMealPlanId: planResult.trainerMealPlanId,
+                            dayOfWeek: day.dayOfWeek.charAt(0).toUpperCase() + day.dayOfWeek.slice(1).toLowerCase(),
+                            totalCalories: dayTotalCalories
+                        });
+
+                        if (savedDay && savedDay.trainerMealPlanDayId) {
+                            for (const meal of day.meals) {
+                                await saveTrainerMealPlanDayMeal({
+                                    trainerMealPlanDayId: savedDay.trainerMealPlanDayId,
+                                    mealType: meal.mealType,
+                                    mealName: meal.mealName,
+                                    description: meal.description,
+                                    calories: meal.calories,
+                                    protein: meal.protein,
+                                    carbs: meal.carbs,
+                                    fat: meal.fat,
+                                    fiber: meal.fiber || 0,
+                                    order: meal.order,
+                                    globalMealId: meal.globalMealId,
+                                    ingredientsJson: meal.ingredientsJson,
+                                    recipeInstructions: meal.recipeInstructions,
+                                    imageUrl: meal.imageUrl,
+                                    prepTimeMinutes: meal.prepTimeMinutes,
+                                });
+                            }
+                        }
+                    }
+
+                    setProgress(100);
+
+                    await queryClient.invalidateQueries({ queryKey: ['trainerAssignedDietPlans', userId] });
+                    await queryClient.invalidateQueries({ queryKey: ['trainerMealPlan', targetUserId] });
+                    await queryClient.invalidateQueries({ queryKey: ['allTrainerMealPlans'] });
+
+                    setTimeout(() => {
+                        router.replace({
+                            pathname: '/(trainer)/nutrition/my-nutrition-plan',
+                            params: {
+                                targetUserId,
+                                customerName,
+                                isGlobalTrainer: 'false',
+                            }
+                        } as any);
+                    }, 800);
                 }
-
-                setProgress(100);
-
-                await queryClient.invalidateQueries({ queryKey: ['trainerAssignedDietPlans', userId] });
-                await queryClient.invalidateQueries({ queryKey: ['trainerMealPlan', targetUserId] });
-
-                setTimeout(() => {
-                    router.replace({ pathname: '/(trainer)/nutrition/my-nutrition-plan', params: { targetUserId } } as any);
-                }, 800);
 
             } catch (err: any) {
                 console.error('Meal Plan Generation Error:', err);

@@ -9,10 +9,13 @@ import { fetchTrainerWorkoutPlanDayExercises } from '@/helpers/trainerWorkoutPla
 
 import { useTrainerWeeklyPlan } from '@/hooks/trainerWorkoutPlans/useTrainerWeeklyPlan';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { useUser } from '@/context/UserContext';
 
 export default function WeeklyWorkoutPlan() {
-  const { customerId } = useLocalSearchParams<{ customerId: string }>();
-  const { data: loadedPlanDays, isLoading, refetch } = useTrainerWeeklyPlan(customerId);
+  const { customerId, isGlobalTrainer } = useLocalSearchParams<{ customerId: string; isGlobalTrainer?: string }>();
+  const { role, globalTrainerId } = useUser();
+  const isGlobal = isGlobalTrainer === 'true' || !!globalTrainerId || (role || '').toLowerCase().replace(/[\s_-]/g, '') === 'globaltrainer';
+  const { data: loadedPlanDays, isLoading, refetch } = useTrainerWeeklyPlan(customerId, undefined, isGlobal);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = React.useCallback(async () => {

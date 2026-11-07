@@ -7,13 +7,15 @@ export function useWorkoutVideos(
   workoutType: string = 'all',
   role: string = 'all',
   isStretching: string = 'all',
-  searchQuery: string = ''
+  searchQuery: string = '',
+  options?: { enabled?: boolean; strictRole?: boolean }
 ) {
   return useQuery({
-    queryKey: ['workoutVideos', page, limit, workoutType, role, isStretching, searchQuery],
+    queryKey: ['workoutVideos', page, limit, workoutType, role, isStretching, searchQuery, options?.strictRole],
     queryFn: async () => {
-      const data = await fetchWorkoutVideos(page, limit, workoutType, role, isStretching, searchQuery);
+      const data = await fetchWorkoutVideos(page, limit, workoutType, role, isStretching, searchQuery, options?.strictRole);
       return data;
     },
+    enabled: options?.enabled !== undefined ? options.enabled : true,
   });
 }

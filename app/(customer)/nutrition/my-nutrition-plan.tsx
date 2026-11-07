@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { CaretLeft, CaretRight, Gear, Sun, Coffee, Moon, Fire, Leaf, PencilSimple, Check } from 'phosphor-react-native';
 import { useCustomerMealPlan } from '@/hooks/customerMealPlans/useCustomerMealPlan';
 import { useTrainerMealPlan } from '@/hooks/trainerMealPlans/useTrainerMealPlan';
+import { useGlobalTrainerMealPlan } from '@/hooks/globalTrainerMealPlans/useGlobalTrainerMealPlan';
 import { useUser } from '@/context/UserContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { saveMealPlanDayMeal } from '@/helpers/customerMealPlans/mealPlanDayMeals';
@@ -16,8 +17,17 @@ export default function MyNutritionPlan() {
   const queryClient = useQueryClient();
   const { data: customerPlan, isLoading: isCustomerPlanLoading } = useCustomerMealPlan(userId as any);
   const { data: trainerPlan, isLoading: isTrainerPlanLoading } = useTrainerMealPlan(userId as any);
+  const { data: globalTrainerPlan, isLoading: isGlobalTrainerPlanLoading } = useGlobalTrainerMealPlan(userId as any);
+
+  const effectiveTrainerPlan = globalTrainerPlan || trainerPlan;
 
   const [activeTab, setActiveTab] = useState<'my_plan' | 'trainer_plan'>('my_plan');
+
+  React.useEffect(() => {
+    if (!customerPlan?.days?.length && effectiveTrainerPlan?.days?.length) {
+      setActiveTab('trainer_plan');
+    }
+  }, [customerPlan, effectiveTrainerPlan]);
   const [selectedDayIndex, setSelectedDayIndex] = useState(new Date().getDay());
   const scrollViewRef = React.useRef<ScrollView>(null);
 
@@ -72,7 +82,9 @@ export default function MyNutritionPlan() {
     return `${fullDayNames[selected.getDay()]}, ${selected.getDate()} ${monthNames[selected.getMonth()]}`;
   };
 
-  const isLoading = activeTab === 'my_plan' ? isCustomerPlanLoading : isTrainerPlanLoading;
+  const isLoading = activeTab === 'my_plan' 
+    ? isCustomerPlanLoading 
+    : (isTrainerPlanLoading || isGlobalTrainerPlanLoading);
 
   if (isLoading) {
     return (
@@ -92,7 +104,7 @@ export default function MyNutritionPlan() {
     }
   };
 
-  const activePlan = activeTab === 'my_plan' ? customerPlan : trainerPlan;
+  const activePlan = activeTab === 'my_plan' ? customerPlan : effectiveTrainerPlan;
   const selectedDayData = activePlan?.days?.find(d => d.dayOfWeek.toLowerCase() === daysOfMonth[selectedDayIndex].id);
   const meals = selectedDayData?.meals || [];
 
@@ -260,7 +272,7 @@ export default function MyNutritionPlan() {
                   <Text className="text-[#4ADE80] text-[11px] font-semibold">P {meal.protein || 0}g</Text>
                   <Text className="text-[#FBBF24] text-[11px] font-semibold">C {meal.carbs || 0}g</Text>
                   <Text className="text-[#A78BFA] text-[11px] font-semibold">F {meal.fat || 0}g</Text>
-                  <Text className="text-white text-[11px] font-semibold">Fi {meal.fiber || 0}g</Text>
+                  <Text className="text-white text-[11px] font-semibold">Fi {(meal as any).fiber || 0}g</Text>
                 </View>
               </Pressable>
             )

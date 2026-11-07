@@ -27,10 +27,20 @@ export interface GeneratedMealPlan {
 
 const DAYS_OF_WEEK = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-export async function generateAlgorithmicPlan(userId: string): Promise<GeneratedMealPlan> {
+export async function generateAlgorithmicPlan(
+  userId: string,
+  overrideDietType?: string
+): Promise<GeneratedMealPlan> {
   // 1. Fetch Profile and Targets
   const profile = await fetchCustomerOnboarding(userId);
   if (!profile) throw new Error("Onboarding profile not found.");
+
+  const effectiveDiet = overrideDietType || profile.dietType || 'vegetarian';
+  const userDiet = (effectiveDiet || 'vegetarian').toLowerCase().replace(/[^a-z]/g, '');
+  const effectiveProfile = {
+    ...profile,
+    dietType: effectiveDiet as any,
+  };
 
   const targets = await calculateNutritionTargets(userId);
   
@@ -134,8 +144,7 @@ export async function generateAlgorithmicPlan(userId: string): Promise<Generated
 
   // 2. Fetch and filter Global Meals
   const allMeals = await fetchGlobalMeals();
-  const userDiet = (profile.dietType || 'non-vegetarian').toLowerCase().replace(/[^a-z]/g, '');
-  const eligibleMeals = getEligibleMealsForUser(allMeals, profile);
+  const eligibleMeals = getEligibleMealsForUser(allMeals, effectiveProfile);
 
   // Group by Meal Type
   const pool: Record<string, GlobalMeal[]> = {};

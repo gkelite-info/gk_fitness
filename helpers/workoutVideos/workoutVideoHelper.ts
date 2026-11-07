@@ -88,30 +88,172 @@ export function mapWorkoutTypeToDbEnums(workoutType?: string): string[] {
   return [normalized];
 }
 
+export const MALE_WORKOUT_IDS: Record<string, string[]> = {
+  chest: ['ab312b33-c4de-4f0e-973b-04f90d171704', '3e4e5e91-4f2a-4f8a-9364-2b6eb2ed852d'],
+  back: ['c65725f4-0796-49c6-b3b3-0499352171c4', 'eb1b8c97-d092-4b8a-916b-0f71ed7df9e3'],
+  shoulder: ['51b8b98e-ad22-4842-b50b-894d89c82663', 'd889858d-6c4d-4c32-b14d-cbc3001bed49'],
+  shoulders: ['51b8b98e-ad22-4842-b50b-894d89c82663', 'd889858d-6c4d-4c32-b14d-cbc3001bed49'],
+  abs: ['497f6524-6589-488f-915b-74b98b8e25c7', '1fbafb6b-b8e0-4ea3-b530-742841899b74'],
+  cardio: ['e8f1397b-58fc-480e-a159-583337eb6870', 'e34c4133-0489-4cb2-b0f8-cbf81ea85fc0'],
+  calves: ['d4c30013-0fb4-44c7-9dc8-1ac92b3e2f3f', '890f6299-76af-4863-8338-734cd6fdf05d'],
+  forearms: ['db026b0b-3903-43e9-a791-1294471f0faf', '97938dd3-aa25-4d00-9dab-b2fbcbdb45c3'],
+  trapezius: ['fd825955-71c9-4051-afd5-2e1ac5cab0f2', 'a5453724-2e9e-49d1-9525-d03394aa6d2c'],
+  hips: ['33b025a2-3cc7-452f-9965-e5e5030c23ca', '6b331de1-909a-4faf-98f6-6c9812af87d1'],
+  legs: ['33b025a2-3cc7-452f-9965-e5e5030c23ca', 'd4c30013-0fb4-44c7-9dc8-1ac92b3e2f3f', '6b331de1-909a-4faf-98f6-6c9812af87d1'],
+  arms: ['db026b0b-3903-43e9-a791-1294471f0faf', '51b8b98e-ad22-4842-b50b-894d89c82663', 'ab312b33-c4de-4f0e-973b-04f90d171704'],
+  biceps: ['db026b0b-3903-43e9-a791-1294471f0faf', 'ab312b33-c4de-4f0e-973b-04f90d171704'],
+  triceps: ['ab312b33-c4de-4f0e-973b-04f90d171704', '51b8b98e-ad22-4842-b50b-894d89c82663'],
+};
+
+export const FEMALE_WORKOUT_IDS: Record<string, string[]> = {
+  chest: ['24cc9244-1cdd-4219-a481-f1fbe952cebe', 'fbe1ea60-bd91-45de-b914-6e1d925a48ec'],
+  back: ['3ceb9c04-2541-4304-8a74-974a955cd7dc', 'c00d785e-07de-4dac-99be-73e1026ff0bb'],
+  shoulder: ['c3e5a606-ee60-4169-9fae-6a4c9abfce80', '04d1b9b0-114d-4ab5-a402-97596c7b870b'],
+  shoulders: ['c3e5a606-ee60-4169-9fae-6a4c9abfce80', '04d1b9b0-114d-4ab5-a402-97596c7b870b'],
+  abs: ['4118af16-310f-476f-af0f-3fa370090295', '08eb0fc4-7c0a-4b07-8f71-c4ae6c0b3877'],
+  cardio: ['5002ca9f-79fd-4c84-967b-38c4e189bead', '8ace356d-d3f1-492c-bfbd-596226617078'],
+  calves: ['d2e12c77-e24a-4de2-8f0e-9a867b67d17e', '36f6b8e2-7ea8-4f06-8e90-d680cc6ca459'],
+  forearms: ['376bb182-29eb-462e-afa5-735c7290dc24', 'fcce6813-f150-4cf7-a513-564ed5980af5'],
+  trapezius: ['659a3d98-9fd7-4fd4-8109-84272955dd0e', 'cbe830c4-50f9-45f4-b6f2-afad20a4bfcd'],
+  hips: ['5e612e83-95de-4b58-b61e-208321de9344', '0c7d2a9d-4983-4e16-9e81-49af8d0092ee'],
+  legs: ['5e612e83-95de-4b58-b61e-208321de9344', 'd2e12c77-e24a-4de2-8f0e-9a867b67d17e', '0c7d2a9d-4983-4e16-9e81-49af8d0092ee'],
+  arms: ['376bb182-29eb-462e-afa5-735c7290dc24', 'c3e5a606-ee60-4169-9fae-6a4c9abfce80', '24cc9244-1cdd-4219-a481-f1fbe952cebe'],
+  biceps: ['376bb182-29eb-462e-afa5-735c7290dc24'],
+  triceps: ['24cc9244-1cdd-4219-a481-f1fbe952cebe', 'c3e5a606-ee60-4169-9fae-6a4c9abfce80'],
+};
+
+export function isExerciseMatchingGender(
+  exercise: {
+    videoUrl?: string | null;
+    workoutId?: string | null;
+    workouts?: { role?: string } | null;
+  },
+  targetGender: string
+): boolean {
+  const norm = (targetGender || '').toLowerCase().trim();
+  if (norm !== 'male' && norm !== 'female') return true;
+
+  const vid = exercise.videoUrl || '';
+  const wid = exercise.workoutId || '';
+  const workoutRole = (exercise.workouts?.role || '').toLowerCase().trim();
+
+  if (workoutRole) {
+    if (norm === 'male' && workoutRole === 'female') return false;
+    if (norm === 'female' && workoutRole === 'male') return false;
+    if (workoutRole === norm) return true;
+  }
+
+  const allFemaleWids = new Set(Object.values(FEMALE_WORKOUT_IDS).flat());
+  const allMaleWids = new Set(Object.values(MALE_WORKOUT_IDS).flat());
+
+  if (norm === 'male') {
+    // Strictly reject female video prefix 178903
+    if (vid.includes('178903')) return false;
+    // Strictly reject known female workout IDs
+    if (allFemaleWids.has(wid)) return false;
+    // Known male prefixes or male workout IDs are guaranteed matches
+    if (
+      vid.includes('178902') ||
+      vid.includes('178774') ||
+      vid.includes('178895') ||
+      vid.includes('178896') ||
+      vid.includes('178780') ||
+      allMaleWids.has(wid)
+    ) {
+      return true;
+    }
+    return !vid.includes('178903') && !allFemaleWids.has(wid);
+  } else {
+    // norm === 'female'
+    // Strictly reject male video prefixes
+    if (
+      vid.includes('178902') ||
+      vid.includes('178774') ||
+      vid.includes('178895') ||
+      vid.includes('178896') ||
+      vid.includes('178780')
+    ) {
+      return false;
+    }
+    // Strictly reject known male workout IDs
+    if (allMaleWids.has(wid)) return false;
+    if (vid.includes('178903') || allFemaleWids.has(wid)) {
+      return true;
+    }
+    return !allMaleWids.has(wid);
+  }
+}
+
+export function getRpcMusclesForTarget(targetGroup: string): string[] {
+  const target = (targetGroup || '').toLowerCase().trim();
+  if (target === 'chest') return ['CHEST'];
+  if (target === 'back') return ['BACK'];
+  if (target.includes('shoulder')) return ['SHOULDERS', 'TRAPS', 'SHOULDER'];
+  if (target.includes('leg') || target.includes('hip') || target.includes('calf') || target.includes('lower body')) {
+    return ['QUADRICEPS', 'HAMSTRINGS', 'GLUTES', 'CALVES', 'HIPS', 'LEGS'];
+  }
+  if (target.includes('bicep')) return ['BICEPS'];
+  if (target.includes('tricep')) return ['TRICEPS'];
+  if (target.includes('abs') || target.includes('core')) return ['ABDOMINALS', 'OBLIQUES', 'ABS'];
+  if (target.includes('arm')) return ['BICEPS', 'TRICEPS', 'FOREARMS'];
+  if (target.includes('cardio')) return ['CARDIO'];
+  return [targetGroup.toUpperCase()];
+}
+
+export function isExerciseMatchingMuscle(name: string, targetMuscle: string): boolean {
+  const l = (name || '').toLowerCase();
+  const m = (targetMuscle || '').toLowerCase().trim();
+  if (!m || m === 'all') return true;
+
+  if (m === 'chest') {
+    if (/leg|femoral|calf|calves|squat|lunge|hip|thrust|glute|adduct|abduct|quad|hamstring|runner|knee|boat/i.test(l)) return false;
+    if (l.includes('stretch')) return true;
+    return /bench|press|fly|pec|push-up|push up|pushup|dip|crossover|chest/i.test(l);
+  }
+  if (m === 'back') {
+    if (/bench|pec|chest press|push-up|push up|pushup|adduct|abduct|quad|calf|hamstring|runner|knee|boat/i.test(l)) return false;
+    if (l.includes('stretch')) return true;
+    return /row|pull|lat|deadlift|hyperextension|back/i.test(l);
+  }
+  if (m.includes('shoulder')) {
+    if (/bench press|pec|chest press|squat|lunge|leg|pulldown|quad|hamstring|calf|runner|knee|boat/i.test(l)) return false;
+    if (l.includes('stretch')) return true;
+    return /shoulder|press|raise|delt|shrug|upright/i.test(l);
+  }
+  if (m === 'abs' || m === 'core') {
+    if (/bench press|pec|chest press|squat|lunge|quad|calf/i.test(l)) return false;
+    if (l.includes('stretch')) return true;
+    return /crunch|raise|plank|sit up|situp|twist|ab|core/i.test(l);
+  }
+  if (m === 'legs' || m === 'leg' || m === 'calves' || m === 'hips') {
+    if (/bench press|chest|pec|pulldown|bicep|tricep/i.test(l)) return false;
+    if (l.includes('stretch')) return true;
+    return /squat|lunge|press|extension|curl|calf|glute|hip|adduct|abduct|leg|thrust|deadlift|rdl|step up/i.test(l);
+  }
+  if (m.includes('bicep')) {
+    if (/press|row|tricep|squat|lunge|leg|calf|shoulder|bench|chest|quad/i.test(l)) return false;
+    if (l.includes('stretch')) return /bicep|arm/i.test(l);
+    return /curl|bicep/i.test(l);
+  }
+  if (m.includes('tricep')) {
+    if (/bicep|curl|squat|lunge|leg|chest fly|pulldown|quad/i.test(l)) return false;
+    if (l.includes('stretch')) return /tricep|arm/i.test(l);
+    return /tricep|pushdown|skull|extension|dip|kickback/i.test(l);
+  }
+  return true;
+}
+
 export async function fetchWorkoutVideos(
   page: number = 1,
   limit: number = 10,
   workoutType: string = 'all',
   role: string = 'all',
   isStretching: string = 'all',
-  searchQuery: string = ''
+  searchQuery: string = '',
+  strictRole: boolean = false
 ) {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
-
-  let query = supabase
-    .from('workout_videos')
-    .select('*', { count: 'exact' })
-    .or('is_deleted.eq.false,is_deleted.is.null')
-    .order('createdAt', { ascending: false });
-
-  // 1. Server-side search filter across exerciseName and primaryMuscle
-  const cleanSearch = (searchQuery || '').trim();
-  if (cleanSearch) {
-    query = query.or(`exerciseName.ilike.%${cleanSearch}%,primaryMuscle.ilike.%${cleanSearch}%`);
-  }
-
-  const mappedTypes = mapWorkoutTypeToDbEnums(workoutType);
 
   // Robustly resolve user gender if role is not passed or is 'all'
   let normalizedRole = (role || 'all').toLowerCase().trim();
@@ -143,6 +285,8 @@ export async function fetchWorkoutVideos(
   }
 
   const isRoleFilterActive = normalizedRole === 'male' || normalizedRole === 'female';
+  const mappedTypes = mapWorkoutTypeToDbEnums(workoutType);
+  const cleanSearch = (searchQuery || '').trim();
 
   // Pre-load opposite gender workoutIds to strictly blacklist them
   let oppositeWorkoutIdsSet: Set<string> | undefined;
@@ -156,30 +300,124 @@ export async function fetchWorkoutVideos(
     oppositeWorkoutIdsSet = new Set((oppWorkouts || []).map((w: any) => w.workoutId));
   }
 
-  const filterByRole = (items: any[]) => {
-    if (!isRoleFilterActive) return items;
-    return items.filter((v: any) => {
-      if (oppositeWorkoutIdsSet && v.workoutId && oppositeWorkoutIdsSet.has(v.workoutId)) {
-        return false;
+  // Combined helper to filter videos strictly by gender, blacklist, muscle, and search
+  const filterListStrictly = (list: any[]): any[] => {
+    return list.filter((v: any) => {
+      const vid = v.videoUrl || v.video_url || '';
+      const wid = v.workoutId || v.workout_id || '';
+      const name = v.exerciseName || v.exercise_name || '';
+
+      if (isRoleFilterActive) {
+        // 1. Blacklist check from opposite gender workout IDs
+        if (oppositeWorkoutIdsSet && wid && oppositeWorkoutIdsSet.has(wid)) {
+          return false;
+        }
+
+        // 2. Strict gender matching helper (prefixes & known IDs)
+        const matchesGender = isExerciseMatchingGender(
+          { videoUrl: vid, workoutId: wid, workouts: v.workouts },
+          normalizedRole
+        );
+        if (!matchesGender) return false;
+
+        // 3. Regex check on URL and exercise name
+        const urlLower = vid.toLowerCase();
+        const exNameLower = name.toLowerCase();
+        if (normalizedRole === 'male') {
+          if (/female|women|woman|\/female\/|_female|-female|female_/i.test(urlLower)) return false;
+          if (/\(female\)|\(women\)|\(woman\)|female\s|women\s/i.test(exNameLower)) return false;
+        } else {
+          if (/male|men|man|\/male\/|_male|-male|male_/i.test(urlLower)) return false;
+          if (/\(male\)|\(men\)|\(man\)|male\s|men\s/i.test(exNameLower)) return false;
+        }
       }
-      const url = (v.videoUrl || '').toLowerCase();
-      const exName = (v.exerciseName || '').toLowerCase();
-      if (normalizedRole === 'male') {
-        if (/female|women|woman|\/female\/|_female|-female|female_/i.test(url)) return false;
-        if (/\(female\)|\(women\)|\(woman\)|female\s|women\s/i.test(exName)) return false;
-      } else {
-        if (/male|men|man|\/male\/|_male|-male|male_/i.test(url)) return false;
-        if (/\(male\)|\(men\)|\(man\)|male\s|men\s/i.test(exName)) return false;
+
+      // 4. Target muscle group check
+      if (workoutType && workoutType !== 'all') {
+        const matchesM = isExerciseMatchingMuscle(name, workoutType);
+        if (!matchesM) return false;
       }
+
+      // 5. Search query check
+      if (cleanSearch) {
+        const searchNorm = cleanSearch.toLowerCase();
+        const matchesSearch =
+          name.toLowerCase().includes(searchNorm) ||
+          (v.primaryMuscle || v.muscle || '').toLowerCase().includes(searchNorm) ||
+          (v.category || '').toLowerCase().includes(searchNorm);
+        if (!matchesSearch) return false;
+      }
+
       return true;
     });
   };
 
-  if (mappedTypes.length > 0 || isRoleFilterActive || isStretching !== 'all') {
-    const buildWorkoutsQuery = (applyRole: boolean = true) => {
+  // Strategy 1: If specific muscle group is requested, use RPC get_custom_workout_videos with getRpcMusclesForTarget
+  // This bypasses table RLS and reliably retrieves all exercises across all workouts with complete metadata
+  if (workoutType && workoutType !== 'all') {
+    try {
+      const targetMuscles = getRpcMusclesForTarget(workoutType);
+
+      const { data: rpcVideos, error: rpcErr } = await supabase.rpc('get_custom_workout_videos', {
+        p_muscles: targetMuscles,
+        p_equipment: [],
+        p_limit: 250,
+        p_exclude: []
+      });
+
+      if (!rpcErr && Array.isArray(rpcVideos) && rpcVideos.length > 0) {
+        const seenIds = new Set<string>();
+        const seenNames = new Set<string>();
+        const dedupedRpc: any[] = [];
+
+        for (const r of rpcVideos) {
+          const id = r.workout_video_id || r.workoutVideoId;
+          const nameNorm = (r.exercise_name || r.exerciseName || '').toLowerCase().trim();
+          if (id && seenIds.has(id)) continue;
+          if (nameNorm && seenNames.has(nameNorm)) continue;
+          if (id) seenIds.add(id);
+          if (nameNorm) seenNames.add(nameNorm);
+
+          dedupedRpc.push({
+            workoutVideoId: id,
+            workoutId: r.workout_id || r.workoutId,
+            exerciseName: r.exercise_name || r.exerciseName,
+            videoUrl: r.video_url || r.videoUrl,
+            primaryMuscle: r.muscle || r.primaryMuscle,
+            equipment: r.equipment,
+            defaultSets: r.default_sets || r.defaultSets,
+            defaultReps: r.default_reps || r.defaultReps || '10-12 reps',
+            difficulty: r.difficulty,
+            category: r.category || (workoutType ? workoutType.charAt(0).toUpperCase() + workoutType.slice(1) : 'Exercise'),
+            is_deleted: false,
+          });
+        }
+
+        const strictlyFiltered = filterListStrictly(dedupedRpc);
+
+        if (strictlyFiltered.length > 0) {
+          const paged = strictlyFiltered.slice(from, to + 1);
+          return {
+            data: paged,
+            total: strictlyFiltered.length,
+          };
+        }
+      } else if (rpcErr) {
+        console.warn('[fetchWorkoutVideos] RPC warning/error:', rpcErr);
+      }
+    } catch (rpcError) {
+      console.warn('[workoutVideoHelper] RPC fallback error:', rpcError);
+    }
+  }
+
+  // Strategy 2: Direct query to workouts and workout_videos table
+  try {
+    let targetWorkoutIds: string[] = [];
+
+    if (mappedTypes.length > 0 || isRoleFilterActive || isStretching !== 'all') {
       let q = supabase
         .from('workouts')
-        .select('workoutId')
+        .select('workoutId, role, workoutType')
         .or('is_deleted.eq.false,is_deleted.is.null');
 
       if (mappedTypes.length === 1) {
@@ -188,8 +426,7 @@ export async function fetchWorkoutVideos(
         q = q.in('workoutType', mappedTypes);
       }
 
-      // Strictly enforce gender role if requested
-      if (applyRole && isRoleFilterActive) {
+      if (isRoleFilterActive) {
         q = q.eq('role', normalizedRole);
       }
 
@@ -201,163 +438,136 @@ export async function fetchWorkoutVideos(
         }
       }
 
-      return q;
-    };
+      const { data: matchedWorkouts, error: workoutsError } = await q;
 
-    let { data: matchedWorkouts, error: workoutsError } = await buildWorkoutsQuery(true);
-
-    if (workoutsError) {
-      console.warn('[workoutVideoHelper] workoutsQuery error:', workoutsError);
-    }
-
-    let workoutIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
-
-    // If role was filtered, NEVER drop the role filter!
-    if (workoutIds.length === 0 && isRoleFilterActive) {
-      // Keep workoutIds empty to prevent opposite-gender workouts from showing
-    }
-
-    if (workoutIds.length > 0) {
-      query = query.in('workoutId', workoutIds);
-    } else {
-      // Fallback 2: If workouts table still had 0 matches, filter workout_videos directly by primaryMuscle
-      const muscleKey = mappedTypes[0] || workoutType;
-      if (muscleKey && muscleKey !== 'all') {
-        query = query.ilike('primaryMuscle', `%${muscleKey}%`);
-      } else {
-        // Fallback 3: Try RPC get_custom_workout_videos before returning empty
-        try {
-          const targetMuscles = [workoutType.toUpperCase()];
-          const { data: rpcVideos } = await supabase.rpc('get_custom_workout_videos', {
-            p_muscles: targetMuscles,
-            p_equipment: [],
-            p_limit: limit,
-            p_exclude: []
-          });
-          if (rpcVideos && rpcVideos.length > 0) {
-            const mappedRpc = rpcVideos.map((r: any) => ({
-              workoutVideoId: r.workout_video_id || r.workoutVideoId,
-              workoutId: r.workout_id || r.workoutId,
-              exerciseName: r.exercise_name || r.exerciseName,
-              videoUrl: r.video_url || r.videoUrl,
-              primaryMuscle: r.muscle || r.primaryMuscle,
-              equipment: r.equipment,
-              defaultSets: r.default_sets || r.defaultSets,
-              defaultReps: r.default_reps || r.defaultReps,
-              difficulty: r.difficulty,
-              is_deleted: false,
-            }));
-            const filteredRpc = filterByRole(mappedRpc);
-            return {
-              data: filteredRpc,
-              total: filteredRpc.length,
-            };
-          }
-        } catch {
-          // ignore RPC fallback error
-        }
-        return { data: [], total: 0 };
+      if (workoutsError) {
+        console.warn('[workoutVideoHelper] workoutsQuery error:', workoutsError);
       }
-    }
-  }
 
-  const { data, error, count } = await query.range(from, to);
+      if (matchedWorkouts && matchedWorkouts.length > 0) {
+        targetWorkoutIds = matchedWorkouts.map((w: any) => w.workoutId);
+      }
 
-  if (error) {
-    if (error.code === 'PGRST103') {
-      return { data: [], total: count ?? 0 };
-    }
-    console.error('[workoutVideoHelper] fetchWorkoutVideos Error:', error);
-    throw error;
-  }
-
-  // Fallback: only when not searching and on page 1, if empty, fetch neutral fallback respecting role
-  if ((!data || data.length === 0) && page === 1 && workoutType !== 'all' && !cleanSearch) {
-    const muscleKey = mappedTypes[0] || workoutType;
-    if (muscleKey && muscleKey !== 'all') {
-      const byMuscleRes = await supabase
-        .from('workout_videos')
-        .select('*', { count: 'exact' })
-        .ilike('primaryMuscle', `%${muscleKey}%`)
-        .or('is_deleted.eq.false,is_deleted.is.null')
-        .order('createdAt', { ascending: false })
-        .range(from, to);
-
-      if (byMuscleRes.data && byMuscleRes.data.length > 0) {
-        const filteredByMuscle = filterByRole(byMuscleRes.data);
-        return {
-          data: filteredByMuscle,
-          total: filteredByMuscle.length,
-        };
+      // If no workouts matched, use role-based dictionaries as fallback
+      if (targetWorkoutIds.length === 0 && isRoleFilterActive) {
+        const typeKey = (mappedTypes[0] || workoutType).toLowerCase();
+        const dict = normalizedRole === 'male' ? MALE_WORKOUT_IDS : FEMALE_WORKOUT_IDS;
+        targetWorkoutIds = dict[typeKey] || dict[workoutType.toLowerCase()] || [];
       }
     }
 
-    try {
-      const targetMuscles = [workoutType.toUpperCase()];
-      const { data: rpcVideos } = await supabase.rpc('get_custom_workout_videos', {
-        p_muscles: targetMuscles,
-        p_equipment: [],
-        p_limit: limit,
-        p_exclude: []
-      });
-      if (rpcVideos && rpcVideos.length > 0) {
-        const mappedRpc = rpcVideos.map((r: any) => ({
-          workoutVideoId: r.workout_video_id || r.workoutVideoId,
-          workoutId: r.workout_id || r.workoutId,
-          exerciseName: r.exercise_name || r.exerciseName,
-          videoUrl: r.video_url || r.videoUrl,
-          primaryMuscle: r.muscle || r.primaryMuscle,
-          equipment: r.equipment,
-          defaultSets: r.default_sets || r.defaultSets,
-          defaultReps: r.default_reps || r.defaultReps,
-          difficulty: r.difficulty,
-          is_deleted: false,
-        }));
-        const filteredRpc = filterByRole(mappedRpc);
-        return {
-          data: filteredRpc,
-          total: filteredRpc.length,
-        };
-      }
-    } catch {
-      // ignore
-    }
-
-    let fallbackQuery = supabase
+    let query = supabase
       .from('workout_videos')
-      .select('*', { count: 'exact' })
+      .select('*, workouts:workoutId(role, workoutType)', { count: 'exact' })
       .or('is_deleted.eq.false,is_deleted.is.null')
       .order('createdAt', { ascending: false });
 
-    if (isRoleFilterActive) {
-      const { data: roleWorkouts } = await supabase
-        .from('workouts')
-        .select('workoutId')
-        .eq('role', normalizedRole)
-        .or('is_deleted.eq.false,is_deleted.is.null');
-      const rIds = roleWorkouts?.map((w: any) => w.workoutId) || [];
-      if (rIds.length > 0) {
-        fallbackQuery = fallbackQuery.in('workoutId', rIds);
-      } else {
-        return { data: [], total: 0 };
+    if (cleanSearch) {
+      query = query.or(`exerciseName.ilike.%${cleanSearch}%,primaryMuscle.ilike.%${cleanSearch}%`);
+    }
+
+    if (targetWorkoutIds.length > 0) {
+      query = query.in('workoutId', targetWorkoutIds);
+    } else if (workoutType !== 'all') {
+      const muscleKey = mappedTypes[0] || workoutType;
+      if (muscleKey) {
+        query = query.ilike('primaryMuscle', `%${muscleKey}%`);
       }
     }
 
-    const fallbackRes = await fallbackQuery.range(from, to);
-    if (fallbackRes.data && fallbackRes.data.length > 0) {
-      const filteredFallback = filterByRole(fallbackRes.data);
-      return {
-        data: filteredFallback,
-        total: filteredFallback.length,
-      };
+    const { data, error, count } = await query.limit(200);
+
+    if (!error && data && data.length > 0) {
+      const seenIds = new Set<string>();
+      const seenNames = new Set<string>();
+      const dedupedData: any[] = [];
+
+      for (const item of data) {
+        const id = item.workoutVideoId;
+        const nameNorm = (item.exerciseName || '').toLowerCase().trim();
+        if (id && seenIds.has(id)) continue;
+        if (nameNorm && seenNames.has(nameNorm)) continue;
+        if (id) seenIds.add(id);
+        if (nameNorm) seenNames.add(nameNorm);
+        dedupedData.push(item);
+      }
+
+      const cleanData = filterListStrictly(dedupedData);
+      if (cleanData.length > 0) {
+        const paged = cleanData.slice(from, to + 1);
+        return {
+          data: paged,
+          total: cleanData.length,
+        };
+      }
     }
+
+    // Fallback: If still empty, check primaryMuscle fallback query respecting role
+    if (page === 1 && workoutType !== 'all' && !cleanSearch) {
+      const muscleKey = mappedTypes[0] || workoutType;
+      if (muscleKey && muscleKey !== 'all') {
+        const byMuscleRes = await supabase
+          .from('workout_videos')
+          .select('*, workouts:workoutId(role, workoutType)', { count: 'exact' })
+          .ilike('primaryMuscle', `%${muscleKey}%`)
+          .or('is_deleted.eq.false,is_deleted.is.null')
+          .order('createdAt', { ascending: false })
+          .limit(100);
+
+        if (byMuscleRes.data && byMuscleRes.data.length > 0) {
+          const filteredByMuscle = filterListStrictly(byMuscleRes.data);
+          if (filteredByMuscle.length > 0) {
+            const paged = filteredByMuscle.slice(from, to + 1);
+            return {
+              data: paged,
+              total: filteredByMuscle.length,
+            };
+          }
+        }
+      }
+
+      // Secondary RPC Fallback
+      try {
+        const targetMuscles = [workoutType.toUpperCase()];
+        const { data: rpcVideos } = await supabase.rpc('get_custom_workout_videos', {
+          p_muscles: targetMuscles,
+          p_equipment: [],
+          p_limit: limit,
+          p_exclude: []
+        });
+        if (rpcVideos && rpcVideos.length > 0) {
+          const mappedRpc = rpcVideos.map((r: any) => ({
+            workoutVideoId: r.workout_video_id || r.workoutVideoId,
+            workoutId: r.workout_id || r.workoutId,
+            exerciseName: r.exercise_name || r.exerciseName,
+            videoUrl: r.video_url || r.videoUrl,
+            primaryMuscle: r.muscle || r.primaryMuscle,
+            equipment: r.equipment,
+            defaultSets: r.default_sets || r.defaultSets,
+            defaultReps: r.default_reps || r.defaultReps,
+            difficulty: r.difficulty,
+            is_deleted: false,
+          }));
+          const filteredRpc = filterListStrictly(mappedRpc);
+          if (filteredRpc.length > 0) {
+            const paged = filteredRpc.slice(from, to + 1);
+            return {
+              data: paged,
+              total: filteredRpc.length,
+            };
+          }
+        }
+      } catch {
+        // ignore RPC fallback error
+      }
+    }
+  } catch (err) {
+    console.warn('[workoutVideoHelper] Direct query fallback error:', err);
   }
 
-  let resultData = filterByRole(data ?? []);
-
   return {
-    data: resultData,
-    total: resultData.length,
+    data: [],
+    total: 0,
   };
 }
 

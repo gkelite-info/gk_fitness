@@ -17,9 +17,25 @@ const DEFAULT_MUSCLE_GROUPS = [
 ];
 
 export default function ChooseMuscleGroupScreen() {
-  const { day } = useLocalSearchParams<{ day: string }>();
-  const { planDays, setPlanDays } = useTrainerWorkoutPlan();
-  const { data: workouts, isLoading } = useWorkouts();
+  const {
+    day,
+    customerGender: paramGender,
+    targetUserId: paramUserId,
+  } = useLocalSearchParams<{
+    day: string;
+    customerGender?: 'male' | 'female';
+    targetUserId?: string;
+  }>();
+  const { planDays, setPlanDays, customerGender: contextGender, setCustomerGender } = useTrainerWorkoutPlan();
+  const resolvedGender = paramGender || contextGender || 'male';
+
+  React.useEffect(() => {
+    if (paramGender && (paramGender === 'male' || paramGender === 'female') && paramGender !== contextGender) {
+      setCustomerGender(paramGender);
+    }
+  }, [paramGender, contextGender]);
+
+  const { data: workouts, isLoading } = useWorkouts(resolvedGender);
 
   const currentPlan = planDays[day || ''];
   const selectedType = currentPlan?.workoutType;
@@ -41,7 +57,12 @@ export default function ChooseMuscleGroupScreen() {
 
       router.push({
         pathname: '/(trainer)/workoutPlan/customize-workout' as any,
-        params: { day, muscleGroup: type }
+        params: {
+          day,
+          muscleGroup: type,
+          customerGender: resolvedGender,
+          targetUserId: paramUserId || undefined,
+        }
       });
     } catch (error) {
       console.error('[ChooseMuscleGroupScreen] handleSelectMuscle Error:', error);
@@ -58,6 +79,10 @@ export default function ChooseMuscleGroupScreen() {
 
     for (const w of workouts) {
       if (!w || !w.workoutType) continue;
+      // Strictly ignore any workout with opposite gender
+      if (w.role && w.role.toLowerCase() !== resolvedGender.toLowerCase()) {
+        continue;
+      }
       const typeStr = String(w.workoutType).trim();
       if (!typeStr || seen.has(typeStr.toLowerCase())) continue;
 
@@ -72,7 +97,7 @@ export default function ChooseMuscleGroupScreen() {
     }
 
     return list.length > 0 ? list : DEFAULT_MUSCLE_GROUPS;
-  }, [workouts]);
+  }, [workouts, resolvedGender]);
 
   return (
     <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
@@ -103,18 +128,16 @@ export default function ChooseMuscleGroupScreen() {
                 <Pressable
                   key={item.id}
                   onPress={() => handleSelectMuscle(item.id, item.workoutId)}
-                  className={`w-[48%] p-4 rounded-2xl border mb-4 justify-between h-32 ${
-                    isSelected ? 'border-[#CCFF00] bg-[#1a1a1a]' : 'border-[#27272A] bg-[#111111]'
-                  }`}
+                  className={`w-[48%] p-4 rounded-2xl border mb-4 justify-between h-32 ${isSelected ? 'border-[#CCFF00] bg-[#1a1a1a]' : 'border-[#27272A] bg-[#111111]'
+                    }`}
                 >
                   <View className="flex-row justify-between items-start">
                     <Text className={`font-semibold text-lg ${isSelected ? 'text-[#CCFF00]' : 'text-white'}`}>
                       {item.title}
                     </Text>
 
-                    <View className={`w-6 h-6 rounded-full border items-center justify-center ${
-                      isSelected ? 'border-[#CCFF00] bg-[#CCFF00]' : 'border-[#27272A]'
-                    }`}>
+                    <View className={`w-6 h-6 rounded-full border items-center justify-center ${isSelected ? 'border-[#CCFF00] bg-[#CCFF00]' : 'border-[#27272A]'
+                      }`}>
                       {isSelected && <Check size={12} color="#000" weight="bold" />}
                     </View>
                   </View>

@@ -5,30 +5,86 @@ import { useRouter } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { useTrainerWorkoutPlansByCreator } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlans';
 import { useTrainerAssignedDietPlans } from '@/hooks/trainerMealPlans/useTrainerAssignedDietPlans';
+import { useGlobalTrainerAssignedDietPlans } from '@/hooks/globalTrainerMealPlans/useGlobalTrainerAssignedDietPlans';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 export default function PlansScreen() {
   const router = useRouter();
-  const { userId } = useUser();
+  const { userId, email, role, globalTrainerId: userGlobalTrainerId } = useUser();
   const [activeTab, setActiveTab] = useState('workout');
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: workoutPlans, isLoading: isWorkoutLoading, refetch: refetchWorkouts } = useTrainerWorkoutPlansByCreator(userId);
-  const { data: dietPlans, isLoading: isDietLoading, refetch: refetchDiets } = useTrainerAssignedDietPlans(userId);
+  // Resolve Global Trainer Record
+  const { data: globalTrainerRecord, refetch: refetchGlobalTrainerRecord } = useQuery({
+    queryKey: ['myGlobalTrainerId', userId, email],
+    queryFn: async () => {
+      if (!userId && !email) return null;
+      let query = supabase.from('global_trainers').select('globalTrainerId');
+      if (userId && email) {
+        query = query.or(`userId.eq.${userId},email.eq.${email}`);
+      } else if (userId) {
+        query = query.eq('userId', userId);
+      } else {
+        query = query.eq('email', email);
+      }
+      const { data: gt } = await query.maybeSingle();
+      return gt;
+    },
+    enabled: !!(userId || email),
+  });
+
+  const effectiveGlobalTrainerId = globalTrainerRecord?.globalTrainerId || userGlobalTrainerId;
+
+  const { data: workoutPlans, isLoading: isWorkoutLoading, refetch: refetchWorkouts } = useTrainerWorkoutPlansByCreator(userId ?? '');
+  const { data: dietPlans, isLoading: isDietLoading, refetch: refetchDiets } = useTrainerAssignedDietPlans(userId ?? '');
+  const { data: globalDietPlans, isLoading: isGlobalDietLoading, refetch: refetchGlobalDiets } = useGlobalTrainerAssignedDietPlans(effectiveGlobalTrainerId ?? undefined);
+
+  const combinedDietPlans = useMemo(() => {
+    const list: any[] = [];
+    const seenIds = new Set<string>();
+
+    if (globalDietPlans) {
+      for (const p of globalDietPlans) {
+        const id = p.globalTrainerMealPlanId;
+        if (id && !seenIds.has(id)) {
+          seenIds.add(id);
+          list.push(p);
+        }
+      }
+    }
+
+    if (dietPlans) {
+      for (const p of dietPlans) {
+        const id = p.trainerMealPlanId || p.planId;
+        if (id && !seenIds.has(id)) {
+          seenIds.add(id);
+          list.push(p);
+        }
+      }
+    }
+
+    return list;
+  }, [dietPlans, globalDietPlans]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     if (activeTab === 'workout') {
       await refetchWorkouts();
     } else {
-      await refetchDiets();
+      await Promise.all([
+        refetchDiets(),
+        refetchGlobalDiets(),
+        refetchGlobalTrainerRecord(),
+      ]);
     }
     setRefreshing(false);
   };
 
-  const fetchedPlans = activeTab === 'workout' ? workoutPlans : dietPlans;
-  const isLoading = activeTab === 'workout' ? isWorkoutLoading : isDietLoading;
+  const fetchedPlans = activeTab === 'workout' ? workoutPlans : combinedDietPlans;
+  const isLoading = activeTab === 'workout' ? isWorkoutLoading : (isDietLoading || isGlobalDietLoading);
 
   const filteredPlans = useMemo(() => {
     if (!fetchedPlans) return [];
@@ -117,7 +173,11 @@ export default function PlansScreen() {
           </View>
         ) : (
           filteredPlans.map((plan: any) => (
-            <PlanCard key={plan.planId || plan.trainerMealPlanId || plan.customerMealPlanId} plan={plan} type={activeTab as 'workout' | 'diet'} />
+            <PlanCard 
+              key={plan.globalTrainerMealPlanId || plan.planId || plan.trainerMealPlanId || plan.customerMealPlanId} 
+              plan={plan} 
+              type={activeTab as 'workout' | 'diet'} 
+            />
           ))
         )}
       </ScrollView>
@@ -145,9 +205,15 @@ function PlanCard({ plan, type }: { plan: any; type: 'workout' | 'diet' }) {
           params: { customerId }
         } as any);
       } else {
+        const isGlobal = !!plan.globalTrainerMealPlanId;
         router.push({
           pathname: '/(trainer)/nutrition/my-nutrition-plan',
-          params: { targetUserId: customerId, customerName }
+          params: { 
+            targetUserId: customerId, 
+            customerName,
+            isGlobalTrainer: isGlobal ? 'true' : 'false',
+            globalTrainerId: plan.createdBy || '',
+          }
         } as any);
       }
     }

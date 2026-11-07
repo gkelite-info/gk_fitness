@@ -52,6 +52,9 @@ const VideoPlayerComponent = forwardRef((props: VideoProps, ref) => {
     try {
       p.loop = !!isLooping;
       p.muted = !!isMuted;
+      try {
+        (p as any).staysActiveInBackground = false;
+      } catch (e) {}
       if (shouldPlay) {
         p.play();
       }
@@ -59,6 +62,15 @@ const VideoPlayerComponent = forwardRef((props: VideoProps, ref) => {
       console.warn('[Video] Error in setup callback:', e);
     }
   });
+
+  // Ensure playback pauses and releases audio session on unmount
+  useEffect(() => {
+    return () => {
+      try {
+        player.pause();
+      } catch (e) {}
+    };
+  }, [player]);
 
   useEffect(() => {
     try {
@@ -118,6 +130,8 @@ const VideoPlayerComponent = forwardRef((props: VideoProps, ref) => {
       style={style}
       contentFit={(resizeMode as any) || 'contain'}
       nativeControls={!!useNativeControls}
+      allowsPictureInPicture={false}
+      startsPictureInPictureAutomatically={false}
     />
   );
 });

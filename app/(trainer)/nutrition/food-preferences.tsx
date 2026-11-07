@@ -17,13 +17,23 @@ import {
   FishSimple,
   ChartPieSlice
 } from 'phosphor-react-native';
-import { fetchCustomerOnboarding, updateCustomerOnboarding } from '@/helpers/onboardingHelper';
+import { fetchCustomerOnboarding, updateCustomerOnboarding, saveCustomerOnboarding, setKnownCustomerOnboarding } from '@/helpers/onboardingHelper';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function FoodPreferences() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { targetUserId, customerName } = useLocalSearchParams<{ targetUserId: string, customerName?: string }>();
+  const {
+    targetUserId,
+    customerName,
+    isGlobalTrainer,
+    globalTrainerId,
+  } = useLocalSearchParams<{
+    targetUserId: string;
+    customerName?: string;
+    isGlobalTrainer?: string;
+    globalTrainerId?: string;
+  }>();
 
   const handleBack = () => {
     router.back();
@@ -121,30 +131,65 @@ export default function FoodPreferences() {
     if (!targetUserId) return;
     setSaving(true);
     try {
-      const payload = {
+      const payload: any = {
         ...(onboardingFullData || {}),
         createdBy: targetUserId,
         dietType: selectedDiet,
-        mealsPerDay: parseInt(selectedMeals.split(' ')[0]),
+        mealsPerDay: parseInt(selectedMeals.split(' ')[0]) || 4,
         foodAllergies: allergies,
         preferredCuisine: selectedCuisine,
         calorieDistribution: JSON.stringify(calorieSpread)
       };
 
+      setKnownCustomerOnboarding(targetUserId, {
+        ...payload,
+        dietType: selectedDiet as any,
+      });
+
       if (onboardingId) {
         payload.onboardingId = onboardingId;
         await updateCustomerOnboarding(payload);
-        // Invalidate the cache so the nutrition preferences page sees the fresh data instantly
-        queryClient.invalidateQueries({ queryKey: ['customerOnboarding', targetUserId] });
       } else {
-        throw new Error("No existing onboarding record found to update.");
+        await saveCustomerOnboarding(targetUserId, {
+          gymId: '',
+          fullName: customerName || 'Customer',
+          dateOfBirth: new Date().toISOString(),
+          gender: 'other',
+          height: '170',
+          weight: '70',
+          primaryGoal: 'stayfit',
+          targetWeight: '70',
+          workoutLocation: 'gym',
+          workoutDays: ['Monday', 'Wednesday', 'Friday'],
+          preferWorkoutTime: 'morning',
+          dietType: selectedDiet as any,
+          mealsPerDay: parseInt(selectedMeals.split(' ')[0]) || 4,
+          foodAllergies: allergies,
+          dailyWaterGoal: 3000,
+          preferredCuisine: selectedCuisine,
+          calorieDistribution: JSON.stringify(calorieSpread),
+          goalTimeframe: '12 weeks',
+          hasMedicalConditions: false,
+          medicalConditions: [],
+          medicalDisclaimerAccepted: true,
+          medicalDisclaimerAcceptedAt: new Date().toISOString(),
+        });
       }
+      // Invalidate the cache so the nutrition preferences page sees the fresh data instantly
+      queryClient.invalidateQueries({ queryKey: ['customerOnboarding', targetUserId] });
 
       router.push({
         pathname: '/(trainer)/nutrition/nutrition-preferences',
-        params: { targetUserId, customerName }
+        params: {
+          targetUserId,
+          customerName,
+          isGlobalTrainer,
+          globalTrainerId,
+          dietType: selectedDiet,
+        }
       } as any);
     } catch (e: any) {
+      console.error('[FoodPreferences] Error saving preferences:', e);
       Alert.alert('Error', e.message);
     } finally {
       setSaving(false);

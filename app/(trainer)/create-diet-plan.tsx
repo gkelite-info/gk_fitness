@@ -61,6 +61,21 @@ export default function CreateDietPlanScreen() {
     },
   });
 
+  const { data: globalTrainerPlans, refetch: refetchGlobalTrainerPlans } = useQuery({
+    queryKey: ['allGlobalTrainerMealPlans', effectiveGlobalTrainerId],
+    queryFn: async () => {
+      const { data: plans, error } = await supabase
+        .from('global_trainer_meal_plans')
+        .select('userId, globalTrainerMealPlanId, isActive, createdBy')
+        .eq('isActive', true);
+      if (error) {
+        console.error('[CreateDietPlanScreen] Error fetching global_trainer_meal_plans:', error);
+        return [];
+      }
+      return plans || [];
+    },
+  });
+
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
@@ -106,10 +121,11 @@ export default function CreateDietPlanScreen() {
     await Promise.all([
       activeTab === 'gym' ? (page === 1 ? refetchGym() : setPage(1)) : refetchIndividual(),
       refetchTrainerPlans(),
+      refetchGlobalTrainerPlans(),
       refetchGlobalTrainerRecord(),
     ]);
     setRefreshing(false);
-  }, [activeTab, page, refetchGym, refetchIndividual, refetchTrainerPlans, refetchGlobalTrainerRecord]);
+  }, [activeTab, page, refetchGym, refetchIndividual, refetchTrainerPlans, refetchGlobalTrainerPlans, refetchGlobalTrainerRecord]);
 
   useFocusEffect(
     useCallback(() => {
@@ -278,7 +294,8 @@ export default function CreateDietPlanScreen() {
     let isExpired = false;
 
     if (isInd) {
-      targetId = item.userId || item.user?.userId || item.individualCustomerTrainerId;
+      const clientUserId = item.userId || item.user?.userId;
+      targetId = clientUserId || item.individualCustomerTrainerId;
       customerName = item.user?.name || item.user?.fullName || 'Customer';
       subtitle = item.timings ? item.timings : 'Individual PT';
 
@@ -298,26 +315,41 @@ export default function CreateDietPlanScreen() {
         isExpired = expiryEndOfDay < startOfToday;
       }
 
-      hasActivePlan = !!trainerPlans?.some(
+      // For individual clients / global trainer, STRICTLY check globalTrainerPlans (global_trainer_meal_plans)
+      hasActivePlan = !!globalTrainerPlans?.some(
         (plan: any) =>
-          (plan.userId === targetId || plan.userId === item.individualCustomerTrainerId || plan.userId === item.userId) &&
+          (plan.userId === targetId ||
+            plan.userId === clientUserId ||
+            plan.userId === item.individualCustomerTrainerId ||
+            plan.userId === item.userId ||
+            plan.userId === item.user?.userId) &&
           plan.isActive
       );
     } else {
       const customer = item.customer;
       if (!customer) return null;
-      targetId = customer.customerId || item.customerId;
+      const clientUserId = customer.userId || customer.users?.userId;
+      targetId = clientUserId || customer.customerId || item.customerId;
       customerName = customer.fullName || 'Unknown';
       subtitle = customer.customId || 'No ID';
       profilePic = customer.users?.profilePhoto || customer.users?.profilePic || null;
-      hasActivePlan = !!trainerPlans?.some((plan: any) => (plan.userId === targetId || plan.userId === customer.customerId) && plan.isActive);
+      hasActivePlan = !!trainerPlans?.some(
+        (plan: any) =>
+          (plan.userId === targetId ||
+            plan.userId === customer.customerId ||
+            plan.userId === customer.userId ||
+            plan.userId === item.customerId) &&
+          plan.isActive
+      );
     }
 
     const isSelected = selectedCustomerId === targetId;
 
     return (
       <Pressable
-        onPress={() => setSelectedCustomerId(targetId)}
+        onPress={() => {
+          setSelectedCustomerId(targetId);
+        }}
         className={`bg-[#1A1A1A] rounded-[20px] p-4 mb-3 flex-row items-center border active:opacity-80 ${isSelected ? 'border-[#CCFF00]' : 'border-[#1A1A1A]'}`}
       >
         <View className="w-14 h-14 bg-[#2A2A2A] rounded-full items-center justify-center mr-4 overflow-hidden border border-[#3A3A3A]">
@@ -360,21 +392,40 @@ export default function CreateDietPlanScreen() {
   const handleContinue = () => {
     if (!selectedCustomerId) return;
     let customerName = 'Customer';
-    if (activeTab === 'individual') {
+    let targetUserId = selectedCustomerId;
+    const isIndividualClient = activeTab === 'individual';
+    if (isIndividualClient) {
       const selected = filteredIndividual.find(
-        (a: any) => (a.userId || a.user?.userId || a.individualCustomerTrainerId) === selectedCustomerId
+        (a: any) =>
+          (a.userId || a.user?.userId || a.individualCustomerTrainerId) === selectedCustomerId ||
+          a.userId === selectedCustomerId ||
+          a.user?.userId === selectedCustomerId ||
+          a.individualCustomerTrainerId === selectedCustomerId
       );
       customerName = selected?.user?.name || selected?.user?.fullName || 'Customer';
+      targetUserId = selected?.userId || selected?.user?.userId || selectedCustomerId;
     } else {
       const selected = accumulatedCustomers.find(
-        (c: any) => (c.customer?.customerId || c.customerId) === selectedCustomerId
+        (c: any) =>
+          (c.customer?.userId || c.customer?.customerId || c.customerId) === selectedCustomerId ||
+          c.customer?.customerId === selectedCustomerId ||
+          c.customerId === selectedCustomerId ||
+          c.customer?.userId === selectedCustomerId
       );
       customerName = selected?.customer?.fullName || 'Customer';
+      targetUserId = selected?.customer?.userId || selected?.customer?.customerId || selectedCustomerId;
     }
+
+    const isGlobal = isIndividualClient || isGlobalTrainer;
 
     router.push({
       pathname: '/(trainer)/nutrition' as any,
-      params: { targetUserId: selectedCustomerId, customerName },
+      params: {
+        targetUserId,
+        customerName,
+        isGlobalTrainer: isGlobal ? 'true' : 'false',
+        globalTrainerId: effectiveGlobalTrainerId || '',
+      },
     });
   };
 

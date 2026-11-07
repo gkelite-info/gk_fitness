@@ -71,10 +71,12 @@ export default function Step1() {
 
   const handleSkip = async () => {
     if (userId) {
-      await AsyncStorage.setItem(`@onboarding_skipped_${userId}`, 'true');
+      if (doNotAskAgain) {
+        await AsyncStorage.setItem(`@onboarding_skipped_${userId}`, 'true');
+      }
       sessionSkippedUsers.add(userId);
     }
-    await AsyncStorage.setItem('@onboarding_skipped_global', 'true');
+    await AsyncStorage.removeItem('@onboarding_skipped_global');
     queryClient.setQueryData(['customerOnboardingStatus', userId], { isOnboarded: false, isSkipped: true });
     queryClient.invalidateQueries({ queryKey: ['customerOnboardingStatus', userId] });
     setSkipModalVisible(false);

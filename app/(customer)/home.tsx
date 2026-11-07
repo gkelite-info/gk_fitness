@@ -548,8 +548,9 @@ export default function CustomerHome() {
     }
   }, [userId, onboardingStatus, isCheckingOnboarding, router]);
 
+  const needsOnboardingRedirect = userId && onboardingStatus && !onboardingStatus.isOnboarded && !onboardingStatus.isSkipped;
   const hasLoadedDash = !!(effectiveCustomerDash || effectiveTrainerDash);
-  if (!hasLoadedDash && (isCheckingOnboarding || isLoadingDashboard)) {
+  if (needsOnboardingRedirect || (!hasLoadedDash && (isCheckingOnboarding || isLoadingDashboard))) {
     return (
       <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
         <ActivityIndicator size="large" color="#d4ff00" />

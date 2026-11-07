@@ -27,6 +27,14 @@ interface TrainerWorkoutPlanContextType {
   planDays: { [key: string]: WorkoutDay };
   setPlanDays: React.Dispatch<React.SetStateAction<{ [key: string]: WorkoutDay }>>;
   resetPlan: () => void;
+  customerName: string | null;
+  setCustomerName: React.Dispatch<React.SetStateAction<string | null>>;
+  customerGender: 'male' | 'female' | null;
+  setCustomerGender: React.Dispatch<React.SetStateAction<'male' | 'female' | null>>;
+  isGlobalTrainer: boolean;
+  setIsGlobalTrainer: React.Dispatch<React.SetStateAction<boolean>>;
+  globalTrainerId: string | null;
+  setGlobalTrainerId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 const TrainerWorkoutPlanContext = createContext<TrainerWorkoutPlanContextType | undefined>(undefined);
@@ -43,15 +51,41 @@ export default function TrainerWorkoutPlanLayout() {
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [planDays, setPlanDays] = useState<{ [key: string]: WorkoutDay }>({});
+  const [customerName, setCustomerName] = useState<string | null>(null);
+  const [customerGender, setCustomerGender] = useState<'male' | 'female' | null>(null);
+  const [isGlobalTrainer, setIsGlobalTrainer] = useState<boolean>(false);
+  const [globalTrainerId, setGlobalTrainerId] = useState<string | null>(null);
 
   const resetPlan = useCallback(() => {
     setTargetUserId(null);
     setSelectedDays([]);
     setPlanDays({});
+    setCustomerName(null);
+    setCustomerGender(null);
+    setIsGlobalTrainer(false);
+    setGlobalTrainerId(null);
   }, []);
 
   return (
-    <TrainerWorkoutPlanContext.Provider value={{ targetUserId, setTargetUserId, selectedDays, setSelectedDays, planDays, setPlanDays, resetPlan }}>
+    <TrainerWorkoutPlanContext.Provider
+      value={{
+        targetUserId,
+        setTargetUserId,
+        selectedDays,
+        setSelectedDays,
+        planDays,
+        setPlanDays,
+        resetPlan,
+        customerName,
+        setCustomerName,
+        customerGender,
+        setCustomerGender,
+        isGlobalTrainer,
+        setIsGlobalTrainer,
+        globalTrainerId,
+        setGlobalTrainerId,
+      }}
+    >
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="assign-days" />

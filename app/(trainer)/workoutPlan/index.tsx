@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, CaretRight, Robot, Lightbulb, Check } from 'phosphor-react-native';
 import { useTrainerWorkoutPlan } from './_layout';
 import { useTrainerWeeklyPlan } from '@/hooks/trainerWorkoutPlans/useTrainerWeeklyPlan';
+import { supabase } from '@/lib/supabase';
 
 const ShimmerBox = () => {
   const opacity = useRef(new Animated.Value(0.3)).current;
@@ -42,15 +43,92 @@ const DAYS_OF_WEEK = [
 ];
 
 export default function BuildTrainerWeeklyPlan() {
-  const { targetUserId: paramTargetUserId, customerName, existingDays, targetDay } = useLocalSearchParams<{ targetUserId?: string; customerName?: string; existingDays?: string; targetDay?: string }>();
-  const { targetUserId, setTargetUserId, selectedDays, setSelectedDays, setPlanDays } = useTrainerWorkoutPlan();
+  const {
+    targetUserId: paramTargetUserId,
+    customerName,
+    customerGender: paramCustomerGender,
+    existingDays,
+    targetDay,
+    isGlobalTrainer: paramIsGlobalTrainer,
+    globalTrainerId: paramGlobalTrainerId,
+  } = useLocalSearchParams<{
+    targetUserId?: string;
+    customerName?: string;
+    customerGender?: 'male' | 'female';
+    existingDays?: string;
+    targetDay?: string;
+    isGlobalTrainer?: string;
+    globalTrainerId?: string;
+  }>();
+  const {
+    targetUserId,
+    setTargetUserId,
+    selectedDays,
+    setSelectedDays,
+    setPlanDays,
+    setCustomerName,
+    customerGender,
+    setCustomerGender,
+    setIsGlobalTrainer,
+    setGlobalTrainerId,
+  } = useTrainerWorkoutPlan();
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (paramTargetUserId && paramTargetUserId !== targetUserId) {
       setTargetUserId(paramTargetUserId);
     }
-  }, [paramTargetUserId, targetUserId, setTargetUserId]);
+    if (customerName) {
+      setCustomerName(customerName);
+    }
+    if (paramCustomerGender && (paramCustomerGender === 'male' || paramCustomerGender === 'female')) {
+      setCustomerGender(paramCustomerGender);
+    }
+    if (paramIsGlobalTrainer !== undefined) {
+      setIsGlobalTrainer(paramIsGlobalTrainer === 'true');
+    }
+    if (paramGlobalTrainerId) {
+      setGlobalTrainerId(paramGlobalTrainerId);
+    }
+
+    // Fallback: If customerGender is not set, resolve from DB
+    const idToLookup = paramTargetUserId || targetUserId;
+    if (!paramCustomerGender && !customerGender && idToLookup) {
+      (async () => {
+        try {
+          const { data: gc } = await supabase
+            .from('gym_customers')
+            .select('gender')
+            .or(`userId.eq.${idToLookup},customerId.eq.${idToLookup}`)
+            .maybeSingle();
+
+          if (gc?.gender) {
+            const g = gc.gender.toLowerCase().trim();
+            if (g === 'female' || g === 'male') {
+              setCustomerGender(g as 'male' | 'female');
+              return;
+            }
+          }
+
+          const { data: u } = await supabase
+            .from('users')
+            .select('gender')
+            .eq('userId', idToLookup)
+            .maybeSingle();
+
+          if (u?.gender) {
+            const g = u.gender.toLowerCase().trim();
+            if (g === 'female' || g === 'male') {
+              setCustomerGender(g as 'male' | 'female');
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn('[BuildTrainerWeeklyPlan] Error resolving customer gender:', e);
+        }
+      })();
+    }
+  }, [paramTargetUserId, customerName, paramCustomerGender, paramIsGlobalTrainer, paramGlobalTrainerId]);
 
   const activeUserId = paramTargetUserId || targetUserId;
   const existingDaysList = React.useMemo(() => existingDays ? existingDays.split(',') : [], [existingDays]);
@@ -92,7 +170,13 @@ export default function BuildTrainerWeeklyPlan() {
   const handleContinue = () => {
     try {
       if (selectedDays.length > 0) {
-        router.push('/(trainer)/workoutPlan/assign-days' as any);
+        router.push({
+          pathname: '/(trainer)/workoutPlan/assign-days' as any,
+          params: {
+            customerGender: customerGender || undefined,
+            targetUserId: activeUserId || undefined,
+          }
+        });
       }
     } catch (error) {
       console.error('[BuildTrainerWeeklyPlan] handleContinue Error:', error);
@@ -145,17 +229,15 @@ export default function BuildTrainerWeeklyPlan() {
                     if (isExisting) return;
                     handleToggleDay(day);
                   }}
-                  className={`w-[22%] aspect-square rounded-2xl items-center justify-center mb-3 border ${
-                    isSelected ? 'border-[#CCFF00] bg-[#1a1a1a]' : 'border-[#27272A] bg-[#111111]'
-                  } ${isExisting ? 'opacity-50' : ''}`}
+                  className={`w-[22%] aspect-square rounded-2xl items-center justify-center mb-3 border ${isSelected ? 'border-[#CCFF00] bg-[#1a1a1a]' : 'border-[#27272A] bg-[#111111]'
+                    } ${isExisting ? 'opacity-50' : ''}`}
                 >
                   <Text className={`font-semibold text-base mb-2 ${isSelected ? 'text-[#CCFF00]' : 'text-[#8E8E8E]'}`}>
                     {shortName}
                   </Text>
 
-                  <View className={`w-6 h-6 rounded-full border items-center justify-center ${
-                    isSelected ? 'border-[#CCFF00] bg-[#CCFF00]' : 'border-[#27272A]'
-                  }`}>
+                  <View className={`w-6 h-6 rounded-full border items-center justify-center ${isSelected ? 'border-[#CCFF00] bg-[#CCFF00]' : 'border-[#27272A]'
+                    }`}>
                     {isSelected && <Check size={12} color="#000" weight="bold" />}
                   </View>
                 </Pressable>
@@ -176,9 +258,8 @@ export default function BuildTrainerWeeklyPlan() {
         <Pressable
           onPress={handleContinue}
           disabled={selectedDays.length === 0}
-          className={`w-full py-4 rounded-2xl flex-row items-center justify-center gap-2 ${
-            selectedDays.length > 0 ? 'bg-[#CCFF00] active:opacity-90' : 'bg-[#222] opacity-50'
-          }`}
+          className={`w-full py-4 rounded-2xl flex-row items-center justify-center gap-2 ${selectedDays.length > 0 ? 'bg-[#CCFF00] active:opacity-90' : 'bg-[#222] opacity-50'
+            }`}
         >
           <Text className={`text-base font-semibold ${selectedDays.length > 0 ? 'text-black' : 'text-[#8E8E8E]'}`}>
             Continue

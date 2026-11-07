@@ -7,6 +7,7 @@ import { usePaginatedAssignedCustomersByTrainer } from '@/hooks/customerTrainers
 import { useGymTrainerByUserId } from '@/hooks/trainers/useGymTrainers';
 import { useIndividualCustomerTrainers } from '@/hooks/individual/customer-trainer/individualCustomerTrainer';
 import { useTrainerWorkoutPlansByCreator } from '@/hooks/trainerWorkoutPlans/useTrainerWorkoutPlans';
+import { useIndividualTrainerWorkoutPlans } from '@/hooks/individualTrainerWorkoutPlans';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
@@ -52,6 +53,13 @@ export default function CreateWorkoutPlanScreen() {
   }, [isGlobalTrainer]);
 
   const { data: trainerPlans, refetch: refetchTrainerPlans } = useTrainerWorkoutPlansByCreator(userId ?? undefined);
+  const { data: individualTrainerPlans, refetch: refetchIndividualTrainerPlans } =
+    useIndividualTrainerWorkoutPlans(
+      undefined,
+      effectiveGlobalTrainerId ?? undefined,
+      undefined,
+      { enabled: !!effectiveGlobalTrainerId }
+    );
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
@@ -100,10 +108,11 @@ export default function CreateWorkoutPlanScreen() {
     await Promise.all([
       activeTab === 'gym' ? (page === 1 ? refetchGym() : setPage(1)) : refetchIndividual(),
       refetchTrainerPlans(),
+      refetchIndividualTrainerPlans(),
       refetchGlobalTrainerRecord(),
     ]);
     setRefreshing(false);
-  }, [activeTab, page, refetchGym, refetchIndividual, refetchTrainerPlans, refetchGlobalTrainerRecord]);
+  }, [activeTab, page, refetchGym, refetchIndividual, refetchTrainerPlans, refetchIndividualTrainerPlans, refetchGlobalTrainerRecord]);
 
   useFocusEffect(
     useCallback(() => {
@@ -293,19 +302,33 @@ export default function CreateWorkoutPlanScreen() {
         isExpired = expiryEndOfDay < startOfToday;
       }
 
-      hasActivePlan = !!trainerPlans?.some(
+      // For individual clients / global trainer, STRICTLY check individualTrainerPlans (individual_trainer_workout_plans)
+      const hasIndPlan = !!individualTrainerPlans?.some(
         (plan: any) =>
-          (plan.userId === targetId || plan.userId === item.individualCustomerTrainerId || plan.userId === item.userId) &&
+          (plan.userId === targetId ||
+            plan.userId === item.individualCustomerTrainerId ||
+            plan.userId === item.userId ||
+            plan.userId === item.user?.userId) &&
           plan.isActive
       );
+      hasActivePlan = hasIndPlan;
     } else {
       const customer = item.customer;
       if (!customer) return null;
-      targetId = customer.customerId || item.customerId;
+      targetId = customer.userId || customer.customerId || item.customerId;
       customerName = customer.fullName || 'Unknown';
       subtitle = customer.customId || 'No ID';
       profilePic = customer.users?.profilePhoto || customer.users?.profilePic || null;
-      hasActivePlan = !!trainerPlans?.some((plan: any) => plan.userId === targetId && plan.isActive);
+
+      const hasTrainerPlan = !!trainerPlans?.some(
+        (plan: any) =>
+          (plan.userId === targetId ||
+            plan.userId === customer.customerId ||
+            plan.userId === customer.userId ||
+            plan.userId === item.customerId) &&
+          plan.isActive
+      );
+      hasActivePlan = hasTrainerPlan;
     }
 
     const isSelected = selectedCustomerId === targetId;
@@ -352,24 +375,116 @@ export default function CreateWorkoutPlanScreen() {
     );
   };
 
-  const handleContinue = () => {
-    if (!selectedCustomerId) return;
+  const handleContinue = async () => {
+    if (!selectedCustomerId) {
+      console.warn('[CreateWorkoutPlan] handleContinue pressed with no selected customer');
+      return;
+    }
     let customerName = 'Customer';
+    let chosenUserId = selectedCustomerId;
+    let customerGender: 'male' | 'female' = 'male';
+
     if (activeTab === 'individual') {
       const selected = filteredIndividual.find(
-        (a: any) => (a.userId || a.user?.userId || a.individualCustomerTrainerId) === selectedCustomerId
+        (a: any) =>
+          (a.userId || a.user?.userId || a.individualCustomerTrainerId) === selectedCustomerId ||
+          a.userId === selectedCustomerId
       );
       customerName = selected?.user?.name || selected?.user?.fullName || 'Customer';
+      chosenUserId = selected?.userId || selected?.user?.userId || selectedCustomerId;
+      const rawGender = selected?.user?.gender || (selected as any)?.gender;
+      if (rawGender && typeof rawGender === 'string') {
+        const lower = rawGender.toLowerCase().trim();
+        if (lower === 'female' || lower === 'male') {
+          customerGender = lower as 'male' | 'female';
+        }
+      }
     } else {
       const selected = accumulatedCustomers.find(
-        (c: any) => (c.customer?.customerId || c.customerId) === selectedCustomerId
+        (c: any) =>
+          (c.customer?.userId || c.customer?.customerId || c.customerId) === selectedCustomerId ||
+          c.customer?.userId === selectedCustomerId ||
+          c.customer?.customerId === selectedCustomerId ||
+          c.customerId === selectedCustomerId
       );
       customerName = selected?.customer?.fullName || 'Customer';
+      chosenUserId =
+        selected?.customer?.userId ||
+        selected?.customer?.customerId ||
+        selected?.customerId ||
+        selectedCustomerId;
+      const rawGender = selected?.customer?.gender || selected?.customer?.users?.gender || selected?.gender;
+      if (rawGender && typeof rawGender === 'string') {
+        const lower = rawGender.toLowerCase().trim();
+        if (lower === 'female' || lower === 'male') {
+          customerGender = lower as 'male' | 'female';
+        }
+      }
+    }
+
+    // Explicitly check DB to strictly verify customer's gender
+    try {
+      // 1. Check gym_customers table
+      const { data: gc } = await supabase
+        .from('gym_customers')
+        .select('gender, userId')
+        .or(`customerId.eq.${selectedCustomerId},userId.eq.${chosenUserId},customerId.eq.${chosenUserId}`)
+        .maybeSingle();
+
+      if (gc?.gender) {
+        const g = gc.gender.toLowerCase().trim();
+        if (g === 'female' || g === 'male') {
+          customerGender = g as 'male' | 'female';
+          if (gc.userId) chosenUserId = gc.userId;
+        }
+      }
+
+      // 2. Check individual_customer_trainers table
+      if (activeTab === 'individual' || !gc?.gender) {
+        const { data: ict } = await supabase
+          .from('individual_customer_trainers')
+          .select('userId, user:users!individual_customer_trainers_userId_fkey(gender)')
+          .or(`individualCustomerTrainerId.eq.${selectedCustomerId},userId.eq.${chosenUserId},userId.eq.${selectedCustomerId}`)
+          .maybeSingle();
+
+        const indGender = (ict as any)?.user?.gender;
+        if (indGender) {
+          const g = indGender.toLowerCase().trim();
+          if (g === 'female' || g === 'male') {
+            customerGender = g as 'male' | 'female';
+            if (ict?.userId) chosenUserId = ict.userId;
+          }
+        }
+      }
+
+      // 3. Check public.users table directly
+      const idForUsers = chosenUserId || selectedCustomerId;
+      if (idForUsers) {
+        const { data: u } = await supabase
+          .from('users')
+          .select('userId, gender')
+          .eq('userId', idForUsers)
+          .maybeSingle();
+        if (u?.gender) {
+          const g = u.gender.toLowerCase().trim();
+          if (g === 'female' || g === 'male') {
+            customerGender = g as 'male' | 'female';
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[CreateWorkoutPlan] Could not verify gender from DB:', err);
     }
 
     router.push({
       pathname: '/(trainer)/workoutPlan' as any,
-      params: { targetUserId: selectedCustomerId, customerName },
+      params: {
+        targetUserId: chosenUserId,
+        customerName,
+        customerGender,
+        isGlobalTrainer: isGlobalTrainer ? 'true' : 'false',
+        globalTrainerId: effectiveGlobalTrainerId || '',
+      },
     });
   };
 

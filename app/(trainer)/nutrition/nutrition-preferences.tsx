@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { CaretLeft, User, Target, Leaf, ForkKnife, Flame, Globe, Bell, Prohibit, PintGlass as Glass, MagicWand, Lock, CaretRight } from 'phosphor-react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useCustomerMealPlan } from '@/hooks/customerMealPlans/useCustomerMealPlan';
+import { useGlobalTrainerMealPlan } from '@/hooks/globalTrainerMealPlans/useGlobalTrainerMealPlan';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchCustomerOnboarding } from '@/helpers/onboardingHelper';
 import { ActivityIndicator } from 'react-native';
@@ -14,9 +15,27 @@ import { useFocusEffect } from 'expo-router';
 
 export default function NutritionPreferences() {
   const router = useRouter();
-  const { targetUserId, customerName } = useLocalSearchParams<{ targetUserId: string, customerName?: string }>();
+  const { 
+    targetUserId, 
+    customerName,
+    isGlobalTrainer,
+    globalTrainerId,
+    dietType: paramDietType,
+  } = useLocalSearchParams<{ 
+    targetUserId: string; 
+    customerName?: string;
+    isGlobalTrainer?: string;
+    globalTrainerId?: string;
+    dietType?: string;
+  }>();
   const queryClient = useQueryClient();
-  const { data: mealPlan, isLoading: isLoadingPlan } = useCustomerMealPlan(targetUserId ?? undefined);
+  const isGlobal = isGlobalTrainer === 'true' || !!globalTrainerId;
+  const { data: gymMealPlan, isLoading: isLoadingGymPlan } = useCustomerMealPlan(!isGlobal ? (targetUserId ?? undefined) : undefined);
+  const { data: globalMealPlan, isLoading: isLoadingGlobalPlan } = useGlobalTrainerMealPlan(isGlobal ? (targetUserId ?? undefined) : undefined);
+
+  const mealPlan = isGlobal ? globalMealPlan : (gymMealPlan || globalMealPlan);
+  const isLoadingPlan = isGlobal ? isLoadingGlobalPlan : isLoadingGymPlan;
+
   const { data: onboardingData, isLoading: isLoadingOnboarding } = useQuery({
     queryKey: ['customerOnboarding', targetUserId],
     queryFn: () => fetchCustomerOnboarding(targetUserId!),
@@ -73,7 +92,8 @@ export default function NutritionPreferences() {
   };
 
   const goalTitle = formatGoal(onboardingData?.primaryGoal || '');
-  const dietType = formatDietType(onboardingData?.dietType);
+  const effectiveDietType = paramDietType || onboardingData?.dietType || 'vegetarian';
+  const dietType = formatDietType(effectiveDietType);
   const mealsPerDay = onboardingData?.mealsPerDay || 4;
   const waterGoal = onboardingData?.dailyWaterGoal || 3000;
 
@@ -281,7 +301,13 @@ export default function NutritionPreferences() {
         <Pressable
           onPress={() => router.push({
             pathname: '/(trainer)/nutrition/generating-plan',
-            params: { targetUserId, customerName }
+            params: { 
+              targetUserId, 
+              customerName,
+              isGlobalTrainer,
+              globalTrainerId,
+              dietType: effectiveDietType,
+            }
           } as any)}
           className="bg-[#C4EF00] rounded-[20px] py-4 items-center justify-center active:opacity-90 mb-4"
         >

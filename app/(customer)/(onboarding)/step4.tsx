@@ -42,7 +42,7 @@ export default function Step4() {
       if (userId) {
         await AsyncStorage.setItem(`@onboarding_completed_${userId}`, 'true');
       }
-      await AsyncStorage.setItem('@onboarding_completed_global', 'true');
+      await AsyncStorage.removeItem('@onboarding_completed_global');
       queryClient.setQueryData(['customerOnboardingStatus', userId], { isOnboarded: true, isSkipped: false });
       await queryClient.invalidateQueries({ queryKey: ['customerOnboardingStatus', userId] });
       await queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] });

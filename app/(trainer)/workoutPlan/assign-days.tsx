@@ -1,14 +1,26 @@
 import React, { useEffect } from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, CaretRight, Calendar, Lightbulb } from 'phosphor-react-native';
 import { useTrainerWorkoutPlan } from './_layout';
 import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 
 export default function AssignDaysScreen() {
-  const { selectedDays, planDays, setPlanDays } = useTrainerWorkoutPlan();
-  const { data: dbWorkouts } = useWorkouts();
+  const { customerGender: paramGender, targetUserId: paramUserId } = useLocalSearchParams<{
+    customerGender?: 'male' | 'female';
+    targetUserId?: string;
+  }>();
+  const { selectedDays, planDays, setPlanDays, customerGender: contextGender, setCustomerGender } = useTrainerWorkoutPlan();
+  const resolvedGender = paramGender || contextGender || 'male';
+
+  useEffect(() => {
+    if (paramGender && (paramGender === 'male' || paramGender === 'female') && paramGender !== contextGender) {
+      setCustomerGender(paramGender);
+    }
+  }, [paramGender, contextGender]);
+
+  const { data: dbWorkouts } = useWorkouts(resolvedGender);
 
   useEffect(() => {
     if (selectedDays.length === 0) {
@@ -20,7 +32,11 @@ export default function AssignDaysScreen() {
     try {
       router.push({
         pathname: '/(trainer)/workoutPlan/choose-muscle' as any,
-        params: { day }
+        params: {
+          day,
+          customerGender: resolvedGender,
+          targetUserId: paramUserId || undefined,
+        }
       });
     } catch (error) {
       console.error('[AssignDaysScreen] handleSelectDay Error:', error);
@@ -50,7 +66,11 @@ export default function AssignDaysScreen() {
           workoutType = split[index % split.length];
         }
 
-        const dbWorkout = dbWorkouts?.find(w => w.workoutType.toLowerCase() === workoutType.toLowerCase());
+        const dbWorkout = dbWorkouts?.find(
+          w =>
+            w.workoutType.toLowerCase() === workoutType.toLowerCase() &&
+            (!w.role || w.role.toLowerCase() === resolvedGender.toLowerCase())
+        );
 
         newPlanDays[day] = {
           ...newPlanDays[day],

@@ -9,7 +9,7 @@ export type OnboardingData = {
   fullName: string;
   gender: string;
   dateOfBirth: string;
-  gymId: string;
+  gymId?: string | null;
   height: string;
   weight: string;
   primaryGoal: string;
@@ -112,7 +112,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         fullName: fullName || prev.fullName,
         gender: gender || prev.gender,
         dateOfBirth: dateOfBirth || prev.dateOfBirth,
-        gymId: profile?.customerData?.gymId || prev.gymId || '',
+        gymId: isIndividual ? null : (profile?.customerData?.gymId || prev.gymId || null),
       };
 
       if (profile?.onboardingData) {

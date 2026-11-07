@@ -1,18 +1,54 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, Modal, TextInput, ActivityIndicator, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { CaretLeft, CaretRight, Gear, Sun, Coffee, Moon, Fire, Leaf, PencilSimple, Check } from 'phosphor-react-native';
 import { useTrainerMealPlan } from '@/hooks/trainerMealPlans/useTrainerMealPlan';
+import { useGlobalTrainerMealPlan } from '@/hooks/globalTrainerMealPlans/useGlobalTrainerMealPlan';
 import { useQueryClient } from '@tanstack/react-query';
 import { saveTrainerMealPlanDayMeal } from '@/helpers/trainerMealPlans/mealPlanDayMeals';
-import { useLocalSearchParams } from 'expo-router';
+import { saveGlobalTrainerMealPlanDayMeal } from '@/helpers/globalTrainerMealPlans/globalTrainerMealPlanDayMeals';
+import { useUser } from '@/context/UserContext';
 
 export default function MyNutritionPlan() {
   const router = useRouter();
-  const { targetUserId } = useLocalSearchParams<{ targetUserId: string }>();
+  const { 
+    targetUserId, 
+    customerName,
+    isGlobalTrainer,
+    globalTrainerId 
+  } = useLocalSearchParams<{ 
+    targetUserId: string; 
+    customerName?: string;
+    isGlobalTrainer?: string;
+    globalTrainerId?: string;
+  }>();
+  const { role, globalTrainerId: userGlobalTrainerId } = useUser();
   const queryClient = useQueryClient();
-  const { data: fullPlan, isLoading } = useTrainerMealPlan(targetUserId as any);
+
+  const isGlobal = isGlobalTrainer === 'true' || 
+    !!globalTrainerId || 
+    !!userGlobalTrainerId || 
+    (role || '').toLowerCase().replace(/[\s_-]/g, '') === 'globaltrainer';
+
+  const { data: gymPlan, isLoading: isLoadingGym } = useTrainerMealPlan(!isGlobal ? (targetUserId as any) : undefined);
+  const { data: globalPlan, isLoading: isLoadingGlobal } = useGlobalTrainerMealPlan(isGlobal ? (targetUserId as any) : undefined);
+
+  // When logged in as global trainer or viewing individual customer, STRICTLY use globalPlan. Zero fallback to gymPlan!
+  const fullPlan = isGlobal ? globalPlan : gymPlan;
+  const isLoading = isGlobal ? isLoadingGlobal : isLoadingGym;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        router.replace('/(trainer)/create-diet-plan' as any);
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [router])
+  );
 
   const [selectedDayIndex, setSelectedDayIndex] = useState(new Date().getDay());
   const scrollViewRef = React.useRef<ScrollView>(null);
@@ -78,6 +114,43 @@ export default function MyNutritionPlan() {
     );
   }
 
+  if (!fullPlan || !fullPlan.days || fullPlan.days.length === 0 || !fullPlan.days.some(d => d.meals && d.meals.length > 0)) {
+    return (
+      <View className="flex-1 bg-[#0A0A0A] p-6 justify-center items-center">
+        <Pressable
+          onPress={() => router.replace('/(trainer)/create-diet-plan' as any)}
+          className="w-10 h-10 rounded-full bg-[#1A1A1A] border border-[#222222] items-center justify-center active:opacity-80 absolute top-12 left-6"
+        >
+          <CaretLeft size={20} color="#FFFFFF" />
+        </Pressable>
+        <View className="w-16 h-16 rounded-full bg-[#1A1A1A] items-center justify-center mb-4 border border-[#2A2A2A]">
+          <Leaf size={32} color="#C4EF00" />
+        </View>
+        <Text className="text-white text-xl font-semibold mb-2 text-center">
+          No Active Diet Plan
+        </Text>
+        <Text className="text-[#8E8E93] text-sm text-center mb-8 px-4 leading-5">
+          {customerName ? `${customerName} doesn't` : "This customer doesn't"} have an active diet plan yet.
+        </Text>
+        <Pressable
+          onPress={() => router.replace({
+            pathname: '/(trainer)/nutrition' as any,
+            params: {
+              targetUserId,
+              customerName,
+              isGlobalTrainer: isGlobal ? 'true' : 'false',
+              globalTrainerId,
+            }
+          })}
+          className="bg-[#C4EF00] px-6 py-3.5 rounded-2xl flex-row items-center active:opacity-80"
+        >
+          <Text className="text-black font-semibold text-base mr-2">Create Diet Plan</Text>
+          <CaretRight size={18} color="#000000" weight="bold" />
+        </Pressable>
+      </View>
+    );
+  }
+
   const getIconForMealType = (type: string) => {
     switch (type?.toUpperCase()) {
       case 'BREAKFAST': return Sun;
@@ -111,21 +184,38 @@ export default function MyNutritionPlan() {
     }));
 
     try {
-      await saveTrainerMealPlanDayMeal({
-        trainerMealPlanDayMealId: editingMeal.trainerMealPlanDayMealId,
-        trainerMealPlanDayId: editingMeal.trainerMealPlanDayId,
-        mealType: editingMeal.mealType,
-        mealName: editingMeal.mealName,
-        calories: newCalories,
-        protein: Math.round((editingMeal.protein || 0) * scalar),
-        carbs: Math.round((editingMeal.carbs || 0) * scalar),
-        fat: Math.round((editingMeal.fat || 0) * scalar),
-        ingredientsJson: scaledIngredients,
-      });
+      if (editingMeal.globalTrainerMealPlanDayMealId) {
+        await saveGlobalTrainerMealPlanDayMeal({
+          globalTrainerMealPlanDayMealId: editingMeal.globalTrainerMealPlanDayMealId,
+          globalTrainerMealPlanDayId: editingMeal.globalTrainerMealPlanDayId,
+          mealType: editingMeal.mealType,
+          mealName: editingMeal.mealName,
+          calories: newCalories,
+          protein: Math.round((editingMeal.protein || 0) * scalar),
+          carbs: Math.round((editingMeal.carbs || 0) * scalar),
+          fat: Math.round((editingMeal.fat || 0) * scalar),
+          ingredientsJson: scaledIngredients,
+        });
 
-      queryClient.invalidateQueries({ queryKey: ['trainerMealPlan', targetUserId] });
+        await queryClient.invalidateQueries({ queryKey: ['globalTrainerMealPlan', targetUserId] });
+        await queryClient.invalidateQueries({ queryKey: ['todayGlobalTrainerMealPlan', targetUserId] });
+      } else {
+        await saveTrainerMealPlanDayMeal({
+          trainerMealPlanDayMealId: editingMeal.trainerMealPlanDayMealId,
+          trainerMealPlanDayId: editingMeal.trainerMealPlanDayId,
+          mealType: editingMeal.mealType,
+          mealName: editingMeal.mealName,
+          calories: newCalories,
+          protein: Math.round((editingMeal.protein || 0) * scalar),
+          carbs: Math.round((editingMeal.carbs || 0) * scalar),
+          fat: Math.round((editingMeal.fat || 0) * scalar),
+          ingredientsJson: scaledIngredients,
+        });
+
+        await queryClient.invalidateQueries({ queryKey: ['trainerMealPlan', targetUserId] });
+      }
     } catch (e) {
-      console.error(e);
+      console.error('[MyNutritionPlan] Error saving calories:', e);
       alert('Failed to update calories');
     } finally {
       setIsSavingCalories(false);
@@ -140,10 +230,21 @@ export default function MyNutritionPlan() {
         contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="flex-row items-center mb-6 border-b border-[#222222]">
-          <Pressable className="mr-6 border-b-2 border-[#C4EF00] pb-2">
-            <Text className="text-white text-[18px] font-semibold">Trainer nutrition plan</Text>
+        <View className="flex-row items-center mb-6">
+          <Pressable
+            onPress={() => router.replace('/(trainer)/create-diet-plan' as any)}
+            className="w-10 h-10 rounded-full bg-[#1A1A1A] border border-[#222222] items-center justify-center mr-4 active:opacity-80"
+          >
+            <CaretLeft size={20} color="#FFFFFF" />
           </Pressable>
+          <View className="flex-1">
+            <Text className="text-white text-[20px] font-semibold">
+              {customerName ? `${customerName}'s Nutrition Plan` : 'Trainer Nutrition Plan'}
+            </Text>
+            <Text className="text-[#8E8E93] text-xs">
+              {isGlobal ? 'Global Trainer Customized Plan' : 'Trainer Customized Plan'}
+            </Text>
+          </View>
         </View>
 
         <View className="flex-row items-center justify-between mb-6">
@@ -194,33 +295,35 @@ export default function MyNutritionPlan() {
               <Text className="text-[#8E8E93] text-sm text-center">There are no meals planned for this day yet.</Text>
             </View>
           ) : meals.map((meal) => {
-            const Icon = getIconForMealType(meal.mealType);
+            const mealItem = meal as any;
+            const Icon = getIconForMealType(mealItem.mealType);
+            const mealId = mealItem.globalTrainerMealPlanDayMealId || mealItem.trainerMealPlanDayMealId;
             return (
               <Pressable
-                key={meal.trainerMealPlanDayMealId}
-                onPress={() => router.push({ pathname: '' as any, params: { id: meal.trainerMealPlanDayMealId } })}
+                key={mealId}
+                onPress={() => router.push({ pathname: '' as any, params: { id: mealId } })}
                 className="bg-[#141414] border border-[#222222] rounded-[24px] p-4 flex-col"
               >
                 <View className="flex-row justify-between items-start mb-3">
                   <View className="flex-1 pr-2">
                     <View className="flex-row items-center mb-1">
                       <Icon size={16} color="#C4EF00" weight="regular" style={{ marginRight: 6 }} />
-                      <Text className="text-[#C4EF00] text-[10px] font-semibold tracking-widest">{meal.mealType?.toUpperCase()}</Text>
+                      <Text className="text-[#C4EF00] text-[10px] font-semibold tracking-widest">{mealItem.mealType?.toUpperCase()}</Text>
                     </View>
-                    <Text className="text-white text-base font-semibold mb-2 leading-5 pr-2">{meal.mealName}</Text>
+                    <Text className="text-white text-base font-semibold mb-2 leading-5 pr-2">{mealItem.mealName}</Text>
                     <View className="flex-row items-start">
                       <Leaf size={12} color="#4ADE80" weight="fill" style={{ marginRight: 4, marginTop: 2 }} />
-                      <Text className="text-[#8E8E93] text-[11px] leading-4 flex-1 pr-4">{meal.description || 'No description available'}</Text>
+                      <Text className="text-[#8E8E93] text-[11px] leading-4 flex-1 pr-4">{mealItem.description || 'No description available'}</Text>
                     </View>
                   </View>
 
                   <View className="items-end">
                     <View className="flex-row items-center mb-1">
-                      <Text className="text-white text-[24px] font-semibold leading-7 mr-1">{meal.calories || 0}</Text>
+                      <Text className="text-white text-[24px] font-semibold leading-7 mr-1">{mealItem.calories || 0}</Text>
                       <Pressable
                         onPress={() => {
-                          setEditingMeal(meal);
-                          setEditCalories(meal.calories?.toString() || '');
+                          setEditingMeal(mealItem);
+                          setEditCalories(mealItem.calories?.toString() || '');
                         }}
                         className="p-1 -mr-1"
                       >
@@ -233,10 +336,10 @@ export default function MyNutritionPlan() {
 
                 {/* Macros at bottom line */}
                 <View className="flex-row items-center gap-x-3 pt-2 border-t border-[#222222]">
-                  <Text className="text-[#4ADE80] text-[11px] font-semibold">P {meal.protein || 0}g</Text>
-                  <Text className="text-[#FBBF24] text-[11px] font-semibold">C {meal.carbs || 0}g</Text>
-                  <Text className="text-[#A78BFA] text-[11px] font-semibold">F {meal.fat || 0}g</Text>
-                  <Text className="text-white text-[11px] font-semibold">Fi {meal.fiber || 0}g</Text>
+                  <Text className="text-[#4ADE80] text-[11px] font-semibold">P {mealItem.protein || 0}g</Text>
+                  <Text className="text-[#FBBF24] text-[11px] font-semibold">C {mealItem.carbs || 0}g</Text>
+                  <Text className="text-[#A78BFA] text-[11px] font-semibold">F {mealItem.fat || 0}g</Text>
+                  <Text className="text-white text-[11px] font-semibold">Fi {mealItem.fiber || 0}g</Text>
                 </View>
               </Pressable>
             )

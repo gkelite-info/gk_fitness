@@ -1,11 +1,14 @@
 import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/customerWorkoutPlans';
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
-import { fetchCustomerOnboarding } from '@/helpers/onboardingHelper';
+import { fetchCustomerOnboarding, CustomerOnboarding } from '@/helpers/onboardingHelper';
 import { supabase } from '@/lib/supabase';
 
-export async function calculateNutritionTargets(userId: string) {
-  // 1. Fetch user onboarding data
-  const profile = await fetchCustomerOnboarding(userId);
+export async function calculateNutritionTargets(
+  userId: string,
+  existingProfile?: CustomerOnboarding | null
+) {
+  // 1. Fetch user onboarding data if not provided
+  const profile = existingProfile !== undefined ? existingProfile : (userId ? await fetchCustomerOnboarding(userId) : null);
 
   // Parse or provide default values to prevent calculation errors
   // Note: Onboarding doesn't explicitly collect gender or DOB yet in the basic payload,
@@ -53,20 +56,13 @@ export async function calculateNutritionTargets(userId: string) {
   // 3. Adjust for Primary Goal
   let targetCalories = Math.round(tdee);
   
-  switch (primaryGoal) {
-    case 'loseweight':
-      targetCalories -= 500; // Deficit
-      break;
-    case 'buildmuscle':
-    case 'gainweight':
-      targetCalories += 300; // Surplus
-      break;
-    case 'stayfit':
-    case 'imporoveendurance':
-    default:
-      // Maintenance
-      break;
+  const cleanGoal = primaryGoal.replace(/[^a-z]/g, '');
+  if (cleanGoal.includes('lose') || cleanGoal.includes('loss')) {
+    targetCalories -= 500; // Deficit
+  } else if (cleanGoal.includes('muscle') || cleanGoal.includes('gain')) {
+    targetCalories += 300; // Surplus
   }
+  // Otherwise maintenance
 
   // Floor to a reasonable minimum (e.g. 1200 for women, 1500 for men)
   const minCalories = gender === 'female' ? 1200 : 1500;

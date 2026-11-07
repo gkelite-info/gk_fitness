@@ -3,6 +3,8 @@ import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, Redirect } from 'expo-router';
 import { useCustomerMealPlan } from '@/hooks/customerMealPlans/useCustomerMealPlan';
+import { useTrainerMealPlan } from '@/hooks/trainerMealPlans/useTrainerMealPlan';
+import { useGlobalTrainerMealPlan } from '@/hooks/globalTrainerMealPlans/useGlobalTrainerMealPlan';
 import { useCustomerOnboardingData } from '@/hooks/customers/useCustomerOnboardingData';
 import { useUser } from '@/context/UserContext';
 import {
@@ -22,6 +24,8 @@ export default function NutritionAnalysis() {
   const router = useRouter();
   const { userId, gender: userGender, dob: userDob } = useUser();
   const { data: fullPlan, isLoading: isLoadingPlan } = useCustomerMealPlan(userId as any);
+  const { data: trainerPlan, isLoading: isLoadingTrainerPlan } = useTrainerMealPlan(userId as any);
+  const { data: globalTrainerPlan, isLoading: isLoadingGlobalPlan } = useGlobalTrainerMealPlan(userId as any);
   const { data: onboardingData, isLoading: isOnboardingLoading } = useCustomerOnboardingData(userId ?? undefined);
 
   const hasOnboardingData = useMemo(() => {
@@ -223,7 +227,7 @@ export default function NutritionAnalysis() {
 
   const weeklyRateInfo = getWeeklyRateInfo(onboardingData?.primaryGoal);
 
-  if (isLoadingPlan || isOnboardingLoading) {
+  if (isLoadingPlan || isOnboardingLoading || isLoadingTrainerPlan || isLoadingGlobalPlan) {
     return (
       <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
         <ActivityIndicator size="large" color="#C4EF00" />
@@ -231,7 +235,11 @@ export default function NutritionAnalysis() {
     );
   }
 
-  if (fullPlan && fullPlan.days && fullPlan.days.length > 0) {
+  const hasMeals = (fullPlan?.days && fullPlan.days.length > 0) ||
+    (trainerPlan?.days && trainerPlan.days.length > 0) ||
+    (globalTrainerPlan?.days && globalTrainerPlan.days.length > 0);
+
+  if (hasMeals) {
     return <Redirect href="/(customer)/nutrition/my-nutrition-plan" />;
   }
 

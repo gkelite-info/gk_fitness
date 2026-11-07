@@ -27,6 +27,8 @@ export interface IndividualCustomerTrainerAttributes {
     phone?: string | null;
     mobile?: string | null;
     profilePhoto?: string | null;
+    profilePic?: string | null;
+    gender?: 'male' | 'female' | 'other' | string | null;
     status?: string | null;
     createdAt?: string | null;
   } | null;
@@ -119,6 +121,7 @@ export const BASE_INDIVIDUAL_CUSTOMER_TRAINER_SELECT = `
     phone,
     profilePhoto,
     profilePic:profilePhoto,
+    gender,
     status,
     createdAt
   ),

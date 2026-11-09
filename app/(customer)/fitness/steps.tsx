@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, Linking, ActivityIndicator, Modal } from '
 import { Text } from '@/components/nativewindui/Text';
 import { usePedometer } from '@/hooks/fitness/usePedometer';
 import { useUser } from '@/context/UserContext';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
   ArrowLeft,
   Flame,
@@ -93,7 +93,13 @@ function StepSlider({ value, onChange, min = MIN_STEP_GOAL, max = MAX_STEP_GOAL,
 export default function StepsScreen() {
   const router = useRouter();
   const { userId } = useUser();
-  const { isAvailable } = usePedometer();
+  const { isAvailable, steps: liveSteps, syncSteps } = usePedometer();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      syncSteps?.();
+    }, [syncSteps])
+  );
 
   const {
     timeframe,
@@ -114,7 +120,7 @@ export default function StepsScreen() {
   const [isEditGoalVisible, setIsEditGoalVisible] = useState(false);
   const [tempGoal, setTempGoal] = useState<number>(effectiveGoal || DEFAULT_STEP_GOAL);
 
-  const displayValue = timeframe === 'D' ? totalValue : avgValue;
+  const displayValue = timeframe === 'D' && offset === 0 ? Math.max(totalValue, liveSteps) : (timeframe === 'D' ? totalValue : avgValue);
   const progress = Math.min(displayValue / effectiveGoal, 1);
   const activeCalories = Math.round(displayValue * 0.04);
   const activeMinutes = Math.round(displayValue * 0.008);

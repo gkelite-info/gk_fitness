@@ -4,7 +4,6 @@ import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeft, PlayCircle, Barbell, BookmarkSimple, X, MagnifyingGlass } from 'phosphor-react-native';
-import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from '@/components/ui/Video';
 import { useUser } from '@/context/UserContext';
 import { useCustomerMuscleGroupWorkouts } from '@/hooks/customerWorkouts/useCustomerMuscleGroupWorkouts';
@@ -12,7 +11,8 @@ import { supabase } from '@/lib/supabase';
 import { Modal } from 'react-native';
 import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
-import { matchesStrictMuscle } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
+import { matchesStrictMuscle, isExerciseMatchingGender } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
+import { useUserById } from '@/hooks/users';
 
 export default function RecommendedExercisesScreen() {
   const { category, filterTabs: filterTabsStr, exploreCategory } = useLocalSearchParams<{ category: string, filterTabs?: string, exploreCategory?: string }>();
@@ -43,15 +43,17 @@ export default function RecommendedExercisesScreen() {
   }, [filterTabsStr, exploreCategory]);
 
   const { data: customerProfileData } = useCustomerProfile(userId);
+  const { data: userRecord } = useUserById(userId);
   const userGender = React.useMemo(() => {
     const raw = (
       (userContext.role === 'customer' ? customerProfileData?.customerData?.gender : null) ||
       userContext.gender ||
+      userRecord?.gender ||
       customerProfileData?.customerData?.gender ||
       'male'
     ).toString().trim().toLowerCase();
     return raw.includes('female') ? 'female' : 'male';
-  }, [userContext.role, userContext.gender, customerProfileData?.customerData?.gender]);
+  }, [userContext.role, userContext.gender, userRecord?.gender, customerProfileData?.customerData?.gender]);
 
   const getWorkoutType = (cat: string) => {
     const c = cat.toLowerCase();
@@ -93,13 +95,9 @@ export default function RecommendedExercisesScreen() {
       const videoUrl = (ex.videoUrl || '').toLowerCase();
       const primaryMuscle = (ex.primaryMuscle || '').toLowerCase();
 
-      // Strict gender exclusion regex
-      if (userGender === 'male') {
-        if (/female|women|woman|\/female\/|_female|-female|female_/i.test(videoUrl)) continue;
-        if (/\(female\)|\(women\)|\(woman\)|female\s|women\s/i.test(lowerName)) continue;
-      } else {
-        if (/male|men|man|\/male\/|_male|-male|male_/i.test(videoUrl)) continue;
-        if (/\(male\)|\(men\)|\(man\)|male\s|men\s/i.test(lowerName)) continue;
+      // Strict gender exclusion
+      if (!isExerciseMatchingGender(userGender as 'male' | 'female', ex.videoUrl, ex.workoutId, null, name)) {
+        continue;
       }
 
       // Strict category relevance check
@@ -232,9 +230,7 @@ export default function RecommendedExercisesScreen() {
             onPress={() => openVideo(workout.exerciseName, workout.video)}
             className="absolute inset-0 bg-black/30 items-center justify-center active:opacity-80"
           >
-            <BlurView intensity={30} tint="light" className="p-3 rounded-full overflow-hidden border border-white/30">
-              <PlayCircle size={36} color="white" weight="fill" />
-            </BlurView>
+            <PlayCircle size={44} color="white" weight="fill" />
           </Pressable>
         )}
         <View className="absolute top-3 left-3 flex-row gap-1">

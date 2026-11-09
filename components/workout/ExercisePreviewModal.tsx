@@ -5,7 +5,7 @@ import { X, Barbell, Lightbulb, Play, Pause, ArrowsClockwise } from 'phosphor-re
 import { Video, ResizeMode } from '@/components/ui/Video';
 import { supabase } from '@/lib/supabase';
 import { GeneratedExercise, MuscleValue } from '@/hooks/customWorkout/useCustomWorkoutBuilder';
-import { MUSCLE_TO_WORKOUT_TYPES } from '@/helpers/customWorkout/customWorkoutHelper';
+import { MUSCLE_TO_WORKOUT_TYPES, MUSCLE_RPC_ALIASES } from '@/helpers/customWorkout/customWorkoutHelper';
 import { MUSCLE_LABELS } from './MuscleBodyMap';
 import { triggerLightHaptic } from '@/lib/haptics';
 
@@ -69,84 +69,62 @@ export function ExercisePreviewModal({
 
     (async () => {
       try {
-        const preferredRole = (userGender || 'male').toLowerCase().trim().includes('female') ? 'female' : 'male';
         const exName = exercise.exercise_name || (exercise as any)?.exerciseName || '';
         const muscle = (exercise.muscle_group as MuscleValue) || 'CHEST';
-        const targetTypes = MUSCLE_TO_WORKOUT_TYPES[muscle] || [];
+        const rpcAliases = (MUSCLE_RPC_ALIASES && MUSCLE_RPC_ALIASES[muscle]) || [muscle];
 
-        // 1. Try finding by workoutVideoId if valid
-        const vidId = exercise.workoutVideoId || (exercise as any)?.workout_video_id;
-        if (vidId && !vidId.startsWith('fallback-')) {
-          const { data: byId } = await supabase
-            .from('workout_videos')
-            .select('videoUrl')
-            .eq('workoutVideoId', vidId)
-            .maybeSingle();
+        // 1. Query get_custom_workout_videos RPC for this muscle group
+        const { data: rpcVids, error: rpcErr } = await supabase.rpc('get_custom_workout_videos', {
+          p_muscles: rpcAliases,
+          p_equipment: [],
+          p_limit: 25,
+          p_exclude: [],
+        });
 
-          if (!isCancelled && byId?.videoUrl) {
-            setDynamicVideo(byId.videoUrl);
+        if (!isCancelled && rpcVids && rpcVids.length > 0) {
+          const lowerExName = exName.toLowerCase().trim();
+
+          // Match by name similarity
+          const nameMatch = rpcVids.find((v: any) => {
+            const vName = (v.exercise_name || v.exerciseName || '').toLowerCase().trim();
+            return vName && (lowerExName.includes(vName) || vName.includes(lowerExName));
+          });
+          if (nameMatch?.video_url || nameMatch?.videoUrl) {
+            setDynamicVideo(nameMatch.video_url || nameMatch.videoUrl);
             return;
           }
-        }
 
-        // 2. Try finding by exerciseName keywords
-        const keywords = exName
-          .replace(/[^\w\s]/g, '')
-          .split(' ')
-          .filter((w: string) => w.length > 2 && !['and', 'the', 'for', 'with'].includes(w.toLowerCase()));
-
-        if (keywords.length > 0) {
-          const lastWord = keywords[keywords.length - 1];
-          let { data: byName } = await supabase
-            .from('workout_videos')
-            .select('videoUrl, workouts:workoutId(role, workoutType)')
-            .ilike('exerciseName', `%${lastWord}%`)
-            .not('videoUrl', 'is', null)
-            .neq('videoUrl', '')
-            .or('is_deleted.eq.false,is_deleted.is.null')
-            .limit(10);
-
-          if (!isCancelled && byName && byName.length > 0) {
-            const match =
-              byName.find((v: any) => v.workouts?.role?.toLowerCase() === preferredRole) ||
-              byName.find((v: any) => !v.workouts?.role || v.workouts?.role?.toLowerCase() === 'all') ||
-              byName[0];
-            if (match?.videoUrl) {
-              setDynamicVideo(match.videoUrl);
+          // Match by keywords
+          const keywords = lowerExName
+            .replace(/[^\w\s]/g, '')
+            .split(' ')
+            .filter((w: string) => w.length > 2 && !['and', 'the', 'for', 'with'].includes(w));
+          if (keywords.length > 0) {
+            const lastWord = keywords[keywords.length - 1];
+            const kwMatch = rpcVids.find((v: any) => {
+              const vName = (v.exercise_name || v.exerciseName || '').toLowerCase();
+              return vName.includes(lastWord);
+            });
+            if (kwMatch?.video_url || kwMatch?.videoUrl) {
+              setDynamicVideo(kwMatch.video_url || kwMatch.videoUrl);
               return;
             }
           }
-        }
 
-        // 3. Fallback to ANY video matching this muscle category from DB
-        if (targetTypes.length > 0) {
-          const { data: matchedWorkouts } = await supabase
-            .from('workouts')
-            .select('workoutId')
-            .in('workoutType', targetTypes)
-            .or('is_deleted.eq.false,is_deleted.is.null');
+          // Fallback to any non-stretching video in this muscle
+          const nonStretch = rpcVids.find(
+            (v: any) => (v.video_url || v.videoUrl) && !(v.exercise_name || '').toLowerCase().startsWith('stretching')
+          );
+          if (nonStretch?.video_url || nonStretch?.videoUrl) {
+            setDynamicVideo(nonStretch.video_url || nonStretch.videoUrl);
+            return;
+          }
 
-          const wIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
-          if (wIds.length > 0) {
-            const { data: byType } = await supabase
-              .from('workout_videos')
-              .select('videoUrl, workouts:workoutId(role)')
-              .in('workoutId', wIds)
-              .not('videoUrl', 'is', null)
-              .neq('videoUrl', '')
-              .or('is_deleted.eq.false,is_deleted.is.null')
-              .limit(10);
-
-            if (!isCancelled && byType && byType.length > 0) {
-              const match =
-                byType.find((v: any) => v.workouts?.role?.toLowerCase() === preferredRole) ||
-                byType.find((v: any) => !v.workouts?.role || v.workouts?.role?.toLowerCase() === 'all') ||
-                byType[0];
-              if (match?.videoUrl) {
-                setDynamicVideo(match.videoUrl);
-                return;
-              }
-            }
+          // Any video in this muscle
+          const anyVid = rpcVids.find((v: any) => v.video_url || v.videoUrl);
+          if (anyVid?.video_url || anyVid?.videoUrl) {
+            setDynamicVideo(anyVid.video_url || anyVid.videoUrl);
+            return;
           }
         }
       } catch (err) {

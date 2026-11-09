@@ -24,10 +24,12 @@ const ExerciseMediaItem = ({
   videoUrl,
   muscleGroup,
   onPress,
+  opacity,
 }: {
   videoUrl?: string;
   muscleGroup?: string;
   onPress?: () => void;
+  opacity?: number;
 }) => {
   const [hasError, setHasError] = useState(false);
   const { uri: cachedUri } = useCachedVideoUri(videoUrl);
@@ -685,30 +687,30 @@ export default function CustomizeWorkoutScreen() {
                       className="flex-row items-center flex-1 active:opacity-85 mr-2"
                     >
                       {renderMedia(ex.videoUrl, () => setPreviewExercise(ex))}
-                      <View className="flex-1 pr-2">
-                        <Text className="text-white font-semibold text-base">{ex.name}</Text>
-                        <View className="flex-row items-center gap-1.5 mt-1">
-                          <View className="bg-[#27272A] px-2 py-0.5 rounded-md">
-                            <Text className="text-[#8E8E8E] text-[10px] font-semibold">{ex.category}</Text>
+                          <View className="flex-1 pr-2">
+                            <Text className="text-white font-semibold text-base">{ex.name}</Text>
+                            <View className="flex-row items-center gap-1.5 mt-1">
+                              <View className="bg-[#27272A] px-2 py-0.5 rounded-md">
+                                <Text className="text-[#8E8E8E] text-[10px] font-semibold">{ex.category}</Text>
+                              </View>
+                            </View>
                           </View>
-                        </View>
-                      </View>
-                    </Pressable>
+                      </Pressable>
 
-                    <Pressable
-                      onPress={() => handleToggleRecommended(ex.name, ex.category, ex.reps, ex.videoUrl, ex.workoutVideoId)}
-                      hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-                      className={`w-8 h-8 rounded-full border items-center justify-center active:opacity-75 ${selected
+                      <Pressable
+                        onPress={() => handleToggleRecommended(ex.name, ex.category, ex.reps, ex.videoUrl, ex.workoutVideoId)}
+                        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+                        className={`w-8 h-8 rounded-full border items-center justify-center active:opacity-75 ${selected
                           ? 'border-[#CCFF00] bg-[#CCFF00]'
                           : 'border-[#CCFF00] bg-transparent active:bg-[#CCFF00]/10'
-                        }`}
-                    >
-                      {selected ? (
-                        <Check size={14} color="#000" weight="bold" />
-                      ) : (
-                        <Plus size={14} color="#CCFF00" weight="bold" />
-                      )}
-                    </Pressable>
+                          }`}
+                      >
+                        {selected ? (
+                          <Check size={14} color="#000" weight="bold" />
+                        ) : (
+                          <Plus size={14} color="#CCFF00" weight="bold" />
+                        )}
+                      </Pressable>
                   </View>
                 );
               })}
@@ -779,8 +781,8 @@ export default function CustomizeWorkoutScreen() {
                       onPress={() => handleToggleOther(ex.name, ex.category, ex.reps, ex.videoUrl, ex.workoutVideoId)}
                       hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                       className={`w-8 h-8 rounded-full border items-center justify-center active:opacity-75 ${added
-                          ? 'border-[#CCFF00] bg-[#CCFF00]'
-                          : 'border-[#CCFF00] bg-transparent active:bg-[#CCFF00]/10'
+                        ? 'border-[#CCFF00] bg-[#CCFF00]'
+                        : 'border-[#CCFF00] bg-transparent active:bg-[#CCFF00]/10'
                         }`}
                     >
                       {added ? (

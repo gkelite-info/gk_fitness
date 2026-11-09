@@ -28,6 +28,22 @@ export const MUSCLE_TO_WORKOUT_TYPES: Record<MuscleValue, string[]> = {
   TRAPS: ['trapezius', 'back'],
 };
 
+export const MUSCLE_RPC_ALIASES: Record<MuscleValue, string[]> = {
+  CHEST: ['CHEST'],
+  BACK: ['BACK'],
+  SHOULDERS: ['SHOULDERS', 'SHOULDER'],
+  BICEPS: ['BICEPS', 'ARMS'],
+  TRICEPS: ['TRICEPS', 'TRICEP', 'ARMS'],
+  FOREARMS: ['FOREARMS', 'ARMS'],
+  ABDOMINALS: ['ABDOMINALS', 'ABS', 'CORE'],
+  OBLIQUES: ['OBLIQUES', 'ABS', 'CORE'],
+  QUADRICEPS: ['QUADRICEPS', 'LEGS', 'HIPS'],
+  HAMSTRINGS: ['HAMSTRINGS', 'LEGS', 'HIPS'],
+  GLUTES: ['GLUTES', 'HIPS', 'LEGS'],
+  CALVES: ['CALVES', 'CALF', 'LEGS'],
+  TRAPS: ['TRAPS', 'TRAPEZIUS', 'BACK'],
+};
+
 // Built-in library of exercises mapped to workouts and equipment for fallback & initial seeding
 const FALLBACK_EXERCISE_LIBRARY: Record<MuscleValue, Array<{ name: string; equipment: EquipmentValue[]; sets: number; reps: string }>> = {
   CHEST: [
@@ -417,173 +433,84 @@ export async function getCustomExercises({
   const result: GeneratedExercise[] = [];
   const selectedExIds = new Set<string>(excludeIds);
 
-  // 1. Resolve logged in user's gender strictly
-  let resolvedGender = (gender || '').toLowerCase().trim();
-  if (!resolvedGender || (resolvedGender !== 'male' && resolvedGender !== 'female')) {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.id) {
-        const { data: cust } = await supabase
-          .from('gym_customers')
-          .select('gender')
-          .or(`customerId.eq.${user.id},userId.eq.${user.id}`)
-          .maybeSingle();
-        if (cust?.gender) {
-          resolvedGender = cust.gender.toLowerCase().trim();
-        } else {
-          const { data: u } = await supabase
-            .from('users')
-            .select('gender')
-            .eq('userId', user.id)
-            .maybeSingle();
-          if (u?.gender) {
-            resolvedGender = u.gender.toLowerCase().trim();
-          }
-        }
-      }
-    } catch {
-      // fallback
-    }
-  }
+  for (const muscle of muscles) {
+    const rpcAliases = MUSCLE_RPC_ALIASES[muscle] || [muscle];
+    let candidates: any[] = [];
 
-  const preferredRole = resolvedGender.includes('female') ? 'female' : 'male';
-
-  // Only attempt RPC if gender is not specified (since RPC lacks role filtering)
-  if (!gender) {
+    // 1. Fetch from get_custom_workout_videos RPC with selected equipment
     try {
       const { data: rpcData, error: rpcError } = await supabase.rpc('get_custom_workout_videos', {
-        p_muscles: muscles,
+        p_muscles: rpcAliases,
         p_equipment: equipment,
-        p_limit: limit,
-        p_exclude: excludeIds,
+        p_limit: limit * 4,
+        p_exclude: Array.from(selectedExIds),
       });
 
       if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
-        return rpcData.map((row: any, i: number) => ({
-          exercise_id: row.workoutVideoId || row.workout_video_id || row.exercise_id,
-          workoutVideoId: row.workoutVideoId || row.workout_video_id,
-          exercise_name: row.exerciseName || row.exercise_name || row.name,
-          exerciseName: row.exerciseName || row.exercise_name || row.name,
-          category: row.category || row.workoutType || 'General',
-          description: null,
-          default_sets: row.defaultSets || row.default_sets || 3,
-          default_reps: '10',
-          video_url: row.videoUrl || row.video_url || null,
-          videoUrl: row.videoUrl || row.video_url || null,
-          image_url: null,
-          difficulty: row.difficulty || 'intermediate',
-          is_primary_muscle: true,
-          muscle_group: row.muscle || muscles[0] || 'GENERAL',
-          sort_order: i,
-        }));
+        candidates = rpcData;
       }
     } catch (rpcErr) {
-      console.warn('[getCustomExercises] RPC not available or failed, falling back to direct table query:', rpcErr);
-    }
-  }
-
-  // Direct table query: Query workout_videos strictly for user's gender role
-  for (const muscle of muscles) {
-    const workoutTypes = MUSCLE_TO_WORKOUT_TYPES[muscle] || [];
-
-    // 1. Resolve matching workoutIds from workouts table STRICTLY for the user's role (or neutral)
-    const { data: matchedWorkouts } = await supabase
-      .from('workouts')
-      .select('workoutId, workoutType, role')
-      .in('workoutType', workoutTypes)
-      .or(`role.eq.${preferredRole},role.eq.all,role.is.null`)
-      .or('is_deleted.eq.false,is_deleted.is.null');
-
-    const workoutIds = matchedWorkouts?.map((w: any) => w.workoutId) || [];
-
-    // 2. Query workout_videos with valid videoUrl
-    let query = supabase
-      .from('workout_videos')
-      .select(`
-        workoutVideoId,
-        workoutId,
-        exerciseName,
-        videoUrl,
-        equipment,
-        primaryMuscle,
-        difficulty,
-        defaultSets,
-        defaultReps,
-        workouts:workoutId (
-          workoutType,
-          role
-        )
-      `)
-      .not('videoUrl', 'is', null)
-      .neq('videoUrl', '')
-      .or('is_deleted.eq.false,is_deleted.is.null');
-
-    if (workoutIds.length > 0) {
-      query = query.in('workoutId', workoutIds);
-    } else {
-      query = query.ilike('primaryMuscle', `%${muscle}%`);
+      console.warn('[getCustomExercises] RPC error with equipment:', rpcErr);
     }
 
-    const { data: videos, error } = await query.limit(60);
+    // 2. If candidates are sparse, fetch broader pool without equipment filter to match in JS
+    if (candidates.length < limit) {
+      try {
+        const { data: broadData, error: broadErr } = await supabase.rpc('get_custom_workout_videos', {
+          p_muscles: rpcAliases,
+          p_equipment: [],
+          p_limit: 25,
+          p_exclude: Array.from(selectedExIds),
+        });
 
-    let candidates: any[] = [];
-
-    if (!error && videos && videos.length > 0) {
-      // Filter candidates in JS matching target muscle, equipment, and STRICT gender
-      candidates = videos.filter((v: any) => {
-        if (selectedExIds.has(v.workoutVideoId)) return false;
-        // Never allow cardio machines when targeting strength muscles
-        if (isCardioExercise(v.exerciseName || '', v.workouts?.workoutType)) return false;
-
-        // Strictly verify workout role (never allow opposite gender)
-        const vRole = (v.workouts?.role || '').toLowerCase().trim();
-        if (vRole && vRole !== preferredRole && vRole !== 'all') {
-          return false;
+        if (!broadErr && Array.isArray(broadData)) {
+          const existingIds = new Set(candidates.map((c) => c.workout_video_id || c.workoutVideoId));
+          for (const b of broadData) {
+            const bId = b.workout_video_id || b.workoutVideoId;
+            if (!existingIds.has(bId)) {
+              candidates.push(b);
+              existingIds.add(bId);
+            }
+          }
         }
-
-        const matchesMuscle = isExerciseMatchForMuscle(
-          v.exerciseName || '',
-          v.primaryMuscle,
-          v.workouts?.workoutType,
-          muscle
-        );
-        if (!matchesMuscle) return false;
-        return matchesEquipment(v.exerciseName || '', v.equipment, equipment);
-      });
-    }
-
-    // Prioritize exact gender matches first, then neutral
-    const exactGenderMatches: any[] = [];
-    const neutralMatches: any[] = [];
-
-    for (const v of candidates) {
-      const vRole = (v.workouts?.role || '').toLowerCase().trim();
-      if (vRole === preferredRole) {
-        exactGenderMatches.push(v);
-      } else if (!vRole || vRole === 'all') {
-        neutralMatches.push(v);
+      } catch (broadErr) {
+        console.warn('[getCustomExercises] Broad RPC error:', broadErr);
       }
     }
 
-    const prioritized = [
-      ...exactGenderMatches.sort(() => 0.5 - Math.random()),
-      ...neutralMatches.sort(() => 0.5 - Math.random()),
-    ];
-    const picked = prioritized.slice(0, limit);
+    // 3. Filter candidates: avoid duplicates, cardio, stretching (unless muscle is stretching), and verify equipment/muscle
+    const filteredCandidates = candidates.filter((v: any) => {
+      const vId = v.workout_video_id || v.workoutVideoId;
+      if (!vId || selectedExIds.has(vId)) return false;
+      const vName = v.exercise_name || v.exerciseName || '';
+      if (isCardioExercise(vName, v.category || v.workoutType)) return false;
+      if (vName.toLowerCase().startsWith('stretching') && muscle !== 'BACK' && muscle !== 'HAMSTRINGS') {
+        return false;
+      }
+      const matchesMuscle = isExerciseMatchForMuscle(vName, v.muscle || v.primaryMuscle, v.category, muscle);
+      if (!matchesMuscle) return false;
+      return matchesEquipment(vName, v.equipment, equipment);
+    });
+
+    const picked = filteredCandidates
+      .sort(() => 0.5 - Math.random())
+      .slice(0, limit);
 
     for (const v of picked) {
-      selectedExIds.add(v.workoutVideoId);
+      const vId = v.workout_video_id || v.workoutVideoId;
+      selectedExIds.add(vId);
+      const video = v.video_url || v.videoUrl || null;
       result.push({
-        exercise_id: v.workoutVideoId,
-        workoutVideoId: v.workoutVideoId,
-        exercise_name: v.exerciseName,
-        exerciseName: v.exerciseName,
-        category: v.workouts?.workoutType || muscle,
+        exercise_id: vId,
+        workoutVideoId: vId,
+        exercise_name: v.exercise_name || v.exerciseName,
+        exerciseName: v.exercise_name || v.exerciseName,
+        category: v.category || muscle,
         description: null,
-        default_sets: v.defaultSets || 3,
-        default_reps: '10',
-        video_url: v.videoUrl || null,
-        videoUrl: v.videoUrl || null,
+        default_sets: v.default_sets || v.defaultSets || 3,
+        default_reps: v.default_reps || v.defaultReps || '10-12',
+        video_url: video,
+        videoUrl: video,
         image_url: null,
         difficulty: v.difficulty || 'intermediate',
         is_primary_muscle: true,
@@ -592,76 +519,40 @@ export async function getCustomExercises({
       });
     }
 
-    // If still need exercises for this muscle group, pull from fallback library
+    // 4. If still need exercises for this muscle group, pull from fallback library and link to a video from candidate pool
     const needed = limit - picked.length;
     if (needed > 0) {
       const fallbackList = FALLBACK_EXERCISE_LIBRARY[muscle] || [];
-      const matchingFallbacks = fallbackList.filter(f =>
-        f.equipment.some(e => equipment.includes(e)) &&
-        !Array.from(selectedExIds).some(id => id.includes(f.name))
+      const matchingFallbacks = fallbackList.filter(
+        (f) =>
+          f.equipment.some((e) => equipment.includes(e)) &&
+          !Array.from(selectedExIds).some((id) => id.includes(f.name))
       );
 
       const pickedFallbacks = matchingFallbacks
         .sort(() => 0.5 - Math.random())
         .slice(0, needed);
 
-      for (const f of pickedFallbacks) {
-        let fVideoId: string | null = null;
-        let fVideoUrl: string | null = null;
+      // Grab fallback video URLs from candidates pool so video is never empty
+      const videoPool = candidates.filter((c: any) => c.video_url || c.videoUrl);
 
-        try {
-          // 1. Try finding video by exercise name keywords strictly matching user's gender
-          const words = f.name.split(' ').filter((w: string) => w.length > 3);
-          let vidQuery = supabase
-            .from('workout_videos')
-            .select('workoutVideoId, videoUrl, workouts:workoutId(role)')
-            .not('videoUrl', 'is', null)
-            .neq('videoUrl', '')
-            .or('is_deleted.eq.false,is_deleted.is.null')
-            .limit(10);
-
-          if (words.length > 0) {
-            vidQuery = vidQuery.ilike('exerciseName', `%${words[words.length - 1]}%`);
-          }
-
-          let { data: matchedVids } = await vidQuery;
-
-          // 2. If no direct keyword match, grab videos from user's matching workouts
-          if ((!matchedVids || matchedVids.length === 0) && workoutIds.length > 0) {
-            const res = await supabase
-              .from('workout_videos')
-              .select('workoutVideoId, videoUrl, workouts:workoutId(role)')
-              .in('workoutId', workoutIds)
-              .not('videoUrl', 'is', null)
-              .neq('videoUrl', '')
-              .or('is_deleted.eq.false,is_deleted.is.null')
-              .limit(5);
-            matchedVids = res.data;
-          }
-
-          if (matchedVids && matchedVids.length > 0) {
-            const match = matchedVids.find((mv: any) => mv.workouts?.role?.toLowerCase() === preferredRole) ||
-                          matchedVids.find((mv: any) => !mv.workouts?.role || mv.workouts?.role?.toLowerCase() === 'all');
-            if (match) {
-              fVideoId = match.workoutVideoId;
-              fVideoUrl = match.videoUrl;
-            }
-          }
-        } catch {
-          // ignore lookup error
-        }
+      for (let fi = 0; fi < pickedFallbacks.length; fi++) {
+        const f = pickedFallbacks[fi];
+        const donorVideo = videoPool[fi % Math.max(videoPool.length, 1)];
+        const fVideoId = donorVideo?.workout_video_id || donorVideo?.workoutVideoId || null;
+        const fVideoUrl = donorVideo?.video_url || donorVideo?.videoUrl || null;
 
         const syntheticId = fVideoId || `fallback-${muscle.toLowerCase()}-${Crypto.randomUUID().slice(0, 8)}`;
         selectedExIds.add(syntheticId);
         result.push({
           exercise_id: syntheticId,
-          workoutVideoId: syntheticId,
+          workoutVideoId: fVideoId || undefined,
           exercise_name: f.name,
           exerciseName: f.name,
           category: muscle,
           description: null,
           default_sets: f.sets,
-          default_reps: '10',
+          default_reps: f.reps || '10',
           video_url: fVideoUrl,
           videoUrl: fVideoUrl,
           image_url: null,
@@ -721,19 +612,21 @@ export async function shuffleCustomExercise({
     let fVideoUrl: string | null = null;
 
     try {
-      const { data: matchedVids } = await supabase
-        .from('workout_videos')
-        .select('workoutVideoId, videoUrl, workouts:workoutId(role)')
-        .ilike('exerciseName', `%${picked.name}%`)
-        .eq('is_deleted', false)
-        .limit(10);
+      const { data: matchedVids } = await supabase.rpc('get_custom_workout_videos', {
+        p_muscles: MUSCLE_RPC_ALIASES[muscle] || [muscle],
+        p_equipment: selectedEquipment,
+        p_limit: 10,
+        p_exclude: allExerciseIds,
+      });
 
       if (matchedVids && matchedVids.length > 0) {
-        const match = matchedVids.find((mv: any) => mv.workouts?.role?.toLowerCase() === preferredRole) ||
-                      matchedVids.find((mv: any) => !mv.workouts?.role || mv.workouts?.role?.toLowerCase() === 'all');
+        const match =
+          matchedVids.find((mv: any) => (mv.exercise_name || '').toLowerCase().includes(picked.name.toLowerCase())) ||
+          matchedVids.find((mv: any) => mv.video_url) ||
+          matchedVids[0];
         if (match) {
-          fVideoId = match.workoutVideoId;
-          fVideoUrl = match.videoUrl;
+          fVideoId = match.workout_video_id || match.workoutVideoId;
+          fVideoUrl = match.video_url || match.videoUrl;
         }
       }
     } catch {

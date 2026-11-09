@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, ScrollView, Image, Pressable, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { ArrowRight, CaretRight, Clock, HandWaving, Check, Bell, Lightning, Calendar, CheckCircle, SquaresFour, Barbell, BookmarkSimple, PlayCircle, MagnifyingGlass, CalendarPlus, Sparkle, XCircle, CaretLeft, X, ArrowsClockwise, Robot } from 'phosphor-react-native';
-import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from '@/components/ui/Video';
 import { useNavigation, router } from 'expo-router';
 import { useUser } from '@/context/UserContext';
@@ -18,7 +17,8 @@ import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 import { useWorkoutVideos } from '@/hooks/workoutVideos/useWorkoutVideos';
 import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
 import { CustomWorkoutBuilder } from '@/components/workout/CustomWorkoutBuilder';
-import { matchesStrictMuscle, FALLBACK_TARGET_EXERCISES } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
+import { matchesStrictMuscle, FALLBACK_TARGET_EXERCISES, isExerciseMatchingGender } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
+import { useUserById } from '@/hooks/users';
 const getWorkoutImage = (type: string | undefined | null) => {
   if (!type) return require('../../assets/workout.png');
   const lower = type.toLowerCase();
@@ -480,17 +480,14 @@ export default function CustomerWorkout() {
   );
 }
 
-function matchesExerciseGender(v: { video?: any; videoUrl?: string | null; exerciseName?: string }, userGender: string): boolean {
-  const url = (typeof v.video === 'string' ? v.video : v.videoUrl || '').toLowerCase();
-  const name = (v.exerciseName || '').toLowerCase();
-  if (userGender === 'male') {
-    if (/female|women|woman|\/female\/|_female|-female|female_/i.test(url)) return false;
-    if (/\(female\)|\(women\)|\(woman\)|female\s|women\s/i.test(name)) return false;
-  } else {
-    if (/male|men|man|\/male\/|_male|-male|male_/i.test(url)) return false;
-    if (/\(male\)|\(men\)|\(man\)|male\s|men\s/i.test(name)) return false;
-  }
-  return true;
+function matchesExerciseGender(v: { video?: any; videoUrl?: string | null; exerciseName?: string; workoutId?: string | null }, userGender: string): boolean {
+  return isExerciseMatchingGender(
+    userGender as 'male' | 'female',
+    v.videoUrl || (typeof v.video === 'string' ? v.video : null),
+    v.workoutId || null,
+    null,
+    v.exerciseName || null
+  );
 }
 
 function isExerciseRelevantForCategory(name: string, primaryMuscle: string | null | undefined, activeSubTab: string, exploreCategory?: string): boolean {
@@ -545,6 +542,104 @@ function isExerciseRelevantForCategory(name: string, primaryMuscle: string | nul
   return true;
 }
 
+const POPULAR_EXERCISE_PATTERNS: Record<string, string[][]> = {
+  Chest: [
+    ['bench press', 'barbell bench', 'flat barbell bench'],
+    ['incline bench', 'incline press', 'incline dumbbell', 'dumbbell incline'],
+    ['push-up', 'push up', 'pushups'],
+    ['chest dip', 'dips', 'triceps dips'],
+    ['chest press', 'lever chest press', 'hammer chest press', 'chest press machine'],
+    ['fly', 'crossover', 'pec deck'],
+    ['decline bench', 'decline dumbbell']
+  ],
+  Back: [
+    ['pull-up', 'pull up', 'pullup', 'chin-up', 'chin up'],
+    ['lat pulldown', 'pulldown', 'lateral pulldown'],
+    ['seated row', 'bent-over row', 'bent over row', 't bar row', 'dumbbell row'],
+    ['deadlift', 'stiff leg deadlift'],
+    ['pullover', 'high row', 'hyperextension', 'back extension']
+  ],
+  Shoulders: [
+    ['military press', 'shoulder press', 'overhead press', 'seated press'],
+    ['lateral raise', 'side raise', 'side lateral'],
+    ['arnold press'],
+    ['front raise', 'forward raise'],
+    ['rear delt', 'rear lateral', 'reverse fly'],
+    ['upright row', 'up right row']
+  ],
+  Arms: [
+    ['biceps curl', 'barbell curl', 'ez barbell bicep'],
+    ['hammer curl', 'cross body hammer'],
+    ['preacher curl', 'concentration curl'],
+    ['triceps dip', 'tricep dip', 'bench dip', 'dips'],
+    ['triceps pushdown', 'pushdown', 'rope pushdown'],
+    ['skull crusher', 'lying triceps extension', 'triceps extension'],
+    ['close grip bench', 'close grip push']
+  ],
+  Legs: [
+    ['squat', 'barbell squat', 'front squat'],
+    ['leg press', 'horizontal leg press'],
+    ['lunge', 'barbell lunge', 'dumbbell lunge'],
+    ['leg extension'],
+    ['leg curl', 'lying leg curl'],
+    ['hack squat', 'goblet squat', 'sumo squat']
+  ],
+  Calves: [
+    ['standing calf', 'standing calf raise'],
+    ['seated calf', 'seated calf raise'],
+    ['smith calf', 'sled 45 degree calf', 'donkey calf'],
+    ['single leg calf']
+  ],
+  Hips: [
+    ['hip thrust', 'glute bridge', 'hip extension', 'decline bridge'],
+    ['goblet squat', 'sumo squat', 'squat'],
+    ['lunge', 'dumbbell lunge', 'barbell lunge'],
+    ['hip abduction', 'hip adduction'],
+    ['leg curl', 'lying leg curl']
+  ],
+  Abs: [
+    ['plank', 'side bridge', 'side plank'],
+    ['leg raise', 'hanging leg', 'lying floor leg raise', 'bench leg raise'],
+    ['sit-up', 'sit up', 'crunch', 'seated crunch'],
+    ['v-up', 'twisting crunch', 'side bend']
+  ],
+  'Upper Body Workout': [
+    ['bench press', 'barbell bench', 'incline bench', 'chest press'],
+    ['pull-up', 'pull up', 'chin-up', 'lat pulldown'],
+    ['military press', 'shoulder press', 'overhead press'],
+    ['seated row', 'bent-over row', 't bar row'],
+    ['biceps curl', 'barbell curl', 'hammer curl'],
+    ['triceps dip', 'pushdown', 'triceps extension'],
+    ['lateral raise', 'push-up']
+  ],
+  'Lower Body Workout': [
+    ['squat', 'barbell squat', 'front squat'],
+    ['leg press', 'horizontal leg press'],
+    ['lunge', 'barbell lunge', 'dumbbell lunge'],
+    ['leg extension'],
+    ['leg curl', 'lying leg curl'],
+    ['standing calf', 'seated calf', 'calf raise'],
+    ['hip thrust', 'hip extension', 'glute bridge']
+  ],
+  'Abs Workout': [
+    ['plank', 'side bridge', 'side plank'],
+    ['leg raise', 'hanging leg', 'lying floor leg raise'],
+    ['sit-up', 'sit up', 'crunch', 'seated crunch'],
+    ['v-up', 'twisting crunch'],
+    ['side bend', 'lift']
+  ],
+  'Full Body Workout': [
+    ['squat', 'barbell squat'],
+    ['bench press', 'incline bench', 'push-up'],
+    ['pull-up', 'pull up', 'lat pulldown'],
+    ['military press', 'shoulder press'],
+    ['lunge', 'leg press'],
+    ['biceps curl', 'barbell curl'],
+    ['triceps dip', 'triceps pushdown'],
+    ['plank', 'side bridge', 'leg raise']
+  ]
+};
+
 function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[]; exploreCategory?: string }) {
   const userContext = useUser();
   const { userId } = userContext;
@@ -565,15 +660,17 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
   };
 
   const { data: customerProfileData } = useCustomerProfile(userId);
+  const { data: userRecord } = useUserById(userId);
   const userGender = React.useMemo(() => {
     const raw = (
       (userContext.role === 'customer' ? customerProfileData?.customerData?.gender : null) ||
       userContext.gender ||
+      userRecord?.gender ||
       customerProfileData?.customerData?.gender ||
       'male'
     ).toString().trim().toLowerCase();
     return raw.includes('female') ? 'female' : 'male';
-  }, [userContext.role, userContext.gender, customerProfileData?.customerData?.gender]);
+  }, [userContext.role, userContext.gender, userRecord?.gender, customerProfileData?.customerData?.gender]);
 
   const { data: recommendedExercises = [], isLoading, isFetching } = useCustomerMuscleGroupWorkouts(userId, activeSubTab);
 
@@ -648,38 +745,78 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
     return c;
   };
 
-  const { data: popularVideosData, isLoading: isPopularLoading } = useWorkoutVideos(1, 20, getWorkoutType(activeSubTab), userGender, 'all');
+  const { data: popularVideosData, isLoading: isPopularLoading } = useWorkoutVideos(1, 40, getWorkoutType(activeSubTab), userGender, 'all');
 
   const popularVideos = React.useMemo(() => {
     const rawExercises = popularVideosData?.data || [];
-    const uniqueList: any[] = [];
-    const seenNames = new Set<string>();
+    const patternKey = activeSubTab !== 'All' ? activeSubTab : (exploreCategory || 'Full Body Workout');
+    const patterns = POPULAR_EXERCISE_PATTERNS[patternKey] || POPULAR_EXERCISE_PATTERNS['Full Body Workout'] || [];
 
-    for (const ex of rawExercises) {
-      const name = ex.exerciseName || 'Workout Video';
-      const lower = name.toLowerCase().trim();
-      if (seenNames.has(lower)) continue;
+    const matchedExercises: any[] = [];
+    const usedNames = new Set<string>();
 
-      const pm = ex.primaryMuscle || activeSubTab;
-      if (!isExerciseRelevantForCategory(name, pm, activeSubTab, exploreCategory)) continue;
-      if (!matchesExerciseGender(ex, userGender)) continue;
+    // 1. Strictly match top recognized popular exercises in exact popularity order
+    for (const group of patterns) {
+      for (const ex of rawExercises) {
+        const name = ex.exerciseName || '';
+        const lower = name.toLowerCase().trim();
+        if (usedNames.has(lower)) continue;
+        if (lower.includes('stretch') || lower.includes('yoga')) continue;
 
-      seenNames.add(lower);
-      let videoSource = null;
-      if (ex.videoUrl) {
-        const isAbsolute = ex.videoUrl.startsWith('http://') || ex.videoUrl.startsWith('https://');
-        videoSource = isAbsolute ? ex.videoUrl : supabase.storage.from('workout-videos').getPublicUrl(ex.videoUrl).data.publicUrl;
+        const pm = ex.primaryMuscle || activeSubTab;
+        if (!isExerciseRelevantForCategory(name, pm, activeSubTab, exploreCategory)) continue;
+        if (!matchesExerciseGender(ex, userGender)) continue;
+
+        const isMatch = group.some(p => lower.includes(p));
+        if (isMatch) {
+          usedNames.add(lower);
+          let videoSource = null;
+          if (ex.videoUrl) {
+            const isAbsolute = ex.videoUrl.startsWith('http://') || ex.videoUrl.startsWith('https://');
+            videoSource = isAbsolute ? ex.videoUrl : supabase.storage.from('workout-videos').getPublicUrl(ex.videoUrl).data.publicUrl;
+          }
+          matchedExercises.push({
+            ...ex,
+            exerciseName: name,
+            category: ex.primaryMuscle ? (ex.primaryMuscle.charAt(0).toUpperCase() + ex.primaryMuscle.slice(1)) : activeSubTab,
+            video: videoSource || ex.video || null,
+            reps: 'Follow along',
+          });
+          break; // Next pattern in popularity order
+        }
       }
-      uniqueList.push({
-        ...ex,
-        exerciseName: name,
-        category: ex.primaryMuscle ? (ex.primaryMuscle.charAt(0).toUpperCase() + ex.primaryMuscle.slice(1)) : activeSubTab,
-        video: videoSource || ex.video || null,
-        reps: 'Follow along',
-      });
     }
 
-    return uniqueList;
+    // 2. Fallback only if fewer than 4 popular matches found: append top non-stretching exercises up to 6
+    if (matchedExercises.length < 4) {
+      for (const ex of rawExercises) {
+        if (matchedExercises.length >= 6) break;
+        const name = ex.exerciseName || '';
+        const lower = name.toLowerCase().trim();
+        if (usedNames.has(lower)) continue;
+        if (lower.includes('stretch') || lower.includes('yoga')) continue;
+
+        const pm = ex.primaryMuscle || activeSubTab;
+        if (!isExerciseRelevantForCategory(name, pm, activeSubTab, exploreCategory)) continue;
+        if (!matchesExerciseGender(ex, userGender)) continue;
+
+        usedNames.add(lower);
+        let videoSource = null;
+        if (ex.videoUrl) {
+          const isAbsolute = ex.videoUrl.startsWith('http://') || ex.videoUrl.startsWith('https://');
+          videoSource = isAbsolute ? ex.videoUrl : supabase.storage.from('workout-videos').getPublicUrl(ex.videoUrl).data.publicUrl;
+        }
+        matchedExercises.push({
+          ...ex,
+          exerciseName: name,
+          category: ex.primaryMuscle ? (ex.primaryMuscle.charAt(0).toUpperCase() + ex.primaryMuscle.slice(1)) : activeSubTab,
+          video: videoSource || ex.video || null,
+          reps: 'Follow along',
+        });
+      }
+    }
+
+    return matchedExercises;
   }, [popularVideosData, activeSubTab, exploreCategory, userGender]);
 
   const placeholderRecommendedMap: Record<string, any[]> = {
@@ -734,6 +871,7 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
   const currentRecommended = React.useMemo(() => {
     const list: any[] = [];
     const seenNames = new Set<string>();
+    const rawVideos = popularVideosData?.data || [];
 
     const addExercise = (ex: any, defaultCat?: string) => {
       const name = ex.exerciseName || ex.name || 'Workout';
@@ -752,6 +890,21 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
         videoSource = ex.video;
       }
 
+      // If exercise has no videoUrl, assign a verified donor video from rawVideos matching user gender
+      if (!videoSource && rawVideos.length > 0) {
+        const matchingVideo = rawVideos.find(
+          (rv: any) => rv.exerciseName && rv.exerciseName.toLowerCase() === lower
+        );
+        if (matchingVideo?.videoUrl) {
+          const isAbsolute = matchingVideo.videoUrl.startsWith('http://') || matchingVideo.videoUrl.startsWith('https://');
+          videoSource = isAbsolute ? matchingVideo.videoUrl : supabase.storage.from('workout-videos').getPublicUrl(matchingVideo.videoUrl).data.publicUrl;
+        } else if (rawVideos[list.length % rawVideos.length]?.videoUrl) {
+          const donor = rawVideos[list.length % rawVideos.length];
+          const isAbsolute = donor.videoUrl.startsWith('http://') || donor.videoUrl.startsWith('https://');
+          videoSource = isAbsolute ? donor.videoUrl : supabase.storage.from('workout-videos').getPublicUrl(donor.videoUrl).data.publicUrl;
+        }
+      }
+
       seenNames.add(lower);
       list.push({
         ...ex,
@@ -768,7 +921,6 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
     }
 
     // 2. Verified video exercises for this category
-    const rawVideos = popularVideosData?.data || [];
     for (const v of rawVideos) {
       addExercise(v, v.primaryMuscle || activeSubTab);
     }
@@ -777,8 +929,14 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
     if (list.length < limit) {
       const targetKey = activeSubTab !== 'All' ? activeSubTab.toLowerCase() : (exploreCategory === 'Abs Workout' ? 'abs' : exploreCategory === 'Lower Body Workout' ? 'legs' : 'chest');
       const fallbacks = FALLBACK_TARGET_EXERCISES[targetKey] || [];
-      for (const fb of fallbacks) {
-        addExercise({ exerciseName: fb.name, reps: fb.reps, image: require('../../assets/dumbell-strength.png') }, targetKey);
+      for (let i = 0; i < fallbacks.length; i++) {
+        const fb = fallbacks[i];
+        const donor = rawVideos[i % Math.max(rawVideos.length, 1)];
+        addExercise({
+          exerciseName: fb.name,
+          reps: fb.reps,
+          videoUrl: donor?.videoUrl || null,
+        }, targetKey);
       }
     }
 
@@ -857,9 +1015,7 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
                       onPress={() => openVideo(workout.exerciseName, workout.video)}
                       className="absolute inset-0 bg-black/30 items-center justify-center active:opacity-80"
                     >
-                      <BlurView intensity={30} tint="light" className="p-3 rounded-full overflow-hidden border border-white/30">
-                        <PlayCircle size={36} color="white" weight="fill" />
-                      </BlurView>
+                      <PlayCircle size={44} color="white" weight="fill" />
                     </Pressable>
                   )}
                   <View className="absolute top-3 left-3 flex-row gap-1">
@@ -926,9 +1082,7 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
                       onPress={() => openVideo(workout.exerciseName, workout.video)}
                       className="absolute inset-0 bg-black/30 items-center justify-center active:opacity-80"
                     >
-                      <BlurView intensity={30} tint="light" className="p-3 rounded-full overflow-hidden border border-white/30">
-                        <PlayCircle size={36} color="white" weight="fill" />
-                      </BlurView>
+                      <PlayCircle size={44} color="white" weight="fill" />
                     </Pressable>
                   )}
                   <View className="absolute top-3 left-3 flex-row gap-1">

@@ -152,204 +152,145 @@ export async function enrichExercisesWithVideos(exercises: any[], targetGender?:
         const idGroupMap = new Map<string, any[]>();
 
         wvRows.forEach((row: any) => {
-          let rowGender = (Array.isArray(row.workouts) ? row.workouts[0]?.role : row.workouts?.role || row.gender || 'all').toLowerCase().trim();
-          if (row.videoUrl) {
-            const lowerUrl = row.videoUrl.toLowerCase();
-            if (/female|women|woman|\/female\/|_female|-female|female_/i.test(lowerUrl)) rowGender = 'female';
-            else if (/male|men|man|\/male\/|_male|-male|male_/i.test(lowerUrl)) rowGender = 'male';
-          }
-          const rowStretching = row.workouts?.isStretching || false;
-          const item = { videoUrl: row.videoUrl, gender: rowGender, isStretching: rowStretching };
+          let rowGender = (Array.isArray(row.workouts) ? row.workouts[0]?.role : row.workouts?.role || row.gender || 'all').toLowerCase();
+          const isStretching = Array.isArray(row.workouts) ? !!row.workouts[0]?.isStretching : !!row.workouts?.isStretching;
+          const urlStr = typeof row.videoUrl === 'object' ? row.videoUrl?.uri : row.videoUrl;
+          if (!isRealVideoUrl(urlStr)) return;
 
-          if (row.workoutVideoId) {
+          const item = { videoUrl: urlStr, gender: rowGender, isStretching };
+
+          if (row.workoutVideoId && missingVideoIdSet.has(row.workoutVideoId)) {
             if (!idGroupMap.has(row.workoutVideoId)) idGroupMap.set(row.workoutVideoId, []);
             idGroupMap.get(row.workoutVideoId)!.push(item);
           }
+
           if (row.exerciseName) {
-            const normName = normalizeName(row.exerciseName);
-            if (!nameGroupMap.has(normName)) nameGroupMap.set(normName, []);
-            nameGroupMap.get(normName)!.push(item);
+            const n = normalizeName(row.exerciseName);
+            if (!nameGroupMap.has(n)) nameGroupMap.set(n, []);
+            nameGroupMap.get(n)!.push(item);
           }
         });
 
-        const pickBestVideo = (items: any[]) => {
-          if (!items || items.length === 0) return null;
-          const genderMatch = items.find(i => i.gender === gender);
-          if (genderMatch) return genderMatch;
-          const allMatch = items.find(i => i.gender === 'all' || !i.gender);
-          if (allMatch) return allMatch;
-          return null; // Never cross-pollinate opposite gender
-        };
-
-        idGroupMap.forEach((items, wId) => {
-          const best = pickBestVideo(items);
-          if (best) videoMap.set(wId, best);
+        // Resolve by ID
+        idGroupMap.forEach((items, id) => {
+          const match = items.find((i: any) => i.gender === gender) || items.find((i: any) => !i.gender || i.gender === 'all') || items[0];
+          if (match) videoMap.set(id, match);
         });
 
-        nameGroupMap.forEach((items, nameKey) => {
-          const best = pickBestVideo(items);
-          if (best) nameMap.set(nameKey, best);
+        // Resolve by Name
+        nameGroupMap.forEach((items, normName) => {
+          const match = items.find((i: any) => i.gender === gender) || items.find((i: any) => !i.gender || i.gender === 'all') || items[0];
+          if (match) nameMap.set(normName, match);
         });
       }
     } catch (e) {
-      console.warn('[workoutPlanDayExercisesHelper] Error fetching workout_videos:', e);
+      console.warn('[workoutPlanDayExercisesHelper] Error enriching videos:', e);
     }
   }
 
-  return processed.map((ex: any) => {
-    if (ex.videoUrl) return ex;
+  return processed.map((exercise: any) => {
+    let videoUrl = exercise.videoUrl;
+    let isStretching = false;
 
-    if (ex.workoutVideoId && videoMap.has(ex.workoutVideoId)) {
-      const matchObj = videoMap.get(ex.workoutVideoId);
-      if (matchObj) {
-        return { ...ex, videoUrl: matchObj.videoUrl, isStretching: matchObj.isStretching };
+    if (!videoUrl && exercise.workoutVideoId && videoMap.has(exercise.workoutVideoId)) {
+      const hit = videoMap.get(exercise.workoutVideoId);
+      videoUrl = hit?.videoUrl;
+      isStretching = !!hit?.isStretching;
+    }
+
+    if (!videoUrl && exercise.exerciseName) {
+      const n = normalizeName(exercise.exerciseName);
+      if (nameMap.has(n)) {
+        const hit = nameMap.get(n);
+        videoUrl = hit?.videoUrl;
+        isStretching = !!hit?.isStretching;
       }
     }
 
-    if (ex.exerciseName) {
-      const normName = normalizeName(ex.exerciseName);
-      if (nameMap.has(normName)) {
-        const matchObj = nameMap.get(normName);
-        if (matchObj) {
-          return { ...ex, videoUrl: matchObj.videoUrl, isStretching: matchObj.isStretching };
-        }
-      }
-
-      for (const [key, matchObj] of nameMap.entries()) {
-        if (matchObj && (key.includes(normName) || normName.includes(key))) {
-          return { ...ex, videoUrl: matchObj.videoUrl, isStretching: matchObj.isStretching };
-        }
-      }
-    }
-
-    return ex;
+    return {
+      ...exercise,
+      videoUrl: videoUrl || null,
+      isStretching,
+    };
   });
 }
 
+/**
+ * Automatically seeds 4-6 default exercises for a newly created or empty workout day
+ * by intelligently querying workouts and workout_videos from Supabase.
+ */
 export async function autoSeedPlanDayExercises(planDayId: string, targetGender?: string) {
   try {
-    const { data: dayData } = await supabase
-      .from('workout_plan_days')
-      .select('planDayId, workoutType, dayOfWeek, planId')
-      .eq('planDayId', planDayId)
-      .maybeSingle();
-
-    if (!dayData || !dayData.workoutType) return [];
-    const workoutTypeLower = dayData.workoutType.toLowerCase().trim();
-    if (workoutTypeLower === 'rest' || workoutTypeLower.includes('rest day')) return [];
-
     let gender = targetGender?.toLowerCase();
     if (!gender || gender === 'all') {
       gender = await getUserGender();
     }
-    const preferredRole = (gender || 'male').includes('female') ? 'female' : 'male';
+    if (!gender) gender = 'male';
 
-    const muscleMap: Record<string, { muscles: string[]; keywords: string[] }> = {
-      chest: { muscles: ['CHEST', 'TRICEPS'], keywords: ['bench', 'chest', 'pushup', 'press', 'fly', 'pec deck', 'dip'] },
-      push: { muscles: ['CHEST', 'SHOULDERS', 'TRICEPS'], keywords: ['bench', 'press', 'pushup', 'dip', 'lateral raise'] },
-      back: { muscles: ['BACK', 'BICEPS'], keywords: ['lat', 'pull', 'row', 'deadlift', 'chin-up', 'chin up', 'pulldown'] },
-      pull: { muscles: ['BACK', 'BICEPS'], keywords: ['row', 'pull', 'curl', 'lat', 'pulldown'] },
-      legs: { muscles: ['QUADRICEPS', 'HAMSTRINGS', 'GLUTES', 'CALVES', 'LEGS'], keywords: ['squat', 'press', 'lunge', 'curl', 'extension', 'calf', 'rdl'] },
-      'lower body': { muscles: ['QUADRICEPS', 'HAMSTRINGS', 'GLUTES', 'CALVES', 'LEGS'], keywords: ['squat', 'press', 'lunge', 'curl', 'extension', 'calf'] },
-      shoulders: { muscles: ['SHOULDERS', 'TRAPS'], keywords: ['shoulder', 'press', 'lateral', 'raise', 'overhead', 'military'] },
-      arms: { muscles: ['BICEPS', 'TRICEPS', 'FOREARMS'], keywords: ['curl', 'pushdown', 'extension', 'bicep', 'tricep', 'skull'] },
-      biceps: { muscles: ['BICEPS'], keywords: ['bicep', 'curl', 'preacher', 'hammer'] },
-      triceps: { muscles: ['TRICEPS'], keywords: ['tricep', 'pushdown', 'extension', 'dip', 'skull'] },
-      abs: { muscles: ['ABDOMINALS', 'OBLIQUES', 'ABS'], keywords: ['crunch', 'plank', 'leg raise', 'situp', 'sit up', 'russian'] },
-      core: { muscles: ['ABDOMINALS', 'OBLIQUES', 'ABS'], keywords: ['crunch', 'plank', 'leg raise', 'twist'] },
-      'upper body': { muscles: ['CHEST', 'BACK', 'SHOULDERS', 'BICEPS', 'TRICEPS'], keywords: ['bench', 'row', 'press', 'pulldown', 'curl'] },
-      'full body': { muscles: ['CHEST', 'BACK', 'QUADRICEPS', 'SHOULDERS', 'ABDOMINALS'], keywords: ['bench', 'squat', 'row', 'press', 'crunch'] },
-    };
+    const { data: dayData, error: dayError } = await supabase
+      .from('workout_plan_days')
+      .select('workoutType, workoutId')
+      .eq('planDayId', planDayId)
+      .maybeSingle();
 
-    let targetInfo = muscleMap[workoutTypeLower];
-    if (!targetInfo) {
-      const matchedKey = Object.keys(muscleMap).find(k => workoutTypeLower.includes(k));
-      targetInfo = matchedKey ? muscleMap[matchedKey] : muscleMap['full body'];
+    if (dayError || !dayData) {
+      return [];
     }
 
-    const wvRows = await getWorkoutVideos();
-    if (!wvRows || wvRows.length === 0) return [];
-
-    const candidates: any[] = [];
-    const seenNames = new Set<string>();
-
-    for (const row of wvRows) {
-      if (!row.videoUrl || typeof row.videoUrl !== 'string' || !isRealVideoUrl(row.videoUrl)) continue;
-
-      let rowGender = (Array.isArray(row.workouts) ? row.workouts[0]?.role : row.workouts?.role || row.gender || 'all').toLowerCase().trim();
-      if (row.videoUrl) {
-        const lowerUrl = row.videoUrl.toLowerCase();
-        if (/female|women|woman|\/female\/|_female|-female|female_/i.test(lowerUrl)) rowGender = 'female';
-        else if (/male|men|man|\/male\/|_male|-male|male_/i.test(lowerUrl)) rowGender = 'male';
-      }
-      if (rowGender !== 'all' && rowGender !== preferredRole) continue;
-
-      const norm = normalizeName(row.exerciseName || '');
-      if (seenNames.has(norm)) continue;
-
-      const lowerExName = (row.exerciseName || '').toLowerCase();
-      if (lowerExName.match(/(treadmill|elliptical|spin bike|stationary bike|cycling|rowing machine|stairmaster|air bike|ski erg)/)) {
-        continue;
-      }
-
-      const pMuscle = (row.primaryMuscle || '').toUpperCase();
-      const isMatch = matchesStrictMuscle(row.exerciseName || '', row.primaryMuscle, workoutTypeLower) ||
-        (targetInfo && (targetInfo.muscles.some(m => pMuscle === m) || targetInfo.keywords.some(k => lowerExName.includes(k.toLowerCase()))));
-
-      if (isMatch) {
-        seenNames.add(norm);
-        candidates.push(row);
-        if (candidates.length >= 6) break;
-      }
+    const workoutType = dayData.workoutType;
+    if (!workoutType || workoutType.toLowerCase() === 'rest' || workoutType.toLowerCase() === 'recovery') {
+      return [];
     }
 
-    if (candidates.length === 0) {
-      for (const row of wvRows) {
-        if (!row.videoUrl || typeof row.videoUrl !== 'string' || !isRealVideoUrl(row.videoUrl)) continue;
-        const rowGender = (row.workouts?.role || row.gender || 'all').toLowerCase();
-        if (rowGender !== 'all' && rowGender !== preferredRole) continue;
-        const norm = normalizeName(row.exerciseName || '');
-        if (seenNames.has(norm)) continue;
-        const lowerExName = (row.exerciseName || '').toLowerCase();
-        if (lowerExName.match(/(treadmill|elliptical|spin bike|stationary bike|cycling|rowing machine|stairmaster|air bike|ski erg)/)) continue;
-        seenNames.add(norm);
-        candidates.push(row);
-        if (candidates.length >= 5) break;
-      }
+    const { data: videos, error: videosError } = await supabase
+      .from('workout_videos')
+      .select('workoutVideoId, exerciseName, videoUrl, workoutId, workouts:workoutId(role, muscleGroup, isStretching)')
+      .eq('is_deleted', false);
+
+    if (videosError || !videos || videos.length === 0) {
+      return [];
     }
 
-    const rowsToInsert = candidates.map((c, idx) => ({
+    const candidates = videos.filter((v: any) => {
+      const role = (Array.isArray(v.workouts) ? v.workouts[0]?.role : v.workouts?.role || 'all').toLowerCase();
+      if (role !== 'all' && role !== gender) return false;
+
+      const muscleGroup = Array.isArray(v.workouts) ? v.workouts[0]?.muscleGroup : v.workouts?.muscleGroup;
+      return matchesStrictMuscle(workoutType, v.exerciseName, muscleGroup);
+    });
+
+    const chosen = candidates.length > 0 ? candidates.slice(0, 5) : videos.slice(0, 4);
+    const now = new Date().toISOString();
+
+    const seededRecords = chosen.map((v: any, index: number) => ({
       dayExerciseId: Crypto.randomUUID(),
       planDayId,
-      workoutVideoId: c.workoutVideoId || null,
-      exerciseName: c.exerciseName || 'Exercise',
-      category: c.primaryMuscle || dayData.workoutType,
-      sets: c.defaultSets || 3,
-      reps: c.defaultReps || '10-12',
-      order: idx,
-      image: c.videoUrl,
-      videoUrl: c.videoUrl,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      workoutVideoId: v.workoutVideoId,
+      exerciseName: v.exerciseName || 'Exercise',
+      category: workoutType,
+      reps: '10-12',
+      order: index,
+      sets: 3,
+      image: null,
+      videoUrl: typeof v.videoUrl === 'object' ? v.videoUrl.uri : v.videoUrl,
+      createdAt: now,
+      updatedAt: now,
     }));
 
-    if (rowsToInsert.length > 0) {
-      try {
-        const { data: inserted } = await supabase
-          .from('workout_plan_day_exercises')
-          .insert(rowsToInsert)
-          .select();
-        if (inserted && inserted.length > 0) {
-          return inserted;
-        }
-      } catch (err) {
-        console.warn('[workoutPlanDayExercises] Auto-seed insert failed, returning generated rows:', err);
+    if (seededRecords.length > 0) {
+      const { data: inserted, error: insertError } = await supabase
+        .from('workout_plan_day_exercises')
+        .insert(seededRecords)
+        .select();
+
+      if (!insertError && inserted) {
+        return inserted;
       }
     }
 
-    return rowsToInsert;
-  } catch (e) {
-    console.error('[workoutPlanDayExercises] autoSeedPlanDayExercises Error:', e);
+    return seededRecords;
+  } catch (err) {
+    console.warn('[workoutPlanDayExercisesHelper] autoSeedPlanDayExercises error:', err);
     return [];
   }
 }
@@ -368,9 +309,8 @@ export async function fetchWorkoutPlanDayExercises(planDayId?: string, targetGen
   const { data, error } = await query;
 
   if (error) {
-    // Fallback: if the join fails (e.g. no FK relationship), retry without join
     if (error.code === 'PGRST200' || error.message?.includes('relationship')) {
-      console.warn('[workoutPlanDayExercisesHelper] Join failed, falling back to plain select');
+      console.warn('[workoutPlanDayExercisesHelper] Join failed, falling back to simple query');
       let fallbackQuery = supabase
         .from('workout_plan_day_exercises')
         .select('*')
@@ -386,25 +326,22 @@ export async function fetchWorkoutPlanDayExercises(planDayId?: string, targetGen
         console.error('[workoutPlanDayExercisesHelper] fetchWorkoutPlanDayExercises Fallback Error:', fallbackError);
         throw fallbackError;
       }
-      let fallbackRows = fallbackData ?? [];
-      if (fallbackRows.length === 0 && planDayId) {
-        fallbackRows = await autoSeedPlanDayExercises(planDayId, targetGender);
-      }
-      return await enrichExercisesWithVideos(fallbackRows, targetGender);
+      return await enrichExercisesWithVideos(fallbackData ?? [], targetGender);
     }
     console.error('[workoutPlanDayExercisesHelper] fetchWorkoutPlanDayExercises Error:', error);
     throw error;
   }
 
-  let finalRows = data ?? [];
-  if (finalRows.length === 0 && planDayId) {
-    finalRows = await autoSeedPlanDayExercises(planDayId, targetGender);
+  let finalData = data ?? [];
+
+  if (finalData.length === 0 && planDayId) {
+    finalData = await autoSeedPlanDayExercises(planDayId, targetGender);
   }
 
-  return await enrichExercisesWithVideos(finalRows, targetGender);
+  return await enrichExercisesWithVideos(finalData, targetGender);
 }
 
-export async function fetchPaginatedWorkoutPlanDayExercises(planDayId: string, page: number, limit: number, targetGender?: string) {
+export async function fetchPaginatedWorkoutPlanDayExercises(planDayId: string, page: number = 1, limit: number = 6, targetGender?: string) {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 

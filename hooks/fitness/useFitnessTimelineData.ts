@@ -172,9 +172,9 @@ export function useFitnessTimelineData(
       let dayVal = getValue(dayRecord);
 
       if (offset === 0) {
-        if (metricType === 'steps' && liveSteps > dayVal) dayVal = liveSteps;
+        if (metricType === 'steps') dayVal = Math.max(dayVal, liveSteps);
         const effectiveLiveCalories = Math.max(liveCalories, Math.round(liveSteps * 0.04));
-        if (metricType === 'calories' && effectiveLiveCalories > dayVal) dayVal = effectiveLiveCalories;
+        if (metricType === 'calories') dayVal = Math.max(dayVal, effectiveLiveCalories);
       }
 
       totalValue = dayVal;
@@ -201,9 +201,9 @@ export function useFitnessTimelineData(
         let val = getValue(record);
 
         if (dStr === todayStr && offset === 0) {
-          if (metricType === 'steps' && liveSteps > val) val = liveSteps;
+          if (metricType === 'steps') val = Math.max(val, liveSteps);
           const effectiveLiveCalories = Math.max(liveCalories, Math.round(liveSteps * 0.04));
-          if (metricType === 'calories' && effectiveLiveCalories > val) val = effectiveLiveCalories;
+          if (metricType === 'calories') val = Math.max(val, effectiveLiveCalories);
         }
 
         sum += val;
@@ -232,9 +232,9 @@ export function useFitnessTimelineData(
         let val = getValue(record);
 
         if (dStr === todayStr && offset === 0) {
-          if (metricType === 'steps' && liveSteps > val) val = liveSteps;
+          if (metricType === 'steps') val = Math.max(val, liveSteps);
           const effectiveLiveCalories = Math.max(liveCalories, Math.round(liveSteps * 0.04));
-          if (metricType === 'calories' && effectiveLiveCalories > val) val = effectiveLiveCalories;
+          if (metricType === 'calories') val = Math.max(val, effectiveLiveCalories);
         }
 
         sum += val;

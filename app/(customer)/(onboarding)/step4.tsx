@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
@@ -27,6 +27,7 @@ export default function Step4() {
   const { data, updateData } = useOnboarding();
   const { userId } = useUser();
   const queryClient = useQueryClient();
+  const scrollViewRef = useRef<ScrollView>(null);
   const [customAllergy, setCustomAllergy] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -46,10 +47,13 @@ export default function Step4() {
       queryClient.setQueryData(['customerOnboardingStatus', userId], { isOnboarded: true, isSkipped: false });
       await queryClient.invalidateQueries({ queryKey: ['customerOnboardingStatus', userId] });
       await queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] });
+      await queryClient.invalidateQueries({ queryKey: ['fitnessStats', userId] });
+      await queryClient.invalidateQueries({ queryKey: ['waterLogs', userId] });
+      await queryClient.invalidateQueries({ queryKey: ['water_streak', userId] });
       router.push('/(customer)/(onboarding)/step5');
     } catch (err: any) {
+      console.error('[Step4] Save error:', err);
       toast.error('Could not save your preferences. Try again.');
-      console.error(err);
     } finally {
       setSaving(false);
     }
@@ -79,6 +83,7 @@ export default function Step4() {
       onContinue={handleContinue}
       isContinueDisabled={!isFormValid}
       isLoading={saving}
+      scrollViewRef={scrollViewRef}
     >
       <View className="mb-8">
         <Text className="text-white font-semibold mb-2">1. Diet Type <Text className="text-red-500">*</Text></Text>
@@ -147,6 +152,11 @@ export default function Step4() {
             placeholderTextColor="#666"
             value={customAllergy}
             onChangeText={setCustomAllergy}
+            onFocus={() => {
+              setTimeout(() => {
+                scrollViewRef.current?.scrollTo({ y: 350, animated: true });
+              }, 120);
+            }}
           />
         </View>
       </View>
@@ -179,4 +189,3 @@ export default function Step4() {
     </OnboardingLayout>
   );
 }
-

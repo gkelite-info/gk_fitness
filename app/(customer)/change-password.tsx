@@ -8,6 +8,7 @@ import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
 import { hashPassword } from '@/helpers/auth/passwordHelper';
+import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
@@ -161,12 +162,12 @@ export default function ChangePasswordScreen() {
             <View className="mr-3">
               <Lock size={20} color="#D4FF00" weight="regular" />
             </View>
-            <TextInput
+            <SafePasswordInput
               value={currentPassword}
               onChangeText={setCurrentPassword}
               placeholder="Current Password"
               placeholderTextColor="#555555"
-              secureTextEntry={!showCurrent}
+              showPassword={showCurrent}
               editable={!isPending}
               className="flex-1 text-white text-base py-3"
             />
@@ -180,12 +181,12 @@ export default function ChangePasswordScreen() {
             <View className="mr-3">
               <Lock size={20} color="#D4FF00" weight="regular" />
             </View>
-            <TextInput
+            <SafePasswordInput
               value={newPassword}
               onChangeText={setNewPassword}
               placeholder="New Password"
               placeholderTextColor="#555555"
-              secureTextEntry={!showNew}
+              showPassword={showNew}
               editable={!isPending}
               className="flex-1 text-white text-base py-3"
             />
@@ -199,12 +200,12 @@ export default function ChangePasswordScreen() {
             <View className="mr-3">
               <Lock size={20} color="#D4FF00" weight="regular" />
             </View>
-            <TextInput
+            <SafePasswordInput
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Confirm New Password"
               placeholderTextColor="#555555"
-              secureTextEntry={!showConfirm}
+              showPassword={showConfirm}
               editable={!isPending}
               className="flex-1 text-white text-base py-3"
             />

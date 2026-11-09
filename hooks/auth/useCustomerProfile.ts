@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export function useCustomerProfile(userId: string | null | undefined) {
   return useQuery({
@@ -23,18 +24,22 @@ export function useCustomerProfile(userId: string | null | undefined) {
       ]);
 
       if (customerRes.error && customerRes.error.code !== 'PGRST116') {
-        throw customerRes.error;
+        console.warn('[useCustomerProfile] customerRes notice:', customerRes.error);
       }
       
-      // It's okay if onboarding throws an error because it's maybeSingle, but if it's a real error we throw
-      if (onboardingRes.error && onboardingRes.error.code !== 'PGRST116') {
-        // PGRST116 is multiple rows returned but single expected. maybeSingle handles 0 or 1 rows.
-        throw onboardingRes.error;
+      let onboardingData = onboardingRes.data;
+      if (!onboardingData) {
+        try {
+          const cached = await AsyncStorage.getItem(`@customer_onboarding_${userId}`);
+          if (cached) {
+            onboardingData = JSON.parse(cached);
+          }
+        } catch {}
       }
 
       return {
-        customerData: customerRes.data,
-        onboardingData: onboardingRes.data,
+        customerData: customerRes.data || null,
+        onboardingData: onboardingData || null,
       };
     },
     enabled: !!userId,

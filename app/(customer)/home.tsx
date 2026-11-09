@@ -633,24 +633,14 @@ export default function CustomerHome() {
                 {planName}
               </Text>
               <Text className="text-[#8E8E93] text-xs leading-4 mb-3.5">
-                {Platform.OS === 'ios'
-                  ? 'Your assigned plan is pending activation. Review your plan details to proceed.'
-                  : 'Complete your payment to activate your membership plan.'}
+                Complete your payment to activate your membership plan.
               </Text>
               <Pressable
-                onPress={() => {
-                  if (Platform.OS === 'ios') {
-                    Linking.openURL('https://www.gkgymlife.com/customer?action=activate').catch(() => {
-                      router.push('/(customer)/memberships' as any);
-                    });
-                  } else {
-                    router.push('/(customer)/memberships' as any);
-                  }
-                }}
+                onPress={() => router.push('/(customer)/memberships' as any)}
                 className="w-full bg-[#D7FF00] py-2.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-85"
               >
                 <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5">
-                  {Platform.OS === 'ios' ? 'ACTIVATE ACCESS' : 'ACTIVATE MEMBERSHIP'}
+                  ACTIVATE MEMBERSHIP
                 </Text>
                 <ArrowRight size={14} color="#000000" weight="bold" />
               </Pressable>
@@ -680,7 +670,7 @@ export default function CustomerHome() {
               {pendingTierUpdate ? (
                 <View className="mt-1 bg-[#1C160C] border border-[#F59E0B]/30 rounded-xl p-2.5">
                   <Text className="text-[#F59E0B] text-[9px] font-semibold tracking-widest uppercase mb-1">
-                    {Platform.OS === 'ios' ? 'FACILITY ACCESS UPDATE' : 'UPGRADE PENDING'}
+                    UPGRADE PENDING
                   </Text>
                   <Text className="text-white text-xs font-semibold mb-2" numberOfLines={1}>
                     {pendingTierUpdate.pendingPlanName}
@@ -690,7 +680,7 @@ export default function CustomerHome() {
                     className="w-full bg-[#D7FF00] py-1.5 px-3 rounded-lg flex-row items-center justify-center active:opacity-85"
                   >
                     <Text className="text-black text-[10px] font-semibold uppercase tracking-wider mr-1">
-                      {Platform.OS === 'ios' ? 'ACTIVATE' : 'ACTIVATE'}
+                      ACTIVATE
                     </Text>
                     <ArrowRight size={12} color="#000000" weight="bold" />
                   </Pressable>
@@ -701,7 +691,7 @@ export default function CustomerHome() {
                   className="flex-row items-center gap-1.5 active:opacity-70 mt-0.5"
                 >
                   <Text className="text-[#8E8E93] text-xs font-medium">
-                    {Platform.OS === 'ios' ? 'Membership Details' : 'Pass Details'}
+                    Pass Details
                   </Text>
                   <ArrowRight size={12} color="#8E8E93" weight="bold" />
                 </Pressable>
@@ -741,12 +731,12 @@ export default function CustomerHome() {
             <View className="mb-1">
               <Text className="text-[#EF4444] text-xl font-semibold mb-1">Plan Expired</Text>
               <Text className="text-[#8E8E93] text-xs font-medium mb-3">
-                {Platform.OS === 'ios' ? 'View membership details to continue your journey.' : 'Renew your plan to continue your journey.'}
+                Renew your plan to continue your journey.
               </Text>
               {pendingTierUpdate ? (
                 <View className="mt-2 bg-[#1C160C] border border-[#F59E0B]/30 rounded-2xl p-3.5">
                   <Text className="text-[#F59E0B] text-[10px] font-semibold tracking-widest uppercase mb-1">
-                    {Platform.OS === 'ios' ? 'FACILITY ACCESS UPDATE' : 'UPGRADE PENDING'}
+                    UPGRADE PENDING
                   </Text>
                   <Text className="text-white text-sm font-semibold mb-3">
                     {pendingTierUpdate.pendingPlanName}
@@ -756,7 +746,7 @@ export default function CustomerHome() {
                     className="w-full bg-[#D7FF00] py-2.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-85"
                   >
                     <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5">
-                      {Platform.OS === 'ios' ? 'ACTIVATE FACILITY ACCESS' : 'ACTIVATE UPGRADE'}
+                      ACTIVATE UPGRADE
                     </Text>
                     <ArrowRight size={14} color="#000000" weight="bold" />
                   </Pressable>
@@ -767,7 +757,7 @@ export default function CustomerHome() {
                   onPress={() => router.push('/(customer)/memberships' as any)}
                 >
                   <Text className="text-black text-xs font-semibold tracking-wide">
-                    {Platform.OS === 'ios' ? 'MEMBERSHIP DETAILS' : 'RENEW PLAN'}
+                    RENEW PLAN
                   </Text>
                 </Pressable>
               )}

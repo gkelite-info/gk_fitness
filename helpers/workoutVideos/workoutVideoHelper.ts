@@ -243,6 +243,33 @@ export function isExerciseMatchingMuscle(name: string, targetMuscle: string): bo
   return true;
 }
 
+export function mapWorkoutTypeToRpcMuscles(workoutType?: string): string[] {
+  if (!workoutType) return [];
+  const norm = workoutType.toLowerCase().trim();
+  if (norm === 'all' || norm === 'full body' || norm.includes('full body')) {
+    return ['CHEST', 'BACK', 'SHOULDERS', 'SHOULDER', 'TRAPS', 'QUADRICEPS', 'HAMSTRINGS', 'GLUTES', 'CALVES', 'HIPS', 'LEGS', 'BICEPS', 'TRICEPS', 'FOREARMS', 'ARMS', 'ABDOMINALS', 'OBLIQUES', 'ABS'];
+  }
+  if (norm === 'upper body' || norm.includes('upper body')) {
+    return ['CHEST', 'BACK', 'SHOULDERS', 'SHOULDER', 'TRAPS', 'BICEPS', 'TRICEPS', 'FOREARMS', 'ARMS'];
+  }
+  if (norm === 'lower body' || norm.includes('lower body') || norm === 'legs' || norm === 'leg') {
+    return ['QUADRICEPS', 'HAMSTRINGS', 'GLUTES', 'CALVES', 'HIPS', 'LEGS'];
+  }
+  if (norm === 'abs' || norm === 'core' || norm.includes('abs')) {
+    return ['ABDOMINALS', 'OBLIQUES', 'ABS'];
+  }
+  if (norm === 'chest') return ['CHEST'];
+  if (norm === 'back') return ['BACK'];
+  if (norm.startsWith('shoulder')) return ['SHOULDERS', 'SHOULDER', 'TRAPS'];
+  if (norm.startsWith('bicep')) return ['BICEPS', 'ARMS'];
+  if (norm.startsWith('tricep')) return ['TRICEPS', 'TRICEP', 'ARMS'];
+  if (norm === 'arms' || norm === 'arm') return ['BICEPS', 'TRICEPS', 'FOREARMS', 'ARMS'];
+  if (norm === 'calves' || norm === 'calf') return ['CALVES', 'LEGS'];
+  if (norm === 'hips' || norm === 'hip') return ['HIPS', 'GLUTES', 'LEGS'];
+  if (norm === 'cardio') return ['CARDIO'];
+  return [workoutType.toUpperCase()];
+}
+
 export async function fetchWorkoutVideos(
   page: number = 1,
   limit: number = 10,
@@ -255,6 +282,8 @@ export async function fetchWorkoutVideos(
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
+  // 1. Server-side search filter across exerciseName and primaryMuscle
+  const cleanSearch = (searchQuery || '').trim();
   // Robustly resolve user gender if role is not passed or is 'all'
   let normalizedRole = (role || 'all').toLowerCase().trim();
   if (normalizedRole !== 'male' && normalizedRole !== 'female') {
@@ -285,8 +314,6 @@ export async function fetchWorkoutVideos(
   }
 
   const isRoleFilterActive = normalizedRole === 'male' || normalizedRole === 'female';
-  const mappedTypes = mapWorkoutTypeToDbEnums(workoutType);
-  const cleanSearch = (searchQuery || '').trim();
 
   // Pre-load opposite gender workoutIds to strictly blacklist them
   let oppositeWorkoutIdsSet: Set<string> | undefined;
@@ -297,8 +324,13 @@ export async function fetchWorkoutVideos(
       .select('workoutId')
       .eq('role', oppositeRole)
       .or('is_deleted.eq.false,is_deleted.is.null');
-    oppositeWorkoutIdsSet = new Set((oppWorkouts || []).map((w: any) => w.workoutId));
+
+    if (oppWorkouts && oppWorkouts.length > 0) {
+      oppositeWorkoutIdsSet = new Set(oppWorkouts.map((w: any) => w.workoutId));
+    }
   }
+
+  const mappedTypes = mapWorkoutTypeToDbEnums(workoutType);
 
   // Combined helper to filter videos strictly by gender, blacklist, muscle, and search
   const filterListStrictly = (list: any[]): any[] => {

@@ -10,7 +10,7 @@ export function useCurrentPlanWeek(providedUserId?: string) {
   const currentWeekNumber = useMemo(() => {
     if (!plans || plans.length === 0) return 1;
 
-    const activePlan = plans.find(p => p.isActive);
+    const activePlan = plans.find((p: any) => p.isActive);
     if (!activePlan || !activePlan.createdAt) return 1;
 
     const createdAt = new Date(activePlan.createdAt);

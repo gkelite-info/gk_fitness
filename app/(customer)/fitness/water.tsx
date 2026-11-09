@@ -34,6 +34,7 @@ import {
 } from 'phosphor-react-native';
 import { ProgressRing } from '@/components/fitness/ProgressRing';
 import { useUser } from '@/context/UserContext';
+import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useWaterTracking } from '@/hooks/fitness/useWaterTracking';
 import { useFitnessStats } from '@/hooks/fitness/useFitnessStats';
 import { useWaterStreak } from '@/hooks/fitness/useWaterStreak';
@@ -46,6 +47,9 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DEFAULT_WATER_GOAL_ML = 3000;
 const QUICK_PRESETS = [
+  { amount: 50, label: 'Sip', icon: '💧' },
+  { amount: 100, label: 'Small', icon: '🥤' },
+  { amount: 150, label: 'Cup', icon: '☕' },
   { amount: 250, label: 'Glass', icon: '🥛' },
   { amount: 500, label: 'Bottle', icon: '🍶' },
   { amount: 750, label: 'Sports', icon: '🥤' },
@@ -94,7 +98,17 @@ export default function WaterScreen() {
 
   // Daily fitness stats for current goal
   const { data: stats } = useFitnessStats(userId, todayStr);
-  const currentGoalML = stats?.waterGoalML || DEFAULT_WATER_GOAL_ML;
+  const { data: customerProfile } = useCustomerProfile(userId);
+
+  const onboardingWaterGoalML = useMemo(() => {
+    const ob = customerProfile?.onboardingData?.dailyWaterGoal;
+    if (!ob) return null;
+    const num = parseFloat(String(ob));
+    if (isNaN(num) || num <= 0) return null;
+    return num <= 20 ? Math.round(num * 1000) : Math.round(num);
+  }, [customerProfile?.onboardingData?.dailyWaterGoal]);
+
+  const currentGoalML = stats?.waterGoalML || onboardingWaterGoalML || DEFAULT_WATER_GOAL_ML;
 
   // Streak data
   const { data: streakData } = useWaterStreak(userId);
@@ -561,7 +575,7 @@ export default function WaterScreen() {
               </View>
 
               {/* Quick Presets Grid */}
-              <View className="flex-row gap-3 mb-6">
+              <View className="flex-row flex-wrap gap-2.5 mb-6">
                 {QUICK_PRESETS.map((preset) => (
                   <Pressable
                     key={preset.amount}
@@ -570,11 +584,11 @@ export default function WaterScreen() {
                       handleLogAmount(preset.amount);
                     }}
                     disabled={isLogging}
-                    className="flex-1 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl py-3.5 items-center active:bg-[#00B2FE]/15 active:border-[#00B2FE]"
+                    className="flex-1 min-w-[21%] bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl py-3 items-center active:bg-[#00B2FE]/15 active:border-[#00B2FE]"
                   >
                     <Text className="text-xl mb-1">{preset.icon}</Text>
-                    <Text className="text-white font-bold text-base">{preset.amount}</Text>
-                    <Text className="text-[#8E8E93] text-[10px] uppercase font-semibold">ml</Text>
+                    <Text className="text-white font-bold text-sm">{preset.amount}</Text>
+                    <Text className="text-[#8E8E93] text-[9px] uppercase font-semibold">ml</Text>
                   </Pressable>
                 ))}
               </View>

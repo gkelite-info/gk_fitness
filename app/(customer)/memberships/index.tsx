@@ -35,7 +35,7 @@ import {
 
 export default function MembershipsScreen() {
   const router = useRouter();
-  const { userId, role } = useUser();
+  const { userId, role, email: userEmail, phone: userPhone } = useUser();
   const insets = useSafeAreaInsets();
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -292,40 +292,32 @@ export default function MembershipsScreen() {
   ) => {
     triggerMediumHaptic();
 
-    // STRICT APPLE APP STORE COMPLIANCE (Guidelines 3.1.1 & 3.1.3(e)):
-    // 1. On iOS, NEVER open in-app webview modal browsers (WebBrowser.openBrowserAsync) with checkout / payment parameters.
-    // 2. Physical gym memberships are physical services consumed outside the app; account details are viewed via external Safari without payment triggers.
-    if (Platform.OS === 'ios') {
-      try {
-        await Linking.openURL('https://www.gkgymlife.com/customer');
-      } catch (err) {
-        Alert.alert(
-          'Gym Membership',
-          'Physical gym facility access is managed directly at your gym reception counter or securely at https://www.gkgymlife.com'
-        );
-      }
-      return;
-    }
-
+    let targetUrl = 'https://www.gkgymlife.com/customer';
     try {
-      let session = (await supabase.auth.getSession()).data.session;
-      if (!session?.access_token || (session.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
-        const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
-        if (refreshData?.session) {
-          session = refreshData.session;
-        } else {
-          console.warn('[Memberships] Token refresh warning:', refreshErr?.message);
+      let session: any = null;
+      try {
+        const sessionRes = await supabase.auth.getSession();
+        session = sessionRes?.data?.session;
+        if (!session?.access_token || (session.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
+          const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
+          if (refreshData?.session) {
+            session = refreshData.session;
+          } else if (refreshErr) {
+            console.warn('[Memberships] Token refresh warning:', refreshErr?.message);
+          }
         }
+      } catch (sessErr) {
+        console.warn('[Memberships] Session read warning:', sessErr);
       }
 
-      if (!session?.access_token) {
+      if (!session?.access_token && !userId) {
         Alert.alert(
           'Login Required',
-          'Your session has expired. Please log in again to continue.',
+          'Please log in to continue.',
           [
             {
               text: 'Log In',
-              onPress: () => router.replace('/auth/otp-auth' as any),
+              onPress: () => router.replace('/auth/login' as any),
             },
           ]
         );
@@ -352,29 +344,35 @@ export default function MembershipsScreen() {
       const gymIdVal = customerProfileData?.customerData?.gymId || gymId;
       if (gymIdVal) params.append('gymId', gymIdVal);
 
-      const emailVal = session.user?.email || customerProfileData?.customerData?.email;
-      const phoneVal = session.user?.phone || customerProfileData?.customerData?.phone;
+      const emailVal = session?.user?.email || customerProfileData?.customerData?.email || userEmail;
+      const phoneVal = session?.user?.phone || customerProfileData?.customerData?.phone || userPhone;
       if (emailVal) params.append('email', emailVal);
       if (phoneVal) params.append('phone', phoneVal);
 
-      params.append('access_token', session.access_token);
-      if (session.refresh_token) {
-        params.append('refresh_token', session.refresh_token);
+      if (session?.access_token) {
+        params.append('access_token', session.access_token);
+        if (session.refresh_token) {
+          params.append('refresh_token', session.refresh_token);
+        }
       }
 
       const queryString = params.toString() ? `?${params.toString()}` : '';
-      const targetUrl = `${baseUrl}${queryString}`;
+      targetUrl = `${baseUrl}${queryString}`;
 
-      await WebBrowser.openBrowserAsync(targetUrl, {
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-        toolbarColor: '#0A0A0A',
-        controlsColor: '#CCFF00',
-      });
+      try {
+        await WebBrowser.openBrowserAsync(targetUrl, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+          toolbarColor: '#0A0A0A',
+          controlsColor: '#CCFF00',
+        });
+      } catch (browserErr) {
+        console.warn('[Memberships] WebBrowser error, falling back to Linking:', browserErr);
+        await Linking.openURL(targetUrl);
+      }
     } catch (err) {
       console.warn('[Memberships] Error opening web browser:', err);
       try {
-        const fallbackUrl = `https://www.gkgymlife.com/customer?action=${isIndividual ? 'subscribe' : 'renew'}`;
-        await Linking.openURL(fallbackUrl);
+        await Linking.openURL(targetUrl);
       } catch (linkErr) {
         Alert.alert('Error', 'Unable to open browser. Please visit https://www.gkgymlife.com/customer');
       }
@@ -414,57 +412,39 @@ export default function MembershipsScreen() {
     }
   };
 
-  const screenTitle = Platform.OS === 'ios'
-    ? 'Gym Membership'
-    : isPendingActivation
-      ? 'Activate Membership'
-      : hasPendingTierUpdate
-        ? 'Upgrade Membership'
-        : isIndividual
-          ? 'Subscription Plans'
-          : 'Gym Membership';
+  const screenTitle = isPendingActivation
+    ? 'Activate Membership'
+    : hasPendingTierUpdate
+      ? 'Upgrade Membership'
+      : isIndividual
+        ? 'Subscription Plans'
+        : 'Gym Membership';
 
-  const screenSubtitle = Platform.OS === 'ios'
-    ? 'Physical Gym Access & Companion Plan'
-    : isPendingActivation
-      ? 'Complete payment for your assigned membership plan'
-      : hasPendingTierUpdate
-        ? 'Complete payment for your pending plan upgrade'
-        : isIndividual
-          ? 'Fitness & Companion Membership'
-          : 'Physical Gym Access & Companion Plan';
+  const screenSubtitle = isPendingActivation
+    ? 'Complete payment for your assigned membership plan'
+    : hasPendingTierUpdate
+      ? 'Complete payment for your pending plan upgrade'
+      : isIndividual
+        ? 'Fitness & Companion Membership'
+        : 'Physical Gym Access & Companion Plan';
 
-  const infoTitle = Platform.OS === 'ios'
-    ? isPendingActivation
-      ? 'Membership Access'
-      : hasPendingTierUpdate
-        ? 'Facility Access Update'
-        : 'Physical Gym Access'
-    : isPendingActivation
-      ? 'Activate Assigned Plan'
-      : hasPendingTierUpdate
-        ? 'Upgrade Assigned Plan'
-        : isIndividual
-          ? 'Individual Subscription'
-          : 'Physical Gym Membership';
+  const infoTitle = isPendingActivation
+    ? 'Activate Assigned Plan'
+    : hasPendingTierUpdate
+      ? 'Upgrade Assigned Plan'
+      : isIndividual
+        ? 'Individual Subscription'
+        : 'Physical Gym Membership';
 
-  const infoDescription = Platform.OS === 'ios'
-    ? isPendingActivation
-      ? 'Your assigned membership is awaiting setup. View details online or complete registration at your gym reception counter.'
-      : hasPendingTierUpdate
-        ? 'Your gym owner has initiated an access tier update. Review details at your gym counter or online.'
-        : isCurrentActive
-          ? `Your current plan is active with ${remainingDays} day${remainingDays !== 1 ? 's' : ''} remaining. Facility tier updates are managed at your gym counter.`
-          : 'Membership plans cover entry and access to physical gym facilities, fitness equipment, and in-person trainer guidance. In-person memberships are assigned, upgraded, and renewed at your gym reception counter.'
-    : isPendingActivation
-      ? 'Your assigned plan is pending activation. Complete payment for your assigned plan above to get started.'
-      : hasPendingTierUpdate
-        ? 'Your membership upgrade is ready. Complete your payment below to activate your upgraded plan.'
-        : isCurrentActive
-          ? `Your current plan is active with ${remainingDays} day${remainingDays !== 1 ? 's' : ''} remaining. You can upgrade to a higher tier anytime with unused credit applied.`
-          : isIndividual
-            ? 'Subscription plans provide full access to personalized workouts, diet plans, daily health tracking, and premium features on the mobile app.'
-            : 'Membership plans cover entry and access to physical gym facilities, fitness equipment, and in-person trainer guidance. Choose a plan to pay and activate securely.';
+  const infoDescription = isPendingActivation
+    ? 'Your assigned plan is pending activation. Complete payment for your assigned plan above to get started.'
+    : hasPendingTierUpdate
+      ? 'Your membership upgrade is ready. Complete your payment below to activate your upgraded plan.'
+      : isCurrentActive
+        ? `Your current plan is active with ${remainingDays} day${remainingDays !== 1 ? 's' : ''} remaining. You can upgrade to a higher tier anytime with unused credit applied.`
+        : isIndividual
+          ? 'Subscription plans provide full access to personalized workouts, diet plans, daily health tracking, and premium features on the mobile app.'
+          : 'Membership plans cover entry and access to physical gym facilities, fitness equipment, and in-person trainer guidance. Choose a plan to pay and activate securely.';
 
   const availableSectionTitle =
     isPendingActivation || !currentPlan
@@ -575,9 +555,9 @@ export default function MembershipsScreen() {
               <View className="mt-4 pt-3.5 border-t border-[#27272A] bg-[#221B13] border border-[#5E4218] rounded-2xl p-4">
                 <View className="flex-row items-center justify-between mb-1">
                   <Text className="text-[#F59E0B] text-[10px] font-semibold tracking-widest uppercase">
-                    {Platform.OS === 'ios' ? 'FACILITY ACCESS UPDATE' : 'UPGRADE PENDING'}
+                    UPGRADE PENDING
                   </Text>
-                  {Platform.OS !== 'ios' && formattedPendingAmount && (
+                  {formattedPendingAmount && (
                     <Text className="text-[#CCFF00] font-extrabold text-sm">
                       ₹{formattedPendingAmount}
                     </Text>
@@ -585,9 +565,7 @@ export default function MembershipsScreen() {
                 </View>
                 <Text className="text-white text-sm font-semibold">{pendingPlanName}</Text>
                 <Text className="text-gray-400 text-[11px] mt-0.5">
-                  {Platform.OS === 'ios'
-                    ? 'Your gym owner has initiated an access tier update. Review details online or at your gym reception counter.'
-                    : 'Your gym owner initiated an upgrade. Complete payment below to activate your new tier!'}
+                  Your gym owner initiated an upgrade. Complete payment below to activate your new tier!
                 </Text>
                 <Pressable
                   className="w-full bg-[#CCFF00] py-3 px-4 rounded-xl mt-3 flex-row items-center justify-center active:opacity-85"
@@ -601,9 +579,7 @@ export default function MembershipsScreen() {
                   }
                 >
                   <Text className="text-black font-semibold text-xs uppercase tracking-wider mr-1">
-                    {Platform.OS === 'ios'
-                      ? 'VIEW FACILITY ACCESS'
-                      : `COMPLETE UPGRADE PAYMENT ${formattedPendingAmount ? `(₹${formattedPendingAmount})` : ''}`}
+                    {`COMPLETE UPGRADE PAYMENT ${formattedPendingAmount ? `(₹${formattedPendingAmount})` : ''}`}
                   </Text>
                   <CaretRight size={14} color="#000000" weight="bold" />
                 </Pressable>
@@ -614,9 +590,7 @@ export default function MembershipsScreen() {
             {isCurrentActive && !isExpired && !isPendingActivation ? (
               <View className="w-full bg-[#27272A] py-3.5 px-5 rounded-2xl flex-row items-center justify-center mt-4 opacity-60">
                 <Text className="text-[#8E8E93] text-xs font-semibold tracking-wider uppercase">
-                  {Platform.OS === 'ios'
-                    ? 'CURRENT PLAN ACTIVE'
-                    : `Plan Active ${remainingDays > 0 ? `(${remainingDays} Days Left)` : ''}`}
+                  {`Plan Active ${remainingDays > 0 ? `(${remainingDays} Days Left)` : ''}`}
                 </Text>
               </View>
             ) : (
@@ -625,13 +599,7 @@ export default function MembershipsScreen() {
                 onPress={() => handleRenewCurrentPlan()}
               >
                 <Text className="text-black text-xs font-semibold tracking-wider mr-1 uppercase">
-                  {isPendingActivation
-                    ? Platform.OS === 'ios'
-                      ? 'VIEW MEMBERSHIP DETAILS'
-                      : 'ACTIVATE MEMBERSHIP NOW'
-                    : Platform.OS === 'ios'
-                      ? 'MEMBERSHIP DETAILS'
-                      : 'RENEW PLAN'}
+                  {isPendingActivation ? 'ACTIVATE MEMBERSHIP NOW' : 'RENEW PLAN'}
                 </Text>
                 <CaretRight size={15} color="#000000" weight="bold" />
               </Pressable>
@@ -649,18 +617,10 @@ export default function MembershipsScreen() {
               <View className="mt-4 pt-3.5 border-t border-[#27272A] flex-row items-center justify-between">
                 <Text className="text-[#9CA3AF] text-xs">Membership Status</Text>
                 <Text className="text-[#F59E0B] text-xs font-semibold">
-                  {Platform.OS === 'ios'
-                    ? 'Pending Setup • Complete at gym or online'
-                    : 'Awaiting Activation • Pay to start access'}
+                  Awaiting Activation • Pay to start access
                 </Text>
               </View>
             ) : null}
-
-            {Platform.OS === 'ios' && (
-              <Text className="text-[#8E8E93] text-[11px] text-center mt-3">
-                Physical gym facility access is managed at your gym reception counter.
-              </Text>
-            )}
           </View>
         ) : (
           <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-8 border border-[#27272A] items-center">
@@ -786,8 +746,8 @@ export default function MembershipsScreen() {
                   )}
                 </View>
 
-                {/* Upgrade Credit Breakdown Box - shown on Android/Web, hidden on iOS to avoid Apple Guideline 3.1.1 checkout flags */}
-                {Platform.OS !== 'ios' && isUpgradeWithCredit && calc && (
+                {/* Upgrade Credit Breakdown Box */}
+                {isUpgradeWithCredit && calc && (
                   <View className="bg-[#141414] border border-[#27272A] rounded-2xl p-3.5 mb-4">
                     <View className="flex-row justify-between mb-1.5">
                       <Text className="text-xs text-[#8E8E93]">New Plan Price</Text>
@@ -832,13 +792,9 @@ export default function MembershipsScreen() {
                   ) : (
                     <>
                       <Text className="text-black text-xs font-semibold tracking-wider mr-1 uppercase">
-                        {Platform.OS === 'ios'
-                          ? isHigherTierUpgrade
-                            ? 'INQUIRE AT GYM DESK'
-                            : 'MEMBERSHIP DETAILS'
-                          : isHigherTierUpgrade
-                            ? `Upgrade Plan (₹${payableAmount})`
-                            : `Choose Plan (₹${payableAmount})`}
+                        {isHigherTierUpgrade
+                          ? `Upgrade Plan (₹${payableAmount})`
+                          : `Choose Plan (₹${payableAmount})`}
                       </Text>
                       <CaretRight size={15} color="#000000" weight="bold" />
                     </>

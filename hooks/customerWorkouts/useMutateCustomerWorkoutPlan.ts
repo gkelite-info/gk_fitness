@@ -8,22 +8,35 @@ export function useSaveWorkoutDayExercises() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ deletedExerciseIds, newExercises, currentPlanDayId }: { deletedExerciseIds: string[], newExercises: any[], currentPlanDayId: string }) => {
+    mutationFn: async ({
+      deletedExerciseIds = [],
+      exercises,
+      newExercises,
+      currentPlanDayId
+    }: {
+      deletedExerciseIds: string[];
+      exercises?: any[];
+      newExercises?: any[];
+      currentPlanDayId: string;
+    }) => {
       for (const id of deletedExerciseIds) {
         await deleteWorkoutPlanDayExercise(id);
       }
       
-      for (const ex of newExercises) {
+      const listToSave = exercises || newExercises || [];
+      for (let i = 0; i < listToSave.length; i++) {
+        const ex = listToSave[i];
         await saveWorkoutPlanDayExercise({
+          dayExerciseId: ex.dayExerciseId || undefined,
           planDayId: currentPlanDayId,
           workoutVideoId: ex.workoutVideoId,
           exerciseName: ex.exerciseName,
-          category: ex.category,
-          reps: ex.reps,
-          order: ex.order,
-          sets: ex.sets ?? 2,
-          image: ex.image,
-          videoUrl: ex.videoUrl,
+          category: ex.category || 'General',
+          reps: ex.reps?.toString().trim() || '10-12',
+          order: i,
+          sets: Number(ex.sets) > 0 ? Number(ex.sets) : 3,
+          image: ex.image || null,
+          videoUrl: ex.videoUrl || null,
         });
       }
     },
@@ -31,7 +44,8 @@ export function useSaveWorkoutDayExercises() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['workoutPlanDayExercises', variables.currentPlanDayId] }),
         queryClient.invalidateQueries({ queryKey: ['customerWeeklyPlan'] }),
-        queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] })
+        queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] }),
+        queryClient.invalidateQueries({ queryKey: ['workoutPlanDay'] })
       ]);
     },
   });

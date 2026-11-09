@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TextInput, Pressable, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { SelectableCard } from '@/components/onboarding/SelectableCard';
@@ -14,10 +14,9 @@ const GOALS = [
   { id: 'imporoveendurance', title: 'Improve Endurance', description: 'Boost stamina and performance', Icon: ChartBar },
 ];
 
-// Removed static TIMEFRAMES
-
 export default function Step2() {
   const { data, updateData } = useOnboarding();
+  const scrollViewRef = useRef<ScrollView>(null);
   const [timeValue, setTimeValue] = useState(data.goalTimeframe ? data.goalTimeframe.split(' ')[0] : '');
   const [timeUnit, setTimeUnit] = useState<'weeks' | 'months'>(data.goalTimeframe && data.goalTimeframe.includes('month') ? 'months' : 'weeks');
 
@@ -62,6 +61,7 @@ export default function Step2() {
       description="Choose the goal that matters most to you. We'll personalize your plan around it."
       onContinue={handleContinue}
       isContinueDisabled={!isFormValid}
+      scrollViewRef={scrollViewRef}
     >
       <Text className="text-white font-semibold mb-4">Select your primary goal <Text className="text-red-500">*</Text></Text>
 
@@ -97,6 +97,11 @@ export default function Step2() {
             value={data.targetWeight}
             onChangeText={(text) => updateData({ targetWeight: text })}
             keyboardType="numeric"
+            onFocus={() => {
+              setTimeout(() => {
+                scrollViewRef.current?.scrollTo({ y: 460, animated: true });
+              }, 120);
+            }}
           />
           <Text className="text-gray-500 font-sans">kg</Text>
         </View>
@@ -116,6 +121,11 @@ export default function Step2() {
               onChangeText={handleTimeValueChange}
               keyboardType="numeric"
               maxLength={3}
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }, 120);
+              }}
             />
           </View>
           
@@ -138,4 +148,3 @@ export default function Step2() {
     </OnboardingLayout>
   );
 }
-

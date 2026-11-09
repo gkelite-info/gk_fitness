@@ -33,7 +33,7 @@ export async function calculateNutritionTargets(
   let activeWorkoutDays = 0;
   try {
     const plans = await fetchCustomerWorkoutPlans(userId);
-    const activePlan = plans.find(p => p.isActive);
+    const activePlan = plans.find((p: any) => p.isActive);
     if (activePlan && activePlan.planId) {
       const days = await fetchWorkoutPlanDays(activePlan.planId);
       activeWorkoutDays = days.filter(d => d.workoutType && d.workoutType.toLowerCase() !== 'rest').length;

@@ -13,6 +13,8 @@ import { saveWorkoutPlanDay } from '@/helpers/customerWorkoutPlans/workoutPlansD
 import { saveWorkoutPlanDayExercise } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 import { useQueryClient } from '@tanstack/react-query';
 
+const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL || 'https://gkgymlife.com';
+
 const ALL_DAYS = [
   'Monday',
   'Tuesday',
@@ -23,34 +25,44 @@ const ALL_DAYS = [
   'Sunday'
 ];
 
-  export default function ReviewPlan() {
-    const { selectedDays, planDays, resetPlan, planMode, currentEditingWeek, setCurrentEditingWeek } = useWorkoutPlan();
-    const { userId } = useUser();
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const queryClient = useQueryClient();
+export default function ReviewPlan() {
+  const { selectedDays, planDays, resetPlan, planMode, currentEditingWeek, setCurrentEditingWeek } = useWorkoutPlan();
+  const { userId } = useUser();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
 
-    const handleEditDay = (day: string) => {
-      try {
-        if (selectedDays.includes(day)) {
-          router.push({
-            pathname: '/(customer)/workoutPlan/choose-muscle' as any,
-            params: { day }
-          });
-        } else {
-          router.push('/(customer)/workoutPlan' as any);
-        }
-      } catch (error) {
-        console.error('[ReviewPlan] handleEditDay Error:', error);
+  const handleEditDay = (day: string) => {
+    try {
+      if (selectedDays.includes(day)) {
+        router.push({
+          pathname: '/(customer)/workoutPlan/choose-muscle' as any,
+          params: { day }
+        });
+      } else {
+        router.push('/(customer)/workoutPlan' as any);
       }
-    };
+    } catch (error) {
+      console.error('[ReviewPlan] handleEditDay Error:', error);
+    }
+  };
 
-    const handleSavePlan = async () => {
-      if (!userId) {
-        toast.error('You must be logged in to save a workout plan.');
-        return;
-      }
+  const handleSavePlan = async () => {
+    if (!userId) {
+      toast.error('You must be logged in to save a workout plan.');
+      return;
+    }
 
-      setIsSubmitting(true);
+    setIsSubmitting(true);
+    try {
+      const templateWeek = (planDays[1] && Object.keys(planDays[1]).length > 0)
+        ? planDays[1]
+        : (planDays[currentEditingWeek] && Object.keys(planDays[currentEditingWeek]).length > 0)
+        ? planDays[currentEditingWeek]
+        : (planDays[2] || planDays[3] || planDays[4] || {});
+
+      let savedSuccessfully = false;
+
+      // 1. Try direct client-side Supabase insert first
       try {
         await deactivateCustomerWorkoutPlans(userId);
 
@@ -59,19 +71,31 @@ const ALL_DAYS = [
           isActive: true,
         });
 
-        if (!newPlan) throw new Error("Failed to create workout plan");
+        if (!newPlan) throw new Error('Failed to create workout plan');
 
         const planId = newPlan.planId;
-
         const weeksToSave = [1, 2, 3, 4];
         const daysToInsert: any[] = [];
         const exercisesToInsert: any[] = [];
         const now = new Date().toISOString();
 
+        // Preload valid workout IDs from workouts table to avoid foreign key errors
+        let validWorkoutIds = new Set<string>();
+        try {
+          const { data: wList } = await supabase.from('workouts').select('workoutId').eq('is_deleted', false);
+          if (wList) validWorkoutIds = new Set(wList.map((w: any) => w.workoutId));
+        } catch {}
+
+        // Preload valid workout video IDs to avoid foreign key errors
+        let validVideoIds = new Set<string>();
+        try {
+          const { data: vList } = await supabase.from('workout_videos').select('workoutVideoId').eq('is_deleted', false);
+          if (vList) validVideoIds = new Set(vList.map((v: any) => v.workoutVideoId));
+        } catch {}
+
         for (const week of weeksToSave) {
-          // If repeat mode, always pull from week 1 (or currentEditingWeek). If custom, pull from specific week.
-          const weekData = planMode === 'repeat' ? (planDays[currentEditingWeek] || {}) : (planDays[week] || {});
-          
+          const weekData = planMode === 'repeat' ? templateWeek : (planDays[week] || templateWeek);
+
           for (const day of ALL_DAYS) {
             const isWorkoutDay = selectedDays.includes(day);
             const dayPlan = weekData[day];
@@ -80,7 +104,7 @@ const ALL_DAYS = [
             const durationMinutes = isWorkoutDay ? (dayPlan?.durationMinutes || 45) : null;
 
             const rawWorkoutId = isWorkoutDay ? dayPlan?.workoutId : null;
-            const safeWorkoutId = (rawWorkoutId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawWorkoutId))
+            const safeWorkoutId = (rawWorkoutId && validWorkoutIds.has(rawWorkoutId))
               ? rawWorkoutId
               : null;
 
@@ -102,7 +126,7 @@ const ALL_DAYS = [
               for (let idx = 0; idx < dayPlan.exercises.length; idx++) {
                 const ex = dayPlan.exercises[idx];
                 const rawVideoId = ex.workoutVideoId;
-                const safeVideoId = (rawVideoId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawVideoId))
+                const safeVideoId = (rawVideoId && validVideoIds.has(rawVideoId))
                   ? rawVideoId
                   : null;
 
@@ -125,40 +149,66 @@ const ALL_DAYS = [
           }
         }
 
-        // 1. Batch insert all 28 days in 1 network call
+        // Batch insert days
         const { error: daysError } = await supabase
           .from('workout_plan_days')
           .insert(daysToInsert);
 
-        if (daysError) {
-          console.error('[ReviewPlan] Days insert error:', daysError);
-          throw daysError;
-        }
+        if (daysError) throw daysError;
 
-        // 2. Batch insert all exercises in 1 network call
+        // Batch insert exercises
         if (exercisesToInsert.length > 0) {
           const { error: exError } = await supabase
             .from('workout_plan_day_exercises')
             .insert(exercisesToInsert);
 
-          if (exError) {
-            console.error('[ReviewPlan] Exercises insert error:', exError);
-            throw exError;
-          }
+          if (exError) throw exError;
         }
 
+        savedSuccessfully = true;
+      } catch (directError: any) {
+        console.warn('[ReviewPlan] Direct Supabase save error (likely RLS or session expired), trying backend API fallback:', directError?.message || directError);
+
+        // 2. Fallback to secure server API route (bypasses RLS on backend with service role)
+        try {
+          const apiRes = await fetch(`${SITE_URL}/api/workout-plan/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId,
+              planMode,
+              selectedDays,
+              planDays,
+            }),
+          });
+
+          if (!apiRes.ok) {
+            const errData = await apiRes.json().catch(() => ({}));
+            throw new Error(errData.error || `Server responded with ${apiRes.status}`);
+          }
+
+          savedSuccessfully = true;
+        } catch (apiError) {
+          console.error('[ReviewPlan] Backend API fallback save failed:', apiError);
+          throw directError;
+        }
+      }
+
+      if (savedSuccessfully) {
         toast.success('Workout Plan Saved Successfully!');
 
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['customerDashboardData'] }),
           queryClient.invalidateQueries({ queryKey: ['customerWeeklyPlan'] }),
           queryClient.invalidateQueries({ queryKey: ['workoutPlanDay'] }),
+          queryClient.invalidateQueries({ queryKey: ['customerWorkoutPlans'] }),
         ]);
 
         router.replace({
           pathname: '/(customer)/workoutPlan/success' as any,
           params: { workoutsCount: String(selectedDays.length) }
         });
+      }
     } catch (error) {
       console.error('[ReviewPlan] Save Error:', error);
       toast.error('Failed to save workout plan. Please try again.');
@@ -171,43 +221,48 @@ const ALL_DAYS = [
   const recoveryCount = 7 - workoutsCount;
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] px-5 pt-12 pb-28 justify-between">
-      <View className="flex-row items-center mb-6">
+    <View className="flex-1 bg-black">
+      {/* Header */}
+      <View className="px-5 pt-14 pb-4 flex-row items-center border-b border-[#27272A] bg-black">
         <Pressable
-          onPress={() => router.push('/(customer)/workoutPlan/assign-days')}
-          className="w-10 h-10 rounded-full border border-[#242424] items-center justify-center bg-[#161616] mr-4 active:opacity-70"
+          onPress={() => router.back()}
+          className="w-10 h-10 items-center justify-center rounded-full bg-[#18181A] border border-[#27272A] mr-3 active:opacity-75"
         >
-          <ArrowLeft size={20} color="#fff" />
+          <ArrowLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
-        <Text className="text-xl font-semibold text-white">Review Plan</Text>
+        <View className="flex-1">
+          <Text className="text-white text-xl font-bold tracking-tight">Review Your Plan</Text>
+          <Text className="text-[#8E8E8E] text-xs mt-0.5">Customized 4-Week Schedule</Text>
+        </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-        <Text className="text-white text-2xl font-semibold mb-2">Review Your</Text>
-        <Text className="text-white text-2xl font-semibold mb-2">Monthly Plan</Text>
-        <Text className="text-[#8E8E8E] text-sm mb-6 leading-5">
-          Review your workouts and make any changes before saving your plan.
-        </Text>
-
-        {planMode === 'custom' ? (
-          <View className="flex-row gap-2 mb-6 border-b border-[#242424] pb-4">
-            {[1, 2, 3, 4].map(w => (
+      <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* Week Selector Tab Bar */}
+        <View className="flex-row bg-[#141414] p-1 rounded-2xl mb-5 border border-[#27272A]">
+          {[1, 2, 3, 4].map((wk) => {
+            const isActive = currentEditingWeek === wk;
+            return (
               <Pressable
-                key={w}
-                onPress={() => setCurrentEditingWeek(w)}
-                className={`flex-1 items-center justify-center py-2 rounded-xl ${currentEditingWeek === w ? 'bg-[#C4EF00]' : 'bg-[#161616] border border-[#242424]'}`}
+                key={wk}
+                onPress={() => setCurrentEditingWeek(wk)}
+                className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
+                  isActive ? 'bg-[#C4EF00]' : 'bg-transparent'
+                }`}
               >
-                <Text className={`font-semibold text-xs ${currentEditingWeek === w ? 'text-black' : 'text-[#8E8E8E]'}`}>Week {w}</Text>
+                <Text
+                  className={`text-xs font-bold ${
+                    isActive ? 'text-black' : 'text-[#8E8E8E]'
+                  }`}
+                >
+                  WEEK {wk}
+                </Text>
               </Pressable>
-            ))}
-          </View>
-        ) : (
-          <View className="bg-[#161616] border border-[#242424] rounded-xl p-3 mb-6 items-center flex-row justify-center">
-            <Text className="text-[#C4EF00] font-semibold text-xs ml-2">Week Template (Repeats Monthly)</Text>
-          </View>
-        )}
+            );
+          })}
+        </View>
 
-        <View className="gap-3 mb-6">
+        {/* Schedule List */}
+        <View className="gap-2.5 mb-6">
           {ALL_DAYS.map((day) => {
             const isWorkoutDay = selectedDays.includes(day);
             const weekData = planDays[currentEditingWeek] || {};

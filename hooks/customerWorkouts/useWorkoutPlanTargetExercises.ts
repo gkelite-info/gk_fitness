@@ -318,17 +318,17 @@ function getRpcMusclesForTarget(targetGroup: string): string[] {
   const target = targetGroup.toLowerCase().trim();
   if (target === 'chest') return ['CHEST'];
   if (target === 'back') return ['BACK'];
-  if (target.startsWith('shoulder')) return ['SHOULDERS', 'TRAPS'];
-  if (target === 'legs' || target === 'leg' || target === 'lower body') return ['QUADRICEPS', 'HAMSTRINGS', 'GLUTES', 'CALVES'];
-  if (target.startsWith('bicep')) return ['BICEPS'];
-  if (target.startsWith('tricep')) return ['TRICEPS'];
-  if (target === 'abs' || target === 'core') return ['ABDOMINALS', 'OBLIQUES'];
-  if (target === 'calves' || target === 'calf') return ['CALVES'];
-  if (target === 'forearms' || target === 'forearm') return ['FOREARMS'];
-  if (target === 'hips' || target === 'hip' || target === 'glutes') return ['HIPS', 'GLUTES'];
+  if (target.startsWith('shoulder')) return ['SHOULDERS', 'SHOULDER', 'TRAPS'];
+  if (target === 'legs' || target === 'leg' || target === 'lower body') return ['QUADRICEPS', 'HAMSTRINGS', 'GLUTES', 'CALVES', 'HIPS', 'LEGS'];
+  if (target.startsWith('bicep')) return ['BICEPS', 'ARMS'];
+  if (target.startsWith('tricep')) return ['TRICEPS', 'TRICEP', 'ARMS'];
+  if (target === 'abs' || target === 'core') return ['ABDOMINALS', 'OBLIQUES', 'ABS'];
+  if (target === 'calves' || target === 'calf') return ['CALVES', 'CALF', 'LEGS'];
+  if (target === 'forearms' || target === 'forearm') return ['FOREARMS', 'ARMS'];
+  if (target === 'hips' || target === 'hip' || target === 'glutes') return ['HIPS', 'GLUTES', 'LEGS'];
   if (target === 'cardio') return ['CARDIO'];
-  if (target === 'trapezius' || target === 'traps' || target === 'trap') return ['TRAPS', 'TRAPEZIUS'];
-  if (target === 'arms' || target === 'arm') return ['BICEPS', 'TRICEPS', 'FOREARMS'];
+  if (target === 'trapezius' || target === 'traps' || target === 'trap') return ['TRAPS', 'TRAPEZIUS', 'BACK'];
+  if (target === 'arms' || target === 'arm') return ['BICEPS', 'TRICEPS', 'FOREARMS', 'ARMS'];
   return [targetGroup.toUpperCase()];
 }
 
@@ -432,6 +432,79 @@ export const FALLBACK_TARGET_EXERCISES: Record<string, Array<{ name: string; set
   ],
 };
 
+// Comprehensive sets of verified female and male workout IDs
+const KNOWN_FEMALE_WORKOUT_IDS = new Set([
+  '24cc9244-1cdd-4219-a481-f1fbe952cebe', 'fbe1ea60-bd91-45de-b914-6e1d925a48ec', '659a3d98-9fd7-4fd4-8109-84272955dd0e',
+  '3ceb9c04-2541-4304-8a74-974a955cd7dc', 'c00d785e-07de-4dac-99be-73e1026ff0bb', 'c3e5a606-ee60-4169-9fae-6a4c9abfce80',
+  '04d1b9b0-114d-4ab5-a402-97596c7b870b', '5e612e83-95de-4b58-b61e-208321de9344', '0c7d2a9d-4983-4e16-9e81-49af8d0092ee',
+  '4118af16-310f-476f-af0f-3fa370090295', 'cd5cf6ef-7138-4962-8fd4-7f26360740e9', '6668148e-d1c8-4512-812c-8c18078d620a',
+  '72bf26fd-d939-4b57-a016-89545e959536', '4188b63b-3c2b-42d8-a8f3-f4a315f906de', '5002ca9f-79fd-4c84-967b-38c4e189bead',
+  '8ace356d-d3f1-492c-bfbd-596226617078', 'd2e12c77-e24a-4de2-8f0e-9a867b67d17e', '36f6b8e2-7ea8-4f06-8e90-d680cc6ca459',
+  '376bb182-29eb-462e-afa5-735c7290dc24', 'fcce6813-f150-4cf7-a513-564ed5980af5'
+]);
+
+const KNOWN_MALE_WORKOUT_IDS = new Set([
+  'ab312b33-c4de-4f0e-973b-04f90d171704', '3e4e5e91-4f2a-4f8a-9364-2b6eb2ed852d', 'fd825955-71c9-4051-afd5-2e1ac5cab0f2',
+  'c65725f4-0796-49c6-b3b3-0499352171c4', 'eb1b8c97-d092-4b8a-916b-0f71ed7df9e3', '51b8b98e-ad22-4842-b50b-894d89c82663',
+  'd889858d-6c4d-4c32-b14d-cbc3001bed49', '33b025a2-3cc7-452f-9965-e5e5030c23ca', '6b331de1-909a-4faf-98f6-6c9812af87d1',
+  '497f6524-6589-488f-915b-74b98b8e25c7', '1fbafb6b-b8e0-4ea3-b530-742841899b74', '08eb0fc4-7c0a-4b07-8f71-c4ae6c0b3877',
+  '86b2f9f8-fe4d-4dd2-a553-9df050c5c83b', '901f9918-4801-4ca9-9a1a-ebd60f52e7d4', '81c4f6f9-3114-4836-98a6-d774ed282183',
+  '05fa3e87-ff22-4b66-ba2a-ee1fb29042cc', 'e8f1397b-58fc-480e-a159-583337eb6870', 'e34c4133-0489-4cb2-b0f8-cbf81ea85fc0',
+  '890f6299-76af-4863-8338-734cd6fdf05d', 'd4c30013-0fb4-44c7-9dc8-1ac92b3e2f3f', 'db026b0b-3903-43e9-a791-1294471f0faf',
+  '97938dd3-aa25-4d00-9dab-b2fbcbdb45c3'
+]);
+
+export function isExerciseMatchingGender(
+  preferredRole: 'male' | 'female',
+  videoUrl?: string | null,
+  workoutId?: string | null,
+  role?: string | null,
+  exerciseName?: string | null
+): boolean {
+  const oppositeRole = preferredRole === 'female' ? 'male' : 'female';
+
+  // 1. Check explicit role
+  if (role) {
+    const cleanRole = role.toLowerCase().trim();
+    if (cleanRole === oppositeRole) return false;
+  }
+
+  // 2. Check workout ID sets
+  if (workoutId) {
+    if (preferredRole === 'male' && KNOWN_FEMALE_WORKOUT_IDS.has(workoutId)) return false;
+    if (preferredRole === 'female' && KNOWN_MALE_WORKOUT_IDS.has(workoutId)) return false;
+  }
+
+  // 3. Check video URL timestamp & explicit keywords
+  if (videoUrl && typeof videoUrl === 'string') {
+    const lowerUrl = videoUrl.toLowerCase();
+    if (preferredRole === 'male') {
+      if (/female|women|woman|\/female\/|_female|-female|female_|women_/i.test(lowerUrl)) return false;
+    } else {
+      if (/male|men|man|\/male\/|_male|-male|male_|men_/i.test(lowerUrl)) return false;
+    }
+
+    const filename = videoUrl.split('/').pop() || videoUrl;
+    const ts = parseInt(filename.split('_')[0], 10);
+    if (!isNaN(ts)) {
+      if (preferredRole === 'male' && ts >= 1789025000000) return false;
+      if (preferredRole === 'female' && ts < 1789025000000) return false;
+    }
+  }
+
+  // 4. Check exercise name keywords
+  if (exerciseName && typeof exerciseName === 'string') {
+    const lowerName = exerciseName.toLowerCase();
+    if (preferredRole === 'male') {
+      if (/\(female\)|\(women\)|\(woman\)|female\s|women\s/i.test(lowerName)) return false;
+    } else {
+      if (/\(male\)|\(men\)|\(man\)|male\s|men\s/i.test(lowerName)) return false;
+    }
+  }
+
+  return true;
+}
+
 export async function fetchTargetMuscleExercises(
   targetMuscle: string,
   preferredGender: string = 'male'
@@ -439,7 +512,7 @@ export async function fetchTargetMuscleExercises(
   const normTarget = (targetMuscle || 'all').toLowerCase().trim();
   const categoryLabel = normTarget.charAt(0).toUpperCase() + normTarget.slice(1);
   const rpcMuscles = getRpcMusclesForTarget(normTarget);
-  const preferredRole = (preferredGender || 'male').toLowerCase().trim().includes('female') ? 'female' : 'male';
+  const preferredRole: 'male' | 'female' = (preferredGender || 'male').toLowerCase().trim().includes('female') ? 'female' : 'male';
   const oppositeRole = preferredRole === 'female' ? 'male' : 'female';
 
   const seenNames = new Set<string>();
@@ -453,7 +526,7 @@ export async function fetchTargetMuscleExercises(
     return (workouts.role || '').toLowerCase().trim() || null;
   };
 
-  // 1. Fetch all workouts to strictly identify IDs that belong to the opposite gender
+  // 1. Fetch all workouts to identify IDs that belong to the opposite gender if accessible
   const oppositeWorkoutIds = new Set<string>();
   const preferredWorkoutIds: string[] = [];
 
@@ -507,44 +580,15 @@ export async function fetchTargetMuscleExercises(
     const norm = name.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (seenNames.has(norm)) return;
 
-    // 1. Strict rejection if this video belongs to opposite gender workoutId
+    // Strict gender filtering: reject any opposite gender workout ID or video
     if (workoutId && oppositeWorkoutIds.has(workoutId)) {
       return;
     }
-
-    // 2. Strict rejection if role explicitly matches opposite role
-    const cleanRole = (role || '').toLowerCase().trim();
-    if (cleanRole === oppositeRole) {
+    if (!isExerciseMatchingGender(preferredRole, videoUrl, workoutId, role, name)) {
       return;
     }
 
-    // 3. Strict videoUrl inspection
-    if (videoUrl && typeof videoUrl === 'string') {
-      const lowerUrl = videoUrl.toLowerCase();
-      if (preferredRole === 'male') {
-        if (/female|women|woman|\/female\/|_female|-female|female_|women_/i.test(lowerUrl)) {
-          return;
-        }
-      } else {
-        if (/male|men|man|\/male\/|_male|-male|male_|men_/i.test(lowerUrl)) {
-          return;
-        }
-      }
-    }
-
-    // 4. Strict exercise name inspection
-    const lowerName = name.toLowerCase();
-    if (preferredRole === 'male') {
-      if (/\(female\)|\(women\)|\(woman\)|female\s|women\s/i.test(lowerName)) {
-        return;
-      }
-    } else {
-      if (/\(male\)|\(men\)|\(man\)|male\s|men\s/i.test(lowerName)) {
-        return;
-      }
-    }
-
-    // 5. Strict muscle matching
+    // Strict muscle matching
     if (!matchesStrictMuscle(name, primaryMuscle, normTarget)) return;
 
     seenNames.add(norm);
@@ -559,8 +603,35 @@ export async function fetchTargetMuscleExercises(
     });
   };
 
+  // Strategy 0: Primary RPC query using get_custom_workout_videos (SECURITY DEFINER, immune to anon RLS)
+  try {
+    const { data: rpcVideos, error: rpcError } = await supabase.rpc('get_custom_workout_videos', {
+      p_muscles: rpcMuscles,
+      p_equipment: [],
+      p_limit: 65,
+      p_exclude: [],
+    });
+
+    if (!rpcError && Array.isArray(rpcVideos) && rpcVideos.length > 0) {
+      for (const item of rpcVideos) {
+        addItem(
+          item.workout_video_id || item.workoutVideoId,
+          item.exercise_name || item.exerciseName,
+          item.video_url || item.videoUrl,
+          item.muscle || item.category || categoryLabel,
+          item.default_sets || 3,
+          item.default_reps || '10-12',
+          item.workout_id || item.workoutId,
+          null
+        );
+      }
+    }
+  } catch (rpcErr) {
+    console.warn('[useWorkoutPlanTargetExercises] Strategy 0 RPC error:', rpcErr);
+  }
+
   // Strategy 1: Direct Supabase query matching preferredWorkoutIds
-  if (preferredWorkoutIds.length > 0) {
+  if (preferredWorkoutIds.length > 0 && cleanList.length < 10) {
     try {
       const { data: directData } = await supabase
         .from('workout_videos')
@@ -656,10 +727,11 @@ export async function fetchTargetMuscleExercises(
     const presets = FALLBACK_TARGET_EXERCISES[fallbackKey] || [];
     for (let i = 0; i < presets.length; i++) {
       const p = presets[i];
+      const donor = cleanList[i % Math.max(cleanList.length, 1)];
       addItem(
         `preset-${fallbackKey}-${i}`,
         p.name,
-        null,
+        donor?.videoUrl || null,
         categoryLabel,
         p.sets,
         p.reps,

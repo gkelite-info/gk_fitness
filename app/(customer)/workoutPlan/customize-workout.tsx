@@ -22,7 +22,15 @@ const IMAGE_MAP: { [key: string]: any } = {
   default: require('../../../assets/barbell.png'),
 };
 
-const ExerciseMediaItem = ({ videoUrl, muscleGroup, opacity = false }: { videoUrl?: string; muscleGroup?: string; opacity?: boolean }) => {
+const ExerciseMediaItem = ({
+  videoUrl,
+  muscleGroup,
+  opacity = false,
+}: {
+  videoUrl?: string;
+  muscleGroup?: string;
+  opacity?: boolean;
+}) => {
   const [hasError, setHasError] = useState(false);
 
   const normalizedGroup = (muscleGroup || '').toLowerCase();
@@ -64,6 +72,7 @@ const ExerciseMediaItem = ({ videoUrl, muscleGroup, opacity = false }: { videoUr
     );
   }
 
+  // Active live looping video thumbnail for all exercises
   return (
     <View className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] overflow-hidden bg-black ${opacity ? 'opacity-70' : ''}`}>
       <Video
@@ -88,7 +97,7 @@ const ExerciseMediaItem = ({ videoUrl, muscleGroup, opacity = false }: { videoUr
 };
 
 export default function CustomizeWorkout() {
-  const { day, muscleGroup } = useLocalSearchParams<{ day: string; muscleGroup: string }>();
+  const { day, muscleGroup, gender: paramGender } = useLocalSearchParams<{ day: string; muscleGroup: string; gender?: string }>();
   const { planDays, setPlanDays, currentEditingWeek } = useWorkoutPlan();
   const [loading, setLoading] = useState(false);
 
@@ -100,6 +109,7 @@ export default function CustomizeWorkout() {
   // Directly resolve gender based on user's profile
   const userGender = useMemo<'male' | 'female'>(() => {
     const raw = (
+      paramGender ||
       (userContext.role === 'customer' ? customerProfileData?.customerData?.gender : null) ||
       userContext.gender ||
       userRecord?.gender ||
@@ -108,7 +118,7 @@ export default function CustomizeWorkout() {
     ).toString().trim().toLowerCase();
 
     return raw.includes('female') ? 'female' : 'male';
-  }, [userContext.role, userContext.gender, userRecord?.gender, customerProfileData?.customerData?.gender]);
+  }, [paramGender, userContext.role, userContext.gender, userRecord?.gender, customerProfileData?.customerData?.gender]);
 
   const normalizedMuscleGroup = (muscleGroup || 'all').toLowerCase();
 
@@ -273,8 +283,17 @@ export default function CustomizeWorkout() {
     }
   };
 
-  const renderMedia = (videoUrl: string | undefined, opacity: boolean = false) => {
-    return <ExerciseMediaItem videoUrl={videoUrl} muscleGroup={muscleGroup} opacity={opacity} />;
+  const renderMedia = (
+    videoUrl: string | undefined,
+    opacity: boolean = false
+  ) => {
+    return (
+      <ExerciseMediaItem
+        videoUrl={videoUrl}
+        muscleGroup={muscleGroup}
+        opacity={opacity}
+      />
+    );
   };
 
   return (
@@ -337,11 +356,13 @@ export default function CustomizeWorkout() {
                 return (
                   <View key={ex.name} className={`border rounded-2xl overflow-hidden ${selected ? 'border-[#C4EF00]/30 bg-[#161616]' : 'border-[#27272A] bg-[#111111]'}`}>
                     <Pressable
-                      onPress={() => handleToggleRecommended(ex.name, ex.category, ex.reps, ex.videoUrl, ex.workoutVideoId)}
+                      onPress={() => {
+                        handleToggleRecommended(ex.name, ex.category, ex.reps, ex.videoUrl, ex.workoutVideoId);
+                      }}
                       className="flex-row items-center p-3.5 justify-between"
                     >
                       <View className="flex-row items-center flex-1">
-                        {renderMedia(ex.videoUrl)}
+                        {renderMedia(ex.videoUrl, false)}
                         <View className="flex-1 pr-2">
                           <Text className="text-white font-semibold text-base">{ex.name}</Text>
                           <View className="flex-row items-center gap-1.5 mt-1">

@@ -164,12 +164,10 @@ export default function EditWorkoutDay() {
   const handleSave = async () => {
     if (!currentPlanDayId) return;
 
-    const newExs = exercises.filter(ex => ex.isNew);
-
     try {
       await saveExercisesMutation.mutateAsync({
         deletedExerciseIds,
-        newExercises: newExs,
+        exercises: exercises,
         currentPlanDayId
       });
       setDeletedExerciseIds([]);

@@ -27,6 +27,7 @@ import {
 import { Country, State } from 'country-state-city';
 import { toast } from '@/lib/toast';
 import { useCreateGlobalTrainerLead } from '@/hooks/globalTrainerLeads/useCreateGlobalTrainerLead';
+import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
 import * as Crypto from 'expo-crypto';
 import { hashPassword } from '@/helpers/auth/passwordHelper';
 import { DatePickerModal } from '@/components/DatePickerModal';
@@ -614,13 +615,13 @@ export default function GlobalTrainerSignupScreen() {
               <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Password <Text className="text-red-500">*</Text></Text>
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <LockKey size={18} color="#6B6B6B" />
-                <TextInput
+                <SafePasswordInput
                   value={password}
                   onChangeText={setPassword}
                   onFocus={() => scrollToField('password')}
                   placeholder="Create a password"
                   placeholderTextColor="#6B6B6B"
-                  secureTextEntry={!showPassword}
+                  showPassword={showPassword}
                   className="flex-1 text-white text-[14px] p-0 font-medium"
                 />
                 <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
@@ -633,13 +634,13 @@ export default function GlobalTrainerSignupScreen() {
               <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Confirm Password <Text className="text-red-500">*</Text></Text>
               <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                 <LockKey size={18} color="#6B6B6B" />
-                <TextInput
+                <SafePasswordInput
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   onFocus={() => scrollToField('confirmPassword')}
                   placeholder="Confirm your password"
                   placeholderTextColor="#6B6B6B"
-                  secureTextEntry={!showConfirmPassword}
+                  showPassword={showConfirmPassword}
                   className="flex-1 text-white text-[14px] p-0 font-medium"
                 />
                 <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">

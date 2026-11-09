@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { getLocalDateString } from '@/lib/dateUtils';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface WaterStreakData {
   currentStreak: number;
@@ -44,8 +45,30 @@ export function useWaterStreak(userId: string | null) {
       const today = new Date();
       const todayStr = getLocalDateString(today);
       const todayData = summaryMap.get(todayStr);
-      const todayGoal = todayData?.goal || 2.5;
-      const todayIntake = todayData?.intake || 0;
+
+      // Check local storage for today's goal and logs if needed
+      let todayGoal = todayData?.goal || 3.0;
+      let todayIntake = todayData?.intake || 0;
+
+      try {
+        const cachedGoal = await AsyncStorage.getItem(`@gk_water_goal_${userId}`);
+        if (cachedGoal) {
+          const g = parseInt(cachedGoal, 10);
+          if (!isNaN(g) && g > 0) todayGoal = g / 1000;
+        }
+
+        const localLogsRaw = await AsyncStorage.getItem(`@fitness_water_logs_${userId}_${todayStr}`);
+        if (localLogsRaw) {
+          const localLogs = JSON.parse(localLogsRaw);
+          const localTotalL = (localLogs || []).reduce((acc: number, item: any) => acc + (item.amountML || 0), 0) / 1000;
+          if (localTotalL > todayIntake) {
+            todayIntake = localTotalL;
+          }
+        }
+      } catch {}
+
+      summaryMap.set(todayStr, { intake: todayIntake, goal: todayGoal });
+
       const isTodayCompleted = todayIntake >= todayGoal && todayIntake > 0;
 
       // 1. Calculate Current Streak

@@ -74,7 +74,7 @@ export default function ChooseMuscleGroup() {
 
       router.push({
         pathname: '/(customer)/workoutPlan/customize-workout',
-        params: { day, muscleGroup: type }
+        params: { day, muscleGroup: type, gender: userGender }
       });
     } catch (error) {
       console.error('[ChooseMuscleGroup] handleSelectMuscle Error:', error);

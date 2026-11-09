@@ -62,7 +62,7 @@ export default function CaloriesScreen() {
           <View className="flex-row items-center gap-3">
             <MiniActivityRings moveProgress={progress} exerciseProgress={0.4} standProgress={0.7} size={36} />
             <View>
-              <Text className="text-white font-semibold text-sm">Apple Activity Dashboard</Text>
+              <Text className="text-white font-semibold text-sm">Activity Dashboard</Text>
               <Text className="text-[#8E8E93] text-xs">View Move, Exercise & Stand Rings</Text>
             </View>
           </View>
@@ -116,10 +116,10 @@ export default function CaloriesScreen() {
                   {timeframe === 'D'
                     ? "TODAY'S ACTIVITY"
                     : timeframe === 'W'
-                    ? 'WEEKLY BREAKDOWN'
-                    : timeframe === 'M'
-                    ? 'MONTHLY BREAKDOWN'
-                    : 'YEARLY BREAKDOWN'}
+                      ? 'WEEKLY BREAKDOWN'
+                      : timeframe === 'M'
+                        ? 'MONTHLY BREAKDOWN'
+                        : 'YEARLY BREAKDOWN'}
                 </Text>
                 <Lightning size={16} color="#FF453A" />
               </View>

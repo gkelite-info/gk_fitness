@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, Modal } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, Pressable, Modal, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { User, CalendarBlank, Info, GenderMale, GenderFemale, GenderIntersex } from 'phosphor-react-native';
@@ -18,6 +18,7 @@ export default function Step1() {
   const { data: userRecord } = useUserById(userId);
   const [skipModalVisible, setSkipModalVisible] = useState(false);
   const [doNotAskAgain, setDoNotAskAgain] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const isIndividual = (role || '').trim().toLowerCase() === 'individual';
 
@@ -101,6 +102,7 @@ export default function Step1() {
         onContinue={handleContinue}
         isContinueDisabled={!isFormValid}
         headerRight={SkipButton}
+        scrollViewRef={scrollViewRef}
       >
         <View className="mb-6 opacity-60" pointerEvents="none">
           <Text className="text-white mb-2 font-medium">Full Name <Text className="text-red-500">*</Text></Text>
@@ -178,6 +180,11 @@ export default function Step1() {
                 value={data.height}
                 onChangeText={(text) => updateData({ height: text })}
                 keyboardType="numeric"
+                onFocus={() => {
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 120);
+                }}
               />
               <Text className="text-gray-500 font-sans">cm</Text>
             </View>
@@ -193,6 +200,11 @@ export default function Step1() {
                 value={data.weight}
                 onChangeText={(text) => updateData({ weight: text })}
                 keyboardType="numeric"
+                onFocus={() => {
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 120);
+                }}
               />
               <Text className="text-gray-500 font-sans">kg</Text>
             </View>
@@ -251,4 +263,3 @@ export default function Step1() {
     </>
   );
 }
-

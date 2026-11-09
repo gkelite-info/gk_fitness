@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@/context/UserContext';
 import { watchBridge } from '@/lib/watch/watchBridge';
@@ -114,6 +115,7 @@ export function useWatchSync() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    if (Platform.OS !== 'android') return;
     if (!userId) return;
 
     // Helper: Register / update connected smartwatch in watch_devices

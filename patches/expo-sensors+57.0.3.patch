@@ -1,0 +1,12 @@
+diff --git a/node_modules/expo-sensors/android/src/main/java/expo/modules/sensors/modules/PedometerModule.kt b/node_modules/expo-sensors/android/src/main/java/expo/modules/sensors/modules/PedometerModule.kt
+index c59ef6e..ddd80dc 100644
+--- a/node_modules/expo-sensors/android/src/main/java/expo/modules/sensors/modules/PedometerModule.kt
++++ b/node_modules/expo-sensors/android/src/main/java/expo/modules/sensors/modules/PedometerModule.kt
+@@ -27,6 +27,7 @@ class PedometerModule : Module() {
+       }
+       Bundle().apply {
+         putDouble("steps", (sensorEvent.values[0] - (stepsAtTheBeginning ?: (sensorEvent.values[0].toInt() - 1))).toDouble())
++        putDouble("rawSteps", sensorEvent.values[0].toDouble())
+       }
+     }
+   }

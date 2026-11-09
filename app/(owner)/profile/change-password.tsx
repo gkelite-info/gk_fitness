@@ -8,6 +8,7 @@ import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { triggerSuccessHaptic, triggerErrorHaptic, triggerLightHaptic } from '@/lib/haptics';
 import { toast } from '@/lib/toast';
+import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
 
 export default function OwnerChangePasswordScreen() {
   const router = useRouter();
@@ -179,14 +180,13 @@ export default function OwnerChangePasswordScreen() {
             <View className="mr-3">
               <Lock size={20} color="#C4EF00" weight="regular" />
             </View>
-            <TextInput
+            <SafePasswordInput
               value={currentPassword}
               onChangeText={setCurrentPassword}
               placeholder="Current Password"
               placeholderTextColor="#555555"
-              secureTextEntry={!showCurrent}
+              showPassword={showCurrent}
               editable={!isPending}
-              autoCapitalize="none"
               className="flex-1 text-white text-base py-3"
             />
             <Pressable onPress={() => setShowCurrent(!showCurrent)} className="p-2 opacity-50 active:opacity-100">
@@ -199,14 +199,13 @@ export default function OwnerChangePasswordScreen() {
             <View className="mr-3">
               <Lock size={20} color="#C4EF00" weight="regular" />
             </View>
-            <TextInput
+            <SafePasswordInput
               value={newPassword}
               onChangeText={setNewPassword}
               placeholder="New Password"
               placeholderTextColor="#555555"
-              secureTextEntry={!showNew}
+              showPassword={showNew}
               editable={!isPending}
-              autoCapitalize="none"
               className="flex-1 text-white text-base py-3"
             />
             <Pressable onPress={() => setShowNew(!showNew)} className="p-2 opacity-50 active:opacity-100">
@@ -219,14 +218,13 @@ export default function OwnerChangePasswordScreen() {
             <View className="mr-3">
               <Lock size={20} color="#C4EF00" weight="regular" />
             </View>
-            <TextInput
+            <SafePasswordInput
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Confirm New Password"
               placeholderTextColor="#555555"
-              secureTextEntry={!showConfirm}
+              showPassword={showConfirm}
               editable={!isPending}
-              autoCapitalize="none"
               className="flex-1 text-white text-base py-3"
             />
             <Pressable onPress={() => setShowConfirm(!showConfirm)} className="p-2 opacity-50 active:opacity-100">

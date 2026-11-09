@@ -6,6 +6,7 @@ import { CaretLeft, Lock, Eye, EyeSlash, CheckCircle, ArrowRight } from 'phospho
 import { supabase } from '@/lib/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from '@/lib/toast';
+import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -105,13 +106,12 @@ export default function ResetPasswordScreen() {
           </Text>
           <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 mb-2">
             <Lock size={20} color="#D4FF00" />
-            <TextInput
+            <SafePasswordInput
               value={password}
               onChangeText={setPassword}
               placeholder="Enter new password"
               placeholderTextColor="#6B6B6B"
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
+              showPassword={showPassword}
               className="flex-1 text-white text-[14px] p-0 font-medium"
             />
             <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
@@ -148,13 +148,12 @@ export default function ResetPasswordScreen() {
           </Text>
           <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 mb-6">
             <Lock size={20} color="#D4FF00" />
-            <TextInput
+            <SafePasswordInput
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Enter confirm password"
               placeholderTextColor="#6B6B6B"
-              secureTextEntry={!showConfirmPassword}
-              autoCapitalize="none"
+              showPassword={showConfirmPassword}
               className="flex-1 text-white text-[14px] p-0 font-medium"
             />
             <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">

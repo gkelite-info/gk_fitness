@@ -15,6 +15,14 @@ export interface Fast2SmsConfig {
   otpExpiryMinutes: number;
 }
 
+/**
+ * Master feature toggle for Fast2SMS mobile OTP verification.
+ * Currently disabled until Fast2SMS account activation and credentials are finalized.
+ * When false, registration flows bypass mobile OTP and hide the verify button.
+ * Set to `true` to re-enable mobile phone OTP verification across the application.
+ */
+export const ENABLE_FAST2SMS_OTP_VERIFICATION = false;
+
 const FAST2SMS_API_URL = 'https://www.fast2sms.com/dev/bulkV2';
 const FAST2SMS_WALLET_URL = 'https://www.fast2sms.com/dev/wallet';
 
@@ -293,6 +301,12 @@ export async function sendMobileRegistrationOtp({
   expiryMinutes = 5,
   route = 'otp',
 }: TriggerRegistrationOtpParams): Promise<TriggerOtpResponse> {
+  if (!ENABLE_FAST2SMS_OTP_VERIFICATION) {
+    return {
+      success: false,
+      message: 'Mobile OTP verification is currently disabled.',
+    };
+  }
   const phoneValidation = sanitizeIndianPhoneNumber(phone);
   if (!phoneValidation.isValid) {
     return { success: false, message: phoneValidation.error || 'Invalid phone number.' };

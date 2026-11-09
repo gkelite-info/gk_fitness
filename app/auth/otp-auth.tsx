@@ -40,6 +40,7 @@ import { fetchUserAndRoleProfile } from '@/helpers/user/userProfileHelper';
 import { fetchGymById } from '@/helpers/gym/gymHelper';
 import { fetchGlobalTrainerLeadByIdentifier } from '@/helpers/globalTrainerLeads/globalTrainerLeadsHelper';
 import { clearFallbackAuthUser } from '@/helpers/auth/fallbackAuthHelper';
+import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
 
 export default function OtpAuthScreen() {
   const { role, loading: userLoading, refreshUserContext, isGymSuspended, setFallbackUserSession } = useUser();
@@ -1340,7 +1341,7 @@ export default function OtpAuthScreen() {
               {loginMethod === 'email' && (
                 <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                   <Key size={18} color="#6B6B6B" />
-                  <TextInput autoCorrect={false} spellCheck={false}
+                  <SafePasswordInput
                     value={password}
                     onChangeText={(text) => {
                       setPassword(text);
@@ -1348,8 +1349,7 @@ export default function OtpAuthScreen() {
                     }}
                     placeholder="Password"
                     placeholderTextColor="#6B6B6B"
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
+                    showPassword={showPassword}
                     className="flex-1 text-white text-[14px] p-0 font-medium"
                   />
                   <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">

@@ -16,6 +16,7 @@ import { useGlobalTrainer } from '@/hooks/globalTrainers/useGlobalTrainer';
 import { useUserById } from '@/hooks/users/useUsers';
 import { useSaveUser } from '@/hooks/users/useSaveUser';
 import { useQueryClient } from '@tanstack/react-query';
+import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
 
 export default function CreateGlobalTrainerScreen() {
   const router = useRouter();
@@ -310,20 +311,32 @@ export default function CreateGlobalTrainerScreen() {
           </Text>
         )}
       </View>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#6B7280"
-        keyboardType={keyboardType}
-        autoCapitalize="none"
-        autoCorrect={false}
-        secureTextEntry={isSecure}
-        multiline={multiline}
-        textAlignVertical={multiline ? 'top' : 'center'}
-        className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${multiline ? 'min-h-[100px]' : ''} ${(!saving && isEditable) ? '' : 'opacity-60 bg-[#141416]'}`}
-        editable={!saving && isEditable}
-      />
+      {isSecure ? (
+        <SafePasswordInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#6B7280"
+          keyboardType={keyboardType}
+          showPassword={false}
+          className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${(!saving && isEditable) ? '' : 'opacity-60 bg-[#141416]'}`}
+          editable={!saving && isEditable}
+        />
+      ) : (
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#6B7280"
+          keyboardType={keyboardType}
+          autoCapitalize="none"
+          autoCorrect={false}
+          multiline={multiline}
+          textAlignVertical={multiline ? 'top' : 'center'}
+          className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${multiline ? 'min-h-[100px]' : ''} ${(!saving && isEditable) ? '' : 'opacity-60 bg-[#141416]'}`}
+          editable={!saving && isEditable}
+        />
+      )}
     </View>
   );
 

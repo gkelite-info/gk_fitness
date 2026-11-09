@@ -8,6 +8,7 @@ import { BiometricDevicePayload } from '@/helpers/biometrics/biometricDeviceAPI'
 import { toast } from '@/lib/toast';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import ConfirmModal from '@/components/ConfirmModal';
+import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
 
 export default function DevicesTab() {
   const { gymId, userId } = useUser();
@@ -176,13 +177,13 @@ export default function DevicesTab() {
           />
 
           <Text className="text-[#888888] text-xs font-medium mb-1">Password</Text>
-          <TextInput
+          <SafePasswordInput
             className="w-full bg-[#0A0A0A] border border-[#2A2A2A] rounded-xl px-4 py-3 text-white mb-6 font-sans"
             value={formState.devicePassword}
             onChangeText={(text) => setFormState(p => ({ ...p, devicePassword: text }))}
             placeholder="Enter Device Password"
             placeholderTextColor="#555"
-            secureTextEntry
+            showPassword={false}
           />
 
           <View className="flex-row items-center gap-3">

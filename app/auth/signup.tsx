@@ -41,7 +41,10 @@ import { useSaveIndividualCustomerPlan } from '@/hooks/individual/membership/ind
 import { useSaveIndividualCustomerPlanHistory } from '@/hooks/individual/membership/individualCustomerPlanHistories';
 import { useSaveUser } from '@/hooks/users';
 import { hashPassword } from '@/helpers/auth/passwordHelper';
-import { sendMobileRegistrationOtp, verifyMobileRegistrationOtp } from '@/helpers/sms/fast2smsHelper';
+import { sendMobileRegistrationOtp, verifyMobileRegistrationOtp, ENABLE_FAST2SMS_OTP_VERIFICATION } from '@/helpers/sms/fast2smsHelper';
+import { useUser } from '@/context/UserContext';
+import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
+import { clearSelectedGym } from '@/helpers/tenantHelper';
 import { ActionSheet } from '@/components/ActionSheet';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { toast } from '@/lib/toast';
@@ -222,6 +225,7 @@ export default function SignupScreen() {
     };
   }, [otpCountdown]);
 
+  const { refreshUserContext, setFallbackUserSession } = useUser();
   const { data: rawSubscriptions, isLoading: isSubscriptionsLoading } = useSubscriptions(undefined, 'customer');
   const { mutateAsync: createUser, isPending: isCreateUserPending } = useCreateUser();
   const { mutateAsync: saveUserMutation, isPending: isSaveUserPending } = useSaveUser();
@@ -515,7 +519,7 @@ export default function SignupScreen() {
       toast.error('Please select Date of Birth.');
       return false;
     }
-    if (!address.trim()) {
+    if (typeId !== 'individual' && !address.trim()) {
       toast.error('Please enter Address.');
       return false;
     }
@@ -531,11 +535,11 @@ export default function SignupScreen() {
       toast.error('Please enter City.');
       return false;
     }
-    if (!pinCode.trim()) {
+    if (typeId !== 'individual' && !pinCode.trim()) {
       toast.error('Please enter PIN Code.');
       return false;
     }
-    if (pinCode.trim().length !== 6) {
+    if (typeId !== 'individual' && pinCode.trim().length !== 6) {
       toast.error('PIN Code must be 6 digits.');
       return false;
     }
@@ -658,6 +662,7 @@ export default function SignupScreen() {
           role: 'individual',
           status: 'active',
           password: hashedPassword,
+          isPhoneVerified: ENABLE_FAST2SMS_OTP_VERIFICATION ? isPhoneVerified : false,
         });
 
         // 2. Save in individual_customer_plans table
@@ -689,12 +694,37 @@ export default function SignupScreen() {
           isActive: true,
         });
 
-        toast.success('Account created! Please check your email to verify.');
-        if (router.canGoBack()) {
-          router.back();
-        } else {
-          router.replace('/auth/otp-auth');
+        // Attempt Supabase sign in so session is established if possible
+        try {
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password: password,
+          });
+        } catch (signErr) {
+          console.log('[executeSignup] Supabase signInWithPassword notice:', signErr);
         }
+
+        // Clear any previous selected gym context
+        try {
+          await clearSelectedGym();
+        } catch {}
+
+        // Set session in UserContext for seamless auto-login
+        if (setFallbackUserSession) {
+          await setFallbackUserSession({
+            id: newUserId,
+            email: email.trim().toLowerCase(),
+            role: 'individual',
+            name: fullName.trim(),
+          });
+        }
+
+        if (refreshUserContext) {
+          await refreshUserContext();
+        }
+
+        toast.success(`Welcome to GK Gymlife, ${fullName.trim()}!`);
+        router.replace('/(customer)/home');
       } else {
         toast.error('Only individual signup is implemented currently.');
       }
@@ -725,8 +755,8 @@ export default function SignupScreen() {
   const handleSignup = async () => {
     if (!validateSignupForm()) return;
 
-    // Trigger mobile OTP verification if not yet verified
-    if (!isPhoneVerified) {
+    // Trigger mobile OTP verification if enabled and not yet verified
+    if (ENABLE_FAST2SMS_OTP_VERIFICATION && !isPhoneVerified) {
       pendingSignupRef.current = true;
       const sent = await handleSendOtp(phone);
       if (sent) {
@@ -861,7 +891,7 @@ export default function SignupScreen() {
               <View>
                 <View className="flex-row items-center justify-between mb-2">
                   <Text className="text-[#E0E0E0] text-[13px] font-medium">Owner Mobile Number <Text className="text-red-500">*</Text></Text>
-                  {isPhoneVerified && (
+                  {ENABLE_FAST2SMS_OTP_VERIFICATION && isPhoneVerified && (
                     <View className="flex-row items-center gap-1 bg-[#C3F400]/10 px-2 py-0.5 rounded-full border border-[#C3F400]/30">
                       <CheckCircle size={12} color="#C3F400" weight="fill" />
                       <Text className="text-[#C3F400] text-[11px] font-semibold">Verified</Text>
@@ -879,7 +909,7 @@ export default function SignupScreen() {
                     maxLength={10}
                     className="flex-1 text-white text-[14px] p-0 font-medium"
                   />
-                  {phone.length === 10 && !isPhoneVerified && (
+                  {ENABLE_FAST2SMS_OTP_VERIFICATION && phone.length === 10 && !isPhoneVerified && (
                     <Pressable
                       onPress={() => handleSendOtp(phone)}
                       disabled={isSendingOtp}
@@ -1232,7 +1262,7 @@ export default function SignupScreen() {
               <View onLayout={(e) => registerField('phone', e.nativeEvent.layout.y)}>
                 <View className="flex-row items-center justify-between mb-2">
                   <Text className="text-[#E0E0E0] text-[13px] font-medium">Mobile Number <Text className="text-red-500">*</Text></Text>
-                  {isPhoneVerified && (
+                  {ENABLE_FAST2SMS_OTP_VERIFICATION && isPhoneVerified && (
                     <View className="flex-row items-center gap-1 bg-[#C3F400]/10 px-2 py-0.5 rounded-full border border-[#C3F400]/30">
                       <CheckCircle size={12} color="#C3F400" weight="fill" />
                       <Text className="text-[#C3F400] text-[11px] font-semibold">Verified</Text>
@@ -1251,7 +1281,7 @@ export default function SignupScreen() {
                     maxLength={10}
                     className="flex-1 text-white text-[14px] p-0 font-medium"
                   />
-                  {phone.length === 10 && !isPhoneVerified && (
+                  {ENABLE_FAST2SMS_OTP_VERIFICATION && phone.length === 10 && !isPhoneVerified && (
                     <Pressable
                       onPress={() => handleSendOtp(phone)}
                       disabled={isSendingOtp}
@@ -1326,17 +1356,19 @@ export default function SignupScreen() {
 
               <View onLayout={(e) => registerField('address', e.nativeEvent.layout.y)}>
                 <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Address <Text className="text-red-500">*</Text></Text>
-                <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 mb-3">
-                  <MapPin size={18} color="#6B6B6B" />
-                  <TextInput autoCorrect={false} spellCheck={false}
-                    value={address}
-                    onChangeText={setAddress}
-                    onFocus={() => scrollToField('address')}
-                    placeholder="House / Flat / Building / Street"
-                    placeholderTextColor="#6B6B6B"
-                    className="flex-1 text-white text-[14px] p-0 font-medium"
-                  />
-                </View>
+                {typeId !== 'individual' && (
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 mb-3">
+                    <MapPin size={18} color="#6B6B6B" />
+                    <TextInput autoCorrect={false} spellCheck={false}
+                      value={address}
+                      onChangeText={setAddress}
+                      onFocus={() => scrollToField('address')}
+                      placeholder="House / Flat / Building / Street"
+                      placeholderTextColor="#6B6B6B"
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                )}
 
                 <View className="flex-row gap-3 mb-3">
                   <View className="flex-1">
@@ -1392,8 +1424,8 @@ export default function SignupScreen() {
                   </View>
                 </View>
 
-                <View className="flex-row gap-3">
-                  <View className="flex-1">
+                {typeId === 'individual' ? (
+                  <View className="mb-1">
                     <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">City <Text className="text-red-500">*</Text></Text>
                     <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                       <Buildings size={18} color="#6B6B6B" />
@@ -1407,23 +1439,40 @@ export default function SignupScreen() {
                       />
                     </View>
                   </View>
-                  <View className="flex-1">
-                    <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">PIN Code <Text className="text-red-500">*</Text></Text>
-                    <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                      <GlobeHemisphereWest size={18} color="#6B6B6B" />
-                      <TextInput autoCorrect={false} spellCheck={false}
-                        value={pinCode}
-                        onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
-                        onFocus={() => scrollToField('address')}
-                        placeholder="PIN Code"
-                        placeholderTextColor="#6B6B6B"
-                        keyboardType="number-pad"
-                        maxLength={6}
-                        className="flex-1 text-white text-[14px] p-0 font-medium"
-                      />
+                ) : (
+                  <View className="flex-row gap-3">
+                    <View className="flex-1">
+                      <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">City <Text className="text-red-500">*</Text></Text>
+                      <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                        <Buildings size={18} color="#6B6B6B" />
+                        <TextInput autoCorrect={false} spellCheck={false}
+                          value={city}
+                          onChangeText={setCity}
+                          onFocus={() => scrollToField('address')}
+                          placeholder="City"
+                          placeholderTextColor="#6B6B6B"
+                          className="flex-1 text-white text-[14px] p-0 font-medium"
+                        />
+                      </View>
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">PIN Code <Text className="text-red-500">*</Text></Text>
+                      <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                        <GlobeHemisphereWest size={18} color="#6B6B6B" />
+                        <TextInput autoCorrect={false} spellCheck={false}
+                          value={pinCode}
+                          onChangeText={(val) => setPinCode(val.replace(/[^0-9]/g, ''))}
+                          onFocus={() => scrollToField('address')}
+                          placeholder="PIN Code"
+                          placeholderTextColor="#6B6B6B"
+                          keyboardType="number-pad"
+                          maxLength={6}
+                          className="flex-1 text-white text-[14px] p-0 font-medium"
+                        />
+                      </View>
                     </View>
                   </View>
-                </View>
+                )}
               </View>
             </>
           )}
@@ -1432,14 +1481,13 @@ export default function SignupScreen() {
                   <Text className="text-white text-[13px] font-medium mb-2">Password <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <LockKey size={18} color="#6B6B6B" />
-                    <TextInput autoCorrect={false} spellCheck={false}
+                    <SafePasswordInput
                       value={password}
                       onChangeText={setPassword}
                       onFocus={() => scrollToField('password')}
                       placeholder="Enter your password"
                       placeholderTextColor="#6B6B6B"
-                      secureTextEntry={!showPassword}
-                      autoCapitalize="none"
+                      showPassword={showPassword}
                       className="flex-1 text-white text-[14px] p-0 font-medium"
                     />
                     <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
@@ -1452,14 +1500,13 @@ export default function SignupScreen() {
                   <Text className="text-white text-[13px] font-medium mb-2">Confirm Password <Text className="text-red-500">*</Text></Text>
                   <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
                     <LockKey size={18} color="#6B6B6B" />
-                    <TextInput autoCorrect={false} spellCheck={false}
+                    <SafePasswordInput
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
                       onFocus={() => scrollToField('confirmPassword')}
                       placeholder="Confirm your password"
                       placeholderTextColor="#6B6B6B"
-                      secureTextEntry={!showConfirmPassword}
-                      autoCapitalize="none"
+                      showPassword={showConfirmPassword}
                       className="flex-1 text-white text-[14px] p-0 font-medium"
                     />
                     <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
@@ -1523,7 +1570,7 @@ export default function SignupScreen() {
           />
 
           <Modal
-            visible={otpModalVisible}
+            visible={ENABLE_FAST2SMS_OTP_VERIFICATION && otpModalVisible}
             transparent
             animationType="fade"
             onRequestClose={() => setOtpModalVisible(false)}

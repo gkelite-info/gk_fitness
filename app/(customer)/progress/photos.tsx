@@ -8,6 +8,7 @@ import { CaretDown, CaretRight, Plus, CaretLeft, Camera } from 'phosphor-react-n
 import { useProgressData } from '@/hooks/fitness/useProgressData';
 import { useUser } from '@/context/UserContext';
 import { ActivityIndicator } from 'react-native';
+import { supabase } from '@/lib/supabase';
 
 export default function ProgressPhotosScreen() {
   const insets = useSafeAreaInsets();
@@ -25,6 +26,13 @@ export default function ProgressPhotosScreen() {
 
   const { progressPhotos } = progressData;
   const currentPhoto = progressPhotos?.[0];
+
+  const getPhotoUrl = (rawUrl?: string, uId?: string) => {
+    if (!rawUrl) return '';
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) return rawUrl;
+    const path = rawUrl.includes('/') ? rawUrl : `${uId || userId}/${rawUrl}`;
+    return supabase.storage.from('progress-photos').getPublicUrl(path).data.publicUrl;
+  };
 
   return (
     <View className="flex-1 bg-[#09090B]">
@@ -52,7 +60,7 @@ export default function ProgressPhotosScreen() {
           {currentPhoto ? (
             <View className="w-full h-64 bg-[#1C1C1E] rounded-3xl overflow-hidden mb-8 border border-[#2A2A2D]/50">
               <Image
-                source={{ uri: currentPhoto.imageUrl }}
+                source={{ uri: getPhotoUrl(currentPhoto.imageUrl, currentPhoto.userId) }}
                 style={{ width: '100%', height: '100%' }}
                 resizeMode="cover"
               />
@@ -104,7 +112,7 @@ export default function ProgressPhotosScreen() {
                     <View className="flex-row items-center gap-3">
                       <View className="w-[100px] h-[60px] rounded-xl overflow-hidden bg-[#1C1C1E] border border-[#2A2A2D]/50">
                         <Image
-                          source={{ uri: photo.imageUrl }}
+                          source={{ uri: getPhotoUrl(photo.imageUrl, photo.userId) }}
                           style={{ width: '100%', height: '100%' }}
                           resizeMode="cover"
                         />

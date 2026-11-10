@@ -7,6 +7,7 @@ export interface ActionOption {
   label: string;
   destructive?: boolean;
   keepOpen?: boolean;
+  icon?: React.ReactNode;
   onPress: () => void;
 }
 
@@ -62,12 +63,24 @@ export function ActionSheetModal({ visible, onClose, title, message, options }: 
                   }
                 }}
               >
-                <Text
-                  className={`text-[16px] font-semibold ${option.destructive ? 'text-[#EF4444]' : 'text-white'
-                    }`}
-                >
-                  {option.label}
-                </Text>
+                {option.icon ? (
+                  <View className="flex-row items-center gap-3">
+                    {option.icon}
+                    <Text
+                      className={`text-[16px] font-semibold ${option.destructive ? 'text-[#EF4444]' : 'text-white'
+                        }`}
+                    >
+                      {option.label}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text
+                    className={`text-[16px] font-semibold ${option.destructive ? 'text-[#EF4444]' : 'text-white'
+                      }`}
+                  >
+                    {option.label}
+                  </Text>
+                )}
               </Pressable>
             ))}
           </View>

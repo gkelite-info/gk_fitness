@@ -116,7 +116,17 @@ export const progressService = {
       .order('loggedAt', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []).map((photo) => {
+      let resolvedUrl = photo.imageUrl;
+      if (resolvedUrl && !resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://')) {
+        const path = resolvedUrl.includes('/') ? resolvedUrl : `${photo.userId || userId}/${resolvedUrl}`;
+        resolvedUrl = supabase.storage.from('progress-photos').getPublicUrl(path).data.publicUrl;
+      }
+      return {
+        ...photo,
+        imageUrl: resolvedUrl
+      };
+    });
   },
 
   async uploadPhotoFile(userId: string, base64Image: string, fileName: string): Promise<string> {
@@ -136,12 +146,14 @@ export const progressService = {
     return publicData.publicUrl;
   },
 
-  async logProgressPhoto(userId: string, publicUrl: string, loggedAt?: string): Promise<ProgressPhoto> {
+  async logProgressPhoto(userId: string, imageFileName: string, loggedAt?: string): Promise<ProgressPhoto> {
     const now = new Date().toISOString();
+    // Save only the filename (e.g. 'progress-1794204689538.jpg') to imageUrl column
+    const fileNameOnly = imageFileName.split('/').pop() || imageFileName;
     const newEntry = {
       workoutProgressPhotoId: Crypto.randomUUID(),
       userId,
-      imageUrl: publicUrl,
+      imageUrl: fileNameOnly,
       loggedAt: loggedAt || now,
       createdAt: now,
       updatedAt: now

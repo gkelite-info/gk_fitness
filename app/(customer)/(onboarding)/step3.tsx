@@ -6,6 +6,7 @@ import { SelectableCard } from '@/components/onboarding/SelectableCard';
 import { DaySelector } from '@/components/onboarding/DaySelector';
 import { Barbell, House, CalendarBlank, Sun, SunDim, CloudSun, CloudMoon } from 'phosphor-react-native';
 import { useOnboarding } from './_OnboardingContext';
+import { useOnboardingSkip } from '@/components/onboarding/OnboardingSkipModal';
 
 const LOCATIONS = [
   { id: 'gym', title: 'Gym', description: 'I prefer training\nat the gym', icon: Barbell },
@@ -22,6 +23,7 @@ const TIMES = [
 
 export default function Step3() {
   const { data, updateData } = useOnboarding();
+  const { SkipButton, SkipModal } = useOnboardingSkip();
 
   const handleContinue = () => {
     router.push('/(customer)/(onboarding)/step4');
@@ -36,13 +38,15 @@ export default function Step3() {
   );
 
   return (
-    <OnboardingLayout
-      currentStep={3}
-      title={Title}
-      description="Tell us about your workout preferences so we can build a plan that fits you."
-      onContinue={handleContinue}
-      isContinueDisabled={!isFormValid}
-    >
+    <>
+      <OnboardingLayout
+        currentStep={3}
+        title={Title}
+        description="Tell us about your workout preferences so we can build a plan that fits you."
+        onContinue={handleContinue}
+        isContinueDisabled={!isFormValid}
+        headerRight={SkipButton}
+      >
       <View className="mb-8">
         <Text className="text-white font-semibold mb-4">1. Workout Location <Text className="text-red-500">*</Text></Text>
         <View className="flex-row gap-2">
@@ -108,6 +112,8 @@ export default function Step3() {
         </View>
       </View>
     </OnboardingLayout>
+    {SkipModal}
+  </>
   );
 }
 

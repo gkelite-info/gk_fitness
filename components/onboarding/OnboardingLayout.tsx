@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, Platform, ActivityIndicator, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { View, Text, Pressable, ScrollView, Platform, ActivityIndicator, KeyboardAvoidingView, Keyboard, StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stepper } from './Stepper';
 import { ArrowRight } from 'phosphor-react-native';
@@ -15,6 +15,7 @@ interface OnboardingLayoutProps {
   isLoading?: boolean;
   headerRight?: React.ReactNode;
   scrollViewRef?: React.RefObject<ScrollView | null>;
+  contentContainerStyle?: StyleProp<ViewStyle>;
 }
 
 export function OnboardingLayout({
@@ -28,6 +29,7 @@ export function OnboardingLayout({
   isLoading = false,
   headerRight,
   scrollViewRef: externalScrollViewRef,
+  contentContainerStyle,
 }: OnboardingLayoutProps) {
   const insets = useSafeAreaInsets();
   const internalRef = useRef<ScrollView>(null);
@@ -61,9 +63,12 @@ export function OnboardingLayout({
         <ScrollView
           ref={scrollRef as any}
           className={`flex-1 px-5 ${Platform.OS === 'android' ? 'pt-14' : 'pt-4'}`}
-          contentContainerStyle={{
-            paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'android' ? keyboardHeight + 80 : 160) : 120,
-          }}
+          contentContainerStyle={[
+            {
+              paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'android' ? keyboardHeight + 80 : 160) : 120,
+            },
+            contentContainerStyle,
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}

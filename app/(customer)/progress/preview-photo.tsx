@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, ScrollView, Pressable, Image, ActivityIndicator, Alert, Modal, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
-import { X, CalendarBlank, CaretRight, CheckCircle, Camera } from 'phosphor-react-native';
+import { X, CalendarBlank, CaretRight, CheckCircle, Camera, Image as ImageIcon, Trash } from 'phosphor-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { ActionSheetModal } from '@/components/community/ActionSheetModal';
 import { useUploadProgressPhoto } from '@/hooks/fitness/useUpdateProgress';
 import { useUser } from '@/context/UserContext';
 
@@ -13,6 +15,9 @@ export default function PreviewProgressPhotoModal() {
   const router = useRouter();
   const { userId } = useUser();
   const [selectedDay, setSelectedDay] = useState(40);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [photoPickerVisible, setPhotoPickerVisible] = useState<boolean>(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [base64Image, setBase64Image] = useState<string | null>(null);
   const { mutateAsync: uploadPhoto, isPending } = useUploadProgressPhoto();
@@ -50,18 +55,6 @@ export default function PreviewProgressPhotoModal() {
     }
   };
 
-  const showImageOptions = () => {
-    Alert.alert(
-      'Upload Progress Photo',
-      'Choose an option',
-      [
-        { text: 'Take Photo', onPress: handleTakeImage },
-        { text: 'Choose from Gallery', onPress: handlePickImage },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
-  };
-
   const handleSave = async () => {
     if (!userId) return;
     if (!base64Image) {
@@ -75,6 +68,7 @@ export default function PreviewProgressPhotoModal() {
         userId: userId,
         base64Image,
         fileName,
+        loggedAt: selectedDate.toISOString(),
       });
       router.back();
     } catch (error) {
@@ -85,7 +79,6 @@ export default function PreviewProgressPhotoModal() {
 
   return (
     <View className="flex-1 bg-[#09090B] pt-8 px-5">
-
       <View className="flex-row justify-between items-center mb-6">
         <View className="w-8 h-8" />
         <Text className="text-white text-xl font-semibold tracking-tight">Preview Progress Photo</Text>
@@ -99,7 +92,7 @@ export default function PreviewProgressPhotoModal() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         <Pressable
-          onPress={showImageOptions}
+          onPress={() => setPhotoPickerVisible(true)}
           className="w-full h-64 bg-[#1C1C1E] rounded-3xl overflow-hidden mb-6 border border-[#2A2A2D]/50 items-center justify-center active:opacity-80"
         >
           {imageUri ? (
@@ -116,13 +109,16 @@ export default function PreviewProgressPhotoModal() {
           )}
         </Pressable>
 
-        <Pressable className="bg-[#1C1C1E] rounded-2xl p-5 flex-row items-center justify-between mb-8 border border-[#2A2A2D]/50 active:opacity-80">
+        <Pressable
+          onPress={() => setShowDatePicker(true)}
+          className="bg-[#1C1C1E] rounded-2xl p-5 flex-row items-center justify-between mb-8 border border-[#2A2A2D]/50 active:opacity-80"
+        >
           <View className="flex-row items-center gap-4">
             <CalendarBlank size={20} color="#8E8E93" weight="regular" />
             <Text className="text-white text-[15px]">Date</Text>
           </View>
           <View className="flex-row items-center gap-2">
-            <Text className="text-[#8E8E93] text-[15px]">{new Date().toLocaleDateString()}</Text>
+            <Text className="text-[#8E8E93] text-[15px]">{selectedDate.toLocaleDateString()}</Text>
             <CaretRight size={16} color="#6B6B6B" weight="bold" />
           </View>
         </Pressable>
@@ -177,6 +173,85 @@ export default function PreviewProgressPhotoModal() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {showDatePicker && Platform.OS !== 'ios' && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={(event: DateTimePickerEvent, date?: Date) => {
+            setShowDatePicker(false);
+            if (event.type === 'set' && date) {
+              const now = new Date();
+              const picked = new Date(date);
+              picked.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+              setSelectedDate(picked);
+            }
+          }}
+        />
+      )}
+
+      {showDatePicker && Platform.OS === 'ios' && (
+        <Modal visible={true} transparent={true} animationType="fade">
+          <View className="flex-1 justify-end bg-black/60">
+            <View className="bg-[#1C1C1E] p-4 rounded-t-3xl pb-8 border-t border-[#2A2A2D]">
+              <View className="flex-row justify-between items-center mb-4 px-2">
+                <Pressable onPress={() => setShowDatePicker(false)}>
+                  <Text className="text-gray-400 text-base">Cancel</Text>
+                </Pressable>
+                <Text className="text-white font-semibold text-base">Select Date</Text>
+                <Pressable onPress={() => setShowDatePicker(false)}>
+                  <Text className="text-[#D4FF00] font-bold text-base">Done</Text>
+                </Pressable>
+              </View>
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display="inline"
+                themeVariant="dark"
+                onChange={(_event: DateTimePickerEvent, date?: Date) => {
+                  if (date) {
+                    const now = new Date();
+                    const picked = new Date(date);
+                    picked.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+                    setSelectedDate(picked);
+                  }
+                }}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      <ActionSheetModal
+        visible={photoPickerVisible}
+        onClose={() => setPhotoPickerVisible(false)}
+        title="Upload Progress Photo"
+        message="Choose an option to add your progress photo"
+        options={[
+          {
+            label: 'Take Photo',
+            icon: <Camera size={20} color="#D4FF00" weight="bold" />,
+            onPress: handleTakeImage,
+          },
+          {
+            label: 'Choose from Gallery',
+            icon: <ImageIcon size={20} color="#D4FF00" weight="bold" />,
+            onPress: handlePickImage,
+          },
+          ...(imageUri ? [
+            {
+              label: 'Remove Photo',
+              destructive: true,
+              icon: <Trash size={20} color="#EF4444" weight="bold" />,
+              onPress: () => {
+                setImageUri(null);
+                setBase64Image(null);
+              },
+            }
+          ] : []),
+        ]}
+      />
     </View>
   );
 }

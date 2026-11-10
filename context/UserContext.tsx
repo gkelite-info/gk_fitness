@@ -174,7 +174,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
   const value = useMemo(
     () => ({
-      userId: profile?.userId || null,
+      userId: profile?.userId || authUserId || null,
       name: profile?.name || null,
       email: profile?.email || null,
       phone: profile?.phone || null,

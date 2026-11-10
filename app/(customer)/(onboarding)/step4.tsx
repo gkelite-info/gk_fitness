@@ -11,6 +11,7 @@ import { saveCustomerOnboarding } from '@/helpers/onboardingHelper';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { useOnboardingSkip } from '@/components/onboarding/OnboardingSkipModal';
 
 const DIETS = [
   { id: 'vegetarian', title: 'Vegetarian', icon: Leaf },
@@ -27,6 +28,7 @@ export default function Step4() {
   const { data, updateData } = useOnboarding();
   const { userId } = useUser();
   const queryClient = useQueryClient();
+  const { SkipButton, SkipModal } = useOnboardingSkip();
   const scrollViewRef = useRef<ScrollView>(null);
   const [customAllergy, setCustomAllergy] = useState('');
   const [saving, setSaving] = useState(false);
@@ -42,6 +44,7 @@ export default function Step4() {
       await saveCustomerOnboarding(userId, data, customAllergy);
       if (userId) {
         await AsyncStorage.setItem(`@onboarding_completed_${userId}`, 'true');
+        await AsyncStorage.removeItem(`@onboarding_skipped_${userId}`);
       }
       await AsyncStorage.removeItem('@onboarding_completed_global');
       queryClient.setQueryData(['customerOnboardingStatus', userId], { isOnboarded: true, isSkipped: false });
@@ -76,116 +79,120 @@ export default function Step4() {
   );
 
   return (
-    <OnboardingLayout
-      currentStep={4}
-      title={Title}
-      description="Tell us about your eating preferences so we can plan your meals better."
-      onContinue={handleContinue}
-      isContinueDisabled={!isFormValid}
-      isLoading={saving}
-      scrollViewRef={scrollViewRef}
-    >
-      <View className="mb-8">
-        <Text className="text-white font-semibold mb-2">1. Diet Type <Text className="text-red-500">*</Text></Text>
-        <Text className="text-gray-500 text-sm mb-4 font-sans">Choose the diet you follow</Text>
-        <View className="flex-row gap-2">
-          {DIETS.map((d) => (
-            <SelectableCard
-              key={d.id}
-              className="flex-1 items-center py-4 px-1"
-              selected={data.dietType === d.id}
-              onPress={() => updateData({ dietType: d.id })}
-              checkPosition="none"
-            >
-              <View className="mb-3">
-                <d.icon color={data.dietType === d.id ? '#d4ff00' : '#888'} size={28} />
-              </View>
-              <Text className={cn('font-semibold text-xs text-center', data.dietType === d.id ? 'text-neon' : 'text-gray-400')}>{d.title}</Text>
-            </SelectableCard>
-          ))}
-        </View>
-      </View>
-
-      <View className="mb-8">
-        <Text className="text-white font-semibold mb-2">2. Meals Per Day <Text className="text-red-500">*</Text></Text>
-        <Text className="text-gray-500 text-sm mb-4 font-sans">How many meals do you usually prefer?</Text>
-        <View className="flex-row gap-3">
-          {MEALS.map((m) => (
-            <SelectableCard
-              key={m}
-              className="flex-1 items-center justify-center py-6"
-              selected={data.mealsPerDay === m}
-              onPress={() => updateData({ mealsPerDay: m })}
-              checkPosition="top-right"
-            >
-              <Text className="text-white font-semibold text-2xl">{m}</Text>
-              <Text className="text-gray-400 text-xs mt-1 font-sans">Meals</Text>
-            </SelectableCard>
-          ))}
-        </View>
-      </View>
-
-      <View className="mb-8">
-        <Text className="text-white font-semibold mb-2">3. Food Allergies (Optional)</Text>
-        <Text className="text-gray-500 text-sm mb-4 font-sans">Select or add any ingredients you're allergic to</Text>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
-          {ALLERGIES.map(a => (
-            <Pressable
-              key={a}
-              onPress={() => toggleAllergy(a)}
-              className={cn(
-                'px-4 py-2 rounded-full border mr-2',
-                data.foodAllergies.includes(a) ? 'border-neon bg-neon/10' : 'border-gray-800 bg-[#111]'
-              )}
-            >
-              <Text className={data.foodAllergies.includes(a) ? 'text-neon font-sans' : 'text-gray-400 font-sans'}>{a}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        <View className="border border-gray-800 rounded-xl p-4 bg-[#111] flex-row items-center">
-          <Plus color="#888" size={20} />
-          <TextInput
-            className="flex-1 ml-3 text-white font-sans"
-            placeholder="Add custom allergy"
-            placeholderTextColor="#666"
-            value={customAllergy}
-            onChangeText={setCustomAllergy}
-            onFocus={() => {
-              setTimeout(() => {
-                scrollViewRef.current?.scrollTo({ y: 350, animated: true });
-              }, 120);
-            }}
-          />
-        </View>
-      </View>
-
-      <View className="mb-16">
-        <Text className="text-white font-semibold mb-2">4. Daily Water Goal <Text className="text-red-500">*</Text></Text>
-        <Text className="text-gray-500 text-sm mb-4 font-sans">Set your daily water intake goal</Text>
-
-        <View className="border border-gray-800 rounded-2xl p-6 bg-[#111] items-center">
-          <View className="flex-row items-center justify-between w-full px-4 mb-4">
-            <Pressable
-              onPress={() => updateData({ dailyWaterGoal: Math.max(1, data.dailyWaterGoal - 0.5) })}
-              className="w-12 h-12 rounded-full border border-gray-700 items-center justify-center bg-[#1a1a1a]"
-            >
-              <Minus color="#d4ff00" size={24} />
-            </Pressable>
-
-            <Text className="text-white text-3xl font-semibold">{data.dailyWaterGoal.toFixed(1)} L</Text>
-
-            <Pressable
-              onPress={() => updateData({ dailyWaterGoal: data.dailyWaterGoal + 0.5 })}
-              className="w-12 h-12 rounded-full border border-neon items-center justify-center bg-[#1a1a1a]"
-            >
-              <Plus color="#d4ff00" size={24} />
-            </Pressable>
+    <>
+      <OnboardingLayout
+        currentStep={4}
+        title={Title}
+        description="Tell us about your eating preferences so we can plan your meals better."
+        onContinue={handleContinue}
+        isContinueDisabled={!isFormValid}
+        isLoading={saving}
+        headerRight={SkipButton}
+        scrollViewRef={scrollViewRef}
+      >
+        <View className="mb-8">
+          <Text className="text-white font-semibold mb-2">1. Diet Type <Text className="text-red-500">*</Text></Text>
+          <Text className="text-gray-500 text-sm mb-4 font-sans">Choose the diet you follow</Text>
+          <View className="flex-row gap-2">
+            {DIETS.map((d) => (
+              <SelectableCard
+                key={d.id}
+                className="flex-1 items-center py-4 px-1"
+                selected={data.dietType === d.id}
+                onPress={() => updateData({ dietType: d.id })}
+                checkPosition="none"
+              >
+                <View className="mb-3">
+                  <d.icon color={data.dietType === d.id ? '#d4ff00' : '#888'} size={28} />
+                </View>
+                <Text className={cn('font-semibold text-xs text-center', data.dietType === d.id ? 'text-neon' : 'text-gray-400')}>{d.title}</Text>
+              </SelectableCard>
+            ))}
           </View>
-          <Text className="text-gray-500 text-xs font-sans">Recommended based on your profile.</Text>
         </View>
-      </View>
-    </OnboardingLayout>
+
+        <View className="mb-8">
+          <Text className="text-white font-semibold mb-2">2. Meals Per Day <Text className="text-red-500">*</Text></Text>
+          <Text className="text-gray-500 text-sm mb-4 font-sans">How many meals do you usually prefer?</Text>
+          <View className="flex-row gap-3">
+            {MEALS.map((m) => (
+              <SelectableCard
+                key={m}
+                className="flex-1 items-center justify-center py-6"
+                selected={data.mealsPerDay === m}
+                onPress={() => updateData({ mealsPerDay: m })}
+                checkPosition="top-right"
+              >
+                <Text className="text-white font-semibold text-2xl">{m}</Text>
+                <Text className="text-gray-400 text-xs mt-1 font-sans">Meals</Text>
+              </SelectableCard>
+            ))}
+          </View>
+        </View>
+
+        <View className="mb-8">
+          <Text className="text-white font-semibold mb-2">3. Food Allergies (Optional)</Text>
+          <Text className="text-gray-500 text-sm mb-4 font-sans">Select or add any ingredients you're allergic to</Text>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+            {ALLERGIES.map(a => (
+              <Pressable
+                key={a}
+                onPress={() => toggleAllergy(a)}
+                className={cn(
+                  'px-4 py-2 rounded-full border mr-2',
+                  data.foodAllergies.includes(a) ? 'border-neon bg-neon/10' : 'border-gray-800 bg-[#111]'
+                )}
+              >
+                <Text className={data.foodAllergies.includes(a) ? 'text-neon font-sans' : 'text-gray-400 font-sans'}>{a}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <View className="border border-gray-800 rounded-xl p-4 bg-[#111] flex-row items-center">
+            <Plus color="#888" size={20} />
+            <TextInput
+              className="flex-1 ml-3 text-white font-sans"
+              placeholder="Add custom allergy"
+              placeholderTextColor="#666"
+              value={customAllergy}
+              onChangeText={setCustomAllergy}
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollTo({ y: 350, animated: true });
+                }, 120);
+              }}
+            />
+          </View>
+        </View>
+
+        <View className="mb-16">
+          <Text className="text-white font-semibold mb-2">4. Daily Water Goal <Text className="text-red-500">*</Text></Text>
+          <Text className="text-gray-500 text-sm mb-4 font-sans">Set your daily water intake goal</Text>
+
+          <View className="border border-gray-800 rounded-2xl p-6 bg-[#111] items-center">
+            <View className="flex-row items-center justify-between w-full px-4 mb-4">
+              <Pressable
+                onPress={() => updateData({ dailyWaterGoal: Math.max(1, data.dailyWaterGoal - 0.5) })}
+                className="w-12 h-12 rounded-full border border-gray-700 items-center justify-center bg-[#1a1a1a]"
+              >
+                <Minus color="#d4ff00" size={24} />
+              </Pressable>
+
+              <Text className="text-white text-3xl font-semibold">{data.dailyWaterGoal.toFixed(1)} L</Text>
+
+              <Pressable
+                onPress={() => updateData({ dailyWaterGoal: data.dailyWaterGoal + 0.5 })}
+                className="w-12 h-12 rounded-full border border-neon items-center justify-center bg-[#1a1a1a]"
+              >
+                <Plus color="#d4ff00" size={24} />
+              </Pressable>
+            </View>
+            <Text className="text-gray-500 text-xs font-sans">Recommended based on your profile.</Text>
+          </View>
+        </View>
+      </OnboardingLayout>
+      {SkipModal}
+    </>
   );
 }

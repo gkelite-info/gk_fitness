@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getFallbackAuthUser } from '@/helpers/auth/fallbackAuthHelper';
 import { OnboardingData } from '@/app/(customer)/(onboarding)/_OnboardingContext';
 
 export type CustomerPrimaryGoal =
@@ -133,221 +134,212 @@ export async function saveCustomerOnboarding(
 
   const mappedGoal = normalizePrimaryGoal(data.primaryGoal);
 
-  // Check if user is an individual role
+  const fbUser = await getFallbackAuthUser();
+  const inputId = (userId || '').trim() || (fbUser?.id || '').trim();
+
+  // Ensure we lookup the authentic user from users table
   const { data: userRecord } = await supabase
     .from('users')
     .select('userId, name, email, phone, gender, dob, role')
-    .eq('userId', userId)
+    .or(`userId.eq.${inputId},email.eq.${inputId},phone.eq.${inputId}`)
     .maybeSingle();
 
-  const cleanRole = (userRecord?.role || '').trim().toLowerCase().replace(/[\s_-]/g, '');
-  const isIndividual = cleanRole === 'individual';
+  // The createdBy column in customer_onboarding MUST be the users.userId
+  const finalUserId = userRecord?.userId || inputId;
+
+  const rawRole = userRecord?.role || fbUser?.role || '';
+  const cleanRole = String(rawRole).trim().toLowerCase().replace(/[\s_-]/g, '');
 
   // Normalize gymId: null if not provided, empty string, or placeholder zeroes
   const rawGymId = data.gymId ? String(data.gymId).trim() : '';
   let finalGymId: string | null =
     rawGymId && rawGymId !== '00000000-0000-0000-0000-000000000000' ? rawGymId : null;
 
-  if (isIndividual) {
-    // Individual users have no gym affiliation
-    finalGymId = null;
+  // Individual users have role 'individual' or no gymId assigned
+  const isIndividual = cleanRole === 'individual' || (!data.gymId && !finalGymId);
 
-    if (data.gender) {
-      try {
-        await supabase.from('users').update({
-          gender: data.gender.toLowerCase() === 'other' ? 'others' : data.gender.toLowerCase(),
-          updatedAt: now,
-        }).eq('userId', userId);
-      } catch (err) {
-        console.warn('[onboardingHelper] Error updating users.gender:', err);
-      }
+  // If user is a gym customer, ensure gym_customers row exists or is updated
+  if (!isIndividual) {
+    const { data: existingCustomer } = await supabase
+      .from('gym_customers')
+      .select('customerId, gymId')
+      .or(`customerId.eq.${finalUserId},userId.eq.${finalUserId}`)
+      .eq('is_deleted', false)
+      .order('createdAt', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingCustomer?.gymId && !finalGymId && existingCustomer.gymId !== '00000000-0000-0000-0000-000000000000') {
+      finalGymId = existingCustomer.gymId;
     }
-  } else {
-    // Regular gym customers: ensure they exist in gym_customers
-    try {
-      const { data: existingCustomer } = await supabase
-        .from('gym_customers')
-        .select('customerId, gymId, phone')
-        .or(`customerId.eq.${userId},userId.eq.${userId}`)
-        .eq('is_deleted', false)
-        .order('createdAt', { ascending: false })
-        .limit(1)
-        .maybeSingle();
 
-      if (existingCustomer?.gymId && existingCustomer.gymId !== '00000000-0000-0000-0000-000000000000') {
-        finalGymId = existingCustomer.gymId;
-      } else if (!finalGymId || finalGymId === '00000000-0000-0000-0000-000000000000') {
-        const { data: fallbackGym } = await supabase.from('gyms').select('gymId').limit(1).single();
-        finalGymId = fallbackGym?.gymId || null;
-      }
-
-      if (!existingCustomer) {
-        if (userRecord) {
-          await supabase.from('gym_customers').insert({
-            customerId: userId,
-            userId: userId,
-            gymId: finalGymId,
-            fullName: data.fullName || userRecord.name || 'New Customer',
-            phone: userRecord.phone || '',
-            email: userRecord.email || '',
-            gender: data.gender || 'other',
-            dateOfBirth: safeIsoDate(data.dateOfBirth),
-            emergencyContactName: '',
-            relationship: '',
-            emergencyContactNumber: '',
-            createdBy: userId,
-            is_Active: true,
-            is_deleted: false,
-            createdAt: now,
-            updatedAt: now,
-          });
-        }
-      } else {
-        const updatePayload: any = {
-          fullName: data.fullName || userRecord?.name,
+    if (!existingCustomer) {
+      if (userRecord && finalGymId) {
+        await supabase.from('gym_customers').insert({
+          customerId: finalUserId,
+          userId: finalUserId,
+          gymId: finalGymId,
+          fullName: data.fullName || userRecord.name || 'New Customer',
+          phone: userRecord.phone || '',
+          email: userRecord.email || '',
           gender: data.gender || 'other',
           dateOfBirth: safeIsoDate(data.dateOfBirth),
+          emergencyContactName: '',
+          relationship: '',
+          emergencyContactNumber: '',
+          createdBy: finalUserId,
+          is_Active: true,
+          is_deleted: false,
+          createdAt: now,
           updatedAt: now,
-        };
-        if (finalGymId) {
-          updatePayload.gymId = finalGymId;
-        }
-        await supabase.from('gym_customers').update(updatePayload).eq('customerId', existingCustomer.customerId);
-
-        if (data.gender) {
-          await supabase.from('users').update({
-            gender: data.gender.toLowerCase() === 'other' ? 'others' : data.gender.toLowerCase(),
-            updatedAt: now,
-          }).eq('userId', userId);
-        }
+        });
       }
-    } catch (custErr) {
-      console.warn('[onboardingHelper] Notice syncing gym_customers:', custErr);
+    } else {
+      const updateCustomerPayload: any = {
+        fullName: data.fullName || userRecord?.name,
+        gender: data.gender || 'other',
+        dateOfBirth: safeIsoDate(data.dateOfBirth),
+        updatedAt: now,
+      };
+      if (finalGymId) {
+        updateCustomerPayload.gymId = finalGymId;
+      }
+      await supabase.from('gym_customers').update(updateCustomerPayload).eq('customerId', existingCustomer.customerId);
     }
+  }
+
+  // Update profile details on users table
+  if (data.gender || data.fullName || data.dateOfBirth) {
+    const userUpdates: any = { updatedAt: now };
+    if (data.gender) {
+      userUpdates.gender = data.gender.toLowerCase() === 'other' ? 'others' : data.gender.toLowerCase();
+    }
+    if (data.fullName) {
+      userUpdates.name = data.fullName.trim();
+    }
+    if (data.dateOfBirth) {
+      userUpdates.dob = data.dateOfBirth ? safeIsoDate(data.dateOfBirth).split('T')[0] : null;
+    }
+    await supabase.from('users').update(userUpdates).eq('userId', finalUserId);
   }
 
   const payload: any = {
-    height: data.height || '0',
-    weight: data.weight || '0',
+    height: String(data.height || '0'),
+    weight: String(data.weight || '0'),
     primaryGoal: mappedGoal,
-    targetWeight: data.targetWeight || '0',
-    workoutLocation: data.workoutLocation,
-    workoutDays: data.workoutDays,
-    preferWorkoutTime: data.preferWorkoutTime,
+    targetWeight: String(data.targetWeight || '0'),
+    workoutLocation: normalizeWorkoutLocation(data.workoutLocation),
+    workoutDays: Array.isArray(data.workoutDays) && data.workoutDays.length > 0 ? data.workoutDays : ['mon', 'tue', 'wed', 'thu', 'fri'],
+    preferWorkoutTime: normalizePreferWorkoutTime(data.preferWorkoutTime),
     dietType: normalizeDietType(data.dietType),
-    mealsPerDay: data.mealsPerDay || 3,
-    foodAllergies: allergies,
-    dailyWaterGoal: String(data.dailyWaterGoal),
-    preferredCuisine: data.preferredCuisine || 'No Preference',
-    calorieDistribution: data.calorieDistribution || 'Balanced',
-    goalTimeframe: data.goalTimeframe || '12 weeks',
-    hasMedicalConditions: data.hasMedicalConditions ?? false,
-    medicalConditions: data.medicalConditions || [],
-    medicalDisclaimerAccepted: data.medicalDisclaimerAccepted ?? false,
-    medicalDisclaimerAcceptedAt: data.medicalDisclaimerAcceptedAt || null,
-    createdBy: userId,
+    mealsPerDay: parseInt(String(data.mealsPerDay || 3), 10) || 3,
+    foodAllergies: Array.isArray(allergies) ? allergies : [],
+    dailyWaterGoal: String(data.dailyWaterGoal || '3.0'),
+    preferredCuisine: data.preferredCuisine || null,
+    calorieDistribution: data.calorieDistribution || null,
+    goalTimeframe: data.goalTimeframe || null,
+    hasMedicalConditions: Boolean(data.hasMedicalConditions ?? false),
+    medicalConditions: Array.isArray(data.medicalConditions) ? data.medicalConditions : [],
+    medicalDisclaimerAccepted: Boolean(data.medicalDisclaimerAccepted ?? false),
+    medicalDisclaimerAcceptedAt: data.medicalDisclaimerAcceptedAt ? new Date(data.medicalDisclaimerAcceptedAt).toISOString() : null,
+    createdBy: finalUserId,
+    gymId: isIndividual || !finalGymId ? null : finalGymId,
     updatedAt: now,
   };
 
-  // For individual customers: gymId is nullable so we DO NOT send gymId to DB
-  // For gym customers: only send gymId if a valid gymId is present
-  if (!isIndividual && finalGymId) {
-    payload.gymId = finalGymId;
-  }
-
-  // 1. Immediately cache locally in AsyncStorage so user preferences are NEVER lost
+  // Cache water goal for immediate consumption in water tracker & fitness widgets (colleague feature)
   try {
-    await AsyncStorage.setItem(
-      `@customer_onboarding_${userId}`,
-      JSON.stringify({
-        ...payload,
-        createdAt: now,
-      })
-    );
-
-    // Cache water goal for immediate consumption in water tracker & fitness widgets
     const rawWaterGoal = data.dailyWaterGoal ? parseFloat(String(data.dailyWaterGoal)) : 3.0;
     const waterGoalLiters = !isNaN(rawWaterGoal) && rawWaterGoal > 0 ? (rawWaterGoal <= 20 ? rawWaterGoal : rawWaterGoal / 1000) : 3.0;
     const waterGoalML = Math.round(waterGoalLiters * 1000);
-    await AsyncStorage.setItem(`@gk_water_goal_${userId}`, String(waterGoalML));
-    await AsyncStorage.setItem(`@fitness_water_goal_${userId}`, String(waterGoalML));
+    await AsyncStorage.setItem(`@customer_onboarding_${finalUserId}`, JSON.stringify({ ...payload, createdAt: now }));
+    await AsyncStorage.setItem(`@user_water_goal_${finalUserId}`, String(waterGoalLiters));
+    await AsyncStorage.setItem(`@gk_water_goal_${finalUserId}`, String(waterGoalML));
+    await AsyncStorage.setItem(`@fitness_water_goal_${finalUserId}`, String(waterGoalML));
+    if (userId && userId !== finalUserId) {
+      await AsyncStorage.setItem(`@customer_onboarding_${userId}`, JSON.stringify({ ...payload, createdAt: now }));
+      await AsyncStorage.setItem(`@user_water_goal_${userId}`, String(waterGoalLiters));
+      await AsyncStorage.setItem(`@gk_water_goal_${userId}`, String(waterGoalML));
+      await AsyncStorage.setItem(`@fitness_water_goal_${userId}`, String(waterGoalML));
+    }
   } catch (storageErr) {
-    console.warn('[onboardingHelper] Error caching onboarding in AsyncStorage:', storageErr);
+    console.warn('[onboardingHelper] Error caching onboarding water goal:', storageErr);
   }
 
-  // 2. Check if user already has an onboarding record in Supabase
-  let existing: { onboardingId: string } | null = null;
-  try {
-    const { data: existingData } = await supabase
-      .from('customer_onboarding')
-      .select('onboardingId')
-      .eq('createdBy', userId)
-      .limit(1)
-      .maybeSingle();
-    existing = existingData;
-  } catch (exErr) {
-    console.warn('[onboardingHelper] Error checking existing onboarding record:', exErr);
-  }
+  // Check if user already has an onboarding record
+  const { data: existing } = await supabase
+    .from('customer_onboarding')
+    .select('onboardingId')
+    .eq('createdBy', finalUserId)
+    .limit(1)
+    .maybeSingle();
 
   let workingPayload: any = { ...payload };
-  const potentialMissingCols = [
-    'hasMedicalConditions',
-    'medicalConditions',
-    'medicalDisclaimerAccepted',
-    'medicalDisclaimerAcceptedAt',
-    'calorieDistribution',
-    'goalTimeframe',
-  ];
 
   let error: any = null;
-  let attempt = 0;
-  const maxAttempts = potentialMissingCols.length + 1;
 
-  while (attempt < maxAttempts) {
-    attempt++;
-    try {
-      if (existing?.onboardingId) {
-        const res = await supabase
-          .from('customer_onboarding')
-          .update(workingPayload)
-          .eq('onboardingId', existing.onboardingId);
-        error = res.error;
-      } else {
-        const insertPayload = {
-          ...workingPayload,
-          onboardingId: Crypto.randomUUID(),
-          createdAt: now,
-        };
-        const res = await supabase
-          .from('customer_onboarding')
-          .insert([insertPayload]);
-        error = res.error;
-      }
-    } catch (callErr: any) {
-      error = callErr;
+  if (existing?.onboardingId) {
+    const res = await supabase
+      .from('customer_onboarding')
+      .update(workingPayload)
+      .eq('onboardingId', existing.onboardingId);
+    error = res.error;
+  } else {
+    const insertPayload = {
+      ...workingPayload,
+      onboardingId: Crypto.randomUUID(),
+      createdAt: now,
+      deletedAt: null,
+    };
+    const res = await supabase
+      .from('customer_onboarding')
+      .insert([insertPayload]);
+    error = res.error;
+
+    // If an onboarding record already exists (unq_onboarding_createdBy constraint):
+    if (error?.code === '23505' || error?.message?.includes('unq_onboarding_createdBy')) {
+      console.warn('[onboardingHelper] Record already exists for createdBy, performing update instead.');
+      const updateRes = await supabase
+        .from('customer_onboarding')
+        .update(workingPayload)
+        .eq('createdBy', finalUserId);
+      error = updateRes.error;
     }
+  }
 
-    if (!error) break;
-
-    const colToStrip = potentialMissingCols.find((col) => error?.message?.includes(col));
-    if (colToStrip && colToStrip in workingPayload) {
-      console.warn(`[onboardingHelper] Retrying save without ${colToStrip} due to schema mismatch.`);
-      delete workingPayload[colToStrip];
-    } else {
-      break;
+  // Cache locally immediately so in-memory and storage have the data
+  setKnownCustomerOnboarding(finalUserId, workingPayload);
+  if (userId && userId !== finalUserId) {
+    setKnownCustomerOnboarding(userId, workingPayload);
+  }
+  try {
+    await AsyncStorage.setItem(`@cached_customer_onboarding_${finalUserId}`, JSON.stringify(workingPayload));
+    if (userId && userId !== finalUserId) {
+      await AsyncStorage.setItem(`@cached_customer_onboarding_${userId}`, JSON.stringify(workingPayload));
     }
+  } catch (storageErr) {
+    console.warn('[onboardingHelper] Error caching onboarding to AsyncStorage:', storageErr);
   }
 
   if (error) {
-    console.warn('[onboardingHelper] Notice when saving onboarding data to database:', error);
-    // If Supabase RLS restricted table insert (e.g. unverified email / fallback session)
-    // or network is offline, the preferences are safely preserved locally in AsyncStorage!
-    if (error.code === '42501' || error.message?.includes('security policy')) {
-      console.warn('[onboardingHelper] RLS restricted table insert for unconfirmed session. User preferences saved in local storage.');
+    console.error('[onboardingHelper] Error saving onboarding data:', error);
+    // If it's an RLS violation (42501) OR foreign key constraint violation (23503):
+    // Warn with diagnostic message but do not crash the customer's onboarding flow on the frontend,
+    // since local state and AsyncStorage are preserved.
+    if (
+      error.code === '42501' ||
+      error.code === '23503' ||
+      error.message?.includes('row-level security') ||
+      error.message?.includes('violates row-level security policy') ||
+      error.message?.includes('violates foreign key constraint') ||
+      error.message?.includes('customer_onboarding_createdBy_fkey1')
+    ) {
+      console.warn(
+        `[onboardingHelper] Database notice (${error.code}). Row saved to local cache & AsyncStorage successfully. User onboarding continues.`
+      );
       return true;
     }
-    // Return true since local cache succeeded, allowing user to continue onboarding
-    return true;
+    throw new Error(`Failed to save onboarding data: ${error.message}`);
   }
 
   return true;
@@ -469,6 +461,19 @@ export async function fetchCustomerOnboarding(userId: string): Promise<CustomerO
   // 1b. Fast check: known onboarding records (e.g. Somij when RLS blocks trainer read)
   if (KNOWN_ONBOARDING_DATA[cleanId]) {
     return KNOWN_ONBOARDING_DATA[cleanId];
+  }
+
+  // 1c. Fast check: AsyncStorage cached onboarding record
+  try {
+    const cachedStr = await AsyncStorage.getItem(`@cached_customer_onboarding_${cleanId}`);
+    if (cachedStr) {
+      const parsed = JSON.parse(cachedStr);
+      if (parsed && (parsed.onboardingId || parsed.createdBy)) {
+        return parsed as CustomerOnboarding;
+      }
+    }
+  } catch (storageErr) {
+    // Non-fatal
   }
 
   // 2. If not found directly, gather candidate IDs

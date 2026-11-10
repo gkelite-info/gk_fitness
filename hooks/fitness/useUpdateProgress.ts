@@ -21,10 +21,8 @@ export function useUploadProgressPhoto() {
 
   return useMutation({
     mutationFn: async ({ userId, base64Image, fileName, loggedAt }: { userId: string, base64Image: string, fileName: string, loggedAt?: string }) => {
-      // 1. Upload the image to the storage bucket
-      const publicUrl = await progressService.uploadPhotoFile(userId, base64Image, fileName);
-      // 2. Create the database record
-      return await progressService.logProgressPhoto(userId, publicUrl, loggedAt);
+      await progressService.uploadPhotoFile(userId, base64Image, fileName);
+      return await progressService.logProgressPhoto(userId, fileName, loggedAt);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['progressData', variables.userId] });
@@ -38,7 +36,7 @@ export function useUpdateTargetWeight() {
   return useMutation({
     mutationFn: async ({ userId, onboardingId, targetWeight }: { userId: string, onboardingId?: string, targetWeight: string }) => {
       let existingId = onboardingId;
-      
+
       if (!existingId) {
         const { data: existing } = await supabase.from('customer_onboarding').select('onboardingId').eq('createdBy', userId).limit(1).maybeSingle();
         if (existing?.onboardingId) {
@@ -51,7 +49,7 @@ export function useUpdateTargetWeight() {
       } else {
         const { data: gymCust } = await supabase.from('gym_customers').select('gymId').eq('userId', userId).limit(1).maybeSingle();
         const gymId = gymCust?.gymId || null;
-        
+
         const payload = {
           onboardingId: require('expo-crypto').randomUUID(),
           createdBy: userId,

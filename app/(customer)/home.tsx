@@ -639,7 +639,7 @@ export default function CustomerHome() {
                 onPress={() => router.push('/(customer)/memberships' as any)}
                 className="w-full bg-[#D7FF00] py-2.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-85"
               >
-                <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5">
+                <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5 text-center" numberOfLines={1}>
                   ACTIVATE MEMBERSHIP
                 </Text>
                 <ArrowRight size={14} color="#000000" weight="bold" />
@@ -679,7 +679,7 @@ export default function CustomerHome() {
                     onPress={() => router.push('/(customer)/memberships' as any)}
                     className="w-full bg-[#D7FF00] py-1.5 px-3 rounded-lg flex-row items-center justify-center active:opacity-85"
                   >
-                    <Text className="text-black text-[10px] font-semibold uppercase tracking-wider mr-1">
+                    <Text className="text-black text-[10px] font-semibold uppercase tracking-wider mr-1 text-center" numberOfLines={1}>
                       ACTIVATE
                     </Text>
                     <ArrowRight size={12} color="#000000" weight="bold" />
@@ -703,16 +703,16 @@ export default function CustomerHome() {
               <View className="flex-col items-center justify-center gap-2 pl-1">
                 <Pressable
                   onPress={openCamera}
-                  className="flex-row items-center gap-1.5 bg-[#1C1C1E] border border-[#2A2A2A] px-2.5 py-1.5 rounded-xl active:opacity-80"
+                  className="flex-row items-center justify-center gap-1.5 bg-[#1C1C1E] border border-[#2A2A2A] px-2.5 py-1.5 rounded-xl active:opacity-80"
                 >
                   <QrCodeIcon size={18} color="#D7FF00" weight="bold" />
-                  <Text className="text-white text-[11px] font-semibold">Check-in</Text>
+                  <Text className="text-white text-[11px] font-semibold text-center" numberOfLines={1}>Check-in</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => router.push('/(customer)/attendance' as any)}
-                  className="px-2 py-0.5 active:opacity-70"
+                  className="px-2 py-0.5 items-center justify-center active:opacity-70"
                 >
-                  <Text className="text-[#CCFF00] text-xs underline font-medium">View</Text>
+                  <Text className="text-[#CCFF00] text-xs underline font-medium text-center">View</Text>
                 </Pressable>
               </View>
             )}
@@ -723,7 +723,7 @@ export default function CustomerHome() {
               <View className="w-6 h-6 rounded-full bg-[#D7FF00] items-center justify-center">
                 <Star size={14} color="#000000" weight="fill" />
               </View>
-              <Text className="text-[#D7FF00] text-xs font-semibold tracking-wider">
+              <Text className="text-[#D7FF00] text-xs font-semibold tracking-wider" numberOfLines={1}>
                 {planName}
               </Text>
             </View>
@@ -745,7 +745,7 @@ export default function CustomerHome() {
                     onPress={() => router.push('/(customer)/memberships' as any)}
                     className="w-full bg-[#D7FF00] py-2.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-85"
                   >
-                    <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5">
+                    <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5 text-center" numberOfLines={1}>
                       ACTIVATE UPGRADE
                     </Text>
                     <ArrowRight size={14} color="#000000" weight="bold" />
@@ -753,10 +753,10 @@ export default function CustomerHome() {
                 </View>
               ) : (
                 <Pressable
-                  className="bg-[#D7FF00] py-2.5 px-5 rounded-xl self-start active:opacity-80"
+                  className="bg-[#D7FF00] py-2.5 px-5 rounded-xl self-start active:opacity-80 flex-row items-center justify-center"
                   onPress={() => router.push('/(customer)/memberships' as any)}
                 >
-                  <Text className="text-black text-xs font-semibold tracking-wide">
+                  <Text className="text-black text-xs font-semibold tracking-wide text-center" numberOfLines={1}>
                     RENEW PLAN
                   </Text>
                 </Pressable>
@@ -788,8 +788,8 @@ export default function CustomerHome() {
               12 gyms near you
             </Text>
 
-            <View className="bg-[#CCFF00] self-start py-2.5 px-4 rounded-xl flex-row items-center gap-1.5 shadow-sm">
-              <Text className="text-black text-xs font-semibold">Explore Gyms</Text>
+            <View className="bg-[#CCFF00] self-start py-2.5 px-4 rounded-xl flex-row items-center justify-center gap-1.5 shadow-sm">
+              <Text className="text-black text-xs font-semibold text-center" numberOfLines={1}>Explore Gyms</Text>
               <ArrowRight size={14} color="#000000" weight="bold" />
             </View>
           </View>
@@ -832,11 +832,13 @@ export default function CustomerHome() {
                       }
                     });
                   }}
-                  className="bg-[#D7FF00] rounded-full py-2 px-5 flex-row items-center justify-center self-start active:opacity-90"
+                  className="bg-[#D7FF00] rounded-full py-2.5 px-4 flex-row items-center justify-center self-start active:opacity-90"
                 >
-                  <Text className="text-black font-semibold text-sm mr-2">Start Workout</Text>
-                  <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
-                    <ArrowRight size={14} color="#000000" weight="bold" />
+                  <Text className="text-black font-semibold text-xs sm:text-sm mr-1.5 text-center" numberOfLines={1}>
+                    Start Workout
+                  </Text>
+                  <View className="w-5 h-5 rounded-full bg-black/10 items-center justify-center">
+                    <ArrowRight size={12} color="#000000" weight="bold" />
                   </View>
                 </Pressable>
               )}
@@ -851,9 +853,9 @@ export default function CustomerHome() {
               </Text>
               <Pressable
                 onPress={() => router.push('/(customer)/workoutPlan')}
-                className="bg-[#D7FF00] rounded-full py-2.5 px-3.5 flex-row items-center justify-center self-start active:opacity-90 mt-1"
+                className="bg-[#D7FF00] rounded-full py-2.5 px-4 flex-row items-center justify-center self-start active:opacity-90 mt-1"
               >
-                <Text className="text-black font-semibold text-[13px] mr-1.5" numberOfLines={1}>
+                <Text className="text-black font-semibold text-xs sm:text-sm mr-1.5 text-center" numberOfLines={1}>
                   Add workout plan
                 </Text>
                 <View className="w-5 h-5 rounded-full bg-black/10 items-center justify-center shrink-0">
@@ -864,10 +866,10 @@ export default function CustomerHome() {
           )}
         </View>
 
-        <View className="items-end justify-center shrink-0">
+        <View className="items-end justify-center shrink-0 pointer-events-none">
           <Image
             source={require('../../assets/fit-1.png')}
-            style={{ width: 135, height: 155 }}
+            style={{ width: 125, height: 145 }}
             resizeMode="contain"
           />
         </View>
@@ -1000,7 +1002,7 @@ export default function CustomerHome() {
             // @ts-ignore
             onPress={() => router.push('/(customer)/nutrition')}
             className="bg-[#C4EF00] rounded-xl py-3 px-5 flex-row items-center justify-center self-start active:opacity-90">
-            <Text className="text-black font-semibold text-sm mr-2">View Meal Plan</Text>
+            <Text className="text-black font-semibold text-sm mr-1.5 text-center" numberOfLines={1}>View Meal Plan</Text>
             <ArrowRight size={16} color="#000000" />
           </Pressable>
         </View>

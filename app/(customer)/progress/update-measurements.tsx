@@ -1,22 +1,31 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { CaretRight, CalendarBlank, FileText, CaretLeft } from 'phosphor-react-native';
+import { CaretRight, CalendarBlank, FileText, CaretLeft, ClockCounterClockwiseIcon } from 'phosphor-react-native';
 import { useProgressData } from '@/hooks/fitness/useProgressData';
 import { useUpdateMeasurements } from '@/hooks/fitness/useUpdateProgress';
 import { useUser } from '@/context/UserContext';
-import { ActivityIndicator, Alert } from 'react-native';
+import { ActivityIndicator } from 'react-native';
+import { toast } from '@/lib/toast';
+
+const formatDateDisplay = (date: Date = new Date()) => {
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
 
 const MEASUREMENT_FIELDS = [
-  { key: 'chest', label: 'Chest', defaultValue: '102', unit: 'cm' },
-  { key: 'waist', label: 'Waist', defaultValue: '84', unit: 'cm' },
-  { key: 'hips', label: 'Hips', defaultValue: '98', unit: 'cm' },
-  { key: 'biceps', label: 'Biceps', defaultValue: '39', unit: 'cm' },
-  { key: 'forearms', label: 'Forearms', defaultValue: '31', unit: 'cm' },
-  { key: 'thighs', label: 'Thighs', defaultValue: '60', unit: 'cm' },
-  { key: 'calves', label: 'Calves', defaultValue: '40', unit: 'cm' },
+  { key: 'chest', label: 'Chest', defaultValue: '0', unit: 'cm' },
+  { key: 'waist', label: 'Waist', defaultValue: '0', unit: 'cm' },
+  { key: 'hips', label: 'Hips', defaultValue: '0', unit: 'cm' },
+  { key: 'biceps', label: 'Biceps', defaultValue: '0', unit: 'cm' },
+  { key: 'forearms', label: 'Forearms', defaultValue: '0', unit: 'cm' },
+  { key: 'thighs', label: 'Thighs', defaultValue: '0', unit: 'cm' },
+  { key: 'calves', label: 'Calves', defaultValue: '0', unit: 'cm' },
   { key: 'bodyFatPercentage', label: 'Body Fat', defaultValue: '18', unit: '%' },
 ];
 
@@ -33,6 +42,37 @@ export default function UpdateMeasurementsScreen() {
     MEASUREMENT_FIELDS.reduce((acc, field) => ({ ...acc, [field.key]: ((current as any)[field.key] || '').toString() }), {})
   );
   const [notes, setNotes] = useState('');
+  const scrollViewRef = useRef<ScrollView>(null);
+  const isNotesFocusedRef = useRef(false);
+  const [isNotesFocused, setIsNotesFocused] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Keyboard listener - ONLY apply height when entering notes
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        if (isNotesFocusedRef.current) {
+          const h = e.endCoordinates.height;
+          setKeyboardHeight(h);
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const updateValue = (key: string, value: string) => {
     setValues(prev => ({ ...prev, [key]: value }));
@@ -51,26 +91,35 @@ export default function UpdateMeasurementsScreen() {
 
       await updateMeasurements({
         userId: userId,
-        measurements: formattedMeasurements
+        measurements: formattedMeasurements,
+        loggedAt: new Date().toISOString(),
       });
+      toast.success('Measurements saved successfully!');
       router.back();
     } catch (e: any) {
       console.error("Save Measurements Error:", e);
-      Alert.alert("Error saving measurements", e.message || JSON.stringify(e));
+      toast.error(e?.message || 'Error saving measurements');
     }
   };
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      enabled={isNotesFocused}
       className="flex-1 bg-[#09090B]"
     >
       <View className="flex-1">
         <ScrollView
+          ref={scrollViewRef}
           className="flex-1"
-          contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
+          contentContainerStyle={{
+            paddingBottom: isNotesFocused
+              ? (keyboardHeight > 0 ? keyboardHeight + 160 : 340)
+              : insets.bottom + 200,
+          }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={isNotesFocused && Platform.OS === 'ios'}
         >
           <View className="px-5 pt-6 pb-4">
 
@@ -85,7 +134,9 @@ export default function UpdateMeasurementsScreen() {
             </View>
 
             <View className="bg-[#1C1C1E] rounded-2xl p-4 flex-row items-center mb-8 border border-[#2A2A2D]/50">
-              <View className="w-14 h-14 rounded-xl bg-[#2E3113] mr-4 border border-[#D4FF00]/20" />
+              <View className="w-14 h-14 rounded-xl bg-[#2E3113] mr-4 border border-[#D4FF00]/20 items-center justify-center">
+                <ClockCounterClockwiseIcon size={24} color='#D4FF00' />
+              </View>
               <View className="flex-1">
                 <Text className="text-white text-[15px] font-semibold mb-1">Track your progress</Text>
                 <Text className="text-[#8E8E93] text-[13px] leading-tight">Accurate measurements help you see real transformation.</Text>
@@ -121,17 +172,20 @@ export default function UpdateMeasurementsScreen() {
               })}
             </View>
 
-            <Pressable className="bg-[#1C1C1E] rounded-2xl p-4 flex-row items-center mb-4 border border-[#2A2A2D]/50 active:opacity-80">
+            <View className="bg-[#1C1C1E] rounded-2xl p-4 flex-row items-center mb-4 border border-[#2A2A2D]/50">
               <View className="w-10 h-10 rounded-xl bg-[#2E3113] items-center justify-center mr-4">
                 <CalendarBlank size={20} color="#D4FF00" weight="regular" />
               </View>
               <View>
                 <Text className="text-[#8E8E93] text-[11px] mb-1">Date</Text>
-                <Text className="text-white text-[15px] font-medium">May 14, 2025</Text>
+                <Text className="text-white text-[15px] font-medium">{formatDateDisplay()}</Text>
               </View>
-            </Pressable>
+            </View>
 
-            <View className="bg-[#1C1C1E] rounded-2xl p-4 flex-row mb-4 border border-[#2A2A2D]/50">
+            <View
+              className="bg-[#1C1C1E] rounded-2xl p-4 flex-row mb-4 border border-[#2A2A2D]/50"
+              style={isNotesFocused ? { marginBottom: 24 } : undefined}
+            >
               <View className="w-10 h-10 rounded-xl bg-[#2E3113] items-center justify-center mr-4 mt-1">
                 <FileText size={20} color="#D4FF00" weight="regular" />
               </View>
@@ -145,7 +199,18 @@ export default function UpdateMeasurementsScreen() {
                   maxLength={120}
                   value={notes}
                   onChangeText={setNotes}
-                  style={{ minHeight: 60, textAlignVertical: 'top' }}
+                  onFocus={() => {
+                    isNotesFocusedRef.current = true;
+                    setIsNotesFocused(true);
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }, 150);
+                  }}
+                  onBlur={() => {
+                    isNotesFocusedRef.current = false;
+                    setIsNotesFocused(false);
+                  }}
+                  style={{ minHeight: 60, textAlignVertical: 'top', paddingBottom: 8 }}
                 />
                 <Text className="text-[#6B6B6B] text-[11px] text-right mt-2">{notes.length}/120</Text>
               </View>

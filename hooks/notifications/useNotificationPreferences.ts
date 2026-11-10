@@ -291,7 +291,6 @@ export function useNotificationPreferences(userId: string | undefined) {
       }
     },
     onMutate: async (newPref) => {
-      await qc.cancelQueries({ queryKey: ['notification_preferences', userId] });
       const previousPrefs = qc.getQueryData(['notification_preferences', userId]);
       
       qc.setQueryData(['notification_preferences', userId], (old: any) => ({
@@ -299,6 +298,7 @@ export function useNotificationPreferences(userId: string | undefined) {
         ...newPref,
       }));
       
+      await qc.cancelQueries({ queryKey: ['notification_preferences', userId] });
       return { previousPrefs };
     },
     onError: (err, newPref, context) => {

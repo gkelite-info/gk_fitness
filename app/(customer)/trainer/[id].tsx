@@ -235,7 +235,7 @@ export default function TrainerProfileScreen() {
             {isVerified && <CheckCircle size={18} color="#1DA1F2" weight="fill" />}
           </View>
 
-          <Text className="text-[#D4FF00] text-sm font-semibold mb-2">{trainer.specialization || 'Fitness Coach'}</Text>
+          <Text className="text-[#D4FF00] text-sm font-semibold mb-2 capitalize px-5">{trainer.specialization || 'Fitness Coach'}</Text>
         </View>
 
         <View className="flex-row mx-4 mb-3 bg-[#1A1A1A] rounded-2xl p-4 border border-[#27272A] justify-between">
@@ -263,19 +263,19 @@ export default function TrainerProfileScreen() {
         {(trainer.price != null || trainer.personalTrainingFee != null) && Platform.OS !== 'ios' && (
           <View className="mx-4 mb-3 bg-[#14180A] rounded-2xl p-4 border border-[#3E4C14] flex-row items-center justify-between">
             <View className="flex-row items-center flex-1 mr-3">
-              <View className="w-10 h-10 rounded-xl bg-[#1C2307] items-center justify-center mr-3 border border-[#445000]">
+              <View className="w-10 h-10 rounded-xl bg-[#1C2307] items-center justify-center mr-3 border border-[#445000] shrink-0">
                 <Tag size={20} color="#CCFF00" weight="fill" />
               </View>
-              <View>
+              <View className="flex-1">
                 <Text className="text-[#8E8E93] text-[10px] uppercase font-semibold tracking-wider">
                   Personal Training Fee
                 </Text>
-                <Text className="text-white text-xs mt-0.5">
+                <Text className="text-white text-xs mt-0.5 leading-4">
                   1-on-1 Guidance & Custom Routines
                 </Text>
               </View>
             </View>
-            <View className="items-end">
+            <View className="items-end shrink-0">
               <View className="flex-row items-baseline">
                 <Text className="text-[#CCFF00] text-xl font-semibold">₹{trainer.price ?? trainer.personalTrainingFee}</Text>
                 <Text className="text-[#8E8E93] text-xs ml-1">/mo</Text>

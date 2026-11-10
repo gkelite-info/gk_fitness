@@ -69,41 +69,61 @@ export const GLOBAL_TRAINER_SELECT = `
 `;
 
 export async function fetchGlobalTrainers(searchQuery?: string) {
-  let query = supabase
-    .from('global_trainers')
-    .select(GLOBAL_TRAINER_SELECT)
-    .eq('is_deleted', false)
-    .order('createdAt', { ascending: false });
+  let data: any[] | null = null;
+  let error: any = null;
 
-  if (searchQuery && searchQuery.trim()) {
-    const q = searchQuery.trim();
-    query = query.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
-  }
-
-  let { data, error } = await query;
-
-  if (error) {
-    console.warn('[globalTrainerHelper] fetchGlobalTrainers join failed, attempting fallback to simple select:', error.message || error);
-    let fallbackQuery = supabase
+  try {
+    let query = supabase
       .from('global_trainers')
-      .select('*')
-      .eq('is_deleted', false)
+      .select(GLOBAL_TRAINER_SELECT)
       .order('createdAt', { ascending: false });
 
     if (searchQuery && searchQuery.trim()) {
       const q = searchQuery.trim();
-      fallbackQuery = fallbackQuery.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
+      query = query.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
     }
 
-    const fallbackRes = await fallbackQuery;
-    if (fallbackRes.error) {
-      console.error('[globalTrainerHelper] fetchGlobalTrainers fallback Error:', fallbackRes.error);
-      throw fallbackRes.error;
+    const res = await query;
+    if (res.error) {
+      console.warn('[globalTrainerHelper] fetchGlobalTrainers join query error:', res.error);
+      error = res.error;
+    } else {
+      data = res.data;
     }
-    data = fallbackRes.data;
+  } catch (err: any) {
+    console.warn('[globalTrainerHelper] fetchGlobalTrainers join exception:', err);
+    error = err;
   }
 
-  return (data as any[])?.map((trainer: any) => {
+  // If join failed or returned error, fallback to simple select *
+  if (error || !data) {
+    try {
+      let fallbackQuery = supabase
+        .from('global_trainers')
+        .select('*')
+        .order('createdAt', { ascending: false });
+
+      if (searchQuery && searchQuery.trim()) {
+        const q = searchQuery.trim();
+        fallbackQuery = fallbackQuery.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
+      }
+
+      const fallbackRes = await fallbackQuery;
+      if (fallbackRes.error) {
+        console.error('[globalTrainerHelper] fetchGlobalTrainers fallback error:', fallbackRes.error);
+        data = [];
+      } else {
+        data = fallbackRes.data || [];
+      }
+    } catch (fallbackErr: any) {
+      console.error('[globalTrainerHelper] fetchGlobalTrainers fallback exception:', fallbackErr);
+      data = [];
+    }
+  }
+
+  const nonDeleted = (data || []).filter((t: any) => t.is_deleted !== true);
+
+  return nonDeleted.map((trainer: any) => {
     const userObj = Array.isArray(trainer.users) ? trainer.users[0] : trainer.users;
     const userPic = userObj?.profilePic || userObj?.profilePhoto || null;
     return {
@@ -111,7 +131,7 @@ export async function fetchGlobalTrainers(searchQuery?: string) {
       profilePic: trainer.profilePic || trainer.profilePhoto || userPic || null,
       profilePhoto: trainer.profilePhoto || trainer.profilePic || userPic || null,
     };
-  }) ?? [];
+  });
 }
 
 export async function fetchGlobalTrainersPaginated(

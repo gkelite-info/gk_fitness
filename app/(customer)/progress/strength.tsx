@@ -1,26 +1,46 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, ActivityIndicator, Pressable, TextInput, FlatList, ScrollView } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { CaretLeft, Barbell, Trophy, TrendUp, MagnifyingGlass } from 'phosphor-react-native';
 import { useStrengthData, StrengthRecord } from '@/hooks/fitness/useStrengthData';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 const MUSCLE_GROUPS = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Other'];
 
 export default function StrengthAnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { data: strengthData, isLoading } = useStrengthData();
+  const { data: strengthData, isLoading, refetch } = useStrengthData();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 600);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
   const [selectedGroup, setSelectedGroup] = useState('All');
 
   const filteredData = useMemo(() => {
     if (!strengthData) return [];
 
     return strengthData.filter(record => {
-      const matchesSearch = record.exerciseName.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = record.exerciseName.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
 
       let cat = record.category || 'Other';
       cat = cat.charAt(0).toUpperCase() + cat.slice(1);
@@ -29,7 +49,7 @@ export default function StrengthAnalyticsScreen() {
 
       return matchesSearch && matchesGroup;
     });
-  }, [strengthData, searchQuery, selectedGroup]);
+  }, [strengthData, debouncedSearchQuery, selectedGroup]);
 
   const renderHeader = () => (
     <>
@@ -124,7 +144,7 @@ export default function StrengthAnalyticsScreen() {
               <Barbell size={48} color="#8E8E93" weight="thin" />
             </View>
             <Text className="text-white text-lg font-semibold mb-2">No Data Yet</Text>
-            <Text className="text-[#8E8E93] text-center px-8">
+            <Text className="text-[#8E8E93] text-center px-8 text-sm">
               Complete workouts and log your sets to see your strength analytics here.
             </Text>
           </View>
@@ -155,7 +175,7 @@ export default function StrengthAnalyticsScreen() {
               <Text className="text-[#8E8E93] text-xs font-medium capitalize mt-0.5">{record.category}</Text>
             </View>
           </View>
-          {index === 0 && record.maxWeight > 0 && selectedGroup === 'All' && !searchQuery && (
+          {index === 0 && record.maxWeight > 0 && selectedGroup === 'All' && !debouncedSearchQuery && (
             <View className="bg-[#D4FF00]/20 px-2 py-1 rounded">
               <Text className="text-[#D4FF00] text-[10px] font-semibold uppercase">Best Lift</Text>
             </View>
@@ -196,6 +216,7 @@ export default function StrengthAnalyticsScreen() {
         keyExtractor={(item) => item.exerciseName}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         initialNumToRender={6}
         maxToRenderPerBatch={6}
         windowSize={5}

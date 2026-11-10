@@ -14,7 +14,7 @@ import { useGymTrainers } from '@/hooks/trainers/useGymTrainers';
 import { useGlobalTrainers } from '@/hooks/globalTrainers/useGlobalTrainers';
 import { useIndividualCustomerPlans } from '@/hooks/individual/membership/individualCustomerPlan';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import ConfirmModal from '@/components/ConfirmModal';
 import { supabase } from '@/lib/supabase';
@@ -49,30 +49,68 @@ export default function BookTrainerScreen() {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  const { userId, role } = useUser();
+  const { userId, role, gymId: userGymId, email } = useUser();
   const { data: individualPlans } = useIndividualCustomerPlans(userId || undefined);
   const hasIndividualPlan = Boolean(individualPlans && individualPlans.length > 0);
 
   const { data: profile, isLoading: isProfileLoading, refetch: refetchProfile } = useCustomerProfile(userId || undefined);
 
-  const roleNormalized = (role || '').trim().toLowerCase();
-  const isIndividual =
-    roleNormalized === 'individual' ||
-    hasIndividualPlan ||
-    (!isProfileLoading && !profile?.customerData?.gymId);
+  const normalizedRole = (role || '').trim().toLowerCase().replace(/[\s_-]/g, '');
 
-  const gymId = isIndividual ? null : profile?.customerData?.gymId;
-  const shouldFetchGlobal = isIndividual || (!isProfileLoading && !gymId);
+  // Fallback query to find customer's gymId from gym_customers if not yet in UserContext or profile
+  const { data: directGymCustomer, isLoading: isDirectGymCustomerLoading } = useQuery({
+    queryKey: ['customerGymIdDirect', userId, email],
+    queryFn: async () => {
+      if (!userId) return null;
+      const orFilters = [`userId.eq.${userId}`, `customerId.eq.${userId}`];
+      if (email && email.trim()) {
+        orFilters.push(`email.ilike.${email.trim()}`);
+      }
+      const { data, error } = await supabase
+        .from('gym_customers')
+        .select('customerId, gymId')
+        .or(orFilters.join(','))
+        .eq('is_deleted', false)
+        .order('createdAt', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-  const { data: gymTrainers, isLoading: isGymTrainersLoading } = useGymTrainers(
-    gymId,
-    !shouldFetchGlobal && !!gymId && !isProfileLoading,
+      if (error) {
+        console.warn('[BookTrainer] Error fetching customer gymId direct:', error);
+        return null;
+      }
+      return data;
+    },
+    enabled: normalizedRole === 'customer' && !userGymId && !profile?.customerData?.gymId && !!userId,
+  });
+
+  const customerGymId = userGymId || profile?.customerData?.gymId || directGymCustomer?.gymId || null;
+
+  // Core role logic:
+  // - If logged in as an 'individual' (or has no gym): fetch global trainers from table global_trainers
+  // - If logged in as 'customer' (with a gymId): fetch gym trainers from table gym_trainers matching customer's gymId
+  const isIndividual = normalizedRole === 'individual' || (!customerGymId && normalizedRole !== 'customer');
+  const isCustomer = !isIndividual;
+
+  const { data: globalTrainers, isLoading: isGlobalTrainersLoading, error: globalTrainersError } = useGlobalTrainers(
+    isIndividual,
     debouncedSearchQuery
   );
-  const { data: globalTrainers, isLoading: isGlobalTrainersLoading } = useGlobalTrainers(
-    shouldFetchGlobal,
+
+  const { data: gymTrainers, isLoading: isGymTrainersLoading, error: gymTrainersError } = useGymTrainers(
+    customerGymId || undefined,
+    isCustomer && !!customerGymId,
     debouncedSearchQuery
   );
+
+  useEffect(() => {
+  }, [userId, role, normalizedRole, userGymId, profile, customerGymId, isIndividual, isCustomer]);
+
+  useEffect(() => {
+    if (isIndividual) {
+    } else {
+    }
+  }, [isIndividual, globalTrainers, isGlobalTrainersLoading, globalTrainersError, gymTrainers, isGymTrainersLoading, gymTrainersError, customerGymId]);
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -113,7 +151,7 @@ export default function BookTrainerScreen() {
     return true;
   });
 
-  const activeAssignment = isIndividual ? activeIndividual : (activeIndividual || activeGym);
+  const activeAssignment = isIndividual ? activeIndividual : (activeGym || activeIndividual);
   const activeTrainerId = isIndividual
     ? activeIndividual?.globalTrainerId
     : (activeGym?.gymTrainerId || activeIndividual?.globalTrainerId);
@@ -251,7 +289,7 @@ export default function BookTrainerScreen() {
       if (profile?.customerData?.customerId) {
         params.append('customerId', profile.customerData.customerId);
       }
-      const gymIdVal = profile?.customerData?.gymId || gymId;
+      const gymIdVal = profile?.customerData?.gymId || customerGymId;
       if (gymIdVal) params.append('gymId', gymIdVal);
 
       const emailVal = session.user?.email || profile?.customerData?.email;
@@ -295,8 +333,8 @@ export default function BookTrainerScreen() {
     }
   };
 
-  const hasPendingRequest = !!pendingIndividual || !!pendingGym;
-  const isPendingIndividual = !!pendingIndividual;
+  const hasPendingRequest = isIndividual ? !!pendingIndividual : (!!pendingGym || !!pendingIndividual);
+  const isPendingIndividual = isIndividual ? true : (!pendingGym && !!pendingIndividual);
   const pendingTrainer = isPendingIndividual
     ? pendingIndividual?.globalTrainer
     : pendingGym?.gymTrainer;
@@ -387,22 +425,40 @@ export default function BookTrainerScreen() {
     setRefreshing(true);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] }),
+      queryClient.invalidateQueries({ queryKey: ['customerGymIdDirect', userId] }),
       queryClient.invalidateQueries({ queryKey: ['trainers'] }),
       queryClient.invalidateQueries({ queryKey: ['globalTrainers'] }),
       queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
       queryClient.invalidateQueries({ queryKey: ['assignedTrainers'] }),
       queryClient.invalidateQueries({ queryKey: ['personalTrainerRequests'] }),
     ]);
+    if (typeof refetchProfile === 'function') {
+      refetchProfile();
+    }
     if (typeof refetchGymAssignedTrainers === 'function') {
       refetchGymAssignedTrainers();
+    }
+    if (typeof refetchIndividualTrainers === 'function') {
+      refetchIndividualTrainers();
     }
     setRefreshing(false);
   };
 
-  const trainers = shouldFetchGlobal ? (globalTrainers || []) : (gymTrainers || []);
-  const isLoading = shouldFetchGlobal ? isGlobalTrainersLoading : (isProfileLoading || isGymTrainersLoading);
+  const isGymIdResolving = isCustomer && !customerGymId && (isProfileLoading || isDirectGymCustomerLoading);
+  const isLoading = isIndividual
+    ? isGlobalTrainersLoading
+    : (isGymIdResolving || isGymTrainersLoading);
 
-  const filteredTrainers = trainers.filter((t: any) => !t.is_deleted && t.isActive !== false);
+  const rawTrainers = isIndividual ? (globalTrainers || []) : (gymTrainers || []);
+  const filteredTrainers = rawTrainers.filter((t: any) => {
+    if (t.is_deleted === true) return false;
+    if (t.isActive === false || t.is_Active === false) return false;
+    // When customer, filter trainers from table gym_trainers by matching gymId of the logged-in customer's gymId
+    if (isCustomer && customerGymId) {
+      if (t.gymId && t.gymId !== customerGymId) return false;
+    }
+    return true;
+  });
 
   const sortedTrainers = [...filteredTrainers].sort((a: any, b: any) => {
     const aId = a.gymTrainerId || a.globalTrainerId || a.id;
@@ -584,8 +640,8 @@ export default function BookTrainerScreen() {
               const trainerId = trainer.gymTrainerId || trainer.globalTrainerId || trainer.id;
               const isThisTrainerActive = !!activeTrainerId && trainerId === activeTrainerId;
               const isThisTrainerRequested = !isThisTrainerActive && (
-                (pendingIndividual && (pendingIndividual.globalTrainerId === trainerId || (pendingTrainer as any)?.globalTrainerId === trainerId)) ||
-                (pendingGym && (pendingGym.gymTrainerId === trainerId || (pendingTrainer as any)?.gymTrainerId === trainerId))
+                (isIndividual && !!pendingIndividual && (pendingIndividual.globalTrainerId === trainerId || (pendingTrainer as any)?.globalTrainerId === trainerId)) ||
+                (isCustomer && !!pendingGym && (pendingGym.gymTrainerId === trainerId || (pendingTrainer as any)?.gymTrainerId === trainerId))
               );
               const displayClientsCount = trainer.clients || trainer.clientCount || 0;
 
@@ -805,7 +861,11 @@ export default function BookTrainerScreen() {
               );
             })
           ) : (
-            <Text className="text-[#A1A1AA] text-center mt-10">No trainers found.</Text>
+            <Text className="text-[#A1A1AA] text-center mt-10">
+              {isCustomer && !customerGymId
+                ? 'No gym associated with your customer account.'
+                : 'No trainers found.'}
+            </Text>
           )}
         </View>
       </ScrollView>

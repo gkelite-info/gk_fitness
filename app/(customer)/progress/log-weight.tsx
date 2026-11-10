@@ -1,136 +1,484 @@
-import React, { useState } from 'react';
-import { View, Pressable, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Pressable,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+  ScrollView,
+  Modal,
+  ActivityIndicator,
+} from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, CalendarBlank, CaretDown, CheckCircle } from 'phosphor-react-native';
-import { useProgressData } from '@/hooks/fitness/useProgressData';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useUpdateMeasurements } from '@/hooks/fitness/useUpdateProgress';
 import { useUser } from '@/context/UserContext';
-import { ActivityIndicator } from 'react-native';
+import { supabase } from '@/lib/supabase';
+import { fetchCustomerOnboarding } from '@/helpers/onboardingHelper';
+import { toast } from '@/lib/toast';
+
+const formatDateDisplay = (date: Date) => {
+  const today = new Date();
+  const isToday =
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear();
+
+  const monthName = date.toLocaleDateString('en-US', { month: 'long' });
+  const day = date.getDate();
+
+  return isToday ? `Today, ${monthName} ${day}` : `${monthName} ${day}, ${date.getFullYear()}`;
+};
 
 export default function LogWeightModal() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
   const { userId } = useUser();
-  const { data: progressData } = useProgressData(userId || null);
   const { mutateAsync: updateMeasurements, isPending } = useUpdateMeasurements();
 
-  const [weight, setWeight] = useState(progressData?.summary?.currentWeight || 70.0);
+  const originalDbWeightRef = useRef<number>(0);
+  const [weight, setWeight] = useState<number>(0);
+  const [weightInput, setWeightInput] = useState<string>('0.0');
   const [notes, setNotes] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isFetchingWeight, setIsFetchingWeight] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const isNotesFocusedRef = useRef(false);
+  const [isNotesFocused, setIsNotesFocused] = useState(false);
 
-  const handleIncrement = () => setWeight(prev => Number((prev + 0.1).toFixed(1)));
-  const handleDecrement = () => setWeight(prev => Number((prev - 0.1).toFixed(1)));
+  // Keyboard listener - ONLY apply height when entering notes
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        if (isNotesFocusedRef.current) {
+          const h = e.endCoordinates.height;
+          setKeyboardHeight(h);
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // Fetch weight for the user on the selected date:
+  // 1. Try customer_measurements for that date
+  // 2. If not found, fallback to customer_onboarding weight directly
+  const fetchWeightForDate = async (targetDate: Date) => {
+    if (!userId) return;
+    setIsFetchingWeight(true);
+    try {
+      const year = targetDate.getFullYear();
+      const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const day = String(targetDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
+      // Calculate wide window (+/- 36 hours) to reliably capture local and UTC dates
+      const windowStart = new Date(targetDate.getTime() - 36 * 3600 * 1000).toISOString();
+      const windowEnd = new Date(targetDate.getTime() + 36 * 3600 * 1000).toISOString();
+
+
+      const { data: measurements, error } = await supabase
+        .from('customer_measurements')
+        .select('weight, notes, loggedAt')
+        .eq('userId', userId)
+        .gte('loggedAt', windowStart)
+        .lte('loggedAt', windowEnd)
+        .order('loggedAt', { ascending: false });
+
+      if (error) {
+        console.warn('[LogWeight] Error querying customer_measurements:', error);
+      }
+
+      // Check if any measurement matches this day in either local time or UTC
+      const match = (measurements || []).find((m: any) => {
+        if (!m.loggedAt) return false;
+        const mDate = new Date(m.loggedAt);
+        const isLocalDayMatch =
+          mDate.getFullYear() === targetDate.getFullYear() &&
+          mDate.getMonth() === targetDate.getMonth() &&
+          mDate.getDate() === targetDate.getDate();
+        const isUtcMatch = m.loggedAt.startsWith(dateStr);
+        return isLocalDayMatch || isUtcMatch;
+      });
+
+      if (match && match.weight != null && Number(match.weight) > 0) {
+        const val = Number(match.weight);
+        setWeight(val);
+        setWeightInput(val.toFixed(1));
+        originalDbWeightRef.current = val;
+        setNotes(match.notes || '');
+        return;
+      }
+
+      // 2. If not available in customer_measurements, fetch weight from customer_onboarding directly
+      let onboardingWeight = 0;
+
+      try {
+        const onboarding = await fetchCustomerOnboarding(userId);
+        if (onboarding && onboarding.weight) {
+          const p = parseFloat(String(onboarding.weight));
+          if (!isNaN(p) && p > 0) {
+            onboardingWeight = p;
+          }
+        }
+      } catch (obErr) {
+        console.warn('[LogWeight] Error from fetchCustomerOnboarding:', obErr);
+      }
+
+      if (onboardingWeight === 0) {
+        // Direct query fallback on customer_onboarding table
+        const { data: directOb } = await supabase
+          .from('customer_onboarding')
+          .select('weight')
+          .eq('createdBy', userId)
+          .order('createdAt', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (directOb && directOb.weight) {
+          const p = parseFloat(String(directOb.weight));
+          if (!isNaN(p) && p > 0) {
+            onboardingWeight = p;
+          }
+        }
+      }
+
+      if (onboardingWeight > 0) {
+        setWeight(onboardingWeight);
+        setWeightInput(onboardingWeight.toFixed(1));
+        originalDbWeightRef.current = onboardingWeight;
+        setNotes('');
+      } else {
+        setWeight(0);
+        setWeightInput('0.0');
+        originalDbWeightRef.current = 0;
+        setNotes('');
+      }
+    } catch (err) {
+      console.error('[LogWeight] Exception in fetchWeightForDate:', err);
+      setWeight(0);
+      setWeightInput('0.0');
+      originalDbWeightRef.current = 0;
+      setNotes('');
+    } finally {
+      setIsFetchingWeight(false);
+    }
+  };
+
+  // Initial fetch on mount
+  useEffect(() => {
+    if (userId) {
+      fetchWeightForDate(selectedDate);
+    }
+  }, [userId]);
+
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date);
+    fetchWeightForDate(date);
+  };
+
+  const handleIncrement = () => {
+    setWeight(prev => {
+      const next = Number((prev + 0.1).toFixed(1));
+      setWeightInput(next.toFixed(1));
+      return next;
+    });
+  };
+
+  const handleDecrement = () => {
+    setWeight(prev => {
+      const next = Math.max(0, Number((prev - 0.1).toFixed(1)));
+      setWeightInput(next.toFixed(1));
+      return next;
+    });
+  };
+
+  const handleWeightFocus = () => {
+    isNotesFocusedRef.current = false;
+    setIsNotesFocused(false);
+    setKeyboardHeight(0);
+  };
+
+  const handleWeightChange = (text: string) => {
+    // allow digits and a single decimal point (e.g. 45.8)
+    const cleaned = text.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    const formatted = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
+    setWeightInput(formatted);
+  };
+
+  const handleWeightBlur = () => {
+    const trimmed = weightInput.trim();
+
+    if (!trimmed) {
+      // Revert directly to what the user ACTUALLY had earlier in customer_measurements / customer_onboarding!
+      const original = originalDbWeightRef.current;
+      setWeight(original);
+      setWeightInput(original.toFixed(1));
+      return;
+    }
+
+    const parsed = parseFloat(trimmed);
+    if (isNaN(parsed) || parsed <= 0) {
+      const original = originalDbWeightRef.current;
+      setWeight(original);
+      setWeightInput(original.toFixed(1));
+    } else {
+      const formatted = Number(parsed.toFixed(1));
+      setWeight(formatted);
+      setWeightInput(formatted.toFixed(1));
+    }
+  };
 
   const handleSave = async () => {
     if (!userId) return;
+    const finalWeight = parseFloat(weightInput);
+    const weightToSave = isNaN(finalWeight) || finalWeight < 0 ? weight : Number(finalWeight.toFixed(1));
+
+    // Construct timestamp with user's chosen date
+    const saveDate = new Date(selectedDate);
+    const now = new Date();
+    saveDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+    const loggedAt = saveDate.toISOString();
+
     try {
       await updateMeasurements({
         userId: userId,
-        measurements: { weight, notes: notes || undefined },
-        loggedAt: new Date().toISOString()
+        measurements: { weight: weightToSave, notes: notes || undefined },
+        loggedAt: loggedAt,
       });
+      originalDbWeightRef.current = weightToSave;
+      toast.success('Weight saved successfully!');
       router.back();
     } catch (e: any) {
-      console.error("Save Weight Error:", e);
-      import('react-native').then(({ Alert }) => Alert.alert("Error saving weight", e.message || JSON.stringify(e)));
+      console.error('Save Weight Error:', e);
+      const msg = e?.message || 'Failed to save weight. Please try again.';
+      toast.error(msg);
     }
   };
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      enabled={isNotesFocused}
       className="flex-1 bg-[#09090B]"
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View className="flex-1 px-5 pt-8" style={{ paddingBottom: 75 }}>
-
-          {/* Header */}
-          <View className="flex-row justify-between items-center mb-10">
-            <Text className="text-white text-[28px] font-semibold tracking-tight">Today's Weight</Text>
-            <Pressable
-              className="w-8 h-8 rounded-full bg-[#1C1C1E] items-center justify-center active:opacity-70"
-              onPress={() => router.back()}
-            >
-              <X size={16} color="#8E8E93" weight="bold" />
-            </Pressable>
-          </View>
-
-          {/* Current Reading Counter */}
-          <View className="bg-[#1C1C1E] rounded-3xl p-6 items-center justify-center mb-8 border border-[#2A2A2D]/50">
-            <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase mb-6">Current Reading</Text>
-
-            <View className="flex-row items-center justify-between w-full px-4">
+        <View className="flex-1">
+          <ScrollView
+            ref={scrollViewRef}
+            className="flex-1"
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingTop: Math.max(insets.top, 24),
+              paddingBottom: (isNotesFocused && keyboardHeight > 0) ? keyboardHeight + 80 : insets.bottom + 40,
+            }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={isNotesFocused && Platform.OS === 'ios'}
+          >
+            <View className="flex-row justify-between items-center mb-8">
+              <Text className="text-white text-[28px] font-semibold tracking-tight">Today's Weight</Text>
               <Pressable
-                className="w-14 h-14 rounded-full bg-[#2A2A2D] items-center justify-center active:opacity-70"
-                onPress={handleDecrement}
+                className="w-8 h-8 rounded-full bg-[#1C1C1E] items-center justify-center active:opacity-70"
+                onPress={() => router.back()}
               >
-                <Text className="text-white text-3xl font-light leading-none mb-1">-</Text>
-              </Pressable>
-
-              <View className="items-center">
-                <View className="flex-row items-baseline gap-1 border-b-[3px] border-[#D4FF00] pb-1 px-2">
-                  <Text className="text-[#D4FF00] text-[54px] font-semibold tracking-tight leading-none">{weight.toFixed(1)}</Text>
-                  <Text className="text-white text-2xl font-medium">kg</Text>
-                </View>
-              </View>
-
-              <Pressable
-                className="w-14 h-14 rounded-full bg-[#2A2A2D] items-center justify-center active:opacity-70"
-                onPress={handleIncrement}
-              >
-                <Text className="text-white text-3xl font-light leading-none mb-1">+</Text>
+                <X size={16} color="#8E8E93" weight="bold" />
               </Pressable>
             </View>
-          </View>
 
-          {/* Log Date */}
-          <View className="mb-6">
-            <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase mb-3 px-1">Log Date</Text>
-            <Pressable className="flex-row items-center justify-between bg-[#1C1C1E] rounded-2xl p-4 border border-[#2A2A2D]/50 active:opacity-80">
-              <View className="flex-row items-center gap-3">
-                <CalendarBlank size={20} color="#D4FF00" weight="bold" />
-                <Text className="text-white text-[15px] font-medium">Today, June 20</Text>
+            {/* Current Reading Counter */}
+            <View className="bg-[#1C1C1E] rounded-3xl p-6 items-center justify-center mb-8 border border-[#2A2A2D]/50">
+              <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase mb-6">
+                Current Reading
+              </Text>
+
+              <View className="flex-row items-center justify-between w-full px-2">
+                <Pressable
+                  className="w-14 h-14 rounded-full bg-[#2A2A2D] items-center justify-center active:opacity-70"
+                  onPress={handleDecrement}
+                >
+                  <Text className="text-white text-3xl font-light leading-none mb-1">-</Text>
+                </Pressable>
+
+                <View className="items-center justify-center mx-2">
+                  <View className="flex-row items-baseline gap-1 border-b-[3px] border-[#D4FF00] pb-1 px-2">
+                    {isFetchingWeight ? (
+                      <View className="h-[54px] justify-center items-center px-6">
+                        <ActivityIndicator color="#D4FF00" size="small" />
+                      </View>
+                    ) : (
+                      <TextInput
+                        value={weightInput}
+                        onFocus={handleWeightFocus}
+                        onChangeText={handleWeightChange}
+                        onBlur={handleWeightBlur}
+                        keyboardType="decimal-pad"
+                        selectTextOnFocus
+                        className="text-[#D4FF00] text-[54px] font-semibold tracking-tight leading-none text-center min-w-[120px] p-0"
+                        placeholder="0.0"
+                        placeholderTextColor="#D4FF00/50"
+                      />
+                    )}
+                    <Text className="text-white text-2xl font-medium">kg</Text>
+                  </View>
+                </View>
+
+                <Pressable
+                  className="w-14 h-14 rounded-full bg-[#2A2A2D] items-center justify-center active:opacity-70"
+                  onPress={handleIncrement}
+                >
+                  <Text className="text-white text-3xl font-light leading-none mb-1">+</Text>
+                </Pressable>
               </View>
-              <CaretDown size={18} color="#8E8E93" weight="bold" />
-            </Pressable>
-          </View>
+            </View>
 
-          {/* Notes */}
-          <View className="mb-8 flex-1">
-            <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase mb-3 px-1">Notes (Optional)</Text>
-            <View className="bg-[#1C1C1E] rounded-2xl border border-[#2A2A2D]/50 min-h-[120px] p-4">
-              <TextInput
-                className="flex-1 text-white text-[15px] font-sans"
-                placeholder="How are you feeling today?"
-                placeholderTextColor="#6B6B6B"
-                multiline
-                textAlignVertical="top"
-                value={notes}
-                onChangeText={setNotes}
-                style={{ paddingTop: 0 }}
+            {/* Log Date */}
+            <View className="mb-6">
+              <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase mb-3 px-1">
+                Log Date
+              </Text>
+              <Pressable
+                onPress={() => setShowDatePicker(true)}
+                className="flex-row items-center justify-between bg-[#1C1C1E] rounded-2xl p-4 border border-[#2A2A2D]/50 active:opacity-80"
+              >
+                <View className="flex-row items-center gap-3">
+                  <CalendarBlank size={20} color="#D4FF00" weight="bold" />
+                  <Text className="text-white text-[15px] font-medium">{formatDateDisplay(selectedDate)}</Text>
+                </View>
+                <CaretDown size={18} color="#8E8E93" weight="bold" />
+              </Pressable>
+            </View>
+
+            {/* Notes */}
+            <View className="mb-8">
+              <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase mb-3 px-1">
+                Notes (Optional)
+              </Text>
+              <View className="bg-[#1C1C1E] rounded-2xl border border-[#2A2A2D]/50 min-h-[120px] p-4">
+                <TextInput
+                  className="flex-1 text-white text-[15px] font-sans"
+                  placeholder="How are you feeling today?"
+                  placeholderTextColor="#6B6B6B"
+                  multiline
+                  textAlignVertical="top"
+                  value={notes}
+                  onChangeText={setNotes}
+                  onFocus={() => {
+                    isNotesFocusedRef.current = true;
+                    setIsNotesFocused(true);
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }, 150);
+                  }}
+                  onBlur={() => {
+                    isNotesFocusedRef.current = false;
+                    setIsNotesFocused(false);
+                  }}
+                  style={{ paddingTop: 0, minHeight: 80 }}
+                />
+              </View>
+            </View>
+
+            {/* Save Button */}
+            <View className="pb-8">
+              <Pressable
+                className={`rounded-full py-4 flex-row items-center justify-center active:opacity-80 shadow-lg ${isPending ? 'bg-[#D4FF00]/50' : 'bg-[#D4FF00]'
+                  }`}
+                onPress={handleSave}
+                disabled={isPending}
+              >
+                {isPending ? (
+                  <ActivityIndicator color="#09090B" />
+                ) : (
+                  <>
+                    <Text className="text-[#09090B] font-semibold text-[17px] mr-2">Save Weight</Text>
+                    <CheckCircle size={20} weight="regular" color="#09090B" />
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </ScrollView>
+        </View>
+      </TouchableWithoutFeedback>
+
+      {/* Date Picker - Android */}
+      {showDatePicker && Platform.OS !== 'ios' && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          maximumDate={new Date()}
+          onChange={(event: DateTimePickerEvent, date?: Date) => {
+            setShowDatePicker(false);
+            if (event.type === 'set' && date) {
+              const now = new Date();
+              const picked = new Date(date);
+              picked.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+              handleDateChange(picked);
+            }
+          }}
+        />
+      )}
+
+      {/* Date Picker - iOS Modal */}
+      {showDatePicker && Platform.OS === 'ios' && (
+        <Modal visible={true} transparent={true} animationType="fade">
+          <View className="flex-1 justify-end bg-black/60">
+            <View className="bg-[#1C1C1E] p-4 rounded-t-3xl pb-8 border-t border-[#2A2A2D]">
+              <View className="flex-row justify-between items-center mb-4 px-2">
+                <Pressable onPress={() => setShowDatePicker(false)}>
+                  <Text className="text-gray-400 text-base">Cancel</Text>
+                </Pressable>
+                <Text className="text-white font-semibold text-base">Select Date</Text>
+                <Pressable
+                  onPress={() => {
+                    setShowDatePicker(false);
+                    handleDateChange(selectedDate);
+                  }}
+                >
+                  <Text className="text-[#D4FF00] font-semibold text-base">Done</Text>
+                </Pressable>
+              </View>
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display="inline"
+                themeVariant="dark"
+                maximumDate={new Date()}
+                onChange={(_event: DateTimePickerEvent, date?: Date) => {
+                  if (date) {
+                    const now = new Date();
+                    const picked = new Date(date);
+                    picked.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+                    setSelectedDate(picked);
+                  }
+                }}
               />
             </View>
           </View>
-
-          {/* Save Button */}
-          <View className="pb-8">
-            <Pressable
-              className={`rounded-full py-4 flex-row items-center justify-center active:opacity-80 shadow-lg ${isPending ? 'bg-[#D4FF00]/50' : 'bg-[#D4FF00]'}`}
-              onPress={handleSave}
-              disabled={isPending}
-            >
-              {isPending ? (
-                <ActivityIndicator color="#09090B" />
-              ) : (
-                <>
-                  <Text className="text-[#09090B] font-semibold text-[17px] mr-2">Save Weight</Text>
-                  <CheckCircle size={20} weight="regular" color="#09090B" />
-                </>
-              )}
-            </Pressable>
-          </View>
-
-        </View>
-      </TouchableWithoutFeedback>
+        </Modal>
+      )}
     </KeyboardAvoidingView>
   );
 }

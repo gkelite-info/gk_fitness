@@ -179,15 +179,37 @@ export async function fetchTrainers(gymId?: string, searchQuery?: string) {
 
   if (searchQuery && searchQuery.trim()) {
     const q = searchQuery.trim();
-    query = query.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%,phone.ilike.%${q}%`);
+    query = query.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
   }
 
-  const { data, error } = await query;
+  let { data, error } = await query;
   if (error) {
-    console.error('[trainerHelper] fetchTrainers Error:', error);
-    throw error;
+    console.warn('[trainerHelper] fetchTrainers join failed, trying plain select:', error?.message || error);
+    let fallbackQuery = supabase
+      .from('gym_trainers')
+      .select('*')
+      .eq('is_deleted', false)
+      .order('createdAt', { ascending: false });
+
+    if (gymId) {
+      fallbackQuery = fallbackQuery.eq('gymId', gymId);
+    }
+
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.trim();
+      fallbackQuery = fallbackQuery.or(`fullName.ilike.%${q}%,specialization.ilike.%${q}%`);
+    }
+
+    const fallbackRes = await fallbackQuery;
+    if (fallbackRes.error) {
+      console.error('[trainerHelper] fetchTrainers fallback Error:', fallbackRes.error);
+      return [];
+    }
+    data = fallbackRes.data ?? [];
   }
-  return data ?? [];
+
+  const nonDeleted = (data ?? []).filter((t: any) => t.is_deleted !== true);
+  return nonDeleted;
 }
 
 

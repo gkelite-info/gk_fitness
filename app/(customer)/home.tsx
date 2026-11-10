@@ -846,26 +846,28 @@ export default function CustomerHome() {
             </>
           ) : (
             <>
-              <Text className="text-white text-lg font-semibold mb-4 leading-tight">
+              <Text className="text-white text-lg font-semibold mb-3 leading-tight">
                 No Workout{'\n'}Scheduled
               </Text>
               <Pressable
                 onPress={() => router.push('/(customer)/workoutPlan')}
-                className="bg-[#D7FF00] rounded-full py-2 px-3 flex-row items-center justify-center active:opacity-90 mt-1"
+                className="bg-[#D7FF00] rounded-full py-2.5 px-3.5 flex-row items-center justify-center self-start active:opacity-90 mt-1"
               >
-                <Text className="text-black font-semibold text-sm mr-2">Add workout plan</Text>
-                <View className="w-6 h-6 rounded-full bg-black/10 items-center justify-center">
-                  <ArrowRight size={14} color="#000000" weight="bold" />
+                <Text className="text-black font-semibold text-[13px] mr-1.5" numberOfLines={1}>
+                  Add workout plan
+                </Text>
+                <View className="w-5 h-5 rounded-full bg-black/10 items-center justify-center shrink-0">
+                  <ArrowRight size={12} color="#000000" weight="bold" />
                 </View>
               </Pressable>
             </>
           )}
         </View>
 
-        <View className="items-end justify-center">
+        <View className="items-end justify-center shrink-0">
           <Image
             source={require('../../assets/fit-1.png')}
-            style={{ width: 145, height: 160 }}
+            style={{ width: 135, height: 155 }}
             resizeMode="contain"
           />
         </View>

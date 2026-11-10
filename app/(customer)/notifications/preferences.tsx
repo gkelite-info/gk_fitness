@@ -7,6 +7,7 @@ import { useNotificationPreferences, NotificationPreferences, DEFAULT_NOTIFICATI
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 import { sendTestLocalNotification, registerForPushNotifications } from '@/lib/services/notificationService';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 
 function format12Hour(hour: number = 17, minute: number = 0): string {
   const period = hour >= 12 ? 'PM' : 'AM';
@@ -41,7 +42,17 @@ export default function NotificationsPreferencesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { userId } = useUser();
-  const { data: preferences, isLoading, updatePreference } = useNotificationPreferences(userId ?? undefined);
+  const { data: preferences, isLoading, updatePreference, refetch } = useNotificationPreferences(userId ?? undefined);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const toggleSwitch = (id: keyof NotificationPreferences, currentValue: boolean) => {
     updatePreference.mutate({ [id]: !currentValue });
@@ -115,7 +126,11 @@ export default function NotificationsPreferencesScreen() {
         <View className="w-10 h-10 items-end justify-center" />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
         <Text className="text-[#D4FF00] text-xs font-semibold mt-4 mb-6 tracking-wider uppercase">
           Notification Types
         </Text>
@@ -147,7 +162,7 @@ export default function NotificationsPreferencesScreen() {
                       <View className="flex-row justify-between items-center mb-3">
                         <View className="flex-row items-center gap-x-2">
                           <Clock size={16} color="#A3A3A3" />
-                          <Text className="text-gray-300 text-sm">Quiet Hours (Sleep)</Text>
+                          <Text className="text-gray-300 text-sm font-sans">Quiet Hours (Sleep)</Text>
                         </View>
                         <Switch
                           value={currentPrefs.water_quiet_hours_enabled ?? true}
@@ -162,7 +177,7 @@ export default function NotificationsPreferencesScreen() {
                         <View className="gap-y-3 pt-2 border-t border-white/5">
                           {/* Start Time */}
                           <View className="flex-row justify-between items-center">
-                            <Text className="text-gray-400 text-sm">Start Reminders</Text>
+                            <Text className="text-gray-400 text-sm font-sans">Start Reminders</Text>
                             <View className="flex-row items-center gap-x-3">
                               <Pressable
                                 onPress={() => {
@@ -198,7 +213,7 @@ export default function NotificationsPreferencesScreen() {
 
                           {/* End Time */}
                           <View className="flex-row justify-between items-center">
-                            <Text className="text-gray-400 text-sm">Stop Reminders</Text>
+                            <Text className="text-gray-400 text-sm font-sans">Stop Reminders</Text>
                             <View className="flex-row items-center gap-x-3">
                               <Pressable
                                 onPress={() => {
@@ -236,7 +251,7 @@ export default function NotificationsPreferencesScreen() {
                           <View className="flex-row justify-between items-center">
                             <View className="flex-row items-center gap-x-2">
                               <Hourglass size={16} color="#A3A3A3" />
-                              <Text className="text-gray-400">Remind every</Text>
+                              <Text className="text-gray-400 font-sans">Remind every</Text>
                             </View>
                             <View className="flex-row items-center gap-x-3">
                               <Pressable
@@ -248,13 +263,12 @@ export default function NotificationsPreferencesScreen() {
                                   updatePreference.mutate({ water_interval_hours: nextVal });
                                 }}
                                 disabled={(currentPrefs.water_interval_hours ?? 2) <= 0.5}
-                                className={`w-8 h-8 rounded-full items-center justify-center ${
-                                  (currentPrefs.water_interval_hours ?? 2) <= 0.5 ? 'bg-[#2A2A2A]/40' : 'bg-[#2A2A2A]'
-                                }`}
+                                className={`w-8 h-8 rounded-full items-center justify-center ${(currentPrefs.water_interval_hours ?? 2) <= 0.5 ? 'bg-[#2A2A2A]/40' : 'bg-[#2A2A2A]'
+                                  }`}
                               >
-                                <Text className={`font-bold ${(currentPrefs.water_interval_hours ?? 2) <= 0.5 ? 'text-white/30' : 'text-white'}`}>-</Text>
+                                <Text className={`font-semibold ${(currentPrefs.water_interval_hours ?? 2) <= 0.5 ? 'text-white/30' : 'text-white'}`}>-</Text>
                               </Pressable>
-                              <Text className="text-[#D4FF00] font-bold min-w-[54px] text-center">
+                              <Text className="text-[#D4FF00] font-semibold min-w-[54px] text-center">
                                 {currentPrefs.water_interval_hours === 0.5 ? '30 min' : `${currentPrefs.water_interval_hours || 2} hr`}
                               </Text>
                               <Pressable
@@ -266,11 +280,10 @@ export default function NotificationsPreferencesScreen() {
                                   updatePreference.mutate({ water_interval_hours: nextVal });
                                 }}
                                 disabled={(currentPrefs.water_interval_hours ?? 2) >= 6}
-                                className={`w-8 h-8 rounded-full items-center justify-center ${
-                                  (currentPrefs.water_interval_hours ?? 2) >= 6 ? 'bg-[#2A2A2A]/40' : 'bg-[#2A2A2A]'
-                                }`}
+                                className={`w-8 h-8 rounded-full items-center justify-center ${(currentPrefs.water_interval_hours ?? 2) >= 6 ? 'bg-[#2A2A2A]/40' : 'bg-[#2A2A2A]'
+                                  }`}
                               >
-                                <Text className={`font-bold ${(currentPrefs.water_interval_hours ?? 2) >= 6 ? 'text-white/30' : 'text-white'}`}>+</Text>
+                                <Text className={`font-semibold ${(currentPrefs.water_interval_hours ?? 2) >= 6 ? 'text-white/30' : 'text-white'}`}>+</Text>
                               </Pressable>
                             </View>
                           </View>
@@ -315,7 +328,7 @@ export default function NotificationsPreferencesScreen() {
                             </View>
                             <Text className="text-[#D4FF00] font-semibold text-sm bg-[#0F0F0F] px-2.5 py-1 rounded-md">10:30 AM</Text>
                           </View>
-                          <Text className="text-gray-400 text-xs text-center mt-2">
+                          <Text className="text-gray-400 text-xs text-center mt-2 font-sans">
                             Optimized smart schedule aligned with peak energy hours.
                           </Text>
                         </>
@@ -495,7 +508,7 @@ export default function NotificationsPreferencesScreen() {
                         </View>
                       </View>
 
-                      <Text className="text-gray-400 text-xs mt-3 leading-4">
+                      <Text className="text-gray-400 text-xs mt-3 leading-4 font-sans">
                         Industry-standard reminders designed to keep your calorie and protein tracking consistent without fatigue.
                       </Text>
                     </View>
@@ -549,7 +562,7 @@ export default function NotificationsPreferencesScreen() {
                         </View>
                       </View>
 
-                      <Text className="text-gray-400 text-xs mt-3 leading-4">
+                      <Text className="text-gray-400 text-xs mt-3 leading-4 font-sans">
                         Timed alerts synced with your active gym membership to prevent biometric scanner lockouts and uninterrupted workouts.
                       </Text>
                     </View>
@@ -567,7 +580,7 @@ export default function NotificationsPreferencesScreen() {
           </Text>
 
           <View className="bg-[#1A1A1A] rounded-xl p-4 border border-white/10 gap-y-3">
-            <Text className="text-gray-300 text-xs leading-4">
+            <Text className="text-gray-300 text-xs leading-4 font-sans">
               Test your device notification channels and remote push token registration:
             </Text>
 

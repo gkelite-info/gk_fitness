@@ -57,9 +57,19 @@ export const progressService = {
     const now = new Date().toISOString();
     
     // Determine if there's already an entry for today (or the provided date)
-    const targetDateStr = (loggedAt ? new Date(loggedAt) : new Date()).toISOString().split('T')[0];
-    const targetDateStart = `${targetDateStr}T00:00:00.000Z`;
-    const targetDateEnd = `${targetDateStr}T23:59:59.999Z`;
+    const targetDate = loggedAt ? new Date(loggedAt) : new Date();
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth();
+    const day = targetDate.getDate();
+
+    const localStart = new Date(year, month, day, 0, 0, 0, 0).toISOString();
+    const localEnd = new Date(year, month, day, 23, 59, 59, 999).toISOString();
+    const targetDateStr = targetDate.toISOString().split('T')[0];
+    const utcStart = `${targetDateStr}T00:00:00.000Z`;
+    const utcEnd = `${targetDateStr}T23:59:59.999Z`;
+
+    const targetDateStart = localStart < utcStart ? localStart : utcStart;
+    const targetDateEnd = localEnd > utcEnd ? localEnd : utcEnd;
 
     const { data: existingEntry } = await supabase
       .from('customer_measurements')
@@ -67,6 +77,7 @@ export const progressService = {
       .eq('userId', userId)
       .gte('loggedAt', targetDateStart)
       .lte('loggedAt', targetDateEnd)
+      .order('loggedAt', { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -76,6 +87,7 @@ export const progressService = {
         .from('customer_measurements')
         .update({
           ...measurements,
+          loggedAt: loggedAt || existingEntry.loggedAt || now,
           updatedAt: now
         })
         .eq('customerMeasurementId', existingEntry.customerMeasurementId)

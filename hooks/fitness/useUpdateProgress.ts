@@ -21,10 +21,11 @@ export function useUploadProgressPhoto() {
 
   return useMutation({
     mutationFn: async ({ userId, base64Image, fileName, loggedAt }: { userId: string, base64Image: string, fileName: string, loggedAt?: string }) => {
+      const cleanFileName = fileName.includes('/') ? fileName.split('/').pop()! : fileName;
       // 1. Upload the image to the storage bucket
-      const publicUrl = await progressService.uploadPhotoFile(userId, base64Image, fileName);
-      // 2. Create the database record
-      return await progressService.logProgressPhoto(userId, publicUrl, loggedAt);
+      await progressService.uploadPhotoFile(userId, base64Image, cleanFileName);
+      // 2. Create the database record saving ONLY the filename (e.g. 'progress-1794231481.jpg')
+      return await progressService.logProgressPhoto(userId, cleanFileName, loggedAt);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['progressData', variables.userId] });

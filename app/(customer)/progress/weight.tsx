@@ -60,10 +60,10 @@ export default function WeightTrackingScreen() {
     <View className="flex-1 bg-[#09090B]">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="px-5 pt-6 pb-4">
+        <View className="px-5 pt-6">
           <View className="flex-row items-center mb-1">
             <Pressable
               className="mr-3 p-1 -ml-1 active:opacity-70"
@@ -77,7 +77,6 @@ export default function WeightTrackingScreen() {
             Track your progress over time.
           </Text>
 
-          {/* Current Weight Card */}
           <View className="bg-[#1C1C1E] rounded-3xl p-6 mb-4 border border-[#2A2A2D]/50 items-center">
             <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] mb-2 uppercase">Current Weight</Text>
             <View className="flex-row items-baseline gap-1.5 mb-3">
@@ -171,20 +170,20 @@ export default function WeightTrackingScreen() {
           </View>
 
         </View>
+        <View
+          className="px-5 pt-4 pb-4 bg-transparent"
+        // style={{ bottom: 75 + insets.bottom + 10 }}
+        >
+          <Pressable
+            className="bg-[#D4FF00] rounded-full py-4 items-center justify-center active:opacity-80 shadow-lg"
+            onPress={() => router.push('/(customer)/progress/log-weight')}
+          >
+            <Text className="text-[#09090B] text-[17px] font-semibold">Log Today's Weight</Text>
+          </Pressable>
+        </View>
       </ScrollView>
 
       {/* Floating Action Button */}
-      <View
-        className="absolute left-0 right-0 px-5 pt-4 pb-4 bg-transparent"
-        style={{ bottom: 75 + insets.bottom + 10 }}
-      >
-        <Pressable
-          className="bg-[#D4FF00] rounded-full py-4 items-center justify-center active:opacity-80 shadow-lg"
-          onPress={() => router.push('/(customer)/progress/log-weight')}
-        >
-          <Text className="text-[#09090B] text-[17px] font-semibold">Log Today's Weight</Text>
-        </Pressable>
-      </View>
     </View>
   );
 }

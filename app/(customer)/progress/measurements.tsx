@@ -42,10 +42,10 @@ export default function BodyMeasurementsScreen() {
     <View className="flex-1 bg-[#09090B]">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="px-5 pt-6 pb-4">
+        <View className="px-5 pt-6">
           <View className="flex-row justify-between items-start mb-1">
             <View className="flex-row items-center">
               <Pressable
@@ -54,7 +54,7 @@ export default function BodyMeasurementsScreen() {
               >
                 <CaretLeft size={28} color="#FFFFFF" weight="bold" />
               </Pressable>
-              <Text className="text-white text-[32px] font-semibold tracking-tight">Body Measurements</Text>
+              <Text className="text-white text-[28px] font-semibold tracking-tight">Body Measurements</Text>
             </View>
             <Pressable
               className="mt-2 active:opacity-70"
@@ -109,20 +109,20 @@ export default function BodyMeasurementsScreen() {
             })}
           </View>
         </View>
+        <View
+          className="px-5 pt-4 pb-4 bg-transparent"
+        // style={{ bottom: 75 + insets.bottom + 10 }}
+        >
+          <Pressable
+            className="bg-[#D4FF00] rounded-full py-4 flex-row items-center justify-center active:opacity-80 shadow-lg"
+            onPress={() => router.push('/(customer)/progress/update-measurements')}
+          >
+            <PencilSimple size={20} weight="bold" color="#09090B" />
+            <Text className="text-[#09090B] text-[17px] font-semibold ml-2">Update Measurements</Text>
+          </Pressable>
+        </View>
       </ScrollView>
 
-      <View
-        className="absolute left-0 right-0 px-5 pt-4 pb-4 bg-transparent"
-        style={{ bottom: 75 + insets.bottom + 10 }}
-      >
-        <Pressable
-          className="bg-[#D4FF00] rounded-full py-4 flex-row items-center justify-center active:opacity-80 shadow-lg"
-          onPress={() => router.push('/(customer)/progress/update-measurements')}
-        >
-          <PencilSimple size={20} weight="bold" color="#09090B" />
-          <Text className="text-[#09090B] text-[17px] font-semibold ml-2">Update Measurements</Text>
-        </Pressable>
-      </View>
     </View>
   );
 }

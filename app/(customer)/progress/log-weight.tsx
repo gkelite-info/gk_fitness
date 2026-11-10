@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Pressable,
@@ -35,18 +35,100 @@ const formatDateDisplay = (date: Date) => {
   return isToday ? `Today, ${monthName} ${day}` : `${monthName} ${day}, ${date.getFullYear()}`;
 };
 
+function isSameCalendarDay(timestampStr?: string | null, targetDate?: Date): boolean {
+  if (!timestampStr || !targetDate) return false;
+  try {
+    const cleanStr = String(timestampStr).trim().replace(' ', 'T');
+    const d = new Date(cleanStr);
+    if (isNaN(d.getTime())) return false;
+
+    // 1. Device local time comparison
+    const isLocalMatch =
+      d.getFullYear() === targetDate.getFullYear() &&
+      d.getMonth() === targetDate.getMonth() &&
+      d.getDate() === targetDate.getDate();
+    if (isLocalMatch) return true;
+
+    // 2. YYYY-MM-DD prefix comparison (covers ISO string formats)
+    const targetYear = targetDate.getFullYear();
+    const targetMonth = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const targetDay = String(targetDate.getDate()).padStart(2, '0');
+    const targetDatePrefix = `${targetYear}-${targetMonth}-${targetDay}`;
+    if (cleanStr.startsWith(targetDatePrefix) || d.toISOString().startsWith(targetDatePrefix)) {
+      return true;
+    }
+
+    // 3. UTC date comparison
+    return (
+      d.getUTCFullYear() === targetDate.getFullYear() &&
+      d.getUTCMonth() === targetDate.getMonth() &&
+      d.getUTCDate() === targetDate.getDate()
+    );
+  } catch {
+    return false;
+  }
+}
+
 export default function LogWeightModal() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
-  const { userId } = useUser();
+  const { userId, createdAt: contextCreatedAt } = useUser();
   const { mutateAsync: updateMeasurements, isPending } = useUpdateMeasurements();
+
+  const [userCreatedAt, setUserCreatedAt] = useState<Date | null>(() => {
+    if (contextCreatedAt) {
+      const d = new Date(contextCreatedAt);
+      if (!isNaN(d.getTime())) return d;
+    }
+    return null;
+  });
+
+  const fetchUserCreatedAt = async () => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('createdAt')
+        .eq('userId', userId)
+        .maybeSingle();
+
+      if (data?.createdAt) {
+        const d = new Date(data.createdAt);
+        if (!isNaN(d.getTime())) {
+          setUserCreatedAt(d);
+        }
+      }
+    } catch (err) {
+      console.warn('[LogWeight] Failed to fetch user createdAt:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserCreatedAt();
+  }, [userId]);
+
+  // Minimum allowed date: start of the user's account creation day
+  const minAllowedDate = useMemo(() => {
+    if (!userCreatedAt) return undefined;
+    const min = new Date(userCreatedAt);
+    min.setHours(0, 0, 0, 0);
+    return min;
+  }, [userCreatedAt]);
+
+  // Maximum allowed date: end of today
+  const maxAllowedDate = useMemo(() => {
+    const max = new Date();
+    max.setHours(23, 59, 59, 999);
+    return max;
+  }, []);
 
   const originalDbWeightRef = useRef<number>(0);
   const [weight, setWeight] = useState<number>(0);
   const [weightInput, setWeightInput] = useState<string>('0.0');
   const [notes, setNotes] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [tempIosDate, setTempIosDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isFetchingWeight, setIsFetchingWeight] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -81,99 +163,85 @@ export default function LogWeightModal() {
   }, []);
 
   // Fetch weight for the user on the selected date:
-  // 1. Try customer_measurements for that date
-  // 2. If not found, fallback to customer_onboarding weight directly
+  // 1. Check customer_measurements matching createdAt or loggedAt for that date
+  // 2. If not found, check customer_onboarding matching createdAt for that date
+  // 3. If no record exists for that date in either table, display 0.0 directly
   const fetchWeightForDate = async (targetDate: Date) => {
     if (!userId) return;
     setIsFetchingWeight(true);
     try {
-      const year = targetDate.getFullYear();
-      const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-      const day = String(targetDate.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-
-      // Calculate wide window (+/- 36 hours) to reliably capture local and UTC dates
-      const windowStart = new Date(targetDate.getTime() - 36 * 3600 * 1000).toISOString();
-      const windowEnd = new Date(targetDate.getTime() + 36 * 3600 * 1000).toISOString();
-
-
-      const { data: measurements, error } = await supabase
+      // 1. Check customer_measurements
+      const { data: measurements, error: mError } = await supabase
         .from('customer_measurements')
-        .select('weight, notes, loggedAt')
+        .select('weight, notes, loggedAt, createdAt')
         .eq('userId', userId)
-        .gte('loggedAt', windowStart)
-        .lte('loggedAt', windowEnd)
-        .order('loggedAt', { ascending: false });
+        .order('createdAt', { ascending: false });
 
-      if (error) {
-        console.warn('[LogWeight] Error querying customer_measurements:', error);
+      if (mError) {
+        console.warn('[LogWeight] Error querying customer_measurements:', mError);
       }
 
-      // Check if any measurement matches this day in either local time or UTC
-      const match = (measurements || []).find((m: any) => {
-        if (!m.loggedAt) return false;
-        const mDate = new Date(m.loggedAt);
-        const isLocalDayMatch =
-          mDate.getFullYear() === targetDate.getFullYear() &&
-          mDate.getMonth() === targetDate.getMonth() &&
-          mDate.getDate() === targetDate.getDate();
-        const isUtcMatch = m.loggedAt.startsWith(dateStr);
-        return isLocalDayMatch || isUtcMatch;
+      const mMatch = (measurements || []).find((m: any) => {
+        return isSameCalendarDay(m.createdAt, targetDate) || isSameCalendarDay(m.loggedAt, targetDate);
       });
 
-      if (match && match.weight != null && Number(match.weight) > 0) {
-        const val = Number(match.weight);
+      if (mMatch && mMatch.weight != null && Number(mMatch.weight) > 0) {
+        const val = Number(mMatch.weight);
         setWeight(val);
         setWeightInput(val.toFixed(1));
         originalDbWeightRef.current = val;
-        setNotes(match.notes || '');
+        setNotes(mMatch.notes || '');
         return;
       }
 
-      // 2. If not available in customer_measurements, fetch weight from customer_onboarding directly
-      let onboardingWeight = 0;
+      // 2. Check customer_onboarding where createdAt matches targetDate
+      const { data: onboardingRows, error: obError } = await supabase
+        .from('customer_onboarding')
+        .select('weight, createdAt')
+        .eq('createdBy', userId)
+        .order('createdAt', { ascending: false });
 
+      if (obError) {
+        console.warn('[LogWeight] Error querying customer_onboarding:', obError);
+      }
+
+      const obMatch = (onboardingRows || []).find((ob: any) => {
+        return isSameCalendarDay(ob.createdAt, targetDate);
+      });
+
+      if (obMatch && obMatch.weight != null) {
+        const p = parseFloat(String(obMatch.weight));
+        if (!isNaN(p) && p > 0) {
+          setWeight(p);
+          setWeightInput(p.toFixed(1));
+          originalDbWeightRef.current = p;
+          setNotes('');
+          return;
+        }
+      }
+
+      // Also check cached/RPC onboarding where createdAt matches targetDate
       try {
-        const onboarding = await fetchCustomerOnboarding(userId);
-        if (onboarding && onboarding.weight) {
-          const p = parseFloat(String(onboarding.weight));
+        const cachedOb = await fetchCustomerOnboarding(userId);
+        if (cachedOb && cachedOb.weight && isSameCalendarDay(cachedOb.createdAt, targetDate)) {
+          const p = parseFloat(String(cachedOb.weight));
           if (!isNaN(p) && p > 0) {
-            onboardingWeight = p;
+            setWeight(p);
+            setWeightInput(p.toFixed(1));
+            originalDbWeightRef.current = p;
+            setNotes('');
+            return;
           }
         }
-      } catch (obErr) {
-        console.warn('[LogWeight] Error from fetchCustomerOnboarding:', obErr);
+      } catch (cacheErr) {
+        console.warn('[LogWeight] Error checking cached onboarding:', cacheErr);
       }
 
-      if (onboardingWeight === 0) {
-        // Direct query fallback on customer_onboarding table
-        const { data: directOb } = await supabase
-          .from('customer_onboarding')
-          .select('weight')
-          .eq('createdBy', userId)
-          .order('createdAt', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (directOb && directOb.weight) {
-          const p = parseFloat(String(directOb.weight));
-          if (!isNaN(p) && p > 0) {
-            onboardingWeight = p;
-          }
-        }
-      }
-
-      if (onboardingWeight > 0) {
-        setWeight(onboardingWeight);
-        setWeightInput(onboardingWeight.toFixed(1));
-        originalDbWeightRef.current = onboardingWeight;
-        setNotes('');
-      } else {
-        setWeight(0);
-        setWeightInput('0.0');
-        originalDbWeightRef.current = 0;
-        setNotes('');
-      }
+      // 3. No weight logged or created for this user on the selected date -> display 0.0 directly
+      setWeight(0);
+      setWeightInput('0.0');
+      originalDbWeightRef.current = 0;
+      setNotes('');
     } catch (err) {
       console.error('[LogWeight] Exception in fetchWeightForDate:', err);
       setWeight(0);
@@ -193,9 +261,21 @@ export default function LogWeightModal() {
   }, [userId]);
 
   const handleDateChange = (date: Date) => {
-    setSelectedDate(date);
-    fetchWeightForDate(date);
+    let finalDate = date;
+    if (minAllowedDate && date < minAllowedDate) {
+      toast.error('Cannot select a date prior to your account creation date.');
+      finalDate = minAllowedDate;
+    }
+    setSelectedDate(finalDate);
+    fetchWeightForDate(finalDate);
   };
+
+  // Ensure selectedDate is not earlier than account creation date
+  useEffect(() => {
+    if (minAllowedDate && selectedDate < minAllowedDate) {
+      handleDateChange(minAllowedDate);
+    }
+  }, [minAllowedDate]);
 
   const handleIncrement = () => {
     setWeight(prev => {
@@ -359,7 +439,10 @@ export default function LogWeightModal() {
                 Log Date
               </Text>
               <Pressable
-                onPress={() => setShowDatePicker(true)}
+                onPress={() => {
+                  setTempIosDate(minAllowedDate && selectedDate < minAllowedDate ? minAllowedDate : selectedDate);
+                  setShowDatePicker(true);
+                }}
                 className="flex-row items-center justify-between bg-[#1C1C1E] rounded-2xl p-4 border border-[#2A2A2D]/50 active:opacity-80"
               >
                 <View className="flex-row items-center gap-3">
@@ -428,10 +511,15 @@ export default function LogWeightModal() {
           value={selectedDate}
           mode="date"
           display="default"
-          maximumDate={new Date()}
+          minimumDate={minAllowedDate}
+          maximumDate={maxAllowedDate}
           onChange={(event: DateTimePickerEvent, date?: Date) => {
             setShowDatePicker(false);
             if (event.type === 'set' && date) {
+              if (minAllowedDate && date < minAllowedDate) {
+                toast.error('Cannot select a date prior to your account creation date.');
+                return;
+              }
               const now = new Date();
               const picked = new Date(date);
               picked.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
@@ -454,24 +542,34 @@ export default function LogWeightModal() {
                 <Pressable
                   onPress={() => {
                     setShowDatePicker(false);
-                    handleDateChange(selectedDate);
+                    if (minAllowedDate && tempIosDate < minAllowedDate) {
+                      toast.error('Cannot select a date prior to your account creation date.');
+                      handleDateChange(minAllowedDate);
+                    } else {
+                      handleDateChange(tempIosDate);
+                    }
                   }}
                 >
                   <Text className="text-[#D4FF00] font-semibold text-base">Done</Text>
                 </Pressable>
               </View>
               <DateTimePicker
-                value={selectedDate}
+                value={tempIosDate}
                 mode="date"
                 display="inline"
                 themeVariant="dark"
-                maximumDate={new Date()}
+                minimumDate={minAllowedDate}
+                maximumDate={maxAllowedDate}
                 onChange={(_event: DateTimePickerEvent, date?: Date) => {
                   if (date) {
+                    if (minAllowedDate && date < minAllowedDate) {
+                      toast.error('Cannot select a date prior to your account creation date.');
+                      return;
+                    }
                     const now = new Date();
                     const picked = new Date(date);
                     picked.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
-                    setSelectedDate(picked);
+                    setTempIosDate(picked);
                   }
                 }}
               />

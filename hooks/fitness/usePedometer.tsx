@@ -5,6 +5,7 @@ import { supabaseFitnessService } from '@/lib/services/supabaseFitnessService';
 import { Pedometer, Accelerometer } from 'expo-sensors';
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { watchBridge } from '@/lib/watch/watchBridge';
 let HealthConnect: any = null;
 if (Platform.OS === 'android') {
   try {
@@ -27,7 +28,7 @@ const PedometerContext = createContext<PedometerContextValue>({
   steps: 0,
   calories: 0,
   debugInfo: '',
-  syncSteps: async () => {},
+  syncSteps: async () => { },
 });
 
 const getStepsCacheKey = (userId: string, date: string) => `@gk_steps_${userId}_${date}`;
@@ -89,14 +90,14 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
               }
             }
           }
-        } catch {}
+        } catch { }
 
         // Supabase DB fetch
         const summary = await supabaseFitnessService.getDailyStats(userId, today);
         if (isCurrent && summary && typeof summary.steps === 'number' && summary.steps > 0) {
           setSteps(prev => {
             const best = Math.max(prev, summary.steps);
-            AsyncStorage.setItem(getStepsCacheKey(userId, today), best.toString()).catch(() => {});
+            AsyncStorage.setItem(getStepsCacheKey(userId, today), best.toString()).catch(() => { });
             return best;
           });
         }
@@ -135,7 +136,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
           if (result && typeof result.COUNT_TOTAL === 'number' && result.COUNT_TOTAL > 0) {
             return result.COUNT_TOTAL;
           }
-        } catch {}
+        } catch { }
       }
 
       if (HealthConnect.readRecords) {
@@ -151,7 +152,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
             const sum = result.records.reduce((acc: number, r: any) => acc + (r?.count || 0), 0);
             if (sum > 0) return sum;
           }
-        } catch {}
+        } catch { }
       }
 
       return 0;
@@ -187,7 +188,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
           try {
             const cached = await AsyncStorage.getItem(getStepsCacheKey(userId, today));
             if (cached) cachedSteps = parseInt(cached, 10) || 0;
-          } catch {}
+          } catch { }
         }
 
         const bestSteps = Math.max(coremotionSteps, cachedSteps);
@@ -195,7 +196,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
           setSteps(prev => {
             const best = Math.max(prev, bestSteps);
             if (userId) {
-              AsyncStorage.setItem(getStepsCacheKey(userId, today), best.toString()).catch(() => {});
+              AsyncStorage.setItem(getStepsCacheKey(userId, today), best.toString()).catch(() => { });
             }
             return best;
           });
@@ -214,7 +215,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
           try {
             const cached = await AsyncStorage.getItem(getStepsCacheKey(userId, today));
             if (cached) cachedSteps = parseInt(cached, 10) || 0;
-          } catch {}
+          } catch { }
         }
 
         const bestSteps = Math.max(hcSteps, cachedSteps);
@@ -222,7 +223,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
           setSteps(prev => {
             const best = Math.max(prev, bestSteps);
             if (userId) {
-              AsyncStorage.setItem(getStepsCacheKey(userId, today), best.toString()).catch(() => {});
+              AsyncStorage.setItem(getStepsCacheKey(userId, today), best.toString()).catch(() => { });
             }
             return best;
           });
@@ -267,7 +268,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
                   const next = prev + 1;
                   if (userId) {
                     const today = getLocalDateString(new Date());
-                    AsyncStorage.setItem(getStepsCacheKey(userId, today), next.toString()).catch(() => {});
+                    AsyncStorage.setItem(getStepsCacheKey(userId, today), next.toString()).catch(() => { });
                   }
                   return next;
                 });
@@ -284,7 +285,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
       if (accelSubRef.current) {
         try {
           accelSubRef.current.remove();
-        } catch {}
+        } catch { }
         accelSubRef.current = null;
       }
     };
@@ -310,7 +311,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
                       const granted = await HealthConnect.getGrantedPermissions();
                       hasPermission = Array.isArray(granted) && granted.some((p: any) => p.recordType === 'Steps');
                     }
-                  } catch {}
+                  } catch { }
 
                   if (!hasPermission && HealthConnect.requestPermission) {
                     try {
@@ -318,7 +319,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
                         { accessType: 'read', recordType: 'Steps' },
                       ]);
                       hasPermission = Array.isArray(requested) && requested.some((p: any) => p.recordType === 'Steps');
-                    } catch {}
+                    } catch { }
                   }
 
                   if (hasPermission) {
@@ -366,7 +367,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
                         setSteps(prev => {
                           const next = prev + killedDelta;
                           if (userId) {
-                            AsyncStorage.setItem(getStepsCacheKey(userId, today), next.toString()).catch(() => {});
+                            AsyncStorage.setItem(getStepsCacheKey(userId, today), next.toString()).catch(() => { });
                           }
                           return next;
                         });
@@ -381,7 +382,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
                     AsyncStorage.multiSet([
                       [getRawCounterKey(userId), currentRaw.toString()],
                       [getRawCounterDateKey(userId), today],
-                    ]).catch(() => {});
+                    ]).catch(() => { });
                   }
                 }
 
@@ -418,7 +419,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
                     setSteps(prev => {
                       const next = prev + stepsToAdd;
                       if (userId) {
-                        AsyncStorage.setItem(getStepsCacheKey(userId, today), next.toString()).catch(() => {});
+                        AsyncStorage.setItem(getStepsCacheKey(userId, today), next.toString()).catch(() => { });
                       }
                       return next;
                     });
@@ -465,7 +466,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
                   const next = prev + delta;
                   if (userId) {
                     const today = getLocalDateString(new Date());
-                    AsyncStorage.setItem(getStepsCacheKey(userId, today), next.toString()).catch(() => {});
+                    AsyncStorage.setItem(getStepsCacheKey(userId, today), next.toString()).catch(() => { });
                   }
                   return next;
                 });
@@ -510,9 +511,31 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
       }
     }, 5000);
 
+    // Smartwatch Wrist Step Listener (Smartwatch priority reconciliation)
+    let watchStepSub: any = null;
+    if (Platform.OS === 'android') {
+      watchStepSub = watchBridge.onStepSyncReceived((data) => {
+        if (!isMounted) return;
+        const today = getLocalDateString(new Date());
+        if (data && data.steps > 0 && (!data.sessionDate || data.sessionDate === today)) {
+          if (!data.userId || data.userId === userId) {
+            console.log('[Pedometer] Reconciling smartwatch steps:', data.steps);
+            setSteps((prev) => {
+              const reconciled = Math.max(prev, data.steps);
+              if (userId) {
+                AsyncStorage.setItem(getStepsCacheKey(userId, today), reconciled.toString()).catch(() => { });
+              }
+              return reconciled;
+            });
+          }
+        }
+      });
+    }
+
     return () => {
       isMounted = false;
       if (subscription) subscription.remove();
+      if (watchStepSub) watchStepSub.remove();
       if (Platform.OS === 'android') stopAccelerometer();
       appStateSub.remove();
       clearInterval(interval);
@@ -530,7 +553,7 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
     const syncTimeout = setTimeout(async () => {
       try {
         await supabaseFitnessService.updateSteps(userId, today, steps, calories);
-        
+
         // Progress Milestone: 10k steps
         if (steps >= 10000) {
           const milestoneKey = `milestone_10k_steps_${userId}_${today}`;

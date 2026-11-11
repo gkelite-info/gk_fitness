@@ -21,12 +21,58 @@ class WatchSyncRepository(private val context: Context) {
     private val gson = Gson()
     private val scope = CoroutineScope(Dispatchers.IO)
     private val offlineQueue = OfflineQueue(context)
+    private val prefs = context.getSharedPreferences("gk_wear_auth", Context.MODE_PRIVATE)
+
+    private val _authSession = MutableStateFlow<WatchAuthSession?>(null)
+    val authSession = _authSession.asStateFlow()
 
     private val _activePayload = MutableStateFlow<WatchWorkoutPayload?>(null)
     val activePayload = _activePayload.asStateFlow()
 
     private val _completedSets = MutableStateFlow<Map<String, Int>>(emptyMap())
     val completedSets = _completedSets.asStateFlow()
+
+    init {
+        val savedUserId = prefs.getString("auth_user_id", null)
+        if (!savedUserId.isNullOrEmpty()) {
+            val session = WatchAuthSession(
+                userId = savedUserId,
+                name = prefs.getString("auth_user_name", null),
+                email = prefs.getString("auth_user_email", null),
+                waterGoalMl = prefs.getInt("auth_water_goal", 3000),
+                stepGoal = prefs.getInt("auth_step_goal", 10000)
+            )
+            _authSession.value = session
+            WatchHealthManager.getInstance(context).setCurrentUserId(savedUserId)
+        }
+    }
+
+    fun updateAuthSession(session: WatchAuthSession?) {
+        if (session == null || session.userId.isNullOrEmpty()) {
+            Log.d("GKWatchSync", "Clearing auth session on watch")
+            _authSession.value = null
+            _activePayload.value = null
+            prefs.edit().clear().apply()
+            WatchHealthManager.getInstance(context).setCurrentUserId(null)
+        } else {
+            Log.d("GKWatchSync", "Updating auth session on watch for user: ${session.userId} (${session.name})")
+            _authSession.value = session
+            prefs.edit()
+                .putString("auth_user_id", session.userId)
+                .putString("auth_user_name", session.name)
+                .putString("auth_user_email", session.email)
+                .putInt("auth_water_goal", session.waterGoalMl ?: 3000)
+                .putInt("auth_step_goal", session.stepGoal ?: 10000)
+                .apply()
+            WatchHealthManager.getInstance(context).setCurrentUserId(session.userId)
+            if (session.waterGoalMl != null && session.waterGoalMl > 0) {
+                WatchHealthManager.getInstance(context).updateWaterFromPhone(
+                    WatchHealthManager.getInstance(context).waterIntakeMl.value,
+                    session.waterGoalMl
+                )
+            }
+        }
+    }
 
     fun updateActivePayload(payload: WatchWorkoutPayload) {
         _activePayload.value = payload
@@ -104,7 +150,12 @@ class WatchSyncRepository(private val context: Context) {
     }
 
     fun requestTodayWorkoutFromPhone() {
+        requestSyncFromPhone()
+    }
+
+    fun requestSyncFromPhone() {
         scope.launch {
+            Log.d("GKWatchSync", "Requesting sync (workout & water) from phone...")
             sendToPhone("/gk/request-active-workout", "{}")
         }
     }

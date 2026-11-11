@@ -1,6 +1,7 @@
 package com.gkeliteinfo.gkgymlife.wear.data
 
 import android.content.Intent
+import android.util.Log
 import com.gkeliteinfo.gkgymlife.wear.MainActivity
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
@@ -15,7 +16,10 @@ class WearDataLayerListenerService : WearableListenerService() {
     private val gson = Gson()
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
-        when (messageEvent.path) {
+        val path = messageEvent.path
+        Log.d("GKWearListener", "onMessageReceived path=$path")
+
+        when (path) {
             "/gk/workout-session" -> {
                 try {
                     val payloadJson = String(messageEvent.data, StandardCharsets.UTF_8)
@@ -29,18 +33,29 @@ class WearDataLayerListenerService : WearableListenerService() {
                         startActivity(intent)
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e("GKWearListener", "workout-session error: ${e.message}", e)
                 }
             }
             "/gk/water-sync" -> {
                 try {
                     val json = String(messageEvent.data, StandardCharsets.UTF_8)
+                    Log.d("GKWearListener", "Received /gk/water-sync message: $json")
                     val map = gson.fromJson(json, Map::class.java)
                     val intake = (map["waterIntakeMl"] as? Number)?.toInt() ?: 0
                     val goal = (map["waterGoalMl"] as? Number)?.toInt()
                     WatchHealthManager.getInstance(applicationContext).updateWaterFromPhone(intake, goal)
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e("GKWearListener", "water-sync error: ${e.message}", e)
+                }
+            }
+            "/gk/auth-session" -> {
+                try {
+                    val json = String(messageEvent.data, StandardCharsets.UTF_8)
+                    Log.d("GKWearListener", "Received /gk/auth-session message: $json")
+                    val session = gson.fromJson(json, WatchAuthSession::class.java)
+                    WatchSyncRepository.getInstance(applicationContext).updateAuthSession(session)
+                } catch (e: Exception) {
+                    Log.e("GKWearListener", "auth-session error: ${e.message}", e)
                 }
             }
         }
@@ -50,6 +65,8 @@ class WearDataLayerListenerService : WearableListenerService() {
         for (event in dataEvents) {
             if (event.type == DataEvent.TYPE_CHANGED) {
                 val uri = event.dataItem.uri
+                Log.d("GKWearListener", "onDataChanged uri=${uri.path}")
+
                 when (uri.path) {
                     "/gk/workout-session" -> {
                         try {
@@ -66,7 +83,7 @@ class WearDataLayerListenerService : WearableListenerService() {
                                 startActivity(intent)
                             }
                         } catch (e: Exception) {
-                            e.printStackTrace()
+                            Log.e("GKWearListener", "DataChanged workout error: ${e.message}", e)
                         }
                     }
                     "/gk/water-sync" -> {
@@ -74,9 +91,23 @@ class WearDataLayerListenerService : WearableListenerService() {
                             val dataMapItem = DataMapItem.fromDataItem(event.dataItem)
                             val intake = dataMapItem.dataMap.getInt("waterIntakeMl", 0)
                             val goal = dataMapItem.dataMap.getInt("waterGoalMl", 3000)
+                            Log.d("GKWearListener", "DataChanged /gk/water-sync: intake=$intake, goal=$goal")
                             WatchHealthManager.getInstance(applicationContext).updateWaterFromPhone(intake, goal)
                         } catch (e: Exception) {
-                            e.printStackTrace()
+                            Log.e("GKWearListener", "DataChanged water error: ${e.message}", e)
+                        }
+                    }
+                    "/gk/auth-session" -> {
+                        try {
+                            val dataMapItem = DataMapItem.fromDataItem(event.dataItem)
+                            val sessionJson = dataMapItem.dataMap.getString("session")
+                            if (!sessionJson.isNullOrEmpty()) {
+                                Log.d("GKWearListener", "DataChanged /gk/auth-session: $sessionJson")
+                                val session = gson.fromJson(sessionJson, WatchAuthSession::class.java)
+                                WatchSyncRepository.getInstance(applicationContext).updateAuthSession(session)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("GKWearListener", "DataChanged auth error: ${e.message}", e)
                         }
                     }
                 }

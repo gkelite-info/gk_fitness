@@ -41,6 +41,7 @@ fun HomeScreen(
     onRequestPermissions: () -> Unit,
     onStartWorkout: () -> Unit
 ) {
+    val authSession by repository.authSession.collectAsState()
     val activePayload by repository.activePayload.collectAsState()
     val steps by healthManager.steps.collectAsState()
     val heartRate by healthManager.heartRate.collectAsState()
@@ -55,8 +56,8 @@ fun HomeScreen(
         repository.checkPhoneConnection { connected, name ->
             isPhoneConnected = connected
             connectedPhoneName = name
-            if (connected && activePayload == null) {
-                repository.requestTodayWorkoutFromPhone()
+            if (connected) {
+                repository.requestSyncFromPhone()
             }
         }
     }
@@ -80,11 +81,12 @@ fun HomeScreen(
                     )
                     1 -> WorkoutCardPage(
                         activePayload = activePayload,
+                        authSession = authSession,
                         isPhoneConnected = isPhoneConnected,
                         connectedPhoneName = connectedPhoneName,
                         onStartWorkout = onStartWorkout,
                         onSyncRequest = {
-                            repository.requestTodayWorkoutFromPhone()
+                            repository.requestSyncFromPhone()
                             repository.checkPhoneConnection { connected, name ->
                                 isPhoneConnected = connected
                                 connectedPhoneName = name
@@ -100,7 +102,16 @@ fun HomeScreen(
                     3 -> WaterCardPage(
                         waterIntake = waterIntake,
                         waterGoal = waterGoal,
-                        onAddWater = { amount -> healthManager.addWater(amount) }
+                        userName = authSession?.name,
+                        isPhoneConnected = isPhoneConnected,
+                        onAddWater = { amount -> healthManager.addWater(amount) },
+                        onSyncRequest = {
+                            repository.requestSyncFromPhone()
+                            repository.checkPhoneConnection { connected, name ->
+                                isPhoneConnected = connected
+                                connectedPhoneName = name
+                            }
+                        }
                     )
                     4 -> QuickPresetsCardPage(
                         onSelectPreset = { preset ->
@@ -204,20 +215,28 @@ private fun ActivityRingsCardPage(steps: Int, heartRate: Int) {
 @Composable
 private fun WorkoutCardPage(
     activePayload: com.gkeliteinfo.gkgymlife.wear.data.WatchWorkoutPayload?,
+    authSession: com.gkeliteinfo.gkgymlife.wear.data.WatchAuthSession?,
     isPhoneConnected: Boolean?,
     connectedPhoneName: String?,
     onStartWorkout: () -> Unit,
     onSyncRequest: () -> Unit
 ) {
+    val title = if (authSession?.name != null) {
+        val firstName = authSession.name.split(" ").firstOrNull() ?: "MY"
+        "${firstName.uppercase()}'S WORKOUT"
+    } else {
+        "TODAY'S WORKOUT"
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 14.dp, vertical = 20.dp),
+            .padding(horizontal = 14.dp, vertical = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "TODAY'S WORKOUT",
+            text = title,
             color = TextMuted,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
@@ -231,13 +250,15 @@ private fun WorkoutCardPage(
             Text(text = if (isPhoneConnected == true) "🟢" else "⚪", fontSize = 8.sp)
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = when (isPhoneConnected) {
-                    true -> connectedPhoneName ?: "Phone Connected"
-                    false -> "Disconnected"
+                text = when {
+                    authSession?.name != null -> authSession.name
+                    isPhoneConnected == true -> connectedPhoneName ?: "Phone Connected"
+                    isPhoneConnected == false -> "Disconnected"
                     else -> "Checking..."
                 },
                 color = if (isPhoneConnected == true) Color.White else TextMuted,
-                fontSize = 9.sp
+                fontSize = 9.sp,
+                maxLines = 1
             )
         }
 
@@ -277,8 +298,17 @@ private fun WorkoutCardPage(
                     modifier = Modifier.padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("🔄 Tap to Sync", color = PrimaryLime, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    Text("from phone app", color = TextMuted, fontSize = 9.sp)
+                    Text(
+                        text = if (authSession != null) "🔄 Tap to Sync" else "🔒 Log In on Phone",
+                        color = PrimaryLime,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = if (authSession != null) "fetch today's plan" else "from GK Fitness app",
+                        color = TextMuted,
+                        fontSize = 9.sp
+                    )
                 }
             }
         }
@@ -373,22 +403,51 @@ private fun VitalsCardPage(
 private fun WaterCardPage(
     waterIntake: Int,
     waterGoal: Int,
-    onAddWater: (Int) -> Unit
+    userName: String?,
+    isPhoneConnected: Boolean?,
+    onAddWater: (Int) -> Unit,
+    onSyncRequest: () -> Unit
 ) {
+    val title = if (userName != null) {
+        val firstName = userName.split(" ").firstOrNull() ?: "MY"
+        "${firstName.uppercase()}'S HYDRATION"
+    } else {
+        "HYDRATION"
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 14.dp, vertical = 20.dp),
+            .padding(horizontal = 14.dp, vertical = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "HYDRATION",
-            color = Color(0xFF64B5F6),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.5.sp
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = title,
+                color = Color(0xFF64B5F6),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(
+                        color = when (isPhoneConnected) {
+                            true -> Color(0xFF00E676)
+                            false -> Color(0xFFEF5350)
+                            null -> Color(0xFFFFB74D)
+                        },
+                        shape = CircleShape
+                    )
+            )
+        }
 
         Spacer(modifier = Modifier.height(4.dp))
 

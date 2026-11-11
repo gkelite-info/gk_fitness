@@ -98,8 +98,8 @@ export default function TrainerProfileScreen() {
 
     if (from === 'my-trainer') {
       router.replace('/(customer)/my-trainer');
-    } else if (router.canGoBack()) {
-      router.back();
+    } else if (from === 'profile') {
+      router.replace('/(customer)/profile');
     } else {
       router.replace('/(customer)/trainer/book-trainer');
     }

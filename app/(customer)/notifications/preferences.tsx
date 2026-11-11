@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Pressable, Switch, ActivityIndicator, Text } from 'react-native';
+import { View, ScrollView, Pressable, Switch, ActivityIndicator, Text, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Clock, Hourglass, ForkKnife, CalendarCheck, CalendarBlank, SunDim, Barbell, Sparkle, BellRinging, PaperPlaneTilt } from 'phosphor-react-native';
@@ -96,12 +96,17 @@ export default function NotificationsPreferencesScreen() {
   };
 
   const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.push('/(customer)/profile');
-    }
+    router.navigate('/(customer)/profile');
   };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
 
   const [testingLocal, setTestingLocal] = useState(false);
   const [testingPush, setTestingPush] = useState(false);

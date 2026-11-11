@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, TextInput, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, Pressable, TextInput, ActivityIndicator, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, WarningCircle, Trash, CheckCircle } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
 import { useDeleteAccount } from '@/hooks/auth/useDeleteAccount';
+import { toast } from '@/lib/toast';
 
 export default function DeleteAccountScreen() {
   const router = useRouter();
@@ -16,18 +17,28 @@ export default function DeleteAccountScreen() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [confirmText, setConfirmText] = useState('');
 
+  useEffect(() => {
+    const onBackPress = () => {
+      router.navigate('/(customer)/manage-account');
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
+
   const handleDelete = async () => {
     if (confirmText !== 'DELETE') return;
     if (!userId) {
-      Alert.alert('Error', 'User session not found.');
+      toast.error('User session not found.');
       return;
     }
 
     try {
       await deleteAccount(userId);
+      toast.success('Account deleted successfully.');
       setStep(3);
     } catch (err: any) {
-      Alert.alert('Error Deleting Account', err.message || 'An unexpected error occurred. Please try again.');
+      toast.error(err.message || 'An unexpected error occurred. Please try again.');
     }
   };
 
@@ -35,7 +46,7 @@ export default function DeleteAccountScreen() {
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
       {/* Header */}
       <View className="flex-row items-center px-5 py-4 border-b border-[#27272A]">
-        <Pressable onPress={() => router.navigate('/(customer)/edit-profile')} disabled={isPending} className="mr-4 active:opacity-70">
+        <Pressable onPress={() => router.navigate('/(customer)/manage-account')} disabled={isPending} className="mr-4 active:opacity-70">
           <ArrowLeft size={24} color="#FFFFFF" />
         </Pressable>
         <Text className="text-white text-xl font-semibold">Delete Account</Text>
@@ -76,7 +87,7 @@ export default function DeleteAccountScreen() {
             </View>
 
             <Pressable
-              onPress={() => router.navigate('/(customer)/edit-profile')}
+              onPress={() => router.navigate('/(customer)/manage-account')}
               className="bg-[#27272A] rounded-2xl py-4 items-center mb-3 active:opacity-80"
             >
               <Text className="text-white font-semibold text-base">Keep My Account</Text>

@@ -707,7 +707,7 @@ export default function SignupScreen() {
         // Clear any previous selected gym context
         try {
           await clearSelectedGym();
-        } catch {}
+        } catch { }
 
         // Set session in UserContext for seamless auto-login
         if (setFallbackUserSession) {
@@ -1477,172 +1477,171 @@ export default function SignupScreen() {
             </>
           )}
 
-                <View onLayout={(e) => registerField('password', e.nativeEvent.layout.y)}>
-                  <Text className="text-white text-[13px] font-medium mb-2">Password <Text className="text-red-500">*</Text></Text>
-                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                    <LockKey size={18} color="#6B6B6B" />
-                    <SafePasswordInput
-                      value={password}
-                      onChangeText={setPassword}
-                      onFocus={() => scrollToField('password')}
-                      placeholder="Enter your password"
-                      placeholderTextColor="#6B6B6B"
-                      showPassword={showPassword}
-                      className="flex-1 text-white text-[14px] p-0 font-medium"
-                    />
-                    <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
-                      {showPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
-                    </Pressable>
-                  </View>
-                </View>
-
-                <View onLayout={(e) => registerField('confirmPassword', e.nativeEvent.layout.y)}>
-                  <Text className="text-white text-[13px] font-medium mb-2">Confirm Password <Text className="text-red-500">*</Text></Text>
-                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
-                    <LockKey size={18} color="#6B6B6B" />
-                    <SafePasswordInput
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      onFocus={() => scrollToField('confirmPassword')}
-                      placeholder="Confirm your password"
-                      placeholderTextColor="#6B6B6B"
-                      showPassword={showConfirmPassword}
-                      className="flex-1 text-white text-[14px] p-0 font-medium"
-                    />
-                    <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
-                      {showConfirmPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-              <Pressable
-                onPress={handleSignup}
-                disabled={loading || isPending}
-                className={`bg-[#C3F400] rounded-xl py-3.5 items-center flex-row justify-center mb-6 ${(loading || isPending) ? 'opacity-70' : 'active:opacity-80'}`}
-              >
-                {(loading || isPending) && <ActivityIndicator color="#000" size="small" style={{ marginRight: 8 }} />}
-                <Text className="text-black font-semibold text-[15px]">Sign Up</Text>
+          <View onLayout={(e) => registerField('password', e.nativeEvent.layout.y)}>
+            <Text className="text-white text-[13px] font-medium mb-2">Password <Text className="text-red-500">*</Text></Text>
+            <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+              <LockKey size={18} color="#6B6B6B" />
+              <SafePasswordInput
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => scrollToField('password')}
+                placeholder="Enter your password"
+                placeholderTextColor="#6B6B6B"
+                showPassword={showPassword}
+                className="flex-1 text-white text-[14px] p-0 font-medium"
+              />
+              <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
+                {showPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
               </Pressable>
-
-              <View className="flex-row items-center justify-center">
-                <View className="flex-1 h-[1px] bg-[#1E1E1E]" />
-                <Text className="text-[#6B6B6B] text-[13px] mx-4">Already have an account?</Text>
-                <View className="flex-1 h-[1px] bg-[#1E1E1E]" />
-              </View>
-
-              <Pressable onPress={() => router.back()} className="items-center mt-4 p-2">
-                <Text className="text-[#C3F400] font-semibold text-[14px]">Login</Text>
-              </Pressable>
-
-            </ScrollView>
-
-          <ActionSheet
-            visible={genderModalVisible}
-            onClose={() => setGenderModalVisible(false)}
-            title="Select Gender"
-            options={['Male', 'Female', 'Others']}
-            onSelect={(idx) => {
-              if (idx === 0) setGender('Male');
-              if (idx === 1) setGender('Female');
-              if (idx === 2) setGender('Others');
-            }}
-          />
-
-          <DatePickerModal
-            visible={dobModalVisible}
-            title="Select Date of Birth"
-            initialDate={dob || '1998-01-01'}
-            onClose={() => setDobModalVisible(false)}
-            onSelectDate={setDob}
-            minYear={1940}
-            maxYear={new Date().getFullYear()}
-          />
-
-          <SearchableModalPicker
-            visible={planModalVisible}
-            onClose={() => setPlanModalVisible(false)}
-            data={planPickerData}
-            onSelect={(val: string) => setSelectedPlanId(val)}
-            placeholder="Select Membership Plan"
-            selectedValue={selectedPlanId}
-            onExploreWeb={handleExplorePlansOnWeb}
-          />
-
-          <Modal
-            visible={ENABLE_FAST2SMS_OTP_VERIFICATION && otpModalVisible}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setOtpModalVisible(false)}
-          >
-            <View className="flex-1 justify-center items-center bg-black/80 px-5">
-              <View className="bg-[#141414] border border-[#262626] rounded-3xl p-6 w-full max-w-[360px]">
-                <View className="flex-row justify-between items-center mb-4">
-                  <View className="flex-row items-center gap-2.5">
-                    <View className="w-9 h-9 rounded-full bg-[#C3F400]/10 items-center justify-center border border-[#C3F400]/30">
-                      <ShieldCheck size={20} color="#C3F400" weight="bold" />
-                    </View>
-                    <Text className="text-white text-lg font-bold">Verify Mobile</Text>
-                  </View>
-                  <Pressable
-                    onPress={() => setOtpModalVisible(false)}
-                    className="p-1 rounded-full bg-[#1E1E1E]"
-                  >
-                    <X size={18} color="#8E8E93" />
-                  </Pressable>
-                </View>
-
-                <Text className="text-[#8E8E93] text-[13px] mb-5 leading-5">
-                  Enter the 6-digit OTP code sent via SMS to{' '}
-                  <Text className="text-[#C3F400] font-semibold">+91 {phone}</Text>
-                </Text>
-
-                <View className="mb-4">
-                  <TextInput autoCorrect={false} spellCheck={false}
-                    value={otpCode}
-                    onChangeText={(val) => setOtpCode(val.replace(/[^0-9]/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    placeholderTextColor="#444444"
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    className="bg-[#1A1A1A] border border-[#2E2E2E] rounded-xl text-white text-center text-2xl font-bold tracking-[8px] py-3.5 px-4"
-                    autoFocus
-                  />
-                </View>
-
-                <Pressable
-                  onPress={handleVerifyOtp}
-                  disabled={isVerifyingOtp || otpCode.length !== 6}
-                  className={`bg-[#C3F400] rounded-xl py-3.5 items-center flex-row justify-center mb-3 ${
-                    (isVerifyingOtp || otpCode.length !== 6) ? 'opacity-60' : 'active:opacity-85'
-                  }`}
-                >
-                  {isVerifyingOtp && <ActivityIndicator color="#000" size="small" style={{ marginRight: 8 }} />}
-                  <Text className="text-black font-bold text-[14px]">Verify & Continue</Text>
-                </Pressable>
-
-                <View className="flex-row items-center justify-center pt-2">
-                  {otpCountdown > 0 ? (
-                    <Text className="text-[#6B6B6B] text-[12px]">
-                      Resend OTP in <Text className="text-[#A0A0A0] font-semibold">{otpCountdown}s</Text>
-                    </Text>
-                  ) : (
-                    <Pressable
-                      onPress={() => handleSendOtp(phone)}
-                      disabled={isSendingOtp}
-                      className="flex-row items-center gap-1 active:opacity-70 p-1"
-                    >
-                      {isSendingOtp ? (
-                        <ActivityIndicator size="small" color="#C3F400" />
-                      ) : (
-                        <Text className="text-[#C3F400] text-[13px] font-semibold">Resend OTP</Text>
-                      )}
-                    </Pressable>
-                  )}
-                </View>
-              </View>
             </View>
-          </Modal>
-        </SafeAreaView>
-        );
-  }
+          </View>
+
+          <View onLayout={(e) => registerField('confirmPassword', e.nativeEvent.layout.y)}>
+            <Text className="text-white text-[13px] font-medium mb-2">Confirm Password <Text className="text-red-500">*</Text></Text>
+            <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+              <LockKey size={18} color="#6B6B6B" />
+              <SafePasswordInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                onFocus={() => scrollToField('confirmPassword')}
+                placeholder="Confirm your password"
+                placeholderTextColor="#6B6B6B"
+                showPassword={showConfirmPassword}
+                className="flex-1 text-white text-[14px] p-0 font-medium"
+              />
+              <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
+                {showConfirmPassword ? <Eye size={18} color="#6B6B6B" /> : <EyeSlash size={18} color="#6B6B6B" />}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <Pressable
+          onPress={handleSignup}
+          disabled={loading || isPending}
+          className={`bg-[#C3F400] rounded-xl py-3.5 items-center flex-row justify-center mb-6 ${(loading || isPending) ? 'opacity-70' : 'active:opacity-80'}`}
+        >
+          {(loading || isPending) && <ActivityIndicator color="#000" size="small" style={{ marginRight: 8 }} />}
+          <Text className="text-black font-semibold text-[15px]">Sign Up</Text>
+        </Pressable>
+
+        <View className="flex-row items-center justify-center">
+          <View className="flex-1 h-[1px] bg-[#1E1E1E]" />
+          <Text className="text-[#6B6B6B] text-[13px] mx-4">Already have an account?</Text>
+          <View className="flex-1 h-[1px] bg-[#1E1E1E]" />
+        </View>
+
+        <Pressable onPress={() => router.back()} className="items-center mt-4 p-2">
+          <Text className="text-[#C3F400] font-semibold text-[14px]">Login</Text>
+        </Pressable>
+
+      </ScrollView>
+
+      <ActionSheet
+        visible={genderModalVisible}
+        onClose={() => setGenderModalVisible(false)}
+        title="Select Gender"
+        options={['Male', 'Female', 'Others']}
+        onSelect={(idx) => {
+          if (idx === 0) setGender('Male');
+          if (idx === 1) setGender('Female');
+          if (idx === 2) setGender('Others');
+        }}
+      />
+
+      <DatePickerModal
+        visible={dobModalVisible}
+        title="Select Date of Birth"
+        initialDate={dob || '1998-01-01'}
+        onClose={() => setDobModalVisible(false)}
+        onSelectDate={setDob}
+        minYear={1940}
+        maxYear={new Date().getFullYear()}
+      />
+
+      <SearchableModalPicker
+        visible={planModalVisible}
+        onClose={() => setPlanModalVisible(false)}
+        data={planPickerData}
+        onSelect={(val: string) => setSelectedPlanId(val)}
+        placeholder="Select Membership Plan"
+        selectedValue={selectedPlanId}
+        onExploreWeb={handleExplorePlansOnWeb}
+      />
+
+      <Modal
+        visible={ENABLE_FAST2SMS_OTP_VERIFICATION && otpModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOtpModalVisible(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black/80 px-5">
+          <View className="bg-[#141414] border border-[#262626] rounded-3xl p-6 w-full max-w-[360px]">
+            <View className="flex-row justify-between items-center mb-4">
+              <View className="flex-row items-center gap-2.5">
+                <View className="w-9 h-9 rounded-full bg-[#C3F400]/10 items-center justify-center border border-[#C3F400]/30">
+                  <ShieldCheck size={20} color="#C3F400" weight="bold" />
+                </View>
+                <Text className="text-white text-lg font-bold">Verify Mobile</Text>
+              </View>
+              <Pressable
+                onPress={() => setOtpModalVisible(false)}
+                className="p-1 rounded-full bg-[#1E1E1E]"
+              >
+                <X size={18} color="#8E8E93" />
+              </Pressable>
+            </View>
+
+            <Text className="text-[#8E8E93] text-[13px] mb-5 leading-5">
+              Enter the 6-digit OTP code sent via SMS to{' '}
+              <Text className="text-[#C3F400] font-semibold">+91 {phone}</Text>
+            </Text>
+
+            <View className="mb-4">
+              <TextInput autoCorrect={false} spellCheck={false}
+                value={otpCode}
+                onChangeText={(val) => setOtpCode(val.replace(/[^0-9]/g, '').slice(0, 6))}
+                placeholder="000000"
+                placeholderTextColor="#444444"
+                keyboardType="number-pad"
+                maxLength={6}
+                className="bg-[#1A1A1A] border border-[#2E2E2E] rounded-xl text-white text-center text-2xl font-bold tracking-[8px] py-3.5 px-4"
+                autoFocus
+              />
+            </View>
+
+            <Pressable
+              onPress={handleVerifyOtp}
+              disabled={isVerifyingOtp || otpCode.length !== 6}
+              className={`bg-[#C3F400] rounded-xl py-3.5 items-center flex-row justify-center mb-3 ${(isVerifyingOtp || otpCode.length !== 6) ? 'opacity-60' : 'active:opacity-85'
+                }`}
+            >
+              {isVerifyingOtp && <ActivityIndicator color="#000" size="small" style={{ marginRight: 8 }} />}
+              <Text className="text-black font-bold text-[14px]">Verify & Continue</Text>
+            </Pressable>
+
+            <View className="flex-row items-center justify-center pt-2">
+              {otpCountdown > 0 ? (
+                <Text className="text-[#6B6B6B] text-[12px]">
+                  Resend OTP in <Text className="text-[#A0A0A0] font-semibold">{otpCountdown}s</Text>
+                </Text>
+              ) : (
+                <Pressable
+                  onPress={() => handleSendOtp(phone)}
+                  disabled={isSendingOtp}
+                  className="flex-row items-center gap-1 active:opacity-70 p-1"
+                >
+                  {isSendingOtp ? (
+                    <ActivityIndicator size="small" color="#C3F400" />
+                  ) : (
+                    <Text className="text-[#C3F400] text-[13px] font-semibold">Resend OTP</Text>
+                  )}
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}

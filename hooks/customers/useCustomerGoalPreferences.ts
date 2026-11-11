@@ -19,6 +19,9 @@ export function useSaveCustomerGoalPreference() {
     mutationFn: (params: CustomerGoalPreferencePayload) => saveCustomerGoalPreference(params),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['customerGoalPreference', variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ['customerProfile', variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ['customerOnboarding', variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile', variables.userId] });
     },
   });
 }

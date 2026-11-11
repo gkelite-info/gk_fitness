@@ -471,11 +471,7 @@ export default function BookTrainerScreen() {
   });
 
   const handleBack = useCallback(() => {
-    try {
-      (router as any).replace('/(customer)/profile');
-    } catch {
-      router.push('/(customer)/profile');
-    }
+    router.navigate('/(customer)/profile');
   }, [router]);
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, ScrollView, Pressable, Image, Modal, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, ScrollView, Pressable, Image, Modal, ActivityIndicator, Platform, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +28,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useGlobalTrainer } from '@/hooks/globalTrainers/useGlobalTrainer';
 import { useGymTrainerById } from '@/hooks/trainers/useGymTrainers';
 import { useIndividualCustomerPayments, useSaveIndividualCustomerPayment } from '@/hooks/individual/membership/individualCustomerTrainerPayments';
+import { toast } from '@/lib/toast';
 
 export default function TrainerRequestScreen() {
   const { id, trainerName, specializations, trainerData, trainerPrice } = useLocalSearchParams<{
@@ -164,13 +165,23 @@ export default function TrainerRequestScreen() {
   const dateOptions: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
   const requestedDate = new Date().toLocaleDateString('en-GB', dateOptions);
 
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (from === 'book-trainer') {
+      router.navigate('/(customer)/trainer/book-trainer');
     } else {
-      router.push('/(customer)/trainer/book-trainer');
+      router.navigate('/(customer)/profile');
     }
   };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleBack]);
 
   // Mutations
   const { mutateAsync: saveTrainerRequest, isPending: isSavingGymRequest } = useSavePersonalTrainerRequest();
@@ -249,17 +260,9 @@ export default function TrainerRequestScreen() {
       }
 
       if (!session?.access_token) {
-        Alert.alert(
-          'Login Required',
-          'Your session has expired. Please log in again to continue.',
-          [
-            {
-              text: 'Log In',
-              onPress: () => router.replace('/auth/otp-auth' as any),
-            },
-          ]
-        );
+        toast.error('Your session has expired. Please log in again to continue.');
         setIsProcessingPayment(false);
+        router.replace('/auth/otp-auth' as any);
         return;
       }
 
@@ -317,7 +320,7 @@ export default function TrainerRequestScreen() {
           : `https://www.gkgymlife.com/customer?action=book-trainer&amount=${trainerFee}`;
         await Linking.openURL(fallbackUrl);
       } catch (linkErr) {
-        Alert.alert('Error', 'Unable to open browser. Please visit https://www.gkgymlife.com/customer');
+        toast.error('Unable to open browser. Please visit https://www.gkgymlife.com/customer');
       }
     } finally {
       setIsProcessingPayment(false);
@@ -326,7 +329,7 @@ export default function TrainerRequestScreen() {
 
   const handleAssignAndOpenWeb = async () => {
     if (!userId) {
-      Alert.alert('Login Required', 'Please log in to continue.');
+      toast.error('Please log in to continue.');
       return;
     }
 
@@ -340,7 +343,7 @@ export default function TrainerRequestScreen() {
       (trainer as any)?.id;
 
     if (!resolvedTrainerId) {
-      Alert.alert('Trainer Not Found', 'Could not determine trainer details. Please select a trainer again.');
+      toast.error('Could not determine trainer details. Please select a trainer again.');
       return;
     }
 
@@ -378,7 +381,7 @@ export default function TrainerRequestScreen() {
       await openWebCheckout(resolvedTrainerId as string);
     } catch (err: any) {
       console.error('[TrainerRequest] handleAssignAndOpenWeb error:', err);
-      Alert.alert('Error', err?.message || 'Could not complete trainer assignment.');
+      toast.error(err?.message || 'Could not complete trainer assignment.');
     } finally {
       setIsProcessingPayment(false);
     }

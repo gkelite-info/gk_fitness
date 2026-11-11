@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, ScrollView, Pressable, Image, ActivityIndicator, TextInput, Modal, Keyboard, Alert } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, ScrollView, Pressable, Image, ActivityIndicator, TextInput, Modal, Keyboard, Alert, BackHandler } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -8,6 +8,8 @@ import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/lib/toast';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { useUserById } from '@/hooks/users';
+import { useUpdateGymCustomer } from '@/hooks/customers/useGymCustomers';
 import { useUpdateCustomerProfile, useUpdateProfilePhoto, useDeleteProfilePhoto } from '@/hooks/auth/useUpdateCustomerProfile';
 import { useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -56,20 +58,41 @@ const getLabel = (value: string, options: any[]) => {
 
 export default function EditProfileScreen() {
   const userContext = useUser();
-  const userId = userContext.userId;
+  const userId = userContext.userId || (userContext as any).id;
+  const { data: userRecord, isLoading: isUserLoading, refetch: refetchUser } = useUserById(userId);
   const { data, isLoading } = useCustomerProfile(userId);
 
   return <EditProfileView
     data={mockProfileData}
+    userRecord={userRecord}
     customerData={data?.customerData}
     onboardingData={data?.onboardingData}
-    loading={isLoading}
+    loading={isLoading || isUserLoading}
     fallbackUser={userContext}
     userId={userId}
+    refetchUser={refetchUser}
   />;
 }
 
-function EditProfileView({ data, customerData, onboardingData, loading, fallbackUser, userId }: { data: typeof mockProfileData, customerData: any, onboardingData: any, loading: boolean, fallbackUser: any, userId: string | null }) {
+function EditProfileView({
+  data,
+  userRecord,
+  customerData,
+  onboardingData,
+  loading,
+  fallbackUser,
+  userId,
+  refetchUser,
+}: {
+  data: typeof mockProfileData,
+  userRecord?: any,
+  customerData: any,
+  onboardingData: any,
+  loading: boolean,
+  fallbackUser: any,
+  userId: string | null,
+  refetchUser?: () => Promise<any>,
+}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -85,13 +108,16 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
     activityLevel: ''
   });
 
+  const [isSaving, setIsSaving] = useState(false);
+
   const updateMutation = useUpdateCustomerProfile();
+  const updateGymCustomerMutation = useUpdateGymCustomer();
   const updatePhotoMutation = useUpdateProfilePhoto();
   const deletePhotoMutation = useDeleteProfilePhoto();
   const queryClient = useQueryClient();
   const { refreshUserContext } = useUser();
 
-  const currentPhoto = fallbackUser?.profilePhoto || fallbackUser?.profilePic || customerData?.profilePhoto || customerData?.profilePic;
+  const currentPhoto = userRecord?.profilePhoto || fallbackUser?.profilePhoto || fallbackUser?.profilePic || customerData?.profilePhoto || customerData?.profilePic;
   const hasProfilePhoto = Boolean(
     currentPhoto &&
     typeof currentPhoto === 'string' &&
@@ -111,22 +137,88 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
     options: []
   });
 
-  React.useEffect(() => {
-    setForm({
-      fullName: customerData?.fullName || fallbackUser?.name || '',
-      email: customerData?.email || fallbackUser?.email || '',
-      phone: customerData?.phone || fallbackUser?.phone || '',
-      gender: customerData?.gender || fallbackUser?.gender || '',
-      dateOfBirth: formatToDDMMYYYY(customerData?.dateOfBirth || fallbackUser?.dob),
-      height: onboardingData?.height ? onboardingData.height.toString() : '-',
-      weight: onboardingData?.weight ? onboardingData.weight.toString() : '-',
-      fitnessGoal: onboardingData?.primaryGoal ? onboardingData.primaryGoal.toString() : '-',
-      activityLevel: '-',
-    });
-  }, [customerData, onboardingData, fallbackUser]);
+  const isInitializedRef = React.useRef(false);
+  const updateMutationRef = React.useRef(updateMutation);
+  updateMutationRef.current = updateMutation;
+  const updateGymCustomerMutationRef = React.useRef(updateGymCustomerMutation);
+  updateGymCustomerMutationRef.current = updateGymCustomerMutation;
 
-  const handleSave = () => {
+  useFocusEffect(
+    useCallback(() => {
+      setIsSaving(false);
+      updateMutationRef.current?.reset();
+      updateGymCustomerMutationRef.current?.reset();
+    }, [])
+  );
+
+  useEffect(() => {
+    const onBackPress = () => {
+      router.navigate('/(customer)/profile');
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
+
+  React.useEffect(() => {
+    if (loading) return;
+
+    if (!isInitializedRef.current && (userRecord || customerData || fallbackUser)) {
+      const preferredName = userRecord?.name || customerData?.fullName || fallbackUser?.name || '';
+      const preferredPhone = userRecord?.phone || customerData?.phone || fallbackUser?.phone || '';
+      const preferredDob = userRecord?.dob || customerData?.dateOfBirth || fallbackUser?.dob;
+      const preferredGender = userRecord?.gender || customerData?.gender || fallbackUser?.gender || '';
+
+      setForm((prev) => ({
+        fullName: prev.fullName || preferredName,
+        email: prev.email || userRecord?.email || customerData?.email || fallbackUser?.email || '',
+        phone: prev.phone || preferredPhone,
+        gender: prev.gender || preferredGender,
+        dateOfBirth: prev.dateOfBirth || formatToDDMMYYYY(preferredDob),
+        height: prev.height || (onboardingData?.height && onboardingData.height !== '-' ? onboardingData.height.toString() : ''),
+        weight: prev.weight || (onboardingData?.weight && onboardingData.weight !== '-' ? onboardingData.weight.toString() : ''),
+        fitnessGoal: prev.fitnessGoal || (onboardingData?.primaryGoal && onboardingData.primaryGoal !== '-' ? onboardingData.primaryGoal.toString() : ''),
+        activityLevel: prev.activityLevel || (onboardingData?.activityLevel && onboardingData.activityLevel !== '-' ? onboardingData.activityLevel.toString() : ''),
+      }));
+
+      isInitializedRef.current = true;
+    }
+  }, [loading, userRecord, customerData, onboardingData, fallbackUser]);
+
+  // Synchronize onboarding physical fields whenever onboardingData arrives or updates
+  React.useEffect(() => {
+    if (!onboardingData) return;
+    setForm((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      if ((!next.height || next.height === '-') && onboardingData.height && onboardingData.height !== '-') {
+        next.height = onboardingData.height.toString();
+        changed = true;
+      }
+      if ((!next.weight || next.weight === '-') && onboardingData.weight && onboardingData.weight !== '-') {
+        next.weight = onboardingData.weight.toString();
+        changed = true;
+      }
+      if ((!next.fitnessGoal || next.fitnessGoal === '-') && onboardingData.primaryGoal && onboardingData.primaryGoal !== '-') {
+        next.fitnessGoal = onboardingData.primaryGoal.toString();
+        changed = true;
+      }
+      if ((!next.activityLevel || next.activityLevel === '-') && onboardingData.activityLevel && onboardingData.activityLevel !== '-') {
+        next.activityLevel = onboardingData.activityLevel.toString();
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [onboardingData]);
+
+  const handleSave = async () => {
     if (!userId) return;
+    if (isSaving) return;
+
+    if (!form.fullName || !form.fullName.trim()) {
+      toast.error('Full name is required.');
+      return;
+    }
 
     if (form.phone) {
       const cleanPhone = form.phone.replace(/[^\d+]/g, '');
@@ -138,19 +230,71 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
       }
     }
 
-    updateMutation.mutate(
-      { userId, form },
-      {
-        onSuccess: () => {
-          toast.success('Profile updated successfully!');
-          router.navigate('/(customer)/profile');
-        },
-        onError: (err) => {
-          console.error('[EditProfile] Error saving:', err);
-          toast.error('Failed to save changes.');
+    setIsSaving(true);
+
+    const currentRole = userRecord?.role || fallbackUser?.role || 'customer';
+    const normalizedRole = currentRole.trim().toLowerCase().replace(/[\s_-]/g, '');
+    const isIndividual = normalizedRole === 'individual';
+    const targetCustomerId = customerData?.customerId || fallbackUser?.customerId || userId;
+
+    try {
+      // 1. Update public.users, gym_customers (if customer), customer_onboarding, customer_measurements, customer_goal_preferences
+      await updateMutation.mutateAsync({
+        userId,
+        customerId: targetCustomerId,
+        form,
+        role: currentRole,
+      });
+
+      // 2. Extra guarantee: if logged in as customer, also invoke updateGymCustomer directly to ensure double confirmation
+      if (!isIndividual) {
+        try {
+          await updateGymCustomerMutation.mutateAsync({
+            userId,
+            customerId: targetCustomerId,
+            email: form.email || userRecord?.email || fallbackUser?.email,
+            phone: form.phone,
+            fullName: form.fullName.trim(),
+            gender: form.gender,
+            dateOfBirth: form.dateOfBirth,
+          });
+        } catch (extraErr) {
+          console.warn('[EditProfile] updateGymCustomerMutation extra confirmation notice:', extraErr);
         }
       }
-    );
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['user', 'id', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['users'] }),
+        queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['userProfile', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['customer', userId] }),
+        targetCustomerId ? queryClient.invalidateQueries({ queryKey: ['customer', targetCustomerId] }) : Promise.resolve(),
+        queryClient.invalidateQueries({ queryKey: ['customers'] }),
+        queryClient.invalidateQueries({ queryKey: ['customersPaginated'] }),
+        queryClient.invalidateQueries({ queryKey: ['customerOnboarding', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['customerGoalPreference', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['customerMeasurements', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['progressHistory', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['latestMeasurement', userId] }),
+      ]);
+
+      if (typeof refreshUserContext === 'function') {
+        await refreshUserContext();
+      }
+      if (typeof refetchUser === 'function') {
+        await refetchUser();
+      }
+
+      toast.success('Profile updated successfully!');
+      setIsSaving(false);
+      isInitializedRef.current = false;
+      router.navigate('/(customer)/profile');
+    } catch (err: any) {
+      console.error('[EditProfile] Error saving:', err);
+      toast.error(err?.message || 'Failed to save changes.');
+      setIsSaving(false);
+    }
   };
 
   const handlePickImage = async (useCamera: boolean) => {
@@ -190,10 +334,17 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
           {
             onSuccess: async () => {
               toast.success('Profile picture updated!');
-              await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
-              await queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] });
+              await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['user', 'id', userId] }),
+                queryClient.invalidateQueries({ queryKey: ['users'] }),
+                queryClient.invalidateQueries({ queryKey: ['userProfile', userId] }),
+                queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] }),
+              ]);
               if (typeof refreshUserContext === 'function') {
                 await refreshUserContext();
+              }
+              if (typeof refetchUser === 'function') {
+                await refetchUser();
               }
             },
             onError: (err: any) => Alert.alert('Upload Failed', err.message)
@@ -212,12 +363,19 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
     try {
       await deletePhotoMutation.mutateAsync({
         userId,
-        fileName: fallbackUser?.profilePic || fallbackUser?.profilePhoto || customerData?.profilePic || customerData?.profilePhoto,
+        fileName: userRecord?.profilePhoto || fallbackUser?.profilePic || fallbackUser?.profilePhoto || customerData?.profilePic || customerData?.profilePhoto,
       });
-      await queryClient.invalidateQueries({ queryKey: ['userProfile', userId] });
-      await queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['user', 'id', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['users'] }),
+        queryClient.invalidateQueries({ queryKey: ['userProfile', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] }),
+      ]);
       if (typeof refreshUserContext === 'function') {
         await refreshUserContext();
+      }
+      if (typeof refetchUser === 'function') {
+        await refetchUser();
       }
       toast.success('Profile picture removed!');
     } catch (err: any) {
@@ -287,7 +445,7 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
                   </View>
                 ) : (
                   <StaticAvatar
-                    uri={fallbackUser?.profilePhoto || fallbackUser?.profilePic || customerData?.profilePhoto || customerData?.profilePic}
+                    uri={currentPhoto}
                     userId={userId}
                     name={form.fullName}
                     size={96}
@@ -342,8 +500,8 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
         <InputField
           icon={<Heart size={20} color="#D4FF00" />}
           label="GENDER"
-          value={form.gender ? getLabel(form.gender, GENDER_OPTIONS) : 'Select Gender'}
-          onPress={() => openSelector('gender', 'Select Gender', GENDER_OPTIONS)}
+          value={form.gender ? getLabel(form.gender, GENDER_OPTIONS) : '-'}
+          editable={false}
         />
 
         <InputField
@@ -406,10 +564,10 @@ function EditProfileView({ data, customerData, onboardingData, loading, fallback
 
         <Pressable
           onPress={handleSave}
-          disabled={updateMutation.isPending}
+          disabled={isSaving || updateMutation.isPending || updateGymCustomerMutation.isPending}
           className="bg-[#D4FF00] rounded-xl py-4 items-center justify-center mt-8 active:opacity-80"
         >
-          {updateMutation.isPending ? (
+          {isSaving || updateMutation.isPending || updateGymCustomerMutation.isPending ? (
             <ActivityIndicator size="small" color="#000000" />
           ) : (
             <Text className="text-black text-base font-semibold">Save Changes</Text>

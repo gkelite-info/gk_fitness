@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchUserAndRoleProfile, UserProfile } from '@/helpers/user/userProfileHelper';
 import { unregisterPushToken } from '@/lib/services/notificationService';
+import { watchBridge } from '@/lib/watch/watchBridge';
 import {
   getFallbackAuthUser,
   saveFallbackAuthUser,
@@ -91,7 +92,8 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
       if (event === 'SIGNED_OUT') {
         setFallbackUser(null);
         await clearFallbackAuthUser();
-        unregisterPushToken().catch(() => {});
+        unregisterPushToken().catch(() => { });
+        watchBridge.pushAuthSessionToWatch({ userId: null, timestamp: Date.now() }).catch(() => { });
         queryClient.clear();
       }
     });

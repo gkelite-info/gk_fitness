@@ -206,7 +206,13 @@ const withWatchBridgeFiles = (config) => {
 
       fs.mkdirSync(watchDir, { recursive: true });
       fs.writeFileSync(path.join(watchDir, 'WatchBridgePackage.kt'), packageContent, 'utf8');
-      fs.writeFileSync(path.join(watchDir, 'WatchBridgeModule.kt'), moduleContent, 'utf8');
+      
+      const sourceModulePath = path.join(__dirname, 'watch', 'WatchBridgeModule.kt');
+      if (fs.existsSync(sourceModulePath)) {
+        fs.copyFileSync(sourceModulePath, path.join(watchDir, 'WatchBridgeModule.kt'));
+      } else {
+        fs.writeFileSync(path.join(watchDir, 'WatchBridgeModule.kt'), moduleContent, 'utf8');
+      }
 
       return cfg;
     },

@@ -5,6 +5,8 @@ import {
   WatchWorkoutSummary,
   WatchHeartRateLog,
   WatchWaterLog,
+  WatchAuthSession,
+  WatchStepSync,
   WatchConnectionStatus,
   WATCH_DATA_PATHS,
 } from './watchTypes';
@@ -143,6 +145,36 @@ class WatchBridgeService {
   onRequestActiveWorkout(callback: () => void): EmitterSubscription {
     return DeviceEventEmitter.addListener('Watch_RequestActiveWorkout', () => {
       callback();
+    });
+  }
+
+  /**
+   * Pushes user auth session / profile to watch so watch knows who is logged in.
+   */
+  async pushAuthSessionToWatch(session: WatchAuthSession): Promise<boolean> {
+    if (!this.isAvailable) return false;
+    try {
+      if (WatchBridgeModule && typeof WatchBridgeModule.pushAuthSession === 'function') {
+        return await WatchBridgeModule.pushAuthSession(JSON.stringify(session));
+      }
+      return false;
+    } catch (e) {
+      console.warn('[WatchBridge] pushAuthSessionToWatch failed:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Subscribes to step count updates sent from smartwatch wrist sensor.
+   */
+  onStepSyncReceived(callback: (stepData: WatchStepSync) => void): EmitterSubscription {
+    return DeviceEventEmitter.addListener('Watch_StepSyncReceived', (data: string | WatchStepSync) => {
+      try {
+        const parsed: WatchStepSync = typeof data === 'string' ? JSON.parse(data) : data;
+        callback(parsed);
+      } catch (err) {
+        console.error('[WatchBridge] Failed to parse step sync event:', err);
+      }
     });
   }
 

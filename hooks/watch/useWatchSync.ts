@@ -8,6 +8,7 @@ import {
   WatchWorkoutSummary,
   WatchHeartRateLog,
   WatchWaterLog,
+  WatchAuthSession,
 } from '@/lib/watch/watchTypes';
 import { upsertSetLog } from '@/helpers/customerWorkoutPlans/workoutSetLogs';
 import { supabase } from '@/lib/supabase';
@@ -16,6 +17,7 @@ import { fetchCustomerWorkoutPlans } from '@/helpers/customerWorkoutPlans/custom
 import { fetchWorkoutPlanDays } from '@/helpers/customerWorkoutPlans/workoutPlansDays';
 import { fetchWorkoutPlanDayExercises } from '@/helpers/customerWorkoutPlans/workoutPlanDayExercises';
 import { buildWatchWorkoutPayload } from '@/lib/watch/watchPayloadBuilder';
+import { getLocalDateString } from '@/lib/dateUtils';
 import * as Crypto from 'expo-crypto';
 
 function normalizeSessionDate(rawDate?: string): string {
@@ -93,16 +95,27 @@ export async function pushTodayWorkoutToWatch(userId: string): Promise<boolean> 
 /**
  * Pushes today's daily water intake & goal from Supabase to the smartwatch.
  */
-export async function pushDailyWaterToWatch(userId: string): Promise<boolean> {
+export async function pushDailyWaterToWatch(
+  userId: string,
+  explicitIntake?: number,
+  explicitGoal?: number
+): Promise<boolean> {
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const [intake, goal] = await Promise.all([
-      supabaseFitnessService.getDailyTotalWater(userId, today),
-      supabaseFitnessService.getWaterGoal(userId),
+    const today = getLocalDateString(new Date());
+    const [fetchedIntake, fetchedGoal] = await Promise.all([
+      explicitIntake !== undefined
+        ? Promise.resolve(explicitIntake)
+        : supabaseFitnessService.getDailyTotalWater(userId, today),
+      explicitGoal !== undefined
+        ? Promise.resolve(explicitGoal)
+        : supabaseFitnessService.getWaterGoal(userId),
     ]);
 
+    const intake = explicitIntake !== undefined ? explicitIntake : fetchedIntake;
+    const goal = explicitGoal !== undefined ? explicitGoal : fetchedGoal;
+
     const success = await watchBridge.syncWaterToWatch(intake, goal);
-    console.log('[pushDailyWaterToWatch] Water synced to watch:', intake, '/', goal, 'ml', success);
+    console.log('[pushDailyWaterToWatch] Water synced to watch:', intake, '/', goal, 'ml (success:', success, ')');
     return success;
   } catch (err) {
     console.warn('[pushDailyWaterToWatch] Failed:', err);
@@ -110,13 +123,34 @@ export async function pushDailyWaterToWatch(userId: string): Promise<boolean> {
   }
 }
 
+/**
+ * Pushes the current user's authentication & profile session to the smartwatch.
+ */
+export async function pushAuthSessionToWatch(session: WatchAuthSession): Promise<boolean> {
+  try {
+    const success = await watchBridge.pushAuthSessionToWatch(session);
+    console.log('[pushAuthSessionToWatch] Auth session synced to watch:', session.userId, success);
+    return success;
+  } catch (err) {
+    console.warn('[pushAuthSessionToWatch] Failed:', err);
+    return false;
+  }
+}
+
 export function useWatchSync() {
-  const { userId } = useUser();
+  const { userId, name, email } = useUser();
   const queryClient = useQueryClient();
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    if (!userId) return;
+    if (!userId) {
+      // If user logs out, notify the watch to clear user session
+      pushAuthSessionToWatch({
+        userId: null,
+        timestamp: Date.now(),
+      }).catch(() => { });
+      return;
+    }
 
     // Helper: Register / update connected smartwatch in watch_devices
     const syncWatchDevice = async () => {
@@ -139,7 +173,16 @@ export function useWatchSync() {
               { onConflict: 'userId, nodeId' }
             );
 
-          // Once device is confirmed connected, push initial state
+          // Once device is confirmed connected, push: Auth session -> Today's Workout -> Daily Water
+          const goal = await supabaseFitnessService.getWaterGoal(userId);
+          await pushAuthSessionToWatch({
+            userId,
+            name: name || null,
+            email: email || null,
+            waterGoalMl: goal,
+            stepGoal: 10000,
+            timestamp: Date.now(),
+          });
           pushTodayWorkoutToWatch(userId);
           pushDailyWaterToWatch(userId);
         }
@@ -240,21 +283,43 @@ export function useWatchSync() {
       }
     });
 
+    // In-memory set for deduplicating water logs within session
+    const recentWaterLogKeys = new Set<string>();
+
     // 4. Listen for water logging events from watch
     const waterSubscription = watchBridge.onWaterLogReceived(async (waterLog: WatchWaterLog) => {
       try {
-        console.log('[useWatchSync] Received water log from watch:', waterLog.addedMl, 'ml');
-        const dateStr = waterLog.sessionDate || new Date().toISOString().split('T')[0];
+        const dedupeKey =
+          (waterLog as any).clientLogId ||
+          `${waterLog.sessionDate}-${waterLog.timestamp}-${waterLog.addedMl}`;
 
-        await supabaseFitnessService.logWater(userId, waterLog.addedMl, dateStr);
+        if (recentWaterLogKeys.has(dedupeKey)) {
+          console.log('[useWatchSync] Duplicate water log ignored:', dedupeKey);
+          return;
+        }
+        recentWaterLogKeys.add(dedupeKey);
+        if (recentWaterLogKeys.size > 100) {
+          const firstKey = recentWaterLogKeys.values().next().value;
+          if (firstKey) recentWaterLogKeys.delete(firstKey);
+        }
 
-        // Invalidate queries so phone hydration screens update in real-time
-        queryClient.invalidateQueries({ queryKey: ['water_tracking', userId] });
-        queryClient.invalidateQueries({ queryKey: ['daily_fitness_stats', userId] });
-        queryClient.invalidateQueries({ queryKey: ['customerDashboardData', userId] });
+        const targetUserId = waterLog.userId || userId;
+        console.log('[useWatchSync] Received water log from watch:', waterLog.addedMl, 'ml, userId:', targetUserId);
+        const dateStr = waterLog.sessionDate || getLocalDateString(new Date());
+
+        await supabaseFitnessService.logWater(targetUserId, waterLog.addedMl, dateStr);
+
+        // Invalidate queries so phone hydration screens and dashboard update in real-time
+        queryClient.invalidateQueries({ queryKey: ['waterLogs', targetUserId] });
+        queryClient.invalidateQueries({ queryKey: ['fitnessStats', targetUserId] });
+        queryClient.invalidateQueries({ queryKey: ['fitnessTimeline'] });
+        queryClient.invalidateQueries({ queryKey: ['water_streak', targetUserId] });
+        queryClient.invalidateQueries({ queryKey: ['today_activity_metrics', targetUserId] });
+        queryClient.invalidateQueries({ queryKey: ['customerDashboardData', targetUserId] });
+        queryClient.invalidateQueries({ queryKey: ['daily_fitness_stats', targetUserId] });
 
         // Push new daily total back to watch to ensure alignment
-        await pushDailyWaterToWatch(userId);
+        await pushDailyWaterToWatch(targetUserId);
       } catch (err) {
         console.error('[useWatchSync] Failed to process incoming watch water log:', err);
       }
@@ -263,6 +328,15 @@ export function useWatchSync() {
     // 5. Listen for smartwatch requesting active workout on-demand
     const requestWorkoutSubscription = watchBridge.onRequestActiveWorkout(async () => {
       console.log('[useWatchSync] Watch requested active workout & metrics sync');
+      const goal = await supabaseFitnessService.getWaterGoal(userId);
+      await pushAuthSessionToWatch({
+        userId,
+        name: name || null,
+        email: email || null,
+        waterGoalMl: goal,
+        stepGoal: 10000,
+        timestamp: Date.now(),
+      });
       await pushTodayWorkoutToWatch(userId);
       await pushDailyWaterToWatch(userId);
     });

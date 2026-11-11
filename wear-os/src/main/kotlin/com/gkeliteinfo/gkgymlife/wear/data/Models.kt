@@ -48,3 +48,20 @@ data class WatchWorkoutSummaryMessage(
     @SerializedName("completedAt") val completedAt: String,
     @SerializedName("source") val source: String = "wearos"
 )
+
+data class WatchAuthSession(
+    @SerializedName("userId") val userId: String?,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("email") val email: String? = null,
+    @SerializedName("waterGoalMl") val waterGoalMl: Int? = 3000,
+    @SerializedName("stepGoal") val stepGoal: Int? = 10000,
+    @SerializedName("unitPreference") val unitPreference: String? = "kg",
+    @SerializedName("timestamp") val timestamp: Long = System.currentTimeMillis()
+)
+
+data class WatchStepSyncMessage(
+    @SerializedName("userId") val userId: String,
+    @SerializedName("sessionDate") val sessionDate: String,
+    @SerializedName("steps") val steps: Int,
+    @SerializedName("timestamp") val timestamp: Long = System.currentTimeMillis()
+)

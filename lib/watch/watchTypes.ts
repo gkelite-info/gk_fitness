@@ -59,9 +59,28 @@ export interface WatchHeartRateLog {
 }
 
 export interface WatchWaterLog {
+  clientLogId?: string;
+  userId?: string;
   sessionDate: string;
   waterIntakeMl: number;
   addedMl: number;
+  timestamp: number;
+}
+
+export interface WatchAuthSession {
+  userId: string | null;
+  name?: string | null;
+  email?: string | null;
+  waterGoalMl?: number;
+  stepGoal?: number;
+  unitPreference?: 'kg' | 'lbs';
+  timestamp: number;
+}
+
+export interface WatchStepSync {
+  userId: string;
+  sessionDate: string;
+  steps: number;
   timestamp: number;
 }
 
@@ -83,4 +102,6 @@ export const WATCH_DATA_PATHS = {
   WATER_LOG: '/gk/water-log',
   WATER_SYNC: '/gk/water-sync',
   REQUEST_ACTIVE_WORKOUT: '/gk/request-active-workout',
+  AUTH_SESSION: '/gk/auth-session',
+  STEP_SYNC: '/gk/step-sync',
 } as const;

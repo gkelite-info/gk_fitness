@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabaseFitnessService as fitnessService } from '@/lib/services/supabaseFitnessService';
+import { pushDailyWaterToWatch } from '@/hooks/watch/useWatchSync';
 
 export function useWaterTracking(userId: string | null, date: string) {
   const queryClient = useQueryClient();
@@ -54,10 +55,19 @@ export function useWaterTracking(userId: string | null, date: string) {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['waterLogs', userId, date] });
-      queryClient.invalidateQueries({ queryKey: ['fitnessStats', userId, date] });
+      queryClient.invalidateQueries({ queryKey: ['waterLogs', userId] });
+      queryClient.invalidateQueries({ queryKey: ['fitnessStats', userId] });
       queryClient.invalidateQueries({ queryKey: ['fitnessTimeline'] });
       queryClient.invalidateQueries({ queryKey: ['water_streak', userId] });
+      queryClient.invalidateQueries({ queryKey: ['today_activity_metrics', userId] });
+      queryClient.invalidateQueries({ queryKey: ['customerDashboardData', userId] });
+
+      // Automatically sync updated daily water to smartwatch
+      if (userId) {
+        pushDailyWaterToWatch(userId).catch((err) =>
+          console.warn('[useWaterTracking] Failed to sync water to watch:', err)
+        );
+      }
     },
   });
 
@@ -67,10 +77,19 @@ export function useWaterTracking(userId: string | null, date: string) {
       return fitnessService.deleteWaterLog(userId, logId, amountML, date);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['waterLogs', userId, date] });
-      queryClient.invalidateQueries({ queryKey: ['fitnessStats', userId, date] });
+      queryClient.invalidateQueries({ queryKey: ['waterLogs', userId] });
+      queryClient.invalidateQueries({ queryKey: ['fitnessStats', userId] });
       queryClient.invalidateQueries({ queryKey: ['fitnessTimeline'] });
       queryClient.invalidateQueries({ queryKey: ['water_streak', userId] });
+      queryClient.invalidateQueries({ queryKey: ['today_activity_metrics', userId] });
+      queryClient.invalidateQueries({ queryKey: ['customerDashboardData', userId] });
+
+      // Automatically sync updated daily water to smartwatch
+      if (userId) {
+        pushDailyWaterToWatch(userId).catch((err) =>
+          console.warn('[useWaterTracking] Failed to sync water deletion to watch:', err)
+        );
+      }
     },
   });
 
@@ -82,6 +101,14 @@ export function useWaterTracking(userId: string | null, date: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fitnessStats', userId] });
       queryClient.invalidateQueries({ queryKey: ['fitnessTimeline'] });
+      queryClient.invalidateQueries({ queryKey: ['customerDashboardData', userId] });
+
+      // Automatically sync updated water goal to smartwatch
+      if (userId) {
+        pushDailyWaterToWatch(userId).catch((err) =>
+          console.warn('[useWaterTracking] Failed to sync water goal to watch:', err)
+        );
+      }
     },
   });
 

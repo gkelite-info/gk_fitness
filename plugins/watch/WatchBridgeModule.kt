@@ -1,5 +1,6 @@
 package com.gkeliteinfo.gkgymlife.watch
 
+import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -65,6 +66,10 @@ class WatchBridgeModule(private val reactContext: ReactApplicationContext) :
             try {
                 val nodeClient = Wearable.getNodeClient(reactContext)
                 val nodes: List<Node> = Tasks.await(nodeClient.connectedNodes)
+                Log.d("GKWatchBridge", "getConnectionStatus found ${nodes.size} connected nodes")
+                for (node in nodes) {
+                    Log.d("GKWatchBridge", "Node: id=${node.id}, name=${node.displayName}, isNearby=${node.isNearby}")
+                }
 
                 val result = Arguments.createMap()
                 if (nodes.isNotEmpty()) {
@@ -83,6 +88,7 @@ class WatchBridgeModule(private val reactContext: ReactApplicationContext) :
                 }
                 promise.resolve(result)
             } catch (e: Exception) {
+                Log.e("GKWatchBridge", "getConnectionStatus error: ${e.message}", e)
                 val fallback = Arguments.createMap()
                 fallback.putBoolean("isPaired", false)
                 fallback.putBoolean("isReachable", false)
@@ -130,13 +136,19 @@ class WatchBridgeModule(private val reactContext: ReactApplicationContext) :
             val nodeClient = Wearable.getNodeClient(reactContext)
             val messageClient = Wearable.getMessageClient(reactContext)
             val nodes: List<Node> = Tasks.await(nodeClient.connectedNodes)
-            if (nodes.isEmpty()) return false
+            Log.d("GKWatchBridge", "sendMessageInternal: path=$path, found ${nodes.size} nodes")
+            if (nodes.isEmpty()) {
+                Log.w("GKWatchBridge", "Cannot sendMessageInternal: no connected nodes")
+                return false
+            }
             val data = message.toByteArray(StandardCharsets.UTF_8)
             for (node in nodes) {
                 Tasks.await(messageClient.sendMessage(node.id, path, data))
+                Log.d("GKWatchBridge", "Sent message to watch node ${node.id} (${node.displayName})")
             }
             true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e("GKWatchBridge", "sendMessageInternal error: ${e.message}", e)
             false
         }
     }
@@ -160,26 +172,73 @@ class WatchBridgeModule(private val reactContext: ReactApplicationContext) :
                 val intake = waterIntakeMl.toInt()
                 val goal = waterGoalMl.toInt()
                 val json = "{\"waterIntakeMl\":$intake,\"waterGoalMl\":$goal,\"timestamp\":${System.currentTimeMillis()}}"
+                Log.d("GKWatchBridge", "pushWaterSync: intake=$intake, goal=$goal")
 
-                // 1. DataClient
-                val dataClient = Wearable.getDataClient(reactContext)
-                val putDataMapRequest = PutDataMapRequest.create("/gk/water-sync")
-                putDataMapRequest.dataMap.putInt("waterIntakeMl", intake)
-                putDataMapRequest.dataMap.putInt("waterGoalMl", goal)
-                putDataMapRequest.dataMap.putLong("timestamp", System.currentTimeMillis())
-                val request = putDataMapRequest.asPutDataRequest().setUrgent()
-                Tasks.await(dataClient.putDataItem(request))
+                // 1. DataClient for persistent sync
+                try {
+                    val dataClient = Wearable.getDataClient(reactContext)
+                    val putDataMapRequest = PutDataMapRequest.create("/gk/water-sync")
+                    putDataMapRequest.dataMap.putInt("waterIntakeMl", intake)
+                    putDataMapRequest.dataMap.putInt("waterGoalMl", goal)
+                    putDataMapRequest.dataMap.putLong("timestamp", System.currentTimeMillis())
+                    val request = putDataMapRequest.asPutDataRequest().setUrgent()
+                    Tasks.await(dataClient.putDataItem(request))
+                    Log.d("GKWatchBridge", "pushWaterSync: DataClient putDataItem succeeded")
+                } catch (dataErr: Exception) {
+                    Log.w("GKWatchBridge", "pushWaterSync DataClient notice: ${dataErr.message}")
+                }
 
-                // 2. MessageClient
+                // 2. MessageClient for instantaneous delivery
                 val nodeClient = Wearable.getNodeClient(reactContext)
                 val messageClient = Wearable.getMessageClient(reactContext)
                 val nodes: List<Node> = Tasks.await(nodeClient.connectedNodes)
+                Log.d("GKWatchBridge", "pushWaterSync: found ${nodes.size} connected nodes")
                 val data = json.toByteArray(StandardCharsets.UTF_8)
+                var anySent = false
                 for (node in nodes) {
                     Tasks.await(messageClient.sendMessage(node.id, "/gk/water-sync", data))
+                    Log.d("GKWatchBridge", "pushWaterSync: sent message to node ${node.id} (${node.displayName})")
+                    anySent = true
+                }
+                promise.resolve(anySent || nodes.isNotEmpty())
+            } catch (e: Exception) {
+                Log.e("GKWatchBridge", "pushWaterSync error: ${e.message}", e)
+                promise.resolve(false)
+            }
+        }
+    }
+
+    @ReactMethod
+    fun pushAuthSession(sessionJson: String, promise: Promise) {
+        scope.launch {
+            try {
+                Log.d("GKWatchBridge", "pushAuthSession: $sessionJson")
+
+                // 1. DataClient for persistent sync (survives watch disconnect/reboot)
+                try {
+                    val dataClient = Wearable.getDataClient(reactContext)
+                    val putDataMapRequest = PutDataMapRequest.create("/gk/auth-session")
+                    putDataMapRequest.dataMap.putString("session", sessionJson)
+                    putDataMapRequest.dataMap.putLong("timestamp", System.currentTimeMillis())
+                    val request = putDataMapRequest.asPutDataRequest().setUrgent()
+                    Tasks.await(dataClient.putDataItem(request))
+                    Log.d("GKWatchBridge", "pushAuthSession: DataClient putDataItem succeeded")
+                } catch (dataErr: Exception) {
+                    Log.w("GKWatchBridge", "pushAuthSession DataClient notice: ${dataErr.message}")
+                }
+
+                // 2. MessageClient for instantaneous delivery
+                val nodeClient = Wearable.getNodeClient(reactContext)
+                val messageClient = Wearable.getMessageClient(reactContext)
+                val nodes: List<Node> = Tasks.await(nodeClient.connectedNodes)
+                val data = sessionJson.toByteArray(StandardCharsets.UTF_8)
+                for (node in nodes) {
+                    Tasks.await(messageClient.sendMessage(node.id, "/gk/auth-session", data))
+                    Log.d("GKWatchBridge", "pushAuthSession: sent to node ${node.id}")
                 }
                 promise.resolve(true)
             } catch (e: Exception) {
+                Log.e("GKWatchBridge", "pushAuthSession error: ${e.message}", e)
                 promise.resolve(false)
             }
         }
@@ -199,12 +258,14 @@ class WatchBridgeModule(private val reactContext: ReactApplicationContext) :
     override fun onMessageReceived(messageEvent: MessageEvent) {
         val path = messageEvent.path
         val dataString = String(messageEvent.data, StandardCharsets.UTF_8)
+        Log.d("GKWatchBridge", "onMessageReceived path=$path: $dataString")
 
         when (path) {
             "/gk/set-log" -> emitEvent("Watch_SetLogReceived", dataString)
             "/gk/workout-complete" -> emitEvent("Watch_WorkoutComplete", dataString)
             "/gk/heart-rate" -> emitEvent("Watch_HeartRateReceived", dataString)
             "/gk/water-log" -> emitEvent("Watch_WaterLogReceived", dataString)
+            "/gk/step-sync" -> emitEvent("Watch_StepSyncReceived", dataString)
             "/gk/request-active-workout" -> emitEvent("Watch_RequestActiveWorkout", dataString)
             "/gk/heartbeat" -> {
                 // Pong back
@@ -216,7 +277,42 @@ class WatchBridgeModule(private val reactContext: ReactApplicationContext) :
     }
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
-        // Reserved for continuous sync
+        for (event in dataEvents) {
+            if (event.type == com.google.android.gms.wearable.DataEvent.TYPE_CHANGED) {
+                val uri = event.dataItem.uri
+                when (uri.path) {
+                    "/gk/water-log" -> {
+                        try {
+                            val dataMapItem = com.google.android.gms.wearable.DataMapItem.fromDataItem(event.dataItem)
+                            val sessionDate = dataMapItem.dataMap.getString("sessionDate")
+                            val intake = dataMapItem.dataMap.getInt("waterIntakeMl", 0)
+                            val added = dataMapItem.dataMap.getInt("addedMl", 0)
+                            val timestamp = dataMapItem.dataMap.getLong("timestamp", System.currentTimeMillis())
+                            val clientLogId = dataMapItem.dataMap.getString("clientLogId") ?: ""
+                            val json = "{\"clientLogId\":\"$clientLogId\",\"sessionDate\":\"$sessionDate\",\"waterIntakeMl\":$intake,\"addedMl\":$added,\"timestamp\":$timestamp}"
+                            Log.d("GKWatchBridge", "onDataChanged received /gk/water-log: $json")
+                            emitEvent("Watch_WaterLogReceived", json)
+                        } catch (e: Exception) {
+                            Log.e("GKWatchBridge", "onDataChanged /gk/water-log error: ${e.message}", e)
+                        }
+                    }
+                    "/gk/step-sync" -> {
+                        try {
+                            val dataMapItem = com.google.android.gms.wearable.DataMapItem.fromDataItem(event.dataItem)
+                            val userId = dataMapItem.dataMap.getString("userId") ?: ""
+                            val sessionDate = dataMapItem.dataMap.getString("sessionDate") ?: ""
+                            val steps = dataMapItem.dataMap.getInt("steps", 0)
+                            val timestamp = dataMapItem.dataMap.getLong("timestamp", System.currentTimeMillis())
+                            val json = "{\"userId\":\"$userId\",\"sessionDate\":\"$sessionDate\",\"steps\":$steps,\"timestamp\":$timestamp}"
+                            Log.d("GKWatchBridge", "onDataChanged received /gk/step-sync: $json")
+                            emitEvent("Watch_StepSyncReceived", json)
+                        } catch (e: Exception) {
+                            Log.e("GKWatchBridge", "onDataChanged /gk/step-sync error: ${e.message}", e)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun emitEvent(eventName: String, params: Any?) {

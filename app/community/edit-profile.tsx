@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Pressable, TextInput, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Pressable, TextInput, ActivityIndicator, ScrollView } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useUpdateProfilePhoto } from '@/hooks/auth/useUpdateCustomerProfile';
 import { useCommunityProfile, useUpdateProfile, useCheckUsername } from '@/hooks/community/useProfile';
 import { useDebounce } from '@/hooks/useDebounce';
+import { toast } from '@/lib/toast';
 
 export default function EditCommunityProfileScreen() {
   const { userId } = useUser();
@@ -45,12 +46,12 @@ export default function EditCommunityProfileScreen() {
     // Validate username
     const usernameRegex = /^[a-z0-9._]{3,30}$/;
     if (!usernameRegex.test(form.username)) {
-      Alert.alert('Invalid Username', 'Username must be 3-30 characters, lowercase letters, numbers, dots, or underscores only.');
+      toast.error('Username must be 3-30 characters (lowercase letters, numbers, dots, or underscores only).');
       return;
     }
 
     if (debouncedUsername === form.username && isUsernameAvailable === false && form.username !== profileData?.username) {
-      Alert.alert('Username taken', 'Please choose a different username.');
+      toast.error('Username is already taken. Please choose another.');
       return;
     }
 
@@ -58,11 +59,12 @@ export default function EditCommunityProfileScreen() {
       { userId, ...form },
       {
         onSuccess: () => {
+          toast.success('Profile updated successfully!');
           router.back();
         },
-        onError: (err) => {
+        onError: (err: any) => {
           console.error('Error updating profile:', err);
-          Alert.alert('Error', 'Failed to update profile.');
+          toast.error(err?.message || 'Failed to update profile.');
         }
       }
     );
@@ -72,7 +74,7 @@ export default function EditCommunityProfileScreen() {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'We need permission to access your gallery to update your profile picture.');
+        toast.error('Permission to access photo gallery is required.');
         return;
       }
 
@@ -89,14 +91,18 @@ export default function EditCommunityProfileScreen() {
           userId,
           imageUri: result.assets[0].uri
         }, {
-          onError: (err) => {
+          onSuccess: () => {
+            toast.success('Profile photo updated!');
+          },
+          onError: (err: any) => {
             console.error('Error updating photo:', err);
-            Alert.alert('Error', 'Failed to update photo.');
+            toast.error(err?.message || 'Failed to update photo.');
           }
         });
       }
     } catch (error) {
       console.error('Image picker error:', error);
+      toast.error('Failed to select image.');
     }
   };
 

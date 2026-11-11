@@ -26,7 +26,7 @@ export default function CustomerLayout() {
         return;
       }
 
-      const normalizedRole = role.trim().toLowerCase().replace(/[\s_-]/g, '');
+      const normalizedRole = typeof role === 'string' ? role.trim().toLowerCase().replace(/[\s_-]/g, '') : '';
       if (normalizedRole !== 'customer' && normalizedRole !== 'individual') {
         if (isMounted) setTenantValidating(false);
         router.replace('/auth/account-type');

@@ -73,7 +73,8 @@ export default function CustomerHome() {
   const { data: streakData } = useWorkoutStreak();
   const { data: weeklyStats, refetch: refetchWeeklyStats } = useWeeklyStats(userId);
   const { data: onboardingStatus, isLoading: isCheckingOnboarding, refetch: refetchOnboarding } = useCustomerOnboardingStatus(userId);
-  const { data: dbGyms = [] } = useGyms();
+  const { data: rawGyms } = useGyms();
+  const dbGyms = Array.isArray(rawGyms) ? rawGyms : [];
 
   const todayWorkoutDayId = dashboardData?.todayWorkout?.dayId || null;
   const todayWorkoutType = dashboardData?.todayWorkout?.type || 'Rest';
@@ -787,7 +788,7 @@ export default function CustomerHome() {
               Find a gym that{'\n'}fits you.
             </Text>
             <Text className="text-[#888888] text-xs font-medium mb-3.5">
-              {dbGyms.length} gyms near you
+              {(Array.isArray(dbGyms) ? dbGyms.length : 0)} gyms near you
             </Text>
 
             <View className="bg-[#CCFF00] self-start py-2.5 px-4 rounded-xl flex-row items-center justify-center gap-1.5 shadow-sm">

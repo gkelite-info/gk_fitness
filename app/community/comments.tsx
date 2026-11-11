@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { View, TextInput, Pressable, ScrollView, Image, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, TextInput, Pressable, ScrollView, Image, KeyboardAvoidingView, Platform, ActivityIndicator, Keyboard } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { 
-  CaretLeft, 
-  FadersHorizontal, 
+import {
+  CaretLeft,
+  FadersHorizontal,
   Heart,
   NavigationArrow,
   DotsThreeVertical
@@ -15,6 +15,7 @@ import { usePostComments, useAddComment, useDeleteComment } from '@/hooks/commun
 import { useReportContent } from '@/hooks/community/useModeration';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { ActionSheetModal } from '@/components/community/ActionSheetModal';
+import { toast } from '@/lib/toast';
 
 export default function CommentsScreen() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function CommentsScreen() {
   // Pagination & Replies State
   const [visibleComments, setVisibleComments] = useState(5);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
-  
+
   // Sort State
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('oldest');
 
@@ -39,15 +40,55 @@ export default function CommentsScreen() {
   const [activeModal, setActiveModal] = useState<'none' | 'sortOptions' | 'options' | 'confirmDelete' | 'confirmReport'>('none');
   const [selectedComment, setSelectedComment] = useState<any>(null);
 
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const handleSendComment = () => {
-    if (!comment.trim() || !userId || !postId) return;
-    
+    if (!userId) {
+      toast.error('User session not found. Please log in.');
+      return;
+    }
+    if (!postId) {
+      toast.error('Post not found.');
+      return;
+    }
+    if (!comment.trim()) {
+      toast.error('Cannot post an empty comment.');
+      return;
+    }
+
+    console.log('[CommentsScreen] Submitting comment:', { postId, userId, content: comment.trim(), parentId: replyingTo?.id });
     addCommentMutation.mutate(
       { postId, userId, content: comment.trim(), parentId: replyingTo?.id },
       {
         onSuccess: () => {
+          toast.success('Comment posted!');
           setComment('');
           setReplyingTo(null);
+        },
+        onError: (err: any) => {
+          console.error('[CommentsScreen] Error posting comment:', err);
+          toast.error(err?.message || 'Failed to post comment.');
         }
       }
     );
@@ -65,29 +106,29 @@ export default function CommentsScreen() {
       {isReply && (
         <View className="absolute -left-[27px] -top-8 w-6 h-[46px] border-l-2 border-b-2 border-[#1F1F22] rounded-bl-xl" />
       )}
-      
-      <StaticAvatar 
-        uri={item.users?.profilePhoto || item.users?.avatar} 
+
+      <StaticAvatar
+        uri={item.users?.profilePhoto || item.users?.avatar}
         name={item.users?.name}
         size={40}
-        className="w-10 h-10 rounded-full mr-3" 
+        className="w-10 h-10 rounded-full mr-3"
       />
-      
+
       <Pressable className="flex-1" onLongPress={() => handleOpenOptions(item)}>
         <View className="flex-row items-center mb-1">
-          <Text className="text-white font-bold text-[14px]">{item.users?.name || 'Unknown'}</Text>
+          <Text className="text-white font-semibold text-[14px]">{item.users?.name || 'Unknown'}</Text>
           {item.authorId === userId && (
             <View className="bg-[#2B3513] px-1.5 py-0.5 rounded-[4px] ml-2">
-              <Text className="text-[#C4EF00] text-[9px] font-bold tracking-widest">YOU</Text>
+              <Text className="text-[#C4EF00] text-[9px] font-semibold tracking-widest">YOU</Text>
             </View>
           )}
           <Text className="text-[#71717A] text-[12px] ml-2 font-medium">{new Date(item.createdAt).toLocaleDateString()}</Text>
         </View>
-        
+
         <Text className="text-[#E4E4E7] text-[14px] leading-5 mb-2 pr-4">{item.content}</Text>
-        
+
         {!isReply && (
-          <Pressable 
+          <Pressable
             className="active:opacity-70"
             onPress={() => setReplyingTo({ id: item.gymCommunityCommentId, name: item.users?.name || 'Unknown' })}
           >
@@ -95,7 +136,7 @@ export default function CommentsScreen() {
           </Pressable>
         )}
       </Pressable>
-      
+
       <View className="items-center w-10">
         <Pressable className="items-center active:opacity-70 p-1" onPress={() => handleOpenOptions(item)}>
           <DotsThreeVertical size={16} color="#71717A" weight="bold" style={{ marginBottom: 4 }} />
@@ -118,28 +159,27 @@ export default function CommentsScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      className="flex-1 bg-[#0A0A0A]" 
+    <KeyboardAvoidingView
+      className="flex-1 bg-[#0A0A0A]"
       behavior="padding"
       keyboardVerticalOffset={0}
     >
-      <View>
-        <View className="flex-row items-center justify-between px-5 pt-2 pb-4 border-b border-[#1F1F22]">
-          <View className="w-10 h-10 -ml-2 items-center justify-center">
-            <Pressable onPress={() => router.back()} className="active:opacity-70 p-2">
-              <CaretLeft size={24} color="#FFFFFF" />
-            </Pressable>
-          </View>
-          <Text className="text-xl font-bold text-white tracking-wide text-center">
-            Comments
-          </Text>
-          <Pressable 
-            className="w-10 h-10 items-center justify-center -mr-2 active:opacity-70"
-            onPress={() => setActiveModal('sortOptions')}
-          >
-            <FadersHorizontal size={24} color="#FFFFFF" />
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-5 pt-2 pb-4 border-b border-[#1F1F22]">
+        <View className="w-10 h-10 -ml-2 items-center justify-center">
+          <Pressable onPress={() => router.back()} className="active:opacity-70 p-2">
+            <CaretLeft size={24} color="#FFFFFF" />
           </Pressable>
         </View>
+        <Text className="text-xl font-semibold text-white tracking-wide text-center">
+          Comments
+        </Text>
+        <Pressable
+          className="w-10 h-10 items-center justify-center -mr-2 active:opacity-70"
+          onPress={() => setActiveModal('sortOptions')}
+        >
+          <FadersHorizontal size={24} color="#FFFFFF" />
+        </Pressable>
       </View>
 
       {isLoading ? (
@@ -147,20 +187,23 @@ export default function CommentsScreen() {
           <ActivityIndicator color="#C4EF00" />
         </View>
       ) : (
-        <ScrollView 
+        <ScrollView
+          ref={scrollViewRef}
           className="flex-1 px-5 pt-4"
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: isKeyboardVisible ? 120 : 30 }}
         >
           {topLevelComments.slice(0, visibleComments).map((item: any) => {
             const replies = getReplies(item.gymCommunityCommentId);
             const isExpanded = expandedReplies.has(item.gymCommunityCommentId);
-            
+
             return (
               <View key={item.gymCommunityCommentId}>
                 {renderComment(item)}
                 {replies.length > 0 && !isExpanded && (
-                  <Pressable 
-                    className="ml-14 mb-5 flex-row items-center active:opacity-70" 
+                  <Pressable
+                    className="ml-14 mb-5 flex-row items-center active:opacity-70"
                     onPress={() => toggleReplies(item.gymCommunityCommentId)}
                   >
                     <View className="w-6 h-px bg-[#71717A] mr-3" />
@@ -172,8 +215,8 @@ export default function CommentsScreen() {
                 {isExpanded && (
                   <>
                     {replies.map((reply: any) => renderComment(reply, true))}
-                    <Pressable 
-                      className="ml-14 mb-5 flex-row items-center active:opacity-70" 
+                    <Pressable
+                      className="ml-14 mb-5 flex-row items-center active:opacity-70"
                       onPress={() => toggleReplies(item.gymCommunityCommentId)}
                     >
                       <View className="w-6 h-px bg-[#71717A] mr-3" />
@@ -185,7 +228,7 @@ export default function CommentsScreen() {
             );
           })}
           {topLevelComments.length > visibleComments && (
-            <Pressable 
+            <Pressable
               className="items-center py-4 active:opacity-70 mb-4"
               onPress={() => setVisibleComments(prev => prev + 5)}
             >
@@ -201,9 +244,12 @@ export default function CommentsScreen() {
       )}
 
       {/* Input Section */}
-      <View 
-        className="bg-[#121214] px-5 py-4 border-t border-[#1F1F22]"
-        style={{ paddingBottom: Math.max(insets.bottom, 20) }}
+      <View
+        className="bg-[#121214] px-4 py-3 border-t border-[#1F1F22]"
+        style={{
+          paddingBottom: isKeyboardVisible ? 14 : Math.max(insets.bottom, 16),
+          marginBottom: isKeyboardVisible && Platform.OS === 'android' ? 6 : 0,
+        }}
       >
         {replyingTo && (
           <View className="flex-row justify-between mb-2">
@@ -214,24 +260,25 @@ export default function CommentsScreen() {
           </View>
         )}
         <View className="flex-row items-center gap-3">
-          <StaticAvatar 
+          <StaticAvatar
             uri={profilePhoto || undefined}
             name={name || undefined}
             size={36}
-            className="w-9 h-9 rounded-full" 
+            className="w-9 h-9 rounded-full"
           />
           <View className="flex-1 flex-row items-center bg-[#18181B] rounded-full px-4 border border-[#27272A] h-11">
             <TextInput
-              className="flex-1 text-white text-[14px]"
+              className="flex-1 text-white text-[14px] font-sans"
               placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
               placeholderTextColor="#71717A"
               value={comment}
               onChangeText={setComment}
               selectionColor="#C4EF00"
+              cursorColor="#C4EF00"
               editable={!addCommentMutation.isPending}
             />
             {comment.trim().length > 0 && (
-              <Pressable 
+              <Pressable
                 className="ml-2 active:opacity-70"
                 onPress={handleSendComment}
                 disabled={addCommentMutation.isPending}
@@ -274,12 +321,24 @@ export default function CommentsScreen() {
         title="Delete Comment"
         message="Are you sure you want to delete this comment? This action cannot be undone."
         options={[
-          { label: 'Delete', destructive: true, onPress: () => {
+          {
+            label: 'Delete', destructive: true, onPress: () => {
               if (selectedComment && userId) {
-                deleteCommentMutation.mutate({ commentId: selectedComment.gymCommunityCommentId, userId, role: role ?? undefined });
+                deleteCommentMutation.mutate(
+                  { commentId: selectedComment.gymCommunityCommentId, userId, role: role ?? undefined },
+                  {
+                    onSuccess: () => {
+                      toast.success('Comment deleted.');
+                    },
+                    onError: (err: any) => {
+                      toast.error(err?.message || 'Failed to delete comment.');
+                    }
+                  }
+                );
               }
               setActiveModal('none');
-          }}
+            }
+          }
         ]}
       />
 
@@ -289,12 +348,24 @@ export default function CommentsScreen() {
         title="Report Comment"
         message="Are you sure you want to report this comment? Our team will review it shortly."
         options={[
-          { label: 'Report', destructive: true, onPress: () => {
+          {
+            label: 'Report', destructive: true, onPress: () => {
               if (selectedComment && userId) {
-                reportContentMutation.mutate({ reporterId: userId, reason: 'Inappropriate content', reportedUserId: selectedComment.authorId, commentId: selectedComment.gymCommunityCommentId });
+                reportContentMutation.mutate(
+                  { reporterId: userId, reason: 'Inappropriate content', reportedUserId: selectedComment.authorId, commentId: selectedComment.gymCommunityCommentId },
+                  {
+                    onSuccess: () => {
+                      toast.success('Report submitted. Thank you.');
+                    },
+                    onError: (err: any) => {
+                      toast.error(err?.message || 'Failed to submit report.');
+                    }
+                  }
+                );
               }
               setActiveModal('none');
-          }}
+            }
+          }
         ]}
       />
     </KeyboardAvoidingView>

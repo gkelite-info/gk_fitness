@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Pressable, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Dimensions, Image as RNImage } from 'react-native';
+import { View, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Dimensions, Image as RNImage } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { CaretLeft, Check, Camera, Image as ImageIcon, VideoCamera } from 'phosphor-react-native';
@@ -8,6 +8,7 @@ import { Video, ResizeMode } from '@/components/ui/Video';
 import { useUser } from '@/context/UserContext';
 import { useCreateStory } from '@/hooks/community/useStories';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toast } from '@/lib/toast';
 
 const { width, height } = Dimensions.get('window');
 
@@ -25,7 +26,7 @@ export default function CreateStoryScreen() {
   const handlePickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
-      Alert.alert('Permission required', 'Allow access to your photo library to post a story.');
+      toast.error('Permission to access photo library is required.');
       return;
     }
 
@@ -44,7 +45,7 @@ export default function CreateStoryScreen() {
   const handleLaunchCamera = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (permissionResult.granted === false) {
-      Alert.alert('Permission required', 'Allow access to your camera to take a photo.');
+      toast.error('Permission to access camera is required.');
       return;
     }
 
@@ -62,23 +63,24 @@ export default function CreateStoryScreen() {
 
   const handlePostStory = () => {
     if (!mediaUri) {
-      Alert.alert('Error', 'Please select or capture media first.');
+      toast.error('Please select or capture media first.');
       return;
     }
     
-    if (!gymId || !userId) {
-      Alert.alert('Error', 'User session not fully loaded.');
+    if (!userId) {
+      toast.error('User session not fully loaded. Please log in.');
       return;
     }
 
     createStoryMutation.mutate(
-      { gymId, createdBy: userId, mediaUri, caption: caption.trim() },
+      { gymId: gymId ?? null, createdBy: userId, mediaUri, caption: caption.trim() },
       {
         onSuccess: () => {
+          toast.success('Story posted successfully!');
           router.back();
         },
         onError: (error) => {
-          Alert.alert('Failed to post story', error.message);
+          toast.error(error.message || 'Failed to post story.');
         }
       }
     );

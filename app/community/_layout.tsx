@@ -11,9 +11,9 @@ export default function CommunityLayout() {
         <Stack.Screen name="create" options={{ presentation: 'modal' }} />
         <Stack.Screen name="create-story" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="story-viewer" options={{ presentation: 'fullScreenModal', headerShown: false }} />
-        <Stack.Screen name="comments" />
+        <Stack.Screen name="comments" options={{ headerShown: true }} />
         <Stack.Screen name="profile" />
-        <Stack.Screen name="post" options={{ headerShown: false }} />
+        <Stack.Screen name="post" options={{ headerShown: true }} />
         <Stack.Screen name="settings" />
         <Stack.Screen name="blocklist" />
       </Stack>

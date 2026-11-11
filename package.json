@@ -15,6 +15,7 @@
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
     "web": "cross-env NODE_OPTIONS=--max-old-space-size=8192 expo start --web",
+    "doctor": "expo-doctor",
     "postinstall": "patch-package"
   },
   "dependencies": {
@@ -104,6 +105,7 @@
     "eslint": "^9.25.1",
     "eslint-config-expo": "~57.0.2",
     "eslint-config-prettier": "^10.1.2",
+    "expo-doctor": "^1.21.7",
     "patch-package": "^8.0.1",
     "prettier": "^3.2.5",
     "prettier-plugin-tailwindcss": "^0.5.11",

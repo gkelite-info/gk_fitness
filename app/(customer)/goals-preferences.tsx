@@ -1,19 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, Pressable, ActivityIndicator, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  CaretLeft, Info, Target, Barbell, Heart, Lightning, Moon, Sun, SunHorizon, Person, Check, Heartbeat, PersonArmsSpread, ClipboardText, CaretRight
+  CaretLeft, Info, Target, Barbell, Heart, Lightning, Moon, Sun, SunHorizon, Person, Check, Heartbeat, PersonArmsSpread, ClipboardText, CaretRight, ArrowClockwise
 } from 'phosphor-react-native';
 import { mockProfileData } from '@/constants/mockProfileData';
 import { useUser } from '@/context/UserContext';
 import { useCustomerGoalPreference, useSaveCustomerGoalPreference } from '@/hooks/customers/useCustomerGoalPreferences';
+import { useQueryClient } from '@tanstack/react-query';
+import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { toast } from '@/lib/toast';
 
 export default function GoalsPreferencesScreen() {
   const { userId } = useUser();
-  const { data: preferences, isLoading } = useCustomerGoalPreference(userId || undefined);
+  const { data: preferences, isLoading, refetch } = useCustomerGoalPreference(userId || undefined);
   const saveMutation = useSaveCustomerGoalPreference();
 
   if (!userId) {
@@ -33,13 +35,27 @@ export default function GoalsPreferencesScreen() {
       userId={userId}
       preferences={preferences}
       saveMutation={saveMutation}
+      refetch={refetch}
     />
   );
 }
 
-function GoalsPreferencesView({ userId, preferences, saveMutation }: { userId: string, preferences: any, saveMutation: any }) {
+function GoalsPreferencesView({ 
+  userId, 
+  preferences, 
+  saveMutation, 
+  refetch 
+}: { 
+  userId: string; 
+  preferences: any; 
+  saveMutation: any; 
+  refetch?: () => Promise<any>;
+}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+
+  const [refreshing, setRefreshing] = useState(false);
 
   const [selectedGoal, setSelectedGoal] = useState<any>(preferences?.fitnessGoal || '');
   const [selectedWorkouts, setSelectedWorkouts] = useState<string[]>(
@@ -49,6 +65,33 @@ function GoalsPreferencesView({ userId, preferences, saveMutation }: { userId: s
   const [workoutTime, setWorkoutTime] = useState<string[]>(
     preferences?.workoutTime || []
   );
+
+  useEffect(() => {
+    if (preferences) {
+      if (preferences.fitnessGoal) setSelectedGoal(preferences.fitnessGoal);
+      if (Array.isArray(preferences.preferredWorkouts)) setSelectedWorkouts(preferences.preferredWorkouts);
+      if (preferences.weeklyTarget) setWeeklyTarget(preferences.weeklyTarget);
+      if (Array.isArray(preferences.workoutTime)) setWorkoutTime(preferences.workoutTime);
+    }
+  }, [preferences]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refetch?.(),
+        queryClient.invalidateQueries({ queryKey: ['customerGoalPreference', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['customerOnboarding', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] }),
+      ]);
+      toast.success('Preferences refreshed!');
+    } catch (err: any) {
+      console.error('[GoalsPreferences] Refresh error:', err);
+      toast.error('Failed to refresh preferences');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch, userId, queryClient]);
 
   const toggleWorkout = (workout: string) => {
     if (selectedWorkouts.includes(workout)) {
@@ -130,16 +173,36 @@ function GoalsPreferencesView({ userId, preferences, saveMutation }: { userId: s
   return (
     <View className="flex-1 bg-[#0F0F0F] pb-20" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center px-4 py-3 border-b border-[#1A1A1A]">
-        <Pressable onPress={handleBack} className="p-2">
+        <Pressable onPress={handleBack} className="p-2 active:opacity-70">
           <CaretLeft size={24} color="#FFFFFF" weight="bold" />
         </Pressable>
         <Text className="flex-1 text-center text-white text-lg font-semibold">Goals & Preferences</Text>
-        <Pressable className="p-2">
-          <Info size={24} color="#D4FF00" weight="regular" />
-        </Pressable>
+        <View className="flex-row items-center">
+          <Pressable 
+            onPress={onRefresh} 
+            disabled={refreshing} 
+            className="p-2 mr-0.5 active:opacity-70"
+            accessibilityLabel="Refresh preferences"
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color="#D4FF00" />
+            ) : (
+              <ArrowClockwise size={22} color="#D4FF00" weight="bold" />
+            )}
+          </Pressable>
+          <Pressable className="p-2 active:opacity-70">
+            <Info size={22} color="#D4FF00" weight="regular" />
+          </Pressable>
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 60 }} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <CustomRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <Text className="text-[#A1A1AA] text-sm text-center mt-6 mb-6 px-4 leading-relaxed">
           Update your goals and preferences to get a more personalized experience.
         </Text>

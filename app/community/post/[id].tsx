@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, ScrollView, Pressable, Image, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Modal, Dimensions } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { View, ScrollView, Pressable, Image, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Modal, Dimensions, Keyboard } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { useCommunityFeed } from '@/hooks/community/useCommunityFeed';
 import { useToggleLike, useToggleSave, usePostComments, useAddComment, useDeleteComment } from '@/hooks/community/usePostInteractions';
 import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import { ActionSheetModal } from '@/components/community/ActionSheetModal';
+import { toast } from '@/lib/toast';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
@@ -117,9 +118,43 @@ export default function PostDetailScreen() {
   const postId = Array.isArray(routePostId) ? routePostId[0] : routePostId;
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { gymId, userId, name, profilePhoto } = useUser();
+  const { gymId, userId, name, profilePhoto, role } = useUser();
 
-  const { data, isLoading } = useCommunityFeed(gymId ?? null, userId ?? null);
+  const lastNavigationTimeRef = useRef(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const safeNavigate = useCallback((navigateFn: () => void, cooldown = 750) => {
+    const now = Date.now();
+    if (now - lastNavigationTimeRef.current < cooldown) {
+      console.log('[PostDetail] Rapid tap ignored to prevent duplicate navigation');
+      return;
+    }
+    lastNavigationTimeRef.current = now;
+    navigateFn();
+  }, []);
+
+  const { data, isLoading } = useCommunityFeed(gymId ?? null, userId ?? null, role ?? null);
   const toggleLikeMutation = useToggleLike();
   const toggleSaveMutation = useToggleSave();
 
@@ -135,7 +170,7 @@ export default function PostDetailScreen() {
   const [comment, setComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ id: string, name: string } | null>(null);
   const [imageZoomVisible, setImageZoomVisible] = useState(false);
-  
+
   // Pagination & Replies State
   const [visibleComments, setVisibleComments] = useState(5);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
@@ -143,14 +178,47 @@ export default function PostDetailScreen() {
   // Find the exact post from the feed cache
   const post = data?.pages.flatMap(page => page).find(p => p.gymCommunityPostId === postId);
 
+  // Local saved state for instantaneous UI feedback and persistence sync
+  const [localSaved, setLocalSaved] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (post && typeof post.isSavedByMe === 'boolean') {
+      setLocalSaved(post.isSavedByMe);
+    }
+  }, [post?.isSavedByMe]);
+
+  const isSaved = localSaved !== null ? localSaved : Boolean(post?.isSavedByMe);
+
   const handleToggleLike = () => {
-    if (!userId || !gymId) return;
-    toggleLikeMutation.mutate({ postId, userId, gymId });
+    if (!userId) {
+      toast.error('Please log in to like posts.');
+      return;
+    }
+    toggleLikeMutation.mutate({ postId, userId, gymId: gymId ?? null });
   };
 
   const handleToggleSave = () => {
-    if (!userId || !gymId) return;
-    toggleSaveMutation.mutate({ postId, userId, gymId });
+    if (!userId) {
+      toast.error('Please log in to save posts.');
+      return;
+    }
+    const nextSaved = !isSaved;
+    setLocalSaved(nextSaved);
+
+    toggleSaveMutation.mutate(
+      { postId, userId, gymId: gymId ?? null },
+      {
+        onSuccess: (result: any) => {
+          if (result && typeof result.isSaving === 'boolean') {
+            setLocalSaved(result.isSaving);
+          }
+        },
+        onError: () => {
+          setLocalSaved(!nextSaved);
+          toast.error('Failed to update save status.');
+        }
+      }
+    );
   };
 
   const handleSendComment = useCallback(() => {
@@ -184,7 +252,7 @@ export default function PostDetailScreen() {
       {isReply && (
         <View className="absolute -left-[27px] -top-8 w-6 h-[46px] border-l-2 border-b-2 border-[#1F1F22] rounded-bl-xl" />
       )}
-      <Pressable onPress={() => router.push(`/community/profile/${item.authorId}`)}>
+      <Pressable onPress={() => safeNavigate(() => router.push(`/community/profile/${item.authorId}`))}>
         <StaticAvatar
           uri={item.users?.profilePhoto}
           name={item.users?.name}
@@ -194,10 +262,10 @@ export default function PostDetailScreen() {
       </Pressable>
       <View className="flex-1">
         <View className="flex-row items-center mb-1">
-          <Text className="text-white font-bold text-[13px]">{item.users?.name || 'Unknown'}</Text>
+          <Text className="text-white font-semibold text-[13px]">{item.users?.name || 'Unknown'}</Text>
           {item.authorId === userId && (
             <View className="bg-[#2B3513] px-1.5 py-0.5 rounded-[4px] ml-2">
-              <Text className="text-[#C4EF00] text-[9px] font-bold tracking-widest">YOU</Text>
+              <Text className="text-[#C4EF00] text-[9px] font-semibold tracking-widest">YOU</Text>
             </View>
           )}
           <Text className="text-[#71717A] text-[11px] ml-2">{new Date(item.createdAt).toLocaleDateString()}</Text>
@@ -245,29 +313,30 @@ export default function PostDetailScreen() {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-[#0A0A0A]"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
+      keyboardVerticalOffset={0}
     >
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 pt-2 pb-3 border-b border-[#1F1F22]">
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center -ml-2 active:opacity-70">
           <CaretLeft size={24} color="#FFFFFF" />
         </Pressable>
-        <Text className="text-lg font-bold text-white tracking-wide">Post</Text>
+        <Text className="text-lg font-semibold text-white tracking-wide">Post</Text>
         <View className="w-10" />
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 20 }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: isKeyboardVisible ? 120 : 30 }}
       >
-        {/* Post Card */}
         <View className="px-5 pt-4">
-          {/* Author Header */}
           <View className="flex-row justify-between items-center mb-3">
             <Pressable
               className="flex-row items-center active:opacity-70"
-              onPress={() => router.push(`/community/profile/${post.createdBy}`)}
+              onPress={() => safeNavigate(() => router.push(`/community/profile/${post.createdBy}`))}
             >
               <StaticAvatar
                 uri={post.users?.profilePhoto}
@@ -276,9 +345,9 @@ export default function PostDetailScreen() {
                 className="w-10 h-10 rounded-full mr-3"
               />
               <View>
-                <Text className="text-white font-bold text-[15px]">{post.users?.name || 'Unknown User'}</Text>
+                <Text className="text-white font-semibold text-[15px]">{post.users?.name || 'Unknown User'}</Text>
                 <Text className="text-[#71717A] text-xs mt-0.5">
-                  {new Date(post.createdAt).toLocaleDateString()} • <Text className="text-[#C4EF00] font-medium">{post.users?.role}</Text>
+                  {new Date(post.createdAt).toLocaleDateString()} • <Text className="text-[#C4EF00] font-medium capitalize text-sm">{post.users?.role}</Text>
                 </Text>
               </View>
             </Pressable>
@@ -330,8 +399,8 @@ export default function PostDetailScreen() {
             >
               <BookmarkSimple
                 size={22}
-                color={post.isSavedByMe ? "#FFFFFF" : "#71717A"}
-                weight={post.isSavedByMe ? "fill" : "bold"}
+                color={isSaved ? "#C4EF00" : "#71717A"}
+                weight={isSaved ? "fill" : "bold"}
               />
             </Pressable>
           </View>
@@ -341,9 +410,9 @@ export default function PostDetailScreen() {
 
           {/* Comments Section */}
           <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-white font-bold text-[15px]">Comments</Text>
+            <Text className="text-white font-semibold text-[15px]">Comments</Text>
             {topLevelComments.length > 0 && (
-              <Pressable 
+              <Pressable
                 className="flex-row items-center active:opacity-70"
                 onPress={() => setActiveModal('sortOptions')}
               >
@@ -366,13 +435,13 @@ export default function PostDetailScreen() {
               {topLevelComments.slice(0, visibleComments).map((item: any) => {
                 const replies = getReplies(item.gymCommunityCommentId);
                 const isExpanded = expandedReplies.has(item.gymCommunityCommentId);
-                
+
                 return (
                   <View key={item.gymCommunityCommentId}>
                     {renderComment(item)}
                     {replies.length > 0 && !isExpanded && (
-                      <Pressable 
-                        className="ml-14 mb-5 flex-row items-center active:opacity-70" 
+                      <Pressable
+                        className="ml-14 mb-5 flex-row items-center active:opacity-70"
                         onPress={() => toggleReplies(item.gymCommunityCommentId)}
                       >
                         <View className="w-6 h-px bg-[#71717A] mr-3" />
@@ -384,8 +453,8 @@ export default function PostDetailScreen() {
                     {isExpanded && (
                       <>
                         {replies.map((reply: any) => renderComment(reply, true))}
-                        <Pressable 
-                          className="ml-14 mb-5 flex-row items-center active:opacity-70" 
+                        <Pressable
+                          className="ml-14 mb-5 flex-row items-center active:opacity-70"
                           onPress={() => toggleReplies(item.gymCommunityCommentId)}
                         >
                           <View className="w-6 h-px bg-[#71717A] mr-3" />
@@ -397,7 +466,7 @@ export default function PostDetailScreen() {
                 );
               })}
               {topLevelComments.length > visibleComments && (
-                <Pressable 
+                <Pressable
                   className="items-center py-4 active:opacity-70 mb-4"
                   onPress={() => setVisibleComments(prev => prev + 5)}
                 >
@@ -412,7 +481,12 @@ export default function PostDetailScreen() {
       {/* Comment Input */}
       <View
         className="bg-[#121214] px-5 py-3 border-t border-[#1F1F22]"
-        style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+        style={{
+          paddingBottom: isKeyboardVisible
+            ? (Platform.OS === 'ios' ? 14 : 14)
+            : Math.max(insets.bottom, 16),
+          marginBottom: isKeyboardVisible && Platform.OS === 'android' ? 6 : 0,
+        }}
       >
         {replyingTo && (
           <View className="flex-row justify-between mb-2">
@@ -431,12 +505,13 @@ export default function PostDetailScreen() {
           />
           <View className="flex-1 flex-row items-center bg-[#18181B] rounded-full px-4 border border-[#27272A] h-11">
             <TextInput
-              className="flex-1 text-white text-[14px]"
+              className="flex-1 text-white text-[14px] font-sans"
               placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
               placeholderTextColor="#71717A"
               value={comment}
               onChangeText={setComment}
               selectionColor="#C4EF00"
+              cursorColor="#C4EF00"
               editable={!addCommentMutation.isPending}
             />
             {comment.trim().length > 0 && (

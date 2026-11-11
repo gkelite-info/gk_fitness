@@ -114,7 +114,7 @@ export async function fetchActiveStories(gymId: string, currentUserId: string) {
 }
 
 export async function createStory(
-  gymId: string, 
+  gymId: string | null, 
   createdBy: string, 
   mediaUri: string, 
   caption?: string,
@@ -128,7 +128,8 @@ export async function createStory(
       const base64 = await FileSystem.readAsStringAsync(mediaUri, { encoding: 'base64' });
       const arrayBuffer = base64ToArrayBuffer(base64);
       const ext = mediaUri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${gymId}/${storyId}.${ext}`;
+      const folder = gymId || createdBy;
+      const fileName = `${folder}/${storyId}.${ext}`;
       
       const isVideo = ext === 'mp4' || ext === 'mov' || ext === 'm4v';
       const contentType = isVideo ? `video/${ext === 'mov' ? 'quicktime' : ext}` : `image/${ext}`;

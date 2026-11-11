@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, Pressable, TextInput, ActivityIndicator, StyleSheet, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
 import { hashPassword } from '@/helpers/auth/passwordHelper';
 import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
+import { toast } from '@/lib/toast';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
@@ -26,6 +27,15 @@ export default function ChangePasswordScreen() {
   const [isPending, setIsPending] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
 
+  useEffect(() => {
+    const onBackPress = () => {
+      router.navigate('/(customer)/manage-account');
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
+
   // Requirements
   const hasMinLength = newPassword.length >= 8;
   const hasUppercase = /[A-Z]/.test(newPassword);
@@ -35,19 +45,19 @@ export default function ChangePasswordScreen() {
 
   const handleUpdate = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      toast.error('Please fill in all fields.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'New passwords do not match.');
+      toast.error('New passwords do not match.');
       return;
     }
     if (!requirementsMet) {
-      Alert.alert('Error', 'Please ensure your new password meets all requirements.');
+      toast.error('Please ensure your new password meets all requirements.');
       return;
     }
     if (!email) {
-      Alert.alert('Error', 'User email not found. Please log in again.');
+      toast.error('User email not found. Please log in again.');
       return;
     }
 
@@ -83,9 +93,10 @@ export default function ChangePasswordScreen() {
         console.warn('[ChangePassword] Non-fatal error updating database password column:', hashErr);
       }
 
+      toast.success('Password updated successfully!');
       setStep(2);
     } catch (err: any) {
-      Alert.alert('Error Updating Password', err.message || 'An unexpected error occurred.');
+      toast.error(err.message || 'An unexpected error occurred.');
     } finally {
       setIsPending(false);
     }
@@ -137,7 +148,7 @@ export default function ChangePasswordScreen() {
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
       {/* Header */}
       <View className="flex-row items-center px-5 py-4">
-        <Pressable onPress={() => router.back()} disabled={isPending} className="p-2 bg-[#1A1A1A] rounded-full active:opacity-70 mr-4">
+        <Pressable onPress={() => router.navigate('/(customer)/manage-account')} disabled={isPending} className="p-2 bg-[#1A1A1A] rounded-full active:opacity-70 mr-4">
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
         <View>

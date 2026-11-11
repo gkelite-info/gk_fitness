@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, ScrollView, Pressable, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,11 +9,20 @@ export default function ManageAccountScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  useEffect(() => {
+    const onBackPress = () => {
+      router.navigate('/(customer)/profile');
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
+
   return (
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
       {/* Header */}
       <View className="flex-row items-center px-5 py-4 border-b border-[#27272A]">
-        <Pressable onPress={() => router.back()} className="mr-4 active:opacity-70">
+        <Pressable onPress={() => router.navigate('/(customer)/profile')} className="mr-4 active:opacity-70">
           <ArrowLeft size={24} color="#FFFFFF" />
         </Pressable>
         <Text className="text-white text-xl font-semibold">Manage Account</Text>

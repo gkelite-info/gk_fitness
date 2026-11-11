@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
-import { View, ScrollView, Pressable, Image, Modal, Alert, Platform, ActivityIndicator } from 'react-native';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { View, ScrollView, Pressable, Image, Modal, Alert, Platform, ActivityIndicator, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -319,13 +319,22 @@ export default function MyTrainerScreen() {
     setShowSuccessModal(true);
   };
 
+  useEffect(() => {
+    const onBackPress = () => {
+      router.navigate('/(customer)/profile');
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
+
   const hasTrainer = !!activeAssignment || !!storeTrainer.name;
   const isLoading = (isProfileLoading || isAssignedLoading || isIndividualLoading) && !hasTrainer;
 
   return (
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center px-4 py-3.5 border-b border-[#1A1A1A]">
-        <Pressable onPress={() => router.back()} className="p-2 -ml-1 active:opacity-70">
+        <Pressable onPress={() => router.navigate('/(customer)/profile')} className="p-2 -ml-1 active:opacity-70">
           <CaretLeft size={22} color="#FFFFFF" weight="bold" />
         </Pressable>
         <Text className="flex-1 text-center text-white text-xl font-semibold mr-8">My Trainer</Text>

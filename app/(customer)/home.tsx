@@ -36,6 +36,7 @@ import { usePedometer } from '@/hooks/fitness/usePedometer';
 import { useFitnessStats } from '@/hooks/fitness/useFitnessStats';
 import { useWorkoutStreak } from '@/hooks/customerWorkouts/useWorkoutStreak';
 import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
+import { useGyms } from '@/hooks/gyms/useGyms';
 
 
 // Module-level persistent cache across screen navigation
@@ -72,6 +73,7 @@ export default function CustomerHome() {
   const { data: streakData } = useWorkoutStreak();
   const { data: weeklyStats, refetch: refetchWeeklyStats } = useWeeklyStats(userId);
   const { data: onboardingStatus, isLoading: isCheckingOnboarding, refetch: refetchOnboarding } = useCustomerOnboardingStatus(userId);
+  const { data: dbGyms = [] } = useGyms();
 
   const todayWorkoutDayId = dashboardData?.todayWorkout?.dayId || null;
   const todayWorkoutType = dashboardData?.todayWorkout?.type || 'Rest';
@@ -785,7 +787,7 @@ export default function CustomerHome() {
               Find a gym that{'\n'}fits you.
             </Text>
             <Text className="text-[#888888] text-xs font-medium mb-3.5">
-              12 gyms near you
+              {dbGyms.length} gyms near you
             </Text>
 
             <View className="bg-[#CCFF00] self-start py-2.5 px-4 rounded-xl flex-row items-center justify-center gap-1.5 shadow-sm">

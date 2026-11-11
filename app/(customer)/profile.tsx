@@ -15,6 +15,7 @@ import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { useUserById } from '@/hooks/users';
 import { usePersonalTrainerRequestsByUser } from '@/hooks/personalTrainerRequests/usePersonalTrainerRequests';
 import { useAssignedTrainersByCustomer } from '@/hooks/customerTrainers/useCustomerTrainers';
 import { useAssignedGlobalTrainersByUser } from '@/hooks/individual/customer-trainer/individualCustomerTrainer';
@@ -28,32 +29,39 @@ import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 export default function ProfileScreen() {
   const userContext = useUser();
   const userId = userContext.userId;
+  const { data: userRecord, isLoading: isUserLoading, refetch: refetchUser } = useUserById(userId);
   const { data, isLoading, refetch: refetchProfile } = useCustomerProfile(userId);
 
   return <ProfileView
     data={mockProfileData}
+    userRecord={userRecord}
     customerData={data?.customerData}
     onboardingData={data?.onboardingData}
-    loading={isLoading}
+    loading={isLoading || isUserLoading}
     fallbackUser={userContext}
     refetchProfile={refetchProfile}
+    refetchUser={refetchUser}
   />;
 }
 
 function ProfileView({
   data,
+  userRecord,
   customerData,
   onboardingData,
   loading,
   fallbackUser,
-  refetchProfile
+  refetchProfile,
+  refetchUser,
 }: {
   data: typeof mockProfileData,
+  userRecord?: any,
   customerData: any,
   onboardingData: any,
   loading: boolean,
   fallbackUser: any,
-  refetchProfile?: () => Promise<any>
+  refetchProfile?: () => Promise<any>,
+  refetchUser?: () => Promise<any>,
 }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -71,12 +79,15 @@ function ProfileView({
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
+      typeof refetchUser === 'function' ? refetchUser() : Promise.resolve(),
       typeof refetchProfile === 'function' ? refetchProfile() : Promise.resolve(),
       typeof fallbackUser?.refreshUserContext === 'function' ? fallbackUser.refreshUserContext() : Promise.resolve(),
       typeof refetchAssignedTrainers === 'function' ? refetchAssignedTrainers() : Promise.resolve(),
       typeof refetchIndividualTrainers === 'function' ? refetchIndividualTrainers() : Promise.resolve(),
       typeof refetchTrainerRequests === 'function' ? refetchTrainerRequests() : Promise.resolve(),
       typeof refetchStreak === 'function' ? refetchStreak() : Promise.resolve(),
+      queryClient.invalidateQueries({ queryKey: ['user', 'id', userId] }),
+      queryClient.invalidateQueries({ queryKey: ['users'] }),
       queryClient.invalidateQueries({ queryKey: ['customerProfile', userId] }),
       queryClient.invalidateQueries({ queryKey: ['userProfile', userId] }),
       queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
@@ -85,17 +96,18 @@ function ProfileView({
       queryClient.invalidateQueries({ queryKey: ['workoutStreak'] }),
     ]);
     setRefreshing(false);
-  }, [refetchProfile, fallbackUser, refetchAssignedTrainers, refetchIndividualTrainers, refetchTrainerRequests, refetchStreak, userId]);
+  }, [refetchUser, refetchProfile, fallbackUser, refetchAssignedTrainers, refetchIndividualTrainers, refetchTrainerRequests, refetchStreak, userId]);
 
   useFocusEffect(
     useCallback(() => {
-      // Keep cached data; manual refresh via onRefresh
-
-
-
-
-
-    }, [refetchProfile, fallbackUser, refetchAssignedTrainers, refetchIndividualTrainers, refetchTrainerRequests, refetchStreak])
+      refetchUser?.();
+      refetchProfile?.();
+      fallbackUser?.refreshUserContext?.();
+      refetchAssignedTrainers?.();
+      refetchIndividualTrainers?.();
+      refetchTrainerRequests?.();
+      refetchStreak?.();
+    }, [refetchUser, refetchProfile, fallbackUser, refetchAssignedTrainers, refetchIndividualTrainers, refetchTrainerRequests, refetchStreak])
   );
 
   const activeIndividualAssignment = individualTrainers?.find((a: any) => {
@@ -141,7 +153,7 @@ function ProfileView({
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
-      await unregisterPushToken(userId ?? undefined).catch(() => {});
+      await unregisterPushToken(userId ?? undefined).catch(() => { });
       const { error } = await supabase.auth.signOut();
       if (error) {
         toast.error(error.message || 'Failed to sign out.');
@@ -159,10 +171,20 @@ function ProfileView({
     }
   };
 
-  const displayFullName = customerData?.fullName || fallbackUser?.name || data.user.fullName;
-  const displayEmail = customerData?.email || fallbackUser?.email || data.user.email;
+  const displayFullName = userRecord?.name || fallbackUser?.name || customerData?.fullName || data.user.fullName;
+  const displayEmail = userRecord?.email || fallbackUser?.email || customerData?.email || data.user.email;
 
-  const displayAvatar = data.user.avatarUrl;
+  const rawAvatar = userRecord?.profilePhoto || fallbackUser?.profilePhoto || fallbackUser?.profilePic || customerData?.profilePhoto || customerData?.profilePic;
+  const hasValidPhoto = Boolean(
+    rawAvatar &&
+    typeof rawAvatar === 'string' &&
+    rawAvatar.trim() !== '' &&
+    rawAvatar !== 'null' &&
+    rawAvatar !== 'undefined' &&
+    !rawAvatar.includes('pravatar.cc') &&
+    !rawAvatar.includes('gstatic.com')
+  );
+  const displayAvatar = hasValidPhoto ? rawAvatar.trim() : null;
 
   const currentStreak = streakData?.currentStreak ?? 0;
 
@@ -175,7 +197,7 @@ function ProfileView({
   const displayStreakSuffix = currentStreak > 0 ? 'days' : '';
   const displayStreakSubtitle = currentStreak > 0 ? 'Days Active' : 'Streak';
 
-  const activeSinceDate = customerData?.createdAt || fallbackUser?.createdAt;
+  const activeSinceDate = userRecord?.createdAt || fallbackUser?.createdAt || customerData?.createdAt;
   const displayActiveSince = activeSinceDate
     ? new Date(activeSinceDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     : '0';
@@ -195,7 +217,7 @@ function ProfileView({
       >
         <View className="bg-[#1A1A1A] rounded-3xl p-5 flex-row items-center mt-2 border border-[#27272A]">
           <StaticAvatar
-            uri={fallbackUser?.profilePhoto || fallbackUser?.profilePic || customerData?.profilePhoto || customerData?.profilePic}
+            uri={displayAvatar}
             userId={userId}
             name={displayFullName}
             size={80}
@@ -381,7 +403,7 @@ function ProgressCard({ icon, title, value, subtitle, subtitleColor, valueHighli
       <View className="mb-2">
         {icon}
       </View>
-      <Text className="text-[#8E8E93] text-[10px] mb-2 font-medium">{title}</Text>
+      <Text className="text-[#8E8E93] text-[10px] mb-2 font-medium text-center">{title}</Text>
       {valueHighlight ? (
         <View className="flex-row items-baseline mb-2">
           <Text className="text-white text-xl font-semibold">{valueHighlight}</Text>

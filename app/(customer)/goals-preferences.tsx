@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -115,8 +115,17 @@ function GoalsPreferencesView({ userId, preferences, saveMutation }: { userId: s
   };
 
   const handleBack = () => {
-    router.push('/(customer)/profile');
+    router.navigate('/(customer)/profile');
   };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
 
   return (
     <View className="flex-1 bg-[#0F0F0F] pb-20" style={{ paddingTop: insets.top }}>

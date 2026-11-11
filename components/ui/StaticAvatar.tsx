@@ -36,13 +36,15 @@ export function StaticAvatar({
       cleanUri = data.publicUrl;
     }
   }
-  const isPravatar = cleanUri ? cleanUri.includes('pravatar.cc') : false;
+  const isPlaceholder = cleanUri
+    ? (cleanUri.includes('pravatar.cc') || cleanUri.includes('gstatic.com') || cleanUri.includes('googleusercontent.com'))
+    : false;
 
   useEffect(() => {
     setHasError(false);
   }, [cleanUri]);
 
-  if (cleanUri && !isPravatar && !hasError) {
+  if (cleanUri && !isPlaceholder && !hasError) {
     return (
       <Image
         source={{ uri: cleanUri }}

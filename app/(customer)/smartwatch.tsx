@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, Platform } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,6 +41,15 @@ export default function SmartwatchScreen() {
   const [isPinging, setIsPinging] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      router.navigate('/(customer)/profile');
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
 
   const todaySummary = useMemo(() => {
     const today = new Date();
@@ -120,7 +129,7 @@ export default function SmartwatchScreen() {
     <View className="flex-1 bg-[#0A0A0A] px-4" style={{ paddingTop: Math.max(insets.top, 16) }}>
       {/* Header */}
       <View className="flex-row items-center mb-5">
-        <Pressable onPress={() => router.back()} className="mr-3 p-1 active:opacity-70">
+        <Pressable onPress={() => router.navigate('/(customer)/profile')} className="mr-3 p-1 active:opacity-70">
           <ArrowLeft size={24} color="#FFFFFF" />
         </Pressable>
         <Text className="text-white text-xl font-semibold">Smartwatch & Wearables</Text>

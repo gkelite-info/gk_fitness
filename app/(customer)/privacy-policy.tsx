@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, ScrollView, Pressable, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { ArrowLeft } from 'phosphor-react-native';
 import { useRouter } from 'expo-router';
@@ -10,8 +10,17 @@ export default function PrivacyPolicy() {
   const insets = useSafeAreaInsets();
 
   const handleBack = () => {
-    router.push('/(customer)/profile');
-  }
+    router.navigate('/(customer)/profile');
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
 
   const BulletPoint = ({ children }: { children: React.ReactNode }) => (
     <View className="flex-row mt-1 px-2">

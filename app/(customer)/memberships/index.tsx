@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useCallback } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, Platform, Alert } from 'react-native';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import { View, ScrollView, Pressable, ActivityIndicator, Platform, Alert, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
@@ -404,13 +404,18 @@ export default function MembershipsScreen() {
 
   const isPlansLoading = isIndividual ? isSubscriptionsLoading : isGymPlansLoading;
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.push('/(customer)/profile');
-    }
-  };
+  const handleBack = useCallback(() => {
+    router.navigate('/(customer)/profile');
+  }, [router]);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleBack]);
 
   const screenTitle = isPendingActivation
     ? 'Activate Membership'
@@ -538,13 +543,13 @@ export default function MembershipsScreen() {
 
             {/* Daily Rate & Unused Credit Breakdown (when active on Android, informational on iOS) */}
             {isCurrentActive && unusedCredit > 0 && (
-              <View className="mt-3 pt-3 border-t border-[#27272A] flex-row items-center justify-between">
-                <Text className="text-[#9CA3AF] text-xs">
+              <View className="mt-3 pt-3 border-t border-[#27272A] flex-row items-center justify-between gap-2">
+                <Text className="text-[#9CA3AF] text-xs flex-1 flex-shrink">
                   Daily Rate:{' '}
                   <Text className="text-white font-medium">₹{currentDailyRate}/day</Text> (
                   {remainingDays} day{remainingDays !== 1 ? 's' : ''} left)
                 </Text>
-                <Text className="text-[#CCFF00] text-xs font-semibold">
+                <Text className="text-[#CCFF00] text-xs font-semibold shrink-0">
                   Unused Credit: ₹{unusedCredit}
                 </Text>
               </View>
@@ -607,16 +612,16 @@ export default function MembershipsScreen() {
 
             {/* Validity details footer */}
             {isCurrentActive && currentPlan?.endDate ? (
-              <View className="mt-4 pt-3.5 border-t border-[#27272A] flex-row items-center justify-between">
-                <Text className="text-[#9CA3AF] text-xs">Plan Validity</Text>
-                <Text className="text-[#CCFF00] text-xs font-semibold">
+              <View className="mt-4 pt-3.5 border-t border-[#27272A] flex-row items-center justify-between gap-2">
+                <Text className="text-[#9CA3AF] text-xs shrink-0">Plan Validity</Text>
+                <Text className="text-[#CCFF00] text-xs font-semibold flex-1 text-right flex-shrink" numberOfLines={1}>
                   Valid until {formattedEndDate}
                 </Text>
               </View>
             ) : isPendingActivation ? (
-              <View className="mt-4 pt-3.5 border-t border-[#27272A] flex-row items-center justify-between">
-                <Text className="text-[#9CA3AF] text-xs">Membership Status</Text>
-                <Text className="text-[#F59E0B] text-xs font-semibold">
+              <View className="mt-4 pt-3.5 border-t border-[#27272A] flex-row items-center justify-between gap-2">
+                <Text className="text-[#9CA3AF] text-xs shrink-0">Membership Status</Text>
+                <Text className="text-[#F59E0B] text-xs font-semibold flex-1 text-right flex-shrink" numberOfLines={2}>
                   Awaiting Activation • Pay to start access
                 </Text>
               </View>
@@ -749,21 +754,21 @@ export default function MembershipsScreen() {
                 {/* Upgrade Credit Breakdown Box */}
                 {isUpgradeWithCredit && calc && (
                   <View className="bg-[#141414] border border-[#27272A] rounded-2xl p-3.5 mb-4">
-                    <View className="flex-row justify-between mb-1.5">
-                      <Text className="text-xs text-[#8E8E93]">New Plan Price</Text>
-                      <Text className="text-white text-xs font-medium">₹{calc.newPlanPrice}</Text>
+                    <View className="flex-row justify-between items-center mb-1.5 gap-2">
+                      <Text className="text-xs text-[#8E8E93] flex-1">New Plan Price</Text>
+                      <Text className="text-white text-xs font-medium shrink-0">₹{calc.newPlanPrice}</Text>
                     </View>
-                    <View className="flex-row justify-between mb-1.5">
-                      <Text className="text-xs text-[#CCFF00]">
+                    <View className="flex-row justify-between items-center mb-1.5 gap-2">
+                      <Text className="text-xs text-[#CCFF00] flex-1 flex-shrink" numberOfLines={2}>
                         Credit from Current Plan ({calc.remainingDays} days left)
                       </Text>
-                      <Text className="text-[#CCFF00] text-xs font-semibold">
+                      <Text className="text-[#CCFF00] text-xs font-semibold shrink-0">
                         -₹{calc.unusedCredit}
                       </Text>
                     </View>
-                    <View className="border-t border-[#222222] pt-1.5 flex-row justify-between items-baseline">
-                      <Text className="text-xs font-semibold text-white">Net Amount to Pay</Text>
-                      <Text className="text-base font-semibold text-[#CCFF00]">
+                    <View className="border-t border-[#222222] pt-1.5 flex-row justify-between items-baseline gap-2">
+                      <Text className="text-xs font-semibold text-white flex-1">Net Amount to Pay</Text>
+                      <Text className="text-base font-semibold text-[#CCFF00] shrink-0">
                         ₹{calc.payableAmount}
                       </Text>
                     </View>

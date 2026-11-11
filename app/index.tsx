@@ -17,31 +17,38 @@ export default function Index() {
     async function checkAuthAndGym() {
       if (loading) return;
 
-      if (!role) {
-        const gym = await getSelectedGym();
-        if (isMounted) {
-          setHasSelectedGym(!!gym);
-          setCheckingGym(false);
-        }
-      } else {
-        const normalizedRole = role.trim().toLowerCase();
-        if (['customer', 'trainer', 'owner'].includes(normalizedRole)) {
+      try {
+        if (!role) {
           const gym = await getSelectedGym();
-          if (gym?.gymId && userId) {
-            const authResult = await verifyUserGymMembership(userId, email, gym.gymId);
-            if (!authResult.isAuthorized) {
-              console.warn('[Index] Mismatched/stale session detected. Signing out.');
-              await supabase.auth.signOut();
-              await clearSelectedGym();
-              if (isMounted) {
-                setTenantAuthorized(false);
-                setHasSelectedGym(false);
-                setCheckingGym(false);
+          if (isMounted) {
+            setHasSelectedGym(!!gym);
+            setCheckingGym(false);
+          }
+        } else {
+          const normalizedRole = typeof role === 'string' ? role.trim().toLowerCase() : '';
+          if (['customer', 'trainer', 'owner'].includes(normalizedRole)) {
+            const gym = await getSelectedGym();
+            if (gym?.gymId && userId) {
+              const authResult = await verifyUserGymMembership(userId, email, gym.gymId);
+              if (!authResult.isAuthorized) {
+                console.warn('[Index] Mismatched/stale session detected. Signing out.');
+                await supabase.auth.signOut();
+                await clearSelectedGym();
+                if (isMounted) {
+                  setTenantAuthorized(false);
+                  setHasSelectedGym(false);
+                  setCheckingGym(false);
+                }
+                return;
               }
-              return;
             }
           }
+          if (isMounted) {
+            setCheckingGym(false);
+          }
         }
+      } catch (err) {
+        console.warn('[Index] Error checking auth/gym on startup:', err);
         if (isMounted) {
           setCheckingGym(false);
         }
@@ -64,7 +71,7 @@ export default function Index() {
   }
 
   if (role && tenantAuthorized) {
-    const normalizedRole = role.trim().toLowerCase().replace(/[\s_-]/g, '');
+    const normalizedRole = typeof role === 'string' ? role.trim().toLowerCase().replace(/[\s_-]/g, '') : '';
     if (normalizedRole === 'superadmin') {
       return <Redirect href="/(superadmin)/dashboard" />;
     } else if (normalizedRole === 'owner') {

@@ -10,14 +10,22 @@ const customStorage = {
   getItem: async (key: string) => {
     if (Platform.OS === 'web') {
       if (typeof window === 'undefined') return null;
-      return window.localStorage.getItem(key);
+      try {
+        return window.localStorage.getItem(key);
+      } catch {
+        return null;
+      }
     }
     return AsyncStorage.getItem(key);
   },
   setItem: async (key: string, value: string) => {
     if (Platform.OS === 'web') {
       if (typeof window === 'undefined') return;
-      window.localStorage.setItem(key, value);
+      try {
+        window.localStorage.setItem(key, value);
+      } catch {
+        // Ignore private browsing storage quota errors
+      }
     } else {
       await AsyncStorage.setItem(key, value);
     }
@@ -25,7 +33,11 @@ const customStorage = {
   removeItem: async (key: string) => {
     if (Platform.OS === 'web') {
       if (typeof window === 'undefined') return;
-      window.localStorage.removeItem(key);
+      try {
+        window.localStorage.removeItem(key);
+      } catch {
+        // Ignore private browsing storage quota errors
+      }
     } else {
       await AsyncStorage.removeItem(key);
     }

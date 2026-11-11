@@ -22,7 +22,8 @@
         "expo-splash-screen",
         {
           "image": "./assets/app-splash.png",
-          "backgroundColor": "#ffffff"
+          "resizeMode": "contain",
+          "backgroundColor": "#0A0A0A"
         }
       ],
       "expo-font",

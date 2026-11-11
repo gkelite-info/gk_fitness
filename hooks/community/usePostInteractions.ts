@@ -5,17 +5,16 @@ export function useToggleLike() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ postId, userId, gymId }: { postId: string, userId: string, gymId: string }) => {
+    mutationFn: async ({ postId, userId, gymId }: { postId: string, userId: string, gymId?: string | null }) => {
+      console.log('[useToggleLike] Running mutation for:', { postId, userId, gymId });
       return await toggleLike(postId, userId);
     },
-    onMutate: async ({ postId, userId, gymId }: { postId: string, userId: string, gymId: string }) => {
-      // Optimistic update for feed
-      await queryClient.cancelQueries({ queryKey: ['community-feed', gymId, userId] });
+    onMutate: async ({ postId }: { postId: string, userId: string, gymId?: string | null }) => {
+      console.log('[useToggleLike] Optimistic update for postId:', postId);
+      await queryClient.cancelQueries({ queryKey: ['community-feed'] });
       
-      const previousData = queryClient.getQueryData(['community-feed', gymId, userId]);
-      
-      queryClient.setQueryData(['community-feed', gymId, userId], (oldData: any) => {
-        if (!oldData) return oldData;
+      queryClient.setQueriesData({ queryKey: ['community-feed'] }, (oldData: any) => {
+        if (!oldData || !oldData.pages) return oldData;
         return {
           ...oldData,
           pages: oldData.pages.map((page: any) => 
@@ -25,7 +24,7 @@ export function useToggleLike() {
                 return {
                   ...post,
                   isLikedByMe: !wasLiked,
-                  likesCount: wasLiked ? post.likesCount - 1 : post.likesCount + 1
+                  likesCount: wasLiked ? Math.max(0, post.likesCount - 1) : post.likesCount + 1
                 };
               }
               return post;
@@ -34,15 +33,37 @@ export function useToggleLike() {
         };
       });
 
-      return { previousData };
+      return {};
     },
-    onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(['community-feed', variables.gymId, variables.userId], context.previousData);
+    onError: (err) => {
+      console.error('[useToggleLike] Mutation error:', err);
+      queryClient.invalidateQueries({ queryKey: ['community-feed'] });
+    },
+    onSuccess: (result: any, variables: any) => {
+      console.log('[useToggleLike] Mutation confirmed by database:', result);
+      if (result && typeof result.isLiking === 'boolean') {
+        queryClient.setQueriesData({ queryKey: ['community-feed'] }, (oldData: any) => {
+          if (!oldData || !oldData.pages) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page: any) => 
+              page.map((post: any) => {
+                if (post.gymCommunityPostId === variables.postId) {
+                  return {
+                    ...post,
+                    isLikedByMe: result.isLiking,
+                  };
+                }
+                return post;
+              })
+            )
+          };
+        });
       }
     },
-    onSettled: (_, __, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['community-feed', variables.gymId, variables.userId] });
+    onSettled: () => {
+      console.log('[useToggleLike] Settled, invalidating queries');
+      queryClient.invalidateQueries({ queryKey: ['community-feed'] });
     }
   });
 }
@@ -51,16 +72,16 @@ export function useToggleSave() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ postId, userId, gymId }: { postId: string, userId: string, gymId: string }) => {
+    mutationFn: async ({ postId, userId, gymId }: { postId: string, userId: string, gymId?: string | null }) => {
+      console.log('[useToggleSave] Running mutation for:', { postId, userId, gymId });
       return await toggleSave(postId, userId);
     },
-    onMutate: async ({ postId, userId, gymId }: { postId: string, userId: string, gymId: string }) => {
-      await queryClient.cancelQueries({ queryKey: ['community-feed', gymId, userId] });
+    onMutate: async ({ postId }: { postId: string, userId: string, gymId?: string | null }) => {
+      console.log('[useToggleSave] Optimistic update for postId:', postId);
+      await queryClient.cancelQueries({ queryKey: ['community-feed'] });
       
-      const previousData = queryClient.getQueryData(['community-feed', gymId, userId]);
-      
-      queryClient.setQueryData(['community-feed', gymId, userId], (oldData: any) => {
-        if (!oldData) return oldData;
+      queryClient.setQueriesData({ queryKey: ['community-feed'] }, (oldData: any) => {
+        if (!oldData || !oldData.pages) return oldData;
         return {
           ...oldData,
           pages: oldData.pages.map((page: any) => 
@@ -74,15 +95,37 @@ export function useToggleSave() {
         };
       });
 
-      return { previousData };
+      return {};
     },
-    onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(['community-feed', variables.gymId, variables.userId], context.previousData);
+    onError: (err) => {
+      console.error('[useToggleSave] Mutation error:', err);
+      queryClient.invalidateQueries({ queryKey: ['community-feed'] });
+    },
+    onSuccess: (result: any, variables: any) => {
+      console.log('[useToggleSave] Mutation confirmed by database:', result);
+      if (result && typeof result.isSaving === 'boolean') {
+        queryClient.setQueriesData({ queryKey: ['community-feed'] }, (oldData: any) => {
+          if (!oldData || !oldData.pages) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page: any) => 
+              page.map((post: any) => {
+                if (post.gymCommunityPostId === variables.postId) {
+                  return {
+                    ...post,
+                    isSavedByMe: result.isSaving,
+                  };
+                }
+                return post;
+              })
+            )
+          };
+        });
       }
     },
-    onSettled: (_, __, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['community-feed', variables.gymId, variables.userId] });
+    onSettled: () => {
+      console.log('[useToggleSave] Settled, invalidating queries');
+      queryClient.invalidateQueries({ queryKey: ['community-feed'] });
     }
   });
 }
@@ -103,12 +146,16 @@ export function useAddComment() {
 
   return useMutation({
     mutationFn: async ({ postId, userId, content, parentId }: { postId: string, userId: string, content: string, parentId?: string }) => {
+      console.log('[useAddComment] Running mutation for:', { postId, userId, content, parentId });
       return await addComment(postId, userId, content, parentId);
     },
     onSuccess: (_, variables) => {
+      console.log('[useAddComment] Success, invalidating comments and community-feed');
       queryClient.invalidateQueries({ queryKey: ['comments', variables.postId] });
-      // We should also invalidate feed to update comment counts, but this might be expensive.
-      // queryClient.invalidateQueries(['community-feed']);
+      queryClient.invalidateQueries({ queryKey: ['community-feed'] });
+    },
+    onError: (err) => {
+      console.error('[useAddComment] Error in mutation:', err);
     }
   });
 }
@@ -120,8 +167,9 @@ export function useDeleteComment() {
     mutationFn: async ({ commentId, userId, role }: { commentId: string, userId: string, role?: string }) => {
       return await deleteComment(commentId, userId, role);
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments'] });
+      queryClient.invalidateQueries({ queryKey: ['community-feed'] });
     }
   });
 }

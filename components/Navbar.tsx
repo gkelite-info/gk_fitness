@@ -138,11 +138,11 @@ export function Navbar() {
                 <Text className="font-semibold text-white text-sm" numberOfLines={1}>
                   {name || 'Community Member'}
                 </Text>
-                {communityProfile?.username ? (
+                {/* {communityProfile?.username ? (
                   <Text className="text-[#8E8E93] text-xs font-medium" numberOfLines={1}>
                     (@{communityProfile.username})
                   </Text>
-                ) : null}
+                ) : null} */}
               </View>
             </Pressable>
           ) : (
@@ -165,7 +165,20 @@ export function Navbar() {
             className="opacity-80 active:opacity-50"
             onPress={() => {
               if (pathname.includes('community')) {
-                router.push('/(owner)/dashboard');
+                const normalizedRole = typeof role === 'string' ? role.trim().toLowerCase().replace(/[\s_-]/g, '') : '';
+                if (router.canGoBack()) {
+                  router.back();
+                } else if (normalizedRole === 'customer' || normalizedRole === 'individual') {
+                  router.replace('/(customer)/home');
+                } else if (normalizedRole === 'trainer' || normalizedRole === 'globaltrainer') {
+                  router.replace('/(trainer)/home');
+                } else if (normalizedRole === 'owner') {
+                  router.replace('/(owner)/dashboard');
+                } else if (normalizedRole === 'superadmin') {
+                  router.replace('/(superadmin)/dashboard');
+                } else {
+                  router.replace('/auth/account-type');
+                }
               } else {
                 router.push('/community');
               }

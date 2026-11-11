@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { View, Pressable, ActivityIndicator, Dimensions, Image, Modal } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,8 +20,20 @@ export default function UserProfileScreen() {
   const targetUserId = Array.isArray(routeUserId) ? routeUserId[0] : routeUserId;
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { gymId, userId: currentUserId } = useUser();
+  const { gymId, userId: currentUserId, role } = useUser();
   const isMyProfile = targetUserId === currentUserId;
+
+  const lastNavigationTimeRef = useRef(0);
+
+  const safeNavigate = useCallback((navigateFn: () => void, cooldown = 750) => {
+    const now = Date.now();
+    if (now - lastNavigationTimeRef.current < cooldown) {
+      console.log('[UserProfile] Rapid tap ignored to prevent duplicate navigation');
+      return;
+    }
+    lastNavigationTimeRef.current = now;
+    navigateFn();
+  }, []);
 
   const [activeTab, setActiveTab] = useState<'Grid' | 'Reels'>('Grid');
   const [isUnfollowModalVisible, setIsUnfollowModalVisible] = useState(false);
@@ -33,7 +45,7 @@ export default function UserProfileScreen() {
   const followMutation = useFollowUser();
   const unfollowMutation = useUnfollowUser();
 
-  const { data, isLoading: loadingFeed, refetch: refetchFeed } = useCommunityFeed(gymId ?? null, currentUserId ?? null);
+  const { data, isLoading: loadingFeed, refetch: refetchFeed } = useCommunityFeed(gymId ?? null, currentUserId ?? null, role ?? null);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -197,7 +209,7 @@ export default function UserProfileScreen() {
   const renderPostThumbnail = ({ item }: { item: any }) => {
     return (
       <Pressable 
-        onPress={() => router.push(`/community/post/${item.gymCommunityPostId}`)}
+        onPress={() => safeNavigate(() => router.push(`/community/post/${item.gymCommunityPostId}`))}
         className="border border-[#0A0A0A]"
         style={{ width: THUMBNAIL_SIZE, height: THUMBNAIL_SIZE }}
       >

@@ -180,6 +180,14 @@ export async function saveCustomerGoalPreference(params: CustomerGoalPreferenceP
       `@customer_onboarding_${params.userId}`,
       JSON.stringify({ ...cached, primaryGoal: obGoal, updatedAt: now })
     );
+
+    // Save copy in AsyncStorage for customer goal preferences
+    if (savedData) {
+      await AsyncStorage.setItem(
+        `@customer_goal_preferences_${params.userId}`,
+        JSON.stringify(savedData)
+      );
+    }
   } catch (syncErr) {
     console.warn('[customerGoalPreferencesHelper] Notice syncing with customer_onboarding:', syncErr);
   }
@@ -206,13 +214,67 @@ export async function fetchCustomerGoalPreference(userId: string) {
     error = adminFetch.error;
   }
 
-  if (error) {
-    if (error.message?.includes('row-level security') || error.code === '42501') {
-      console.warn('[customerGoalPreferencesHelper] RLS notice on fetch, returning null fallback');
-      return null;
-    }
+  if (error && !error.message?.includes('row-level security') && error.code !== '42501') {
     console.error('[customerGoalPreferencesHelper] fetch Error:', error);
-    throw error;
+  }
+
+  // Fallback 1: Local AsyncStorage cache
+  if (!data) {
+    try {
+      const cached = await AsyncStorage.getItem(`@customer_goal_preferences_${userId}`);
+      if (cached) {
+        data = JSON.parse(cached);
+        console.log('[customerGoalPreferencesHelper] Loaded preference from local cache');
+      }
+    } catch (cacheErr) {
+      console.warn('[customerGoalPreferencesHelper] Cache read error:', cacheErr);
+    }
+  }
+
+  // Fallback 2: Pre-fill from customer_onboarding if user has never configured preferences
+  if (!data) {
+    try {
+      const { data: obData } = await supabase
+        .from('customer_onboarding')
+        .select('primaryGoal')
+        .eq('createdBy', userId)
+        .order('createdAt', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let primaryGoal = obData?.primaryGoal;
+      if (!primaryGoal) {
+        const cachedObStr = await AsyncStorage.getItem(`@customer_onboarding_${userId}`);
+        if (cachedObStr) {
+          const cachedOb = JSON.parse(cachedObStr);
+          primaryGoal = cachedOb?.primaryGoal;
+        }
+      }
+
+      if (primaryGoal) {
+        const obToGoal: Record<string, FitnessGoal> = {
+          loseweight: 'weightloss',
+          buildmuscle: 'musclegain',
+          stayfit: 'maintainfitness',
+          imporoveendurance: 'improveendurance',
+          improveendurance: 'improveendurance',
+          weightloss: 'weightloss',
+          musclegain: 'musclegain',
+          maintainfitness: 'maintainfitness',
+        };
+        const mappedGoal = obToGoal[primaryGoal] || 'weightloss';
+        data = {
+          userId,
+          fitnessGoal: mappedGoal,
+          preferredWorkouts: [],
+          weeklyTarget: 3,
+          workoutTime: [],
+        };
+        console.log('[customerGoalPreferencesHelper] Pre-filled preference from onboarding:', mappedGoal);
+      }
+    } catch (obErr) {
+      console.warn('[customerGoalPreferencesHelper] Onboarding prefill error:', obErr);
+    }
   }
 
   return data;

@@ -1,8 +1,47 @@
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
 import { Navbar } from '@/components/Navbar';
 import { CustomTabBar } from '@/components/CustomTabBar';
+import { useUser } from '@/context/UserContext';
 
 export default function TrainerLayout() {
+  const { role, userId, loading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading) {
+      const normalizedRole = typeof role === 'string' ? role.trim().toLowerCase().replace(/[\s_-]/g, '') : '';
+      const isTrainerRole = normalizedRole === 'trainer' || normalizedRole === 'gymtrainer' || normalizedRole === 'globaltrainer';
+      if (!userId || !isTrainerRole) {
+        console.warn(`[TrainerLayout] Unauthorized role '${role}' attempted to access trainer portal, redirecting`);
+        if (normalizedRole === 'customer' || normalizedRole === 'individual') {
+          router.replace('/(customer)/home');
+        } else if (normalizedRole === 'owner') {
+          router.replace('/(owner)/dashboard');
+        } else if (normalizedRole === 'superadmin') {
+          router.replace('/(superadmin)/dashboard');
+        } else {
+          router.replace('/auth/account-type');
+        }
+      }
+    }
+  }, [role, userId, loading, router]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#09090B', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#D4FF00" />
+      </View>
+    );
+  }
+
+  const normalizedRole = typeof role === 'string' ? role.trim().toLowerCase().replace(/[\s_-]/g, '') : '';
+  const isTrainerRole = normalizedRole === 'trainer' || normalizedRole === 'gymtrainer' || normalizedRole === 'globaltrainer';
+  if (!userId || !isTrainerRole) {
+    return null;
+  }
+
   return (
     <Tabs
       initialRouteName="home"

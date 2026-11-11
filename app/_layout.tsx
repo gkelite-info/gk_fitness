@@ -50,6 +50,7 @@ import { setupNotificationChannels } from '@/lib/services/notificationService';
 import { useWatchSync } from '@/hooks/watch/useWatchSync';
 
 function WatchSyncListener() {
+  if (Platform.OS !== 'android') return null;
   useWatchSync();
   return null;
 }
@@ -59,13 +60,6 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 export {
   ErrorBoundary,
 } from 'expo-router';
-
-const isIos26 = Boolean(
-  Platform.OS === 'ios' &&
-  Device?.osVersion &&
-  typeof Device.osVersion === 'string' &&
-  Device.osVersion.startsWith('26.')
-);
 
 export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();
@@ -79,19 +73,25 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (error) {
-      console.error('🔥 [Font Loading Error]:', error);
-      SplashScreen.hideAsync().catch(() => { });
+      console.warn('⚠️ [Font Loading Error]:', error);
     }
-  }, [error]);
-
-  useEffect(() => {
-    if (loaded) {
+    if (loaded || error) {
       SplashScreen.hideAsync().catch(() => {});
-      setupNotificationChannels().catch(() => { });
+      if (loaded) {
+        setupNotificationChannels().catch(() => {});
+      }
     }
-  }, [loaded]);
+  }, [loaded, error]);
 
-  if (!loaded) {
+  // Safety fallback: ensure splash screen hides so iOS watchdog never terminates app
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!loaded && !error) {
     return null;
   }
 
@@ -130,7 +130,7 @@ export default function RootLayout() {
 
 const INDEX_OPTIONS = {
   headerLargeTitle: true,
-  headerTransparent: isIos26,
+  headerTransparent: Platform.OS === 'ios',
   title: 'NativewindUI',
   headerRight: () => <SettingsIcon />,
 } as const;
@@ -138,7 +138,7 @@ const INDEX_OPTIONS = {
 function SettingsIcon() {
   return (
     <Link href="/modal" asChild>
-      <Pressable className={cn('opacity-80 active:opacity-50', isIos26 && 'px-1.5')}>
+      <Pressable className={cn('opacity-80 active:opacity-50', Platform.OS === 'ios' && 'px-1.5')}>
         <Icon name="gearshape" className="text-foreground" />
       </Pressable>
     </Link>

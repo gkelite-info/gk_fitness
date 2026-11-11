@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { View, ScrollView, Pressable, Image, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedTabs } from '@/components/AnimatedTabs';
-import { 
-  CaretLeft, 
+import {
+  CaretLeft,
   DotsThreeVertical,
   Heart,
   ChatCircle,
@@ -21,10 +21,22 @@ import { StaticAvatar } from '@/components/ui/StaticAvatar';
 export default function MyPostsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { gymId, userId } = useUser();
+  const { gymId, userId, role } = useUser();
   const [activeTab, setActiveTab] = useState('Saved');
 
-  const { data, isLoading } = useCommunityFeed(gymId ?? null, userId ?? null);
+  const lastNavigationTimeRef = useRef(0);
+
+  const safeNavigate = useCallback((navigateFn: () => void, cooldown = 750) => {
+    const now = Date.now();
+    if (now - lastNavigationTimeRef.current < cooldown) {
+      console.log('[MyPosts] Rapid tap ignored to prevent duplicate navigation');
+      return;
+    }
+    lastNavigationTimeRef.current = now;
+    navigateFn();
+  }, []);
+
+  const { data, isLoading } = useCommunityFeed(gymId ?? null, userId ?? null, role ?? null);
   const toggleLikeMutation = useToggleLike();
   const toggleSaveMutation = useToggleSave();
   const deletePostMutation = useDeletePost();
@@ -46,18 +58,18 @@ export default function MyPostsScreen() {
   }, [data, activeTab, userId]);
 
   const handleToggleLike = (postId: string) => {
-    if (!userId || !gymId) return;
-    toggleLikeMutation.mutate({ postId, userId, gymId });
+    if (!userId) return;
+    toggleLikeMutation.mutate({ postId, userId, gymId: gymId ?? null });
   };
 
   const handleToggleSave = (postId: string) => {
-    if (!userId || !gymId) return;
-    toggleSaveMutation.mutate({ postId, userId, gymId });
+    if (!userId) return;
+    toggleSaveMutation.mutate({ postId, userId, gymId: gymId ?? null });
   };
 
   const handleOpenOptions = (post: any) => {
-    if (!userId || !gymId) return;
-    if (post.createdBy === userId) {
+    if (!userId) return;
+    if (post.createdBy === userId || role === 'superadmin') {
       setSelectedPost(post);
       setActiveModal('options');
     }
@@ -65,22 +77,21 @@ export default function MyPostsScreen() {
 
   return (
     <View className="flex-1 bg-[#0A0A0A]">
-      {/* Header */}
       <View className="flex-row items-center justify-between px-5 pt-2 pb-4">
         <View className="w-10">
-          <Pressable 
-            onPress={() => router.back()} 
+          <Pressable
+            onPress={() => router.back()}
             className="w-10 h-10 items-center justify-center -ml-2 active:opacity-70"
           >
             <CaretLeft size={24} color="#FFFFFF" />
           </Pressable>
         </View>
-        <Text className="text-xl font-bold text-white tracking-wide text-center">
+        <Text className="text-xl font-semibold text-white tracking-wide text-center">
           {activeTab === 'Posts' ? 'My Posts' : 'Saved Posts'}
         </Text>
         <View className="w-10 items-end">
-          <Pressable 
-            onPress={() => router.push('/community/settings')} 
+          <Pressable
+            onPress={() => safeNavigate(() => router.push('/community/settings'))}
             className="w-10 h-10 items-center justify-center -mr-2 active:opacity-70"
           >
             <Gear size={24} color="#FFFFFF" />
@@ -88,7 +99,6 @@ export default function MyPostsScreen() {
         </View>
       </View>
 
-      {/* Tabs */}
       <View className="px-5 border-b border-[#1F1F22]">
         <AnimatedTabs
           tabs={tabs}
@@ -102,69 +112,76 @@ export default function MyPostsScreen() {
           <ActivityIndicator color="#C4EF00" />
         </View>
       ) : (
-        <ScrollView 
-          className="flex-1 px-5 pt-6" 
+        <ScrollView
+          className="flex-1 px-5 pt-6"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
         >
           <Text className="text-[#A1A1AA] text-[13px] mb-5">
-            {activeTab === 'Posts' 
+            {activeTab === 'Posts'
               ? "All the posts you've shared with the community."
               : "Posts you've bookmarked for later."}
           </Text>
 
-          {/* Posts List */}
           <View>
             {posts.map(post => (
               <View key={post.gymCommunityPostId} className="bg-[#121214] border border-[#1F1F22] rounded-[20px] p-4 mb-4">
                 <View className="flex-row justify-between items-start mb-3">
-                  <View className="flex-1 flex-row items-center">
-                    <StaticAvatar 
-                      uri={(post.users as any)?.profilePhoto || (post.users as any)?.avatar} 
+                  <Pressable
+                    className="flex-1 flex-row items-center active:opacity-70"
+                    onPress={() => safeNavigate(() => router.push(`/community/profile/${post.createdBy}`))}
+                  >
+                    <StaticAvatar
+                      uri={(post.users as any)?.profilePhoto || (post.users as any)?.avatar}
                       name={post.users?.name}
                       size={40}
-                      className="w-8 h-8 rounded-full mr-3" 
+                      className="w-8 h-8 rounded-full mr-3"
                     />
                     <View>
-                      <Text className="text-white font-bold text-[14px]" numberOfLines={1}>{post.users?.name || 'Unknown'}</Text>
+                      <Text className="text-white font-semibold text-[14px]" numberOfLines={1}>{post.users?.name || 'Unknown'}</Text>
                       <Text className="text-[#71717A] text-[11px] mt-0.5">{new Date(post.createdAt).toLocaleDateString()}</Text>
                     </View>
-                  </View>
+                  </Pressable>
                   {post.createdBy === userId && (
                     <Pressable className="p-1 active:opacity-70 ml-2" onPress={() => handleOpenOptions(post)}>
                       <DotsThreeVertical size={20} color="#71717A" weight="bold" />
                     </Pressable>
                   )}
                 </View>
-                
-                <Text className="text-[#E4E4E7] text-[13px] leading-5 mb-4 pr-2">
-                  {post.caption}
-                </Text>
 
-                {post.imagePath && (
-                  <View className="mb-4 h-[180px]">
-                    <Image source={{ uri: post.imagePath }} className="flex-1 rounded-xl bg-[#27272A]" resizeMode="cover" />
-                  </View>
-                )}
+                <Pressable
+                  onPress={() => safeNavigate(() => router.push(`/community/post/${post.gymCommunityPostId}`))}
+                  className="active:opacity-90"
+                >
+                  <Text className="text-[#E4E4E7] text-[13px] leading-5 mb-4 pr-2">
+                    {post.caption}
+                  </Text>
+
+                  {post.imagePath && (
+                    <View className="mb-4 h-[180px]">
+                      <Image source={{ uri: post.imagePath }} className="flex-1 rounded-xl bg-[#27272A]" resizeMode="cover" />
+                    </View>
+                  )}
+                </Pressable>
 
                 <View className="flex-row items-center justify-between mt-1">
                   <View className="flex-row items-center gap-5">
-                    <Pressable 
+                    <Pressable
                       className="flex-row items-center gap-1.5 active:opacity-70"
                       onPress={() => handleToggleLike(post.gymCommunityPostId)}
                     >
                       <Heart size={18} color={post.isLikedByMe ? "#EF4444" : "#71717A"} weight={post.isLikedByMe ? "fill" : "regular"} />
                       <Text className="text-[#A1A1AA] text-[12px]">{post.likesCount}</Text>
                     </Pressable>
-                    <Pressable 
+                    <Pressable
                       className="flex-row items-center gap-1.5 active:opacity-70"
-                      onPress={() => router.push(`/community/comments?postId=${post.gymCommunityPostId}`)}
+                      onPress={() => safeNavigate(() => router.push(`/community/comments?postId=${post.gymCommunityPostId}`))}
                     >
                       <ChatCircle size={18} color="#71717A" />
                       <Text className="text-[#A1A1AA] text-[12px]">{post.commentsCount}</Text>
                     </Pressable>
                   </View>
-                  <Pressable 
+                  <Pressable
                     className="active:opacity-70"
                     onPress={() => handleToggleSave(post.gymCommunityPostId)}
                   >
@@ -177,7 +194,7 @@ export default function MyPostsScreen() {
             {posts.length === 0 && (
               <View className="items-center justify-center py-10">
                 <Text className="text-[#A1A1AA] text-sm text-center">
-                  {activeTab === 'Posts' 
+                  {activeTab === 'Posts'
                     ? "You haven't posted anything yet."
                     : "You haven't saved any posts yet."}
                 </Text>
@@ -187,7 +204,6 @@ export default function MyPostsScreen() {
         </ScrollView>
       )}
 
-      {/* Modals */}
       <ActionSheetModal
         visible={activeModal === 'options'}
         onClose={() => setActiveModal('none')}
@@ -202,12 +218,14 @@ export default function MyPostsScreen() {
         title="Delete Post"
         message="Are you sure you want to delete this post? This action cannot be undone."
         options={[
-          { label: 'Delete', destructive: true, onPress: () => {
+          {
+            label: 'Delete', destructive: true, onPress: () => {
               if (selectedPost && userId && gymId) {
                 deletePostMutation.mutate({ postId: selectedPost.gymCommunityPostId, userId, gymId });
               }
               setActiveModal('none');
-          }}
+            }
+          }
         ]}
       />
     </View>

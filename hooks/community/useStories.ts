@@ -33,7 +33,7 @@ export function useCreateStory() {
       caption,
       captionPositions 
     }: { 
-      gymId: string, 
+      gymId: string | null, 
       createdBy: string, 
       mediaUri: string,
       caption?: string,

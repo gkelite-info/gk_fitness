@@ -20,7 +20,8 @@ import {
 import { useUser } from '@/context/UserContext';
 import { useWatchSession } from '@/hooks/watch/useWatchSession';
 import { useWatchDevices, useWatchStats } from '@/hooks/watch/useWatchDevices';
-import { pushTodayWorkoutToWatch, pushDailyWaterToWatch } from '@/hooks/watch/useWatchSync';
+import { pushTodayWorkoutToWatch, pushDailyWaterToWatch, pushAuthSessionToWatch } from '@/hooks/watch/useWatchSync';
+import { supabaseFitnessService } from '@/lib/services/supabaseFitnessService';
 import { usePedometer } from '@/hooks/fitness/usePedometer';
 import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
 import { AppleActivityRings, RING_COLORS } from '@/components/fitness/AppleActivityRings';
@@ -30,7 +31,7 @@ import { toast } from '@/lib/toast';
 export default function SmartwatchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { userId } = useUser();
+  const { userId, name, email } = useUser();
 
   const { connectionStatus, isWatchConnected, checkConnection, pingWatch } = useWatchSession();
   const { data: devices, refetch: refetchDevices } = useWatchDevices(userId);
@@ -109,14 +110,26 @@ export default function SmartwatchScreen() {
     if (!userId) return;
     setIsSyncing(true);
     try {
+      // 1. Push auth session first so watch knows who is logged in
+      const goal = await supabaseFitnessService.getWaterGoal(userId).catch(() => 3000);
+      await pushAuthSessionToWatch({
+        userId,
+        name: name || null,
+        email: email || null,
+        waterGoalMl: goal,
+        stepGoal: 10000,
+        timestamp: Date.now(),
+      });
+
+      // 2. Push workout and water in parallel
       const [workoutOk, waterOk] = await Promise.all([
         pushTodayWorkoutToWatch(userId),
         pushDailyWaterToWatch(userId),
       ]);
       if (workoutOk || waterOk) {
-        toast.success("Today's workout & hydration synced to watch!");
+        toast.success("Auth, workout & hydration synced to watch!");
       } else {
-        toast.info('Sync sent. If rest day or no exercises, workout won\'t populate.');
+        toast.info('Auth & water synced. If rest day or no exercises, workout won\'t populate.');
       }
     } catch {
       toast.error('Failed to sync data to watch.');
@@ -243,7 +256,7 @@ export default function SmartwatchScreen() {
             ) : (
               <>
                 <ArrowClockwise size={16} color="#D7FF00" />
-                <Text className="text-white font-semibold text-xs">Sync Today's Workout & Water to Watch</Text>
+                <Text className="text-white font-semibold text-xs">Sync Auth, Workout & Water to Watch</Text>
               </>
             )}
           </Pressable>

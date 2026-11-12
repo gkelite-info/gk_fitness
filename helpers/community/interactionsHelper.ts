@@ -5,8 +5,7 @@ import { sendCommunityPushNotification } from '@/lib/services/notificationServic
 
 export async function toggleLike(postId: string, userId: string) {
   try {
-    console.log('[interactionsHelper] toggleLike called:', { postId, userId });
-    
+
     const { data: existingLikes, error: fetchError } = await supabase
       .from('gym_community_likes')
       .select('*')
@@ -21,14 +20,11 @@ export async function toggleLike(postId: string, userId: string) {
     }
 
     const existingLike = existingLikes && existingLikes.length > 0 ? existingLikes[0] : null;
-    console.log('[interactionsHelper] toggleLike existing record:', existingLike);
 
     let isLiking = false;
 
     if (existingLike) {
       if (existingLike.is_deleted) {
-        // Restore like
-        console.log('[interactionsHelper] Restoring soft-deleted like...');
         const { error: updateError } = await supabase
           .from('gym_community_likes')
           .update({ is_deleted: false, updatedAt: new Date().toISOString(), deletedAt: null })
@@ -41,7 +37,6 @@ export async function toggleLike(postId: string, userId: string) {
         isLiking = true;
       } else {
         // Remove like
-        console.log('[interactionsHelper] Soft-deleting like...');
         const { error: updateError } = await supabase
           .from('gym_community_likes')
           .update({ is_deleted: true, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
@@ -55,7 +50,6 @@ export async function toggleLike(postId: string, userId: string) {
       }
     } else {
       // Create new like
-      console.log('[interactionsHelper] Creating brand new like...');
       const newLike = {
         gymCommunityLikesId: Crypto.randomUUID(),
         gymCommunityPostId: postId,
@@ -75,8 +69,6 @@ export async function toggleLike(postId: string, userId: string) {
       }
       isLiking = true;
     }
-
-    console.log('[interactionsHelper] toggleLike complete! isLiking:', isLiking);
 
     if (isLiking) {
       // Trigger community notification in background (non-blocking)
@@ -112,7 +104,6 @@ export async function toggleLike(postId: string, userId: string) {
 
 export async function toggleSave(postId: string, userId: string): Promise<{ isSaving: boolean }> {
   try {
-    console.log('[interactionsHelper] toggleSave called:', { postId, userId });
     const { data: existingSaves, error: fetchError } = await supabase
       .from('gym_community_saves')
       .select('*')
@@ -163,7 +154,6 @@ export async function toggleSave(postId: string, userId: string): Promise<{ isSa
       isSaving = true;
     }
 
-    console.log('[interactionsHelper] toggleSave complete! isSaving:', isSaving);
     return { isSaving };
   } catch (error) {
     console.error('[interactionsHelper] toggleSave Error:', error);
@@ -173,7 +163,6 @@ export async function toggleSave(postId: string, userId: string): Promise<{ isSa
 
 export async function fetchComments(postId: string, currentUserId: string, sortBy: 'newest' | 'oldest' = 'oldest') {
   try {
-    console.log('[interactionsHelper] fetchComments called:', { postId, currentUserId, sortBy });
     // 1. Fetch blocked users (both ways)
     const blockedUserIds = await fetchBlockedUsers(currentUserId);
 
@@ -239,7 +228,6 @@ export async function fetchComments(postId: string, currentUserId: string, sortB
       }));
     }
 
-    console.log('[interactionsHelper] fetchComments resolved count:', data?.length);
     return data;
   } catch (error) {
     console.error('[interactionsHelper] fetchComments Error:', error);
@@ -249,7 +237,6 @@ export async function fetchComments(postId: string, currentUserId: string, sortB
 
 export async function addComment(postId: string, userId: string, content: string, parentId?: string) {
   try {
-    console.log('[interactionsHelper] addComment started:', { postId, userId, content, parentId });
     const commentId = Crypto.randomUUID();
     const commentRecord = {
       gymCommunityCommentId: commentId,
@@ -300,8 +287,6 @@ export async function addComment(postId: string, userId: string, content: string
         users: Array.isArray(data.users) ? data.users[0] : data.users
       };
     }
-
-    console.log('[interactionsHelper] addComment SUCCESS:', insertedComment);
 
     // Trigger community notification in background (non-blocking)
     (async () => {
@@ -358,23 +343,21 @@ export async function addComment(postId: string, userId: string, content: string
 
 export async function deleteComment(commentId: string, userId: string, role?: string) {
   try {
-    console.log('[interactionsHelper] deleteComment started:', { commentId, userId, role });
     let query = supabase
       .from('gym_community_comments')
       .update({ is_deleted: true, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
       .eq('gymCommunityCommentId', commentId);
-      
+
     if (role !== 'superadmin') {
       query = query.eq('authorId', userId);
     }
-    
+
     const { error } = await query;
 
     if (error) {
       console.error('[interactionsHelper] deleteComment error:', error);
       throw error;
     }
-    console.log('[interactionsHelper] deleteComment SUCCESS');
     return true;
   } catch (error) {
     console.error('[interactionsHelper] deleteComment Error:', error);

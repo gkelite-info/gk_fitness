@@ -50,15 +50,14 @@ export function resolveCommunityPostImageUrl(
 }
 
 export async function fetchCommunityPosts(
-  gymId: string | null, 
-  currentUserId: string, 
-  page = 0, 
+  gymId: string | null,
+  currentUserId: string,
+  page = 0,
   limit = 10,
   role?: string | null
 ) {
   try {
-    console.log('[communityHelper] fetchCommunityPosts request:', { gymId, currentUserId, page, limit, role });
-    
+
     const normalizedRole = typeof role === 'string' ? role.trim().toLowerCase().replace(/[\s_-]/g, '') : '';
     const isGlobalOnlyRole = normalizedRole === 'individual' || normalizedRole === 'globaltrainer';
     const isCustomerRole = normalizedRole === 'customer';
@@ -77,7 +76,6 @@ export async function fetchCommunityPosts(
       if (!error && Array.isArray(data)) {
         rawData = data;
         rpcSucceeded = true;
-        console.log('[communityHelper] fetchCommunityPosts RPC returned count:', data.length);
       } else if (error) {
         console.warn('[communityHelper] fetchCommunityPosts RPC returned error, using direct table fallback:', error);
       }
@@ -87,7 +85,6 @@ export async function fetchCommunityPosts(
 
     // Direct table fallback if RPC failed or returned empty
     if (!rpcSucceeded || rawData.length === 0) {
-      console.log('[communityHelper] Fetching posts directly from gym_community_posts table...');
       let query = supabase
         .from('gym_community_posts')
         .select(`
@@ -164,11 +161,11 @@ export async function fetchCommunityPosts(
         // Fetch real saves dynamically for current user
         const { data: savesRows } = currentUserId
           ? await supabase
-              .from('gym_community_saves')
-              .select('gymCommunityPostId, is_deleted')
-              .in('gymCommunityPostId', postIds)
-              .eq('savedBy', currentUserId)
-              .or('is_deleted.eq.false,is_deleted.is.null')
+            .from('gym_community_saves')
+            .select('gymCommunityPostId, is_deleted')
+            .in('gymCommunityPostId', postIds)
+            .eq('savedBy', currentUserId)
+            .or('is_deleted.eq.false,is_deleted.is.null')
           : { data: [] };
 
         const likesList = likesRows || [];
@@ -200,9 +197,6 @@ export async function fetchCommunityPosts(
       }
     }
 
-    console.log('[communityHelper] Final rawData count before formatting:', rawData.length);
-
-    // If global only role, filter for null gymId posts if any exist
     if (isGlobalOnlyRole && rawData.length > 0) {
       const globalOnly = rawData.filter((post: any) => !post.gymId);
       if (globalOnly.length > 0) {
@@ -239,20 +233,18 @@ export async function fetchCommunityPosts(
 }
 
 export async function createCommunityPost(
-  gymId: string | null, 
-  createdBy: string, 
-  caption: string, 
+  gymId: string | null,
+  createdBy: string,
+  caption: string,
   imageUri?: string | null
 ) {
   try {
-    console.log('[communityHelper] createCommunityPost started:', { gymId, createdBy, caption, hasImage: !!imageUri });
     const postId = Crypto.randomUUID();
     let imagePath = null;
 
     if (imageUri) {
       let finalUri = imageUri;
       try {
-        console.log('[communityHelper] Ensuring image is compressed:', imageUri);
         const compressed = await compressImage(imageUri, { maxWidth: 1200, compress: 0.7 });
         finalUri = compressed.uri;
       } catch (compressErr) {
@@ -278,7 +270,6 @@ export async function createCommunityPost(
 
       for (const candidatePath of candidatePaths) {
         if (!candidatePath) continue;
-        console.log('[communityHelper] Trying upload to path:', candidatePath);
         const { error } = await supabase.storage
           .from('community-posts')
           .upload(candidatePath, arrayBuffer, { contentType: `image/${ext}`, upsert: true });
@@ -286,7 +277,6 @@ export async function createCommunityPost(
         if (!error) {
           uploadSuccess = true;
           finalStoragePath = candidatePath;
-          console.log('[communityHelper] Upload succeeded at path:', finalStoragePath);
           break;
         } else {
           console.warn('[communityHelper] Upload attempt failed for', candidatePath, ':', error.message);
@@ -301,7 +291,6 @@ export async function createCommunityPost(
 
       // Save only the filename e.g. "e71dccd2-901b-4be3-8fb4-deeffc02e862.jpg" into the database column
       imagePath = imageFileName;
-      console.log('[communityHelper] Storing relative imagePath in column:', imagePath);
     }
 
     const newPost = {
@@ -315,7 +304,6 @@ export async function createCommunityPost(
       updatedAt: new Date().toISOString()
     };
 
-    console.log('[communityHelper] Inserting post into gym_community_posts:', newPost);
     const { data, error } = await supabase
       .from('gym_community_posts')
       .insert([newPost])
@@ -327,7 +315,6 @@ export async function createCommunityPost(
       throw error;
     }
 
-    console.log('[communityHelper] Post inserted successfully:', data);
     return data;
   } catch (error) {
     console.error('[communityHelper] createCommunityPost Error:', error);
@@ -337,16 +324,12 @@ export async function createCommunityPost(
 
 export async function deleteCommunityPost(postId: string, userId: string, role?: string) {
   try {
-    console.log('[communityHelper] deleteCommunityPost started:', { postId, userId, role });
-
-    // 1. Try RPC delete_community_post (runs with SECURITY DEFINER to bypass any restrictive RLS)
     try {
       const { data: rpcSuccess, error: rpcError } = await supabase.rpc('delete_community_post', {
         p_post_id: postId,
         p_user_id: role === 'superadmin' ? null : userId
       });
       if (!rpcError && rpcSuccess) {
-        console.log('[communityHelper] deleteCommunityPost succeeded via RPC');
         return true;
       }
       if (rpcError) {
@@ -356,27 +339,25 @@ export async function deleteCommunityPost(postId: string, userId: string, role?:
       console.warn('[communityHelper] deleteCommunityPost RPC exception, trying direct update fallback:', rpcErr);
     }
 
-    // 2. Direct table update fallback
     let query = supabase
       .from('gym_community_posts')
-      .update({ 
-        is_deleted: true, 
+      .update({
+        is_deleted: true,
         deletedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
       .eq('gymCommunityPostId', postId);
-      
+
     if (role !== 'superadmin') {
       query = query.eq('createdBy', userId);
     }
-    
+
     const { data: updatedRows, error } = await query.select();
 
     if (error) {
       console.error('[communityHelper] deleteCommunityPost direct update error:', error);
       throw error;
     }
-    console.log('[communityHelper] deleteCommunityPost SUCCESS, rows updated:', updatedRows?.length);
     return true;
   } catch (error) {
     console.error('[communityHelper] deleteCommunityPost Error:', error);

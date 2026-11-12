@@ -1,34 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, ScrollView, Pressable, TextInput, ActivityIndicator, StyleSheet, BackHandler } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeft, Lock, Eye, EyeClosed, ShieldCheck, Check } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
-import { supabase } from '@/lib/supabase';
-import * as Crypto from 'expo-crypto';
-import { hashPassword } from '@/helpers/auth/passwordHelper';
+import { useQueryClient } from '@tanstack/react-query';
+import { executeChangePassword } from '@/helpers/auth/passwordHelper';
 import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
 import { toast } from '@/lib/toast';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { email } = useUser();
+  const queryClient = useQueryClient();
+  const { userId, email, phone, role, setFallbackUserSession } = useUser();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const [isPending, setIsPending] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  const clearForm = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowCurrent(false);
+    setShowNew(false);
+    setShowConfirm(false);
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      setStep(1);
+      clearForm();
+      const timer = setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      }, 50);
+
+      return () => {
+        clearTimeout(timer);
+      };
+    }, [])
+  );
 
   useEffect(() => {
     const onBackPress = () => {
+      clearForm();
       router.navigate('/(customer)/manage-account');
       return true;
     };
@@ -36,7 +62,6 @@ export default function ChangePasswordScreen() {
     return () => sub.remove();
   }, [router]);
 
-  // Requirements
   const hasMinLength = newPassword.length >= 8;
   const hasUppercase = /[A-Z]/.test(newPassword);
   const hasNumber = /[0-9]/.test(newPassword);
@@ -45,57 +70,61 @@ export default function ChangePasswordScreen() {
 
   const handleUpdate = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
+      clearForm();
       toast.error('Please fill in all fields.');
       return;
     }
     if (newPassword !== confirmPassword) {
+      clearForm();
       toast.error('New passwords do not match.');
       return;
     }
     if (!requirementsMet) {
+      clearForm();
       toast.error('Please ensure your new password meets all requirements.');
-      return;
-    }
-    if (!email) {
-      toast.error('User email not found. Please log in again.');
       return;
     }
 
     setIsPending(true);
     try {
-      // 1. Verify current password by signing in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: currentPassword,
+      const result = await executeChangePassword({
+        userId,
+        email,
+        phone,
+        role,
+        currentPassword,
+        newPassword,
+        logTag: 'ChangePassword',
       });
 
-      if (signInError) {
-        throw new Error('Current password is incorrect.');
+      if (setFallbackUserSession && result.userId) {
+        try {
+          await setFallbackUserSession({
+            id: result.userId,
+            email: result.email || email || '',
+            role: result.role || 'individual',
+            name: result.name || undefined,
+          });
+        } catch (fbErr) {
+          console.warn('[ChangePassword] Notice syncing fallback session:', fbErr);
+        }
       }
 
-      // 2. Update to new password in Supabase Auth
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (updateError) {
-        throw updateError;
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      if (result.userId) {
+        queryClient.invalidateQueries({ queryKey: ['user', 'id', result.userId] });
+      }
+      if (result.email) {
+        queryClient.invalidateQueries({ queryKey: ['user', 'email', result.email.toLowerCase()] });
       }
 
-      // 3. Keep users table password column in sync with bcrypt ($2b$10$...) hash
-      try {
-        const passwordHash = await hashPassword(newPassword);
-        await supabase
-          .from('users')
-          .update({ password: passwordHash })
-          .ilike('email', email.trim().toLowerCase());
-      } catch (hashErr) {
-        console.warn('[ChangePassword] Non-fatal error updating database password column:', hashErr);
-      }
-
+      clearForm();
       toast.success('Password updated successfully!');
       setStep(2);
     } catch (err: any) {
+      console.error('[ChangePassword] Error during change password:', err);
+      clearForm();
       toast.error(err.message || 'An unexpected error occurred.');
     } finally {
       setIsPending(false);
@@ -115,11 +144,11 @@ export default function ChangePasswordScreen() {
           <View className="w-24 h-24 rounded-full bg-[#D4FF00] items-center justify-center mb-8">
             <Check size={48} color="#000000" weight="bold" />
           </View>
-          
-          <Text className="text-white text-3xl font-bold text-center mb-4 leading-9">
+
+          <Text className="text-white text-3xl font-semibold text-center mb-4 leading-9">
             Password Updated Successfully!
           </Text>
-          
+
           <Text className="text-[#A1A1AA] text-base text-center leading-6 mb-12 px-4">
             Your password has been changed. You can now use your new password to log in to your account.
           </Text>
@@ -146,29 +175,34 @@ export default function ChangePasswordScreen() {
 
   return (
     <View className="flex-1 bg-[#0F0F0F]" style={{ paddingTop: insets.top }}>
-      {/* Header */}
       <View className="flex-row items-center px-5 py-4">
-        <Pressable onPress={() => router.navigate('/(customer)/manage-account')} disabled={isPending} className="p-2 bg-[#1A1A1A] rounded-full active:opacity-70 mr-4">
+        <Pressable
+          onPress={() => {
+            clearForm();
+            router.navigate('/(customer)/manage-account');
+          }}
+          disabled={isPending}
+          className="p-2 bg-[#1A1A1A] rounded-full active:opacity-70 mr-4"
+        >
           <CaretLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
         <View>
-          <Text className="text-white text-2xl font-bold">Change Password</Text>
+          <Text className="text-white text-2xl font-semibold">Change Password</Text>
           <Text className="text-[#8E8E93] text-sm mt-0.5">Update your account password securely.</Text>
         </View>
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           padding: 20,
           paddingBottom: Math.max(insets.bottom, 20) + 120,
         }}
       >
-        
-        {/* Form Inputs */}
+
         <View className="bg-[#1A1A1A] border border-[#27272A] rounded-3xl p-2 mb-6">
-          
-          {/* Current Password */}
           <View className="flex-row items-center px-4 py-3 border-b border-[#27272A]">
             <View className="mr-3">
               <Lock size={20} color="#D4FF00" weight="regular" />
@@ -180,14 +214,13 @@ export default function ChangePasswordScreen() {
               placeholderTextColor="#555555"
               showPassword={showCurrent}
               editable={!isPending}
-              className="flex-1 text-white text-base py-3"
+              className="flex-1 text-white text-base py-3 font-sans"
             />
             <Pressable onPress={() => setShowCurrent(!showCurrent)} className="p-2 opacity-50 active:opacity-100">
               {showCurrent ? <Eye size={20} color="#FFFFFF" /> : <EyeClosed size={20} color="#FFFFFF" />}
             </Pressable>
           </View>
 
-          {/* New Password */}
           <View className="flex-row items-center px-4 py-3 border-b border-[#27272A]">
             <View className="mr-3">
               <Lock size={20} color="#D4FF00" weight="regular" />
@@ -199,14 +232,13 @@ export default function ChangePasswordScreen() {
               placeholderTextColor="#555555"
               showPassword={showNew}
               editable={!isPending}
-              className="flex-1 text-white text-base py-3"
+              className="flex-1 text-white text-base py-3 font-sans"
             />
             <Pressable onPress={() => setShowNew(!showNew)} className="p-2 opacity-50 active:opacity-100">
               {showNew ? <Eye size={20} color="#FFFFFF" /> : <EyeClosed size={20} color="#FFFFFF" />}
             </Pressable>
           </View>
 
-          {/* Confirm Password */}
           <View className="flex-row items-center px-4 py-3">
             <View className="mr-3">
               <Lock size={20} color="#D4FF00" weight="regular" />
@@ -218,7 +250,7 @@ export default function ChangePasswordScreen() {
               placeholderTextColor="#555555"
               showPassword={showConfirm}
               editable={!isPending}
-              className="flex-1 text-white text-base py-3"
+              className="flex-1 text-white text-base py-3 font-sans"
             />
             <Pressable onPress={() => setShowConfirm(!showConfirm)} className="p-2 opacity-50 active:opacity-100">
               {showConfirm ? <Eye size={20} color="#FFFFFF" /> : <EyeClosed size={20} color="#FFFFFF" />}
@@ -226,7 +258,6 @@ export default function ChangePasswordScreen() {
           </View>
         </View>
 
-        {/* Requirements Box */}
         <View className="bg-[#1A1A1A] border border-[#27272A] rounded-3xl p-5 mb-5 flex-row items-start">
           <View className="w-10 h-10 rounded-xl bg-[#D4FF00]/10 items-center justify-center mr-4 border border-[#D4FF00]/20">
             <ShieldCheck size={20} color="#D4FF00" weight="regular" />
@@ -234,7 +265,7 @@ export default function ChangePasswordScreen() {
           <View className="flex-1">
             <Text className="text-white font-semibold text-base mb-1">Password Requirements</Text>
             <Text className="text-[#A1A1AA] text-sm leading-5 mb-4">Your password must meet the following criteria:</Text>
-            
+
             <View className="gap-2.5">
               <View className="flex-row items-center">
                 <View className={`w-1.5 h-1.5 rounded-full mr-3 ${hasMinLength ? 'bg-[#D4FF00]' : 'bg-[#3F3F46]'}`} />
@@ -256,7 +287,6 @@ export default function ChangePasswordScreen() {
           </View>
         </View>
 
-        {/* Security Info Box */}
         <View className="bg-[#1A1A1A] border border-[#27272A] rounded-3xl p-5 mb-8 flex-row items-center">
           <View className="w-10 h-10 rounded-xl bg-[#D4FF00]/10 items-center justify-center mr-4 border border-[#D4FF00]/20">
             <Lock size={20} color="#D4FF00" weight="regular" />
@@ -267,13 +297,11 @@ export default function ChangePasswordScreen() {
           </View>
         </View>
 
-        {/* Action Buttons */}
         <Pressable
           onPress={handleUpdate}
           disabled={isPending}
-          className={`rounded-2xl py-4 flex-row justify-center items-center mb-4 ${
-            isPending ? 'bg-[#D4FF00]/50' : 'bg-[#D4FF00] active:opacity-80'
-          }`}
+          className={`rounded-2xl py-4 flex-row justify-center items-center mb-4 ${isPending ? 'bg-[#D4FF00]/50' : 'bg-[#D4FF00] active:opacity-80'
+            }`}
         >
           {isPending ? (
             <ActivityIndicator color="#000000" size="small" />
@@ -283,7 +311,10 @@ export default function ChangePasswordScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => {
+            clearForm();
+            router.back();
+          }}
           disabled={isPending}
           className="bg-transparent border border-[#27272A] rounded-2xl py-4 items-center active:opacity-80"
         >

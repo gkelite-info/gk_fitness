@@ -3,18 +3,12 @@ import { supabase } from '@/lib/supabase';
 import { useEffect } from 'react';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { isRunningInExpoGo } from 'expo';
-import { registerForPushNotifications } from '@/lib/services/notificationService';
+import { registerForPushNotifications, getNotifications } from '@/lib/services/notificationService';
 import { useRouter } from 'expo-router';
 
 const isExpoGo =
   (typeof isRunningInExpoGo === 'function' ? isRunningInExpoGo() : false) ||
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-let Notifications: any = null;
-if (!isExpoGo) {
-  try {
-    Notifications = require('expo-notifications');
-  } catch (e) {}
-}
 
 export function useNotifications(userId: string | undefined) {
   const qc = useQueryClient();
@@ -42,8 +36,9 @@ export function useNotifications(userId: string | undefined) {
   }, [userId]);
 
   useEffect(() => {
-    if (!Notifications) return;
-    const sub = Notifications.addNotificationResponseReceivedListener((response: any) => {
+    const notifications = getNotifications();
+    if (!notifications) return;
+    const sub = notifications.addNotificationResponseReceivedListener((response: any) => {
       try {
         const route = response?.notification?.request?.content?.data?.route as string;
         if (route) {

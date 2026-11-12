@@ -340,9 +340,6 @@ export async function fetchUserAndRoleProfile(
     return profile;
   } catch (err) {
     console.error('[userProfileHelper] Failed to fetch user profile:', err);
-    return {
-      ...defaultProfile,
-      role: null,
-    };
+    throw err;
   }
 }

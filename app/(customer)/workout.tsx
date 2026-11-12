@@ -19,20 +19,10 @@ import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
 import { CustomWorkoutBuilder } from '@/components/workout/CustomWorkoutBuilder';
 import { matchesStrictMuscle, FALLBACK_TARGET_EXERCISES, isExerciseMatchingGender } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
 import { useUserById } from '@/hooks/users';
-const getWorkoutImage = (type: string | undefined | null) => {
-  if (!type) return require('../../assets/workout.png');
-  const lower = type.toLowerCase();
-  if (lower.includes('push')) return require('../../assets/push-day.png');
-  if (lower.includes('pull')) return require('../../assets/back-stood.png');
-  if (lower.includes('leg')) return require('../../assets/fit-1.png');
-  if (lower.includes('chest')) return require('../../assets/chest-stood.png');
-  if (lower.includes('shoulder')) return require('../../assets/shoulders-stood.png');
-  if (lower.includes('arm') || lower.includes('bicep') || lower.includes('tricep')) return require('../../assets/dumbell-strength.png');
-  if (lower.includes('full')) return require('../../assets/bodyweight-blast.png');
-  if (lower.includes('core') || lower.includes('ab')) return require('../../assets/lower-chest-sculpt.png');
-  if (lower.includes('cardio')) return require('../../assets/resistance-band-flow.png');
-  return require('../../assets/workout.png');
-};
+import { getWorkoutTypeImage } from '@/lib/workoutMuscleImage';
+
+const getWorkoutImage = (type: string | undefined | null) =>
+  getWorkoutTypeImage(type, require('../../assets/workout.png'));
 
 export default function CustomerWorkout() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
@@ -362,12 +352,12 @@ export default function CustomerWorkout() {
                       <Text className='text-[#8E8E8E] text-sm mt-1'>Take it easy and recover for tomorrow.</Text>
                     )}
                   </View>
-                  <View className='w-[45%] max-w-[150px] aspect-square items-center justify-center overflow-hidden'>
+                  <View className={`w-[45%] max-w-[150px] aspect-square rounded-2xl items-center justify-center overflow-hidden ${todayWorkout?.type?.toLowerCase() !== 'rest' ? 'bg-[#181818]' : ''}`}>
                     {todayWorkout?.type?.toLowerCase() !== 'rest' && (
                       <Image
                         source={getWorkoutImage(todayWorkout?.type)}
                         style={{ width: '100%', height: '100%' }}
-                        resizeMode='contain'
+                        resizeMode='cover'
                       />
                     )}
                   </View>
@@ -445,13 +435,15 @@ export default function CustomerWorkout() {
 
             {yesterdayWorkout && yesterdayWorkout.type !== 'Rest' && (
               <View className='bg-[#111111] border border-[#1D1D1D] mt-5 w-full p-4 rounded-lg flex flex-row justify-between'>
-                <View className='bg-yellow-00 flex-row items-center justify-start'>
-                  <Image
-                    source={getWorkoutImage(yesterdayWorkout.type)}
-                    style={{ height: 120, width: 120 }}
-                    resizeMode='contain'
-                  />
-                  <View>
+                <View className='bg-yellow-00 flex-row items-center justify-start gap-3 flex-1 pr-2'>
+                  <View className='rounded-2xl overflow-hidden bg-[#181818]' style={{ height: 120, width: 120 }}>
+                    <Image
+                      source={getWorkoutImage(yesterdayWorkout.type)}
+                      style={{ height: 120, width: 120 }}
+                      resizeMode='cover'
+                    />
+                  </View>
+                  <View className='flex-1'>
                     <Text className='text-white font-semibold capitalize'>{yesterdayWorkout.type}</Text>
                     <View className='flex-row justify-between gap-2 mt-1'>
                       <Text className='text-xs text-[#8E8E8E]'>{yesterdayWorkout.duration} mins</Text>
@@ -499,41 +491,41 @@ function isExerciseRelevantForCategory(name: string, primaryMuscle: string | nul
   // When activeSubTab === 'All'
   if (exploreCategory === 'Upper Body Workout') {
     if (matchesStrictMuscle(name, primaryMuscle, 'legs') ||
-        matchesStrictMuscle(name, primaryMuscle, 'calves') ||
-        matchesStrictMuscle(name, primaryMuscle, 'hips') ||
-        matchesStrictMuscle(name, primaryMuscle, 'abs')) {
+      matchesStrictMuscle(name, primaryMuscle, 'calves') ||
+      matchesStrictMuscle(name, primaryMuscle, 'hips') ||
+      matchesStrictMuscle(name, primaryMuscle, 'abs')) {
       return false;
     }
     return matchesStrictMuscle(name, primaryMuscle, 'chest') ||
-           matchesStrictMuscle(name, primaryMuscle, 'back') ||
-           matchesStrictMuscle(name, primaryMuscle, 'shoulder') ||
-           matchesStrictMuscle(name, primaryMuscle, 'arms') ||
-           matchesStrictMuscle(name, primaryMuscle, 'biceps') ||
-           matchesStrictMuscle(name, primaryMuscle, 'triceps') ||
-           matchesStrictMuscle(name, primaryMuscle, 'forearms');
+      matchesStrictMuscle(name, primaryMuscle, 'back') ||
+      matchesStrictMuscle(name, primaryMuscle, 'shoulder') ||
+      matchesStrictMuscle(name, primaryMuscle, 'arms') ||
+      matchesStrictMuscle(name, primaryMuscle, 'biceps') ||
+      matchesStrictMuscle(name, primaryMuscle, 'triceps') ||
+      matchesStrictMuscle(name, primaryMuscle, 'forearms');
   }
 
   if (exploreCategory === 'Lower Body Workout') {
     if (matchesStrictMuscle(name, primaryMuscle, 'chest') ||
-        matchesStrictMuscle(name, primaryMuscle, 'back') ||
-        matchesStrictMuscle(name, primaryMuscle, 'shoulder') ||
-        matchesStrictMuscle(name, primaryMuscle, 'arms') ||
-        matchesStrictMuscle(name, primaryMuscle, 'biceps') ||
-        matchesStrictMuscle(name, primaryMuscle, 'triceps') ||
-        matchesStrictMuscle(name, primaryMuscle, 'abs')) {
+      matchesStrictMuscle(name, primaryMuscle, 'back') ||
+      matchesStrictMuscle(name, primaryMuscle, 'shoulder') ||
+      matchesStrictMuscle(name, primaryMuscle, 'arms') ||
+      matchesStrictMuscle(name, primaryMuscle, 'biceps') ||
+      matchesStrictMuscle(name, primaryMuscle, 'triceps') ||
+      matchesStrictMuscle(name, primaryMuscle, 'abs')) {
       return false;
     }
     return matchesStrictMuscle(name, primaryMuscle, 'legs') ||
-           matchesStrictMuscle(name, primaryMuscle, 'calves') ||
-           matchesStrictMuscle(name, primaryMuscle, 'hips');
+      matchesStrictMuscle(name, primaryMuscle, 'calves') ||
+      matchesStrictMuscle(name, primaryMuscle, 'hips');
   }
 
   if (exploreCategory === 'Abs Workout') {
     if (matchesStrictMuscle(name, primaryMuscle, 'chest') ||
-        matchesStrictMuscle(name, primaryMuscle, 'back') ||
-        matchesStrictMuscle(name, primaryMuscle, 'shoulder') ||
-        matchesStrictMuscle(name, primaryMuscle, 'legs') ||
-        matchesStrictMuscle(name, primaryMuscle, 'arms')) {
+      matchesStrictMuscle(name, primaryMuscle, 'back') ||
+      matchesStrictMuscle(name, primaryMuscle, 'shoulder') ||
+      matchesStrictMuscle(name, primaryMuscle, 'legs') ||
+      matchesStrictMuscle(name, primaryMuscle, 'arms')) {
       return false;
     }
     return matchesStrictMuscle(name, primaryMuscle, 'abs');
@@ -1109,7 +1101,7 @@ function MuscleGroupView({ filterTabs, exploreCategory }: { filterTabs?: string[
                   <Pressable
                     onPress={() => router.push({
                       pathname: '/(customer)/explore/recommended/[category]' as any,
-                      params: { 
+                      params: {
                         category: activeSubTab !== 'All' ? activeSubTab : 'All',
                         filterTabs: filterTabs ? JSON.stringify(filterTabs) : JSON.stringify(
                           exploreCategory === 'Upper Body Workout' ? ['All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Arms'] :

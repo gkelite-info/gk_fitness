@@ -37,6 +37,7 @@ import { useFitnessStats } from '@/hooks/fitness/useFitnessStats';
 import { useWorkoutStreak } from '@/hooks/customerWorkouts/useWorkoutStreak';
 import { useWeeklyStats } from '@/hooks/fitness/useWeeklyStats';
 import { useGyms } from '@/hooks/gyms/useGyms';
+import { getWorkoutTypeImage } from '@/lib/workoutMuscleImage';
 
 
 // Module-level persistent cache across screen navigation
@@ -870,11 +871,21 @@ export default function CustomerHome() {
         </View>
 
         <View className="items-end justify-center shrink-0 pointer-events-none">
-          <Image
-            source={require('../../assets/fit-1.png')}
-            style={{ width: 125, height: 145 }}
-            resizeMode="contain"
-          />
+          {todayWorkoutDayId && todayWorkoutType && todayWorkoutType.toLowerCase() !== 'rest' ? (
+            <View className="rounded-2xl overflow-hidden bg-[#181818]" style={{ width: 125, height: 145 }}>
+              <Image
+                source={getWorkoutTypeImage(todayWorkoutType, require('../../assets/fit-1.png'))}
+                style={{ width: 125, height: 145 }}
+                resizeMode="cover"
+              />
+            </View>
+          ) : (
+            <Image
+              source={require('../../assets/fit-1.png')}
+              style={{ width: 125, height: 145 }}
+              resizeMode="contain"
+            />
+          )}
         </View>
       </View>
 

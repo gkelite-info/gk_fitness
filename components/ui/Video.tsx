@@ -1,6 +1,6 @@
-import React, { forwardRef, useImperativeHandle, useEffect, Component, ErrorInfo } from 'react';
+import React, { forwardRef, useImperativeHandle, useEffect, useRef, Component, ErrorInfo } from 'react';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { View, ViewStyle } from 'react-native';
+import { Platform, View, ViewStyle } from 'react-native';
 
 export const ResizeMode = {
   CONTAIN: 'contain',
@@ -19,6 +19,8 @@ export type VideoProps = {
   isMuted?: boolean;
   fallback?: React.ReactNode;
   onError?: (error: any) => void;
+  onFirstFrameRender?: () => void;
+  surfaceType?: 'textureView' | 'surfaceView';
 };
 
 class VideoErrorBoundary extends Component<
@@ -45,7 +47,20 @@ class VideoErrorBoundary extends Component<
 }
 
 const VideoPlayerComponent = forwardRef((props: VideoProps, ref) => {
-  const { source, style, resizeMode, shouldPlay, isLooping, useNativeControls, onPlaybackStatusUpdate, isMuted } = props;
+  const {
+    source,
+    style,
+    resizeMode,
+    shouldPlay,
+    isLooping,
+    useNativeControls,
+    onPlaybackStatusUpdate,
+    isMuted,
+    surfaceType,
+    onFirstFrameRender,
+    onError,
+  } = props;
+  const isUnmountedRef = useRef(false);
   
   const parsedSource = typeof source === 'object' && source?.uri ? source.uri : source;
   const player = useVideoPlayer(parsedSource, p => {
@@ -55,7 +70,7 @@ const VideoPlayerComponent = forwardRef((props: VideoProps, ref) => {
       try {
         (p as any).staysActiveInBackground = false;
       } catch (e) {}
-      if (shouldPlay) {
+      if (shouldPlay && !isUnmountedRef.current) {
         p.play();
       }
     } catch (e) {
@@ -63,16 +78,29 @@ const VideoPlayerComponent = forwardRef((props: VideoProps, ref) => {
     }
   });
 
-  // Ensure playback pauses and releases audio session on unmount
+  // Track unmount so async callbacks/intervals never touch a SharedObject after useVideoPlayer releases it.
+  // Do NOT call player.pause() here because useReleasingSharedObject's cleanup runs first and releases player.
   useEffect(() => {
+    isUnmountedRef.current = false;
     return () => {
-      try {
-        player.pause();
-      } catch (e) {}
+      isUnmountedRef.current = true;
     };
   }, [player]);
 
   useEffect(() => {
+    if (!onError) return;
+    const subscription = player.addListener('statusChange', ({ status, error }) => {
+      if (!isUnmountedRef.current && status === 'error') {
+        onError(error);
+      }
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [player, onError]);
+
+  useEffect(() => {
+    if (isUnmountedRef.current) return;
     try {
       if (shouldPlay) player.play();
       else player.pause();
@@ -82,6 +110,7 @@ const VideoPlayerComponent = forwardRef((props: VideoProps, ref) => {
   }, [shouldPlay, player]);
 
   useEffect(() => {
+    if (isUnmountedRef.current) return;
     try {
       player.loop = !!isLooping;
     } catch (e) {
@@ -92,8 +121,10 @@ const VideoPlayerComponent = forwardRef((props: VideoProps, ref) => {
   // Polling for duration/status since onPlaybackStatusUpdate is legacy
   useEffect(() => {
     if (!onPlaybackStatusUpdate) return;
+    let isCancelled = false;
     
-    let interval = setInterval(() => {
+    const interval = setInterval(() => {
+      if (isCancelled || isUnmountedRef.current) return;
       try {
         onPlaybackStatusUpdate({
           isLoaded: true,
@@ -106,17 +137,23 @@ const VideoPlayerComponent = forwardRef((props: VideoProps, ref) => {
       }
     }, 250);
 
-    return () => clearInterval(interval);
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
   }, [onPlaybackStatusUpdate, player]);
 
   useImperativeHandle(ref, () => ({
     playAsync: () => {
+      if (isUnmountedRef.current) return;
       try { player.play(); } catch (e) {}
     },
     pauseAsync: () => {
+      if (isUnmountedRef.current) return;
       try { player.pause(); } catch (e) {}
     },
     replayAsync: () => {
+      if (isUnmountedRef.current) return;
       try {
         player.currentTime = 0;
         player.play();
@@ -132,6 +169,8 @@ const VideoPlayerComponent = forwardRef((props: VideoProps, ref) => {
       nativeControls={!!useNativeControls}
       allowsPictureInPicture={false}
       startsPictureInPictureAutomatically={false}
+      onFirstFrameRender={onFirstFrameRender}
+      {...(Platform.OS === 'android' && surfaceType ? { surfaceType } : {})}
     />
   );
 });

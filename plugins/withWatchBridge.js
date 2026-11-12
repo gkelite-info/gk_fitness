@@ -65,7 +65,7 @@ class WatchBridgeModule(private val reactContext: ReactApplicationContext) :
                 else -> null
             }
 
-            if (eventName != null) {
+            if (eventName != null && reactContext.hasActiveReactInstance()) {
                 reactContext
                     .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                     ?.emit(eventName, dataString)

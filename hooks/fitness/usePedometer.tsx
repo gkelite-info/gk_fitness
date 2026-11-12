@@ -346,9 +346,10 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
 
           // ── Step 3: Initial sync (pulls Health Connect steps from background/killed state) ──
           await syncSteps(isMounted);
+          if (!isMounted) return;
 
           // ── Step 4: Live hardware step watcher on Android ──
-          if (hwAvailable) {
+          if (hwAvailable && isMounted) {
             lastAndroidReadingRef.current = -1;
             lastAndroidRawStepsRef.current = -1;
             subscription = Pedometer.watchStepCount((result) => {
@@ -430,7 +431,9 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
           }
 
           // ── Step 5: Live foreground accelerometer watcher ──
-          startAccelerometer();
+          if (isMounted) {
+            startAccelerometer();
+          }
         } else if (Platform.OS === 'ios') {
           // iOS: Native Apple CoreMotion / Health tracking
           // CMPedometer runs 24/7 at the OS coprocessor level, tracking steps
@@ -449,10 +452,11 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
             setDebugInfo(prev => prev + ` | Sensor Available: ${available}`);
           }
 
-          if (!available) return;
+          if (!available || !isMounted) return;
 
           // Initial sync from CoreMotion (picks up background steps taken while killed/closed)
           await syncSteps(isMounted);
+          if (!isMounted) return;
 
           // Watch for live step updates while app is open
           subscription = Pedometer.watchStepCount((result) => {

@@ -608,7 +608,7 @@ export async function fetchTargetMuscleExercises(
     const { data: rpcVideos, error: rpcError } = await supabase.rpc('get_custom_workout_videos', {
       p_muscles: rpcMuscles,
       p_equipment: [],
-      p_limit: 65,
+      p_limit: 250,
       p_exclude: [],
     });
 
@@ -631,7 +631,7 @@ export async function fetchTargetMuscleExercises(
   }
 
   // Strategy 1: Direct Supabase query matching preferredWorkoutIds
-  if (preferredWorkoutIds.length > 0 && cleanList.length < 10) {
+  if (preferredWorkoutIds.length > 0) {
     try {
       const { data: directData } = await supabase
         .from('workout_videos')
@@ -651,7 +651,7 @@ export async function fetchTargetMuscleExercises(
         .or('is_deleted.eq.false,is_deleted.is.null')
         .not('videoUrl', 'is', null)
         .order('createdAt', { ascending: false })
-        .limit(150);
+        .limit(250);
 
       if (directData && directData.length > 0) {
         for (const item of directData) {
@@ -674,7 +674,7 @@ export async function fetchTargetMuscleExercises(
   }
 
   // Strategy 2: Query by primaryMuscle (strictly excluding oppositeWorkoutIds)
-  if (cleanList.length < 10) {
+  if (cleanList.length < 30) {
     try {
       let query = supabase
         .from('workout_videos')

@@ -10,7 +10,7 @@ export function useCustomerProfile(userId: string | null | undefined) {
       if (!userId) throw new Error('User ID is required');
 
       const [matchedCust, onboardingRes, goalPrefRes, latestMeasRes] = await Promise.all([
-        findGymCustomer({ userId }),
+        findGymCustomer({ userId, silentNotFound: true }),
         supabase
           .from('customer_onboarding')
           .select('*')

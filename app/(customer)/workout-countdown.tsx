@@ -84,35 +84,41 @@ export default function WorkoutCountdown() {
       let hasNavigated = false;
 
       // 1. Immediately reset to 3 and play tick #1
-      setCountdown(3);
+      let remaining = 3;
+      setCountdown(remaining);
       playTick();
 
       // 2. Play synchronized tick on every step: 2, 1, then navigate at 0
       const interval = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            if (isMounted && !hasNavigated) {
-              hasNavigated = true;
-              if (isCustom === 'true') {
-                router.replace({
-                  pathname: '/(customer)/exercise-detail',
-                  params: { dayId, exerciseIndex: 0, isCustom: 'true' }
-                });
-              } else {
-                router.replace({
-                  pathname: '/(customer)/workout-session',
-                  params: { dayId, isTrainer: isTrainer || 'false' }
-                });
-              }
-            }
-            return 0;
-          }
+        if (!isMounted) {
+          clearInterval(interval);
+          return;
+        }
 
-          // Fires tick #2 at count 2, and tick #3 at count 1
-          playTick();
-          return prev - 1;
-        });
+        if (remaining <= 1) {
+          clearInterval(interval);
+          setCountdown(0);
+          if (!hasNavigated) {
+            hasNavigated = true;
+            if (isCustom === 'true') {
+              router.replace({
+                pathname: '/(customer)/exercise-detail',
+                params: { dayId, exerciseIndex: 0, isCustom: 'true' }
+              });
+            } else {
+              router.replace({
+                pathname: '/(customer)/workout-session',
+                params: { dayId, isTrainer: isTrainer || 'false' }
+              });
+            }
+          }
+          return;
+        }
+
+        remaining -= 1;
+        setCountdown(remaining);
+        // Fires tick #2 at count 2, and tick #3 at count 1
+        playTick();
       }, 1000);
 
       return () => {

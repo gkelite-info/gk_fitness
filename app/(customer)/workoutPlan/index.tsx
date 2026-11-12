@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, ScrollView, Pressable, Animated } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useIsFocused } from 'expo-router';
 import { ArrowLeft, CaretRight, Robot, Lightbulb, Calendar, Check } from 'phosphor-react-native';
 import { useWorkoutPlan } from './_layout';
 import { useUser } from '@/context/UserContext';
@@ -47,47 +47,88 @@ const DAYS_OF_WEEK = [
 
 export default function BuildWeeklyPlan() {
   const { selectedDays, setSelectedDays, setPlanDays } = useWorkoutPlan();
-  const { existingDays, targetDay } = useLocalSearchParams<{ existingDays?: string, targetDay?: string }>();
+  const { existingDays, targetDay, addRequestId } = useLocalSearchParams<{
+    existingDays?: string;
+    targetDay?: string;
+    addRequestId?: string;
+  }>();
   const { userId } = useUser();
+  const isFocused = useIsFocused();
   const [isLoading, setIsLoading] = useState(false);
+  const handledSyncKeyRef = useRef<string | null>(null);
 
-  const existingDaysList = React.useMemo(() => existingDays ? existingDays.split(',') : [], [existingDays]);
+  const existingDaysList = React.useMemo(
+    () => (existingDays ? existingDays.split(',').filter(Boolean) : []),
+    [existingDays]
+  );
+  const hasIncomingParams = existingDaysList.length > 0 || Boolean(targetDay);
+  const syncKey = hasIncomingParams
+    ? `${addRequestId || ''}|${existingDays || ''}|${targetDay || ''}`
+    : null;
+
+  useEffect(() => {
+    if (!hasIncomingParams) {
+      handledSyncKeyRef.current = null;
+    }
+  }, [hasIncomingParams]);
+
+  const shouldSyncFromParams =
+    isFocused &&
+    hasIncomingParams &&
+    (!syncKey || handledSyncKeyRef.current !== syncKey);
 
   const { data: loadedPlanDays, isLoading: isQueryLoading } = useCustomerWeeklyPlan(
-    ((existingDaysList.length > 0 || targetDay) && selectedDays.length === 0) ? userId : null
+    shouldSyncFromParams ? userId : null
   );
 
   useEffect(() => {
-    if ((existingDaysList.length > 0 || targetDay) && selectedDays.length === 0 && userId) {
-      if (isQueryLoading) {
-        setIsLoading(true);
-        return;
-      }
+    if (!isFocused || !hasIncomingParams || !userId) return;
+    if (syncKey && handledSyncKeyRef.current === syncKey) return;
+    if (!targetDay && selectedDays.length > 0) return;
 
-      setIsLoading(false);
-
-      if (loadedPlanDays && loadedPlanDays[1]) {
-        setPlanDays(loadedPlanDays);
-      }
-
-      const map: any = { MON: 'Monday', TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday', FRI: 'Friday', SAT: 'Saturday', SUN: 'Sunday' };
-      const targetFull = targetDay ? map[targetDay] : null;
-      const toSelect = [...existingDaysList];
-      
-      if (targetFull && !toSelect.includes(targetFull)) {
-        toSelect.push(targetFull);
-      }
-      
-      setSelectedDays(toSelect);
-
-      if (targetFull) {
-        router.replace({
-          pathname: '/(customer)/workoutPlan/choose-muscle',
-          params: { day: targetFull }
-        } as any);
-      }
+    if (isQueryLoading) {
+      setIsLoading(true);
+      return;
     }
-  }, [existingDaysList, targetDay, selectedDays.length, userId, loadedPlanDays, isQueryLoading]);
+
+    setIsLoading(false);
+
+    if (loadedPlanDays && loadedPlanDays[1]) {
+      setPlanDays(loadedPlanDays);
+    }
+
+    const dayMap: Record<string, string> = {
+      MON: 'Monday',
+      TUE: 'Tuesday',
+      WED: 'Wednesday',
+      THU: 'Thursday',
+      FRI: 'Friday',
+      SAT: 'Saturday',
+      SUN: 'Sunday',
+    };
+    const targetFull = targetDay ? dayMap[targetDay] : null;
+    const toSelect = [...existingDaysList];
+
+    if (targetFull && !toSelect.includes(targetFull)) {
+      toSelect.push(targetFull);
+    }
+
+    if (syncKey) {
+      handledSyncKeyRef.current = syncKey;
+    }
+
+    setSelectedDays(toSelect);
+  }, [
+    isFocused,
+    hasIncomingParams,
+    existingDaysList,
+    targetDay,
+    syncKey,
+    selectedDays.length,
+    userId,
+    loadedPlanDays,
+    isQueryLoading,
+  ]);
 
   const handleToggleDay = (day: string) => {
     try {

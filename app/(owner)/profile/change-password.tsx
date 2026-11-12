@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { View, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretLeft, Lock, Eye, EyeClosed, ShieldCheck, Check } from 'phosphor-react-native';
 import { useUser } from '@/context/UserContext';
-import { supabase } from '@/lib/supabase';
+import { useQueryClient } from '@tanstack/react-query';
 import { triggerSuccessHaptic, triggerErrorHaptic, triggerLightHaptic } from '@/lib/haptics';
+import { executeChangePassword } from '@/helpers/auth/passwordHelper';
 import { toast } from '@/lib/toast';
 import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
 
 export default function OwnerChangePasswordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { email } = useUser();
+  const queryClient = useQueryClient();
+  const { userId, email, phone, role, setFallbackUserSession } = useUser();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -25,6 +27,31 @@ export default function OwnerChangePasswordScreen() {
 
   const [isPending, setIsPending] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  const clearForm = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowCurrent(false);
+    setShowNew(false);
+    setShowConfirm(false);
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      setStep(1);
+      clearForm();
+      const timer = setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      }, 50);
+
+      return () => {
+        clearTimeout(timer);
+      };
+    }, [])
+  );
 
   // Requirements validation
   const hasMinLength = newPassword.length >= 8;
@@ -38,58 +65,58 @@ export default function OwnerChangePasswordScreen() {
 
     if (!currentPassword || !newPassword || !confirmPassword) {
       triggerErrorHaptic();
+      clearForm();
       Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
     if (newPassword !== confirmPassword) {
       triggerErrorHaptic();
+      clearForm();
       Alert.alert('Error', 'New passwords do not match.');
       return;
     }
     if (!requirementsMet) {
       triggerErrorHaptic();
+      clearForm();
       Alert.alert('Error', 'Please ensure your new password meets all requirements.');
-      return;
-    }
-
-    let userEmail = email;
-    if (!userEmail) {
-      const { data: { user } } = await supabase.auth.getUser();
-      userEmail = user?.email || null;
-    }
-
-    if (!userEmail) {
-      triggerErrorHaptic();
-      Alert.alert('Error', 'User email not found. Please log in again.');
       return;
     }
 
     setIsPending(true);
     try {
-      // 1. Verify current password by signing in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: userEmail,
-        password: currentPassword,
+      const result = await executeChangePassword({
+        userId,
+        email,
+        phone,
+        role,
+        currentPassword,
+        newPassword,
+        logTag: 'OwnerChangePassword',
       });
 
-      if (signInError) {
-        throw new Error('Current password is incorrect.');
+      if (setFallbackUserSession && result.userId) {
+        try {
+          await setFallbackUserSession({
+            id: result.userId,
+            email: result.email || email || '',
+            role: result.role || 'owner',
+            name: result.name || undefined,
+          });
+        } catch (fbErr) {
+          console.warn('[OwnerChangePassword] Notice syncing fallback session:', fbErr);
+        }
       }
 
-      // 2. Update to new password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
 
-      if (updateError) {
-        throw updateError;
-      }
-
+      clearForm();
       triggerSuccessHaptic();
       toast.success('Password updated successfully!');
       setStep(2);
     } catch (err: any) {
       triggerErrorHaptic();
+      clearForm();
       Alert.alert('Error Updating Password', err.message || 'An unexpected error occurred.');
     } finally {
       setIsPending(false);
@@ -153,7 +180,10 @@ export default function OwnerChangePasswordScreen() {
       {/* Header */}
       <View className="flex-row items-center px-5 py-4 border-b border-[#1F1F22]">
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => {
+            clearForm();
+            router.back();
+          }}
           disabled={isPending}
           className="p-2 bg-[#161616] border border-[#1F1F22] rounded-full active:opacity-70 mr-4"
         >
@@ -166,6 +196,7 @@ export default function OwnerChangePasswordScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           padding: 20,
@@ -300,7 +331,10 @@ export default function OwnerChangePasswordScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => {
+            clearForm();
+            router.back();
+          }}
           disabled={isPending}
           className="bg-transparent border border-[#27272A] rounded-2xl py-4 items-center active:opacity-80"
         >

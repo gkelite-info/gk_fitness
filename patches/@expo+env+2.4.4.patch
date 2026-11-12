@@ -1,11 +1,14 @@
 diff --git a/node_modules/@expo/env/build/index.js b/node_modules/@expo/env/build/index.js
-index 92c81da..c7f8a7e 100644
+index 5034b49..19d5dd5 100644
 --- a/node_modules/@expo/env/build/index.js
 +++ b/node_modules/@expo/env/build/index.js
-@@ -19,2 +19,5 @@ exports.parseProjectEnv = parseProjectEnv;
+@@ -17,6 +17,9 @@ exports.parseEnv = parseEnv;
+ exports.parseEnvFiles = parseEnvFiles;
+ exports.parseProjectEnv = parseProjectEnv;
  exports.setNodeEnv = setNodeEnv;
 +exports.boolish = function(key, defaultValue) {
 +  return (0, _getenv().boolish)(key, defaultValue);
 +};
  function _chalk() {
-
+   const data = _interopRequireDefault(require("chalk"));
+   _chalk = function () {

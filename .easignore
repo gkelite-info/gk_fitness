@@ -13,5 +13,6 @@ eas_build_log.txt
 eas_log.txt
 decompressed.log
 .git/
+.github/
 android/
 ios/

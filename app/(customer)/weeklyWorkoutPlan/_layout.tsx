@@ -5,6 +5,8 @@ export default function WeeklyWorkoutPlanLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="edit-day" />
+      <Stack.Screen name="view-day" />
+      <Stack.Screen name="swap-day" />
     </Stack>
   );
 }

@@ -19,6 +19,7 @@ import { StaticAvatar } from '@/components/ui/StaticAvatar';
 import ConfirmModal from '@/components/ConfirmModal';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
+import { resolveActiveSupabaseSession, buildWebSsoUrl } from '@/lib/webSso';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { triggerMediumHaptic } from '@/lib/haptics';
@@ -49,7 +50,7 @@ export default function BookTrainerScreen() {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  const { userId, role, gymId: userGymId, email } = useUser();
+  const { userId, role, gymId: userGymId, email, phone } = useUser();
   const { data: individualPlans } = useIndividualCustomerPlans(userId || undefined);
   const hasIndividualPlan = Boolean(individualPlans && individualPlans.length > 0);
 
@@ -262,48 +263,29 @@ export default function BookTrainerScreen() {
     targetAmount?: number
   ) => {
     triggerMediumHaptic();
+    let targetUrl = 'https://www.gkgymlife.com/customer';
     try {
-      let session = (await supabase.auth.getSession()).data.session;
-      if (!session?.access_token || (session.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
-        const { data: refreshData } = await supabase.auth.refreshSession();
-        if (refreshData?.session) session = refreshData.session;
-      }
+      const session = await resolveActiveSupabaseSession('BookTrainer');
 
-      if (!session?.access_token) {
+      if (!session?.access_token && !userId) {
         toast.error('Your session has expired. Please log in again.');
         return;
       }
 
-      const webHost = 'https://www.gkgymlife.com';
-      const baseUrl = `${webHost}/api/auth/sso`;
-      const params = new URLSearchParams();
-
-      params.append('returnTo', '/customer');
-      params.append('action', 'book-trainer');
-      if (targetTrainerId) params.append('trainerId', String(targetTrainerId));
-      if (targetTrainerName) params.append('trainerName', targetTrainerName);
-      if (targetAmount != null) params.append('amount', String(targetAmount));
-
-      if (userId) params.append('userId', userId);
-      if (role) params.append('role', role);
-      if (profile?.customerData?.customerId) {
-        params.append('customerId', profile.customerData.customerId);
-      }
-      const gymIdVal = profile?.customerData?.gymId || customerGymId;
-      if (gymIdVal) params.append('gymId', gymIdVal);
-
-      const emailVal = session.user?.email || profile?.customerData?.email;
-      const phoneVal = session.user?.phone || profile?.customerData?.phone;
-      if (emailVal) params.append('email', emailVal);
-      if (phoneVal) params.append('phone', phoneVal);
-
-      params.append('access_token', session.access_token);
-      if (session.refresh_token) {
-        params.append('refresh_token', session.refresh_token);
-      }
-
-      const queryString = params.toString() ? `?${params.toString()}` : '';
-      const targetUrl = `${baseUrl}${queryString}`;
+      targetUrl = buildWebSsoUrl({
+        returnTo: '/customer',
+        action: 'book-trainer',
+        trainerId: targetTrainerId,
+        trainerName: targetTrainerName,
+        amount: targetAmount,
+        userId,
+        role,
+        customerId: profile?.customerData?.customerId,
+        gymId: profile?.customerData?.gymId || customerGymId,
+        email: profile?.customerData?.email || email,
+        phone: profile?.customerData?.phone || phone,
+        session,
+      });
 
       await WebBrowser.openBrowserAsync(targetUrl, {
         presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
@@ -313,12 +295,12 @@ export default function BookTrainerScreen() {
 
       try {
         await Promise.all([
-          typeof refetchProfile === 'function' ? refetchProfile() : Promise.resolve(),
+          !isIndividual && typeof refetchProfile === 'function' ? refetchProfile() : Promise.resolve(),
           typeof refetchIndividualTrainers === 'function' ? refetchIndividualTrainers() : Promise.resolve(),
           queryClient.invalidateQueries({ queryKey: ['assignedGlobalTrainers'] }),
           queryClient.invalidateQueries({ queryKey: ['individualCustomerTrainers'] }),
           queryClient.invalidateQueries({ queryKey: ['individualCustomerPayments'] }),
-          queryClient.invalidateQueries({ queryKey: ['customerProfile'] }),
+          !isIndividual ? queryClient.invalidateQueries({ queryKey: ['customerProfile'] }) : Promise.resolve(),
         ]);
       } catch (postErr) {
         console.warn('[BookTrainer] Post-checkout refetch warning:', postErr);
@@ -326,7 +308,7 @@ export default function BookTrainerScreen() {
     } catch (err) {
       console.warn('[BookTrainer] Error opening web checkout:', err);
       try {
-        await Linking.openURL('https://www.gkgymlife.com/customer');
+        await Linking.openURL(targetUrl);
       } catch {
         toast.error('Unable to open browser. Please visit https://www.gkgymlife.com/customer');
       }
@@ -551,7 +533,7 @@ export default function BookTrainerScreen() {
             </Text>
 
             {/* Direct action button to manage/activate on web */}
-            {isIndividual && (
+            {isPendingIndividual && (
               <View className="mb-3">
                 <Pressable
                   onPress={() => handleOpenWebCheckoutForPending(

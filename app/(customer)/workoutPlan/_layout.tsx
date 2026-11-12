@@ -64,7 +64,7 @@ export default function WorkoutPlanLayout() {
 
   return (
     <WorkoutPlanContext.Provider value={contextValue}>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack initialRouteName="index" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="choose-plan-mode" />
         <Stack.Screen name="assign-days" />

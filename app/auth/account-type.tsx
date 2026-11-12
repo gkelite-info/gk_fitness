@@ -53,7 +53,7 @@ export default function AccountTypeScreen() {
           if (!isCancelled) {
             navigateBasedOnRole(role);
           }
-        } else {
+        } else if (!loading && !role) {
           clearSelectedGym();
         }
       }

@@ -1,103 +1,18 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, ScrollView, Pressable, Image, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { View, ScrollView, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, Plus, Check, MagnifyingGlass, ArrowsClockwise } from 'phosphor-react-native';
 import { useWorkoutPlan, ExerciseItem } from './_layout';
 import { useWorkoutPlanTargetExercises } from '@/hooks/customerWorkouts/useWorkoutPlanTargetExercises';
-import { Video, ResizeMode } from '@/components/ui/Video';
-import { supabase } from '@/lib/supabase';
+import { ExerciseMediaPlayer } from '@/components/workout/ExerciseMediaPlayer';
 import { toast } from '@/lib/toast';
 import { useUser } from '@/context/UserContext';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useUserById } from '@/hooks/users';
 
-const IMAGE_MAP: { [key: string]: any } = {
-  Chest: require('../../../assets/chest-stood.png'),
-  Back: require('../../../assets/back-stood.png'),
-  Shoulders: require('../../../assets/shoulders-stood.png'),
-  Legs: require('../../../assets/workout.png'),
-  Abs: require('../../../assets/workout_abs.jpg'),
-  Arms: require('../../../assets/dumbell.png'),
-  default: require('../../../assets/barbell.png'),
-};
-
-const ExerciseMediaItem = ({
-  videoUrl,
-  muscleGroup,
-  opacity = false,
-}: {
-  videoUrl?: string;
-  muscleGroup?: string;
-  opacity?: boolean;
-}) => {
-  const [hasError, setHasError] = useState(false);
-
-  const normalizedGroup = (muscleGroup || '').toLowerCase();
-  const exerciseImage =
-    normalizedGroup.includes('chest') ? IMAGE_MAP.Chest :
-    normalizedGroup.includes('back') ? IMAGE_MAP.Back :
-    normalizedGroup.includes('shoulder') ? IMAGE_MAP.Shoulders :
-    (normalizedGroup.includes('leg') || normalizedGroup.includes('hip') || normalizedGroup.includes('calf')) ? IMAGE_MAP.Legs :
-    (normalizedGroup.includes('ab') || normalizedGroup.includes('core')) ? IMAGE_MAP.Abs :
-    (normalizedGroup.includes('bicep') || normalizedGroup.includes('tricep') || normalizedGroup.includes('arm')) ? IMAGE_MAP.Arms :
-    IMAGE_MAP.default;
-
-  if (!videoUrl || hasError) {
-    return (
-      <Image
-        source={exerciseImage}
-        className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] ${opacity ? 'opacity-70' : ''}`}
-        resizeMode="cover"
-      />
-    );
-  }
-
-  const publicUrl = videoUrl.startsWith('http')
-    ? videoUrl
-    : supabase.storage.from('workout-videos').getPublicUrl(videoUrl).data.publicUrl;
-
-  const isGifOrImage = /\.(gif|webp|png|jpg|jpeg)(\?.*)?$/i.test(videoUrl);
-
-  if (isGifOrImage) {
-    return (
-      <View className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] overflow-hidden bg-black ${opacity ? 'opacity-70' : ''}`}>
-        <Image
-          source={{ uri: publicUrl }}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-          onError={() => setHasError(true)}
-        />
-      </View>
-    );
-  }
-
-  // Active live looping video thumbnail for all exercises
-  return (
-    <View className={`w-14 h-14 rounded-xl mr-4 border border-[#242424] overflow-hidden bg-black ${opacity ? 'opacity-70' : ''}`}>
-      <Video
-        source={{ uri: publicUrl }}
-        style={{ width: '100%', height: '100%' }}
-        resizeMode={ResizeMode.COVER}
-        useNativeControls={false}
-        shouldPlay={true}
-        isLooping={true}
-        isMuted={true}
-        fallback={
-          <Image
-            source={exerciseImage}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-          />
-        }
-        onError={() => setHasError(true)}
-      />
-    </View>
-  );
-};
-
 export default function CustomizeWorkout() {
-  const { day, muscleGroup, gender: paramGender } = useLocalSearchParams<{ day: string; muscleGroup: string; gender?: string }>();
+  const { day, muscleGroup, workoutId: paramWorkoutId, gender: paramGender } = useLocalSearchParams<{ day: string; muscleGroup: string; workoutId?: string; gender?: string }>();
   const { planDays, setPlanDays, currentEditingWeek } = useWorkoutPlan();
   const [loading, setLoading] = useState(false);
 
@@ -128,6 +43,7 @@ export default function CustomizeWorkout() {
     normalizedMuscleGroup,
     userGender
   );
+  const isExercisesLoading = isVideosLoading || (isFetching && cleanExercises.length === 0);
 
   const visibleExercises = useMemo(() => {
     return cleanExercises.slice(0, displayCount);
@@ -155,8 +71,14 @@ export default function CustomizeWorkout() {
     }));
   }, [visibleExercises, muscleGroup]);
 
+  const isSameSavedMuscle = Boolean(
+    currentPlan?.workoutType &&
+    muscleGroup &&
+    currentPlan.workoutType.trim().toLowerCase() === muscleGroup.trim().toLowerCase()
+  );
+
   const [selectedExercises, setSelectedExercises] = useState<ExerciseItem[]>(() => {
-    if (currentPlan && currentPlan.exercises && currentPlan.exercises.length > 0) {
+    if (isSameSavedMuscle && currentPlan && currentPlan.exercises && currentPlan.exercises.length > 0) {
       return currentPlan.exercises;
     }
     return [];
@@ -164,6 +86,19 @@ export default function CustomizeWorkout() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchInput, setShowSearchInput] = useState(false);
+  const [playingExerciseName, setPlayingExerciseName] = useState<string | null>(null);
+  const isNavigatingRef = useRef(false);
+
+  const handleBack = useCallback(() => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    setPlayingExerciseName(null);
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace({ pathname: '/(customer)/workoutPlan/choose-muscle', params: { day } } as any);
+    }
+  }, [day]);
 
   const recommendedPresets = useMemo(() => {
     return allPresets.filter(p => p.isRecommended || selectedExercises.some(ex => ex.exerciseName === p.name));
@@ -230,7 +165,7 @@ export default function CustomizeWorkout() {
 
   const handleSaveWorkout = () => {
     try {
-      if (!day) return;
+      if (!day || loading || isExercisesLoading) return;
 
       if (selectedExercises.length === 0) {
         toast.error('Please select at least one exercise for your workout.');
@@ -257,16 +192,29 @@ export default function CustomizeWorkout() {
 
       setLoading(true);
 
+      const validParamWorkoutId =
+        typeof paramWorkoutId === 'string' &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paramWorkoutId.trim())
+          ? paramWorkoutId.trim()
+          : null;
+
       setPlanDays(prev => {
         const weekData = prev[currentEditingWeek] || {};
+        const existingDay = weekData[day];
+        const keepsSameMuscle = Boolean(
+          existingDay?.workoutType &&
+          muscleGroup &&
+          existingDay.workoutType.trim().toLowerCase() === muscleGroup.trim().toLowerCase()
+        );
         return {
           ...prev,
           [currentEditingWeek]: {
             ...weekData,
             [day]: {
-              ...(weekData[day] || {}),
+              ...(existingDay || {}),
               dayOfWeek: day,
               workoutType: muscleGroup as any,
+              workoutId: validParamWorkoutId ?? (keepsSameMuscle ? (existingDay?.workoutId ?? null) : null),
               exercises: selectedExercises,
               durationMinutes: selectedExercises.length * 8 + 5
             }
@@ -274,7 +222,13 @@ export default function CustomizeWorkout() {
         };
       });
 
-      router.push('/(customer)/workoutPlan/assign-days');
+      setPlayingExerciseName(null);
+
+      if (router.canDismiss()) {
+        router.dismissTo('/(customer)/workoutPlan/assign-days' as any);
+      } else {
+        router.replace('/(customer)/workoutPlan/assign-days' as any);
+      }
     } catch (error) {
       console.error('[CustomizeWorkout] handleSaveWorkout Error:', error);
     }
@@ -285,22 +239,36 @@ export default function CustomizeWorkout() {
 
   const renderMedia = (
     videoUrl: string | undefined,
-    opacity: boolean = false
+    opacity: boolean = false,
+    exerciseName?: string
   ) => {
+    const isPlaying = Boolean(exerciseName && playingExerciseName === exerciseName);
     return (
-      <ExerciseMediaItem
+      <ExerciseMediaPlayer
         videoUrl={videoUrl}
         muscleGroup={muscleGroup}
-        opacity={opacity}
+        exerciseName={exerciseName}
+        containerClassName="w-14 h-14 rounded-xl mr-4 border border-[#242424] overflow-hidden bg-black relative items-center justify-center"
+        activeBorderClassName="w-14 h-14 rounded-xl mr-4 border border-[#C4EF00]/50 overflow-hidden bg-black relative items-center justify-center"
+        badgeSize="sm"
+        accentColor="#C4EF00"
+        dimmed={opacity}
+        isPlaying={isPlaying}
+        onTogglePlay={() => {
+          if (!exerciseName) return;
+          setPlayingExerciseName(prev => (prev === exerciseName ? null : exerciseName));
+        }}
       />
     );
   };
+
+  const isSaveDisabled = isExercisesLoading || selectedExercises.length === 0 || loading;
 
   return (
     <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
       <View className="flex-row items-center justify-between mb-4">
         <Pressable
-          onPress={() => router.push({ pathname: '/(customer)/workoutPlan/choose-muscle', params: { day } })}
+          onPress={handleBack}
           className="w-10 h-10 rounded-full border border-[#242424] items-center justify-center bg-[#161616] mr-4 active:opacity-70"
         >
           <ArrowLeft size={20} color="#fff" />
@@ -329,11 +297,11 @@ export default function CustomizeWorkout() {
             </View>
           </View>
           <View className="bg-[#C4EF00]/10 px-3 py-1.5 rounded-xl border border-[#C4EF00]/20">
-            <Text className="text-[#C4EF00] font-semibold text-xs">{selectedExercises.length} Selected</Text>
+            <Text className="text-[#C4EF00] font-semibold text-xs">{selectedExercises.length} selected</Text>
           </View>
         </View>
 
-        {isVideosLoading ? (
+        {isExercisesLoading ? (
           <ActivityIndicator size="large" color="#C4EF00" className="mt-10" />
         ) : (
           <>
@@ -362,7 +330,7 @@ export default function CustomizeWorkout() {
                       className="flex-row items-center p-3.5 justify-between"
                     >
                       <View className="flex-row items-center flex-1">
-                        {renderMedia(ex.videoUrl, false)}
+                        {renderMedia(ex.videoUrl, false, ex.name)}
                         <View className="flex-1 pr-2">
                           <Text className="text-white font-semibold text-base">{ex.name}</Text>
                           <View className="flex-row items-center gap-1.5 mt-1">
@@ -446,7 +414,7 @@ export default function CustomizeWorkout() {
                   >
                     <View className="flex-row items-center p-3.5 justify-between">
                       <View className="flex-row items-center flex-1">
-                        {renderMedia(ex.videoUrl, true)}
+                        {renderMedia(ex.videoUrl, true, ex.name)}
                         <View className="flex-1 pr-2">
                           <Text className="text-white font-semibold text-base">{ex.name}</Text>
                           <View className="flex-row items-center gap-1.5 mt-1">
@@ -526,9 +494,13 @@ export default function CustomizeWorkout() {
 
         <Pressable
           onPress={handleSaveWorkout}
-          className="w-full py-4 bg-[#C4EF00] rounded-2xl flex-row items-center justify-center gap-2 active:opacity-90 mt-4"
+          disabled={isSaveDisabled}
+          className={`w-full py-4 rounded-2xl flex-row items-center justify-center gap-2 mt-4 ${!isSaveDisabled
+            ? 'bg-[#C4EF00] active:opacity-90'
+            : 'bg-[#222222] border border-[#2E2E2E] opacity-50'
+            }`}
         >
-          <Text className="text-black text-base font-semibold">
+          <Text className={`text-base font-semibold ${!isSaveDisabled ? 'text-black' : 'text-[#8E8E8E]'}`}>
             {loading ? 'Saving...' : "Save Workout"}
           </Text>
         </Pressable>

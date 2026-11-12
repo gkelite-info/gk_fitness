@@ -29,6 +29,7 @@ import { useGlobalTrainer } from '@/hooks/globalTrainers/useGlobalTrainer';
 import { useGymTrainerById } from '@/hooks/trainers/useGymTrainers';
 import { useIndividualCustomerPayments, useSaveIndividualCustomerPayment } from '@/hooks/individual/membership/individualCustomerTrainerPayments';
 import { toast } from '@/lib/toast';
+import { resolveActiveSupabaseSession, buildWebSsoUrl } from '@/lib/webSso';
 
 export default function TrainerRequestScreen() {
   const { id, trainerName, specializations, trainerData, trainerPrice } = useLocalSearchParams<{
@@ -64,7 +65,7 @@ export default function TrainerRequestScreen() {
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [selectedTime, setSelectedTime] = useState<string>('');
 
-  const { userId, role } = useUser();
+  const { userId, role, email: userEmail, phone: userPhone } = useUser();
   const { data: profile } = useCustomerProfile(userId || undefined);
   const gymId = profile?.customerData?.gymId;
   const isIndividual = role === 'individual' || (!gymId && !!userId);
@@ -249,52 +250,29 @@ export default function TrainerRequestScreen() {
       (trainer as any)?.id;
 
     try {
-      let session = (await supabase.auth.getSession()).data.session;
-      if (!session?.access_token || (session.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
-        const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
-        if (refreshData?.session) {
-          session = refreshData.session;
-        } else {
-          console.warn('[TrainerRequest] Token refresh warning:', refreshErr?.message);
-        }
-      }
+      const session = await resolveActiveSupabaseSession('TrainerRequest');
 
-      if (!session?.access_token) {
+      if (!session?.access_token && !userId) {
         toast.error('Your session has expired. Please log in again to continue.');
         setIsProcessingPayment(false);
         router.replace('/auth/otp-auth' as any);
         return;
       }
 
-      const webHost = 'https://www.gkgymlife.com';
-      const baseUrl = `${webHost}/api/auth/sso`;
-      const params = new URLSearchParams();
-
-      params.append('returnTo', '/customer');
-      params.append('action', 'book-trainer');
-      if (resolvedTrainerId) params.append('trainerId', String(resolvedTrainerId));
-      if (nameToDisplay) params.append('trainerName', nameToDisplay);
-      if (trainerFee) params.append('amount', String(trainerFee));
-      if (userId) params.append('userId', userId);
-      if (role) params.append('role', role);
-      if (profile?.customerData?.customerId) {
-        params.append('customerId', profile.customerData.customerId);
-      }
-      const gymIdVal = profile?.customerData?.gymId || gymId;
-      if (gymIdVal) params.append('gymId', gymIdVal);
-
-      const emailVal = session.user?.email || profile?.customerData?.email;
-      const phoneVal = session.user?.phone || profile?.customerData?.phone;
-      if (emailVal) params.append('email', emailVal);
-      if (phoneVal) params.append('phone', phoneVal);
-
-      params.append('access_token', session.access_token);
-      if (session.refresh_token) {
-        params.append('refresh_token', session.refresh_token);
-      }
-
-      const queryString = params.toString() ? `?${params.toString()}` : '';
-      const targetUrl = `${baseUrl}${queryString}`;
+      const targetUrl = buildWebSsoUrl({
+        returnTo: '/customer',
+        action: 'book-trainer',
+        trainerId: resolvedTrainerId ? String(resolvedTrainerId) : null,
+        trainerName: nameToDisplay,
+        amount: trainerFee,
+        userId,
+        role,
+        customerId: profile?.customerData?.customerId,
+        gymId: profile?.customerData?.gymId || gymId,
+        email: profile?.customerData?.email || userEmail,
+        phone: profile?.customerData?.phone || userPhone,
+        session,
+      });
 
       await WebBrowser.openBrowserAsync(targetUrl, {
         presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,

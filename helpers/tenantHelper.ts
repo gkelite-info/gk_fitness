@@ -59,11 +59,16 @@ export async function verifyUserGymMembership(
 
   try {
     // 1. Fetch user role from users table
-    const { data: userRec } = await supabase
+    const { data: userRec, error: userRecError } = await supabase
       .from('users')
       .select('role')
       .eq('userId', userId)
       .maybeSingle();
+
+    if (userRecError) {
+      console.warn('[tenantHelper] verifyUserGymMembership user lookup error:', userRecError);
+      return { isAuthorized: true, reason: 'ERROR' };
+    }
 
     const role = (userRec?.role || '').trim().toLowerCase();
     const cleanRole = role.replace(/[\s_-]/g, '');
@@ -79,11 +84,16 @@ export async function verifyUserGymMembership(
       orCust.push(`email.eq.${cleanEmail}`);
     }
 
-    const { data: customerRows } = await supabase
+    const { data: customerRows, error: customerError } = await supabase
       .from('gym_customers')
       .select('customerId, gymId, is_deleted')
       .or(orCust.join(','))
       .eq('is_deleted', false);
+
+    if (customerError) {
+      console.warn('[tenantHelper] verifyUserGymMembership customer lookup error:', customerError);
+      return { isAuthorized: true, role, reason: 'ERROR' };
+    }
 
     if (customerRows && customerRows.length > 0) {
       const match = customerRows.find((c: any) => c.gymId === selectedGymId);
@@ -104,11 +114,16 @@ export async function verifyUserGymMembership(
       orTrainer.push(`email.eq.${cleanEmail}`);
     }
 
-    const { data: trainerRows } = await supabase
+    const { data: trainerRows, error: trainerError } = await supabase
       .from('gym_trainers')
       .select('gymTrainerId, gymId, is_deleted')
       .or(orTrainer.join(','))
       .eq('is_deleted', false);
+
+    if (trainerError) {
+      console.warn('[tenantHelper] verifyUserGymMembership trainer lookup error:', trainerError);
+      return { isAuthorized: true, reason: 'ERROR' };
+    }
 
     if (trainerRows && trainerRows.length > 0) {
       const match = trainerRows.find((t: any) => t.gymId === selectedGymId);
@@ -129,11 +144,16 @@ export async function verifyUserGymMembership(
       orOwner.push(`ownerEmail.eq.${cleanEmail}`);
     }
 
-    const { data: ownerRows } = await supabase
+    const { data: ownerRows, error: ownerError } = await supabase
       .from('gym_owners')
       .select('gymOwnerId, gymId, is_deleted')
       .or(orOwner.join(','))
       .eq('is_deleted', false);
+
+    if (ownerError) {
+      console.warn('[tenantHelper] verifyUserGymMembership owner lookup error:', ownerError);
+      return { isAuthorized: true, reason: 'ERROR' };
+    }
 
     if (ownerRows && ownerRows.length > 0) {
       const match = ownerRows.find((o: any) => o.gymId === selectedGymId);
@@ -161,6 +181,6 @@ export async function verifyUserGymMembership(
     return { isAuthorized: true, role, reason: 'NOT_GYM_BOUND' };
   } catch (err) {
     console.error('[tenantHelper] verifyUserGymMembership unexpected error:', err);
-    return { isAuthorized: false, reason: 'ERROR' };
+    return { isAuthorized: true, reason: 'ERROR' };
   }
 }

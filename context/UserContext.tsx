@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useMemo, useRef } from 
 import { supabase } from '@/lib/supabase';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useIsRestoring } from '@tanstack/react-query';
 import { fetchUserAndRoleProfile, UserProfile } from '@/helpers/user/userProfileHelper';
 import { unregisterPushToken } from '@/lib/services/notificationService';
 import { watchBridge } from '@/lib/watch/watchBridge';
@@ -118,8 +118,15 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
   const authUserId = session?.user?.id || fallbackUser?.id || null;
   const authEmail = session?.user?.email || fallbackUser?.email || null;
+  const isRestoring = useIsRestoring();
 
-  const { data: profile, isLoading: profileLoading, refetch } = useQuery({
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    isPending: profilePending,
+    isError: profileError,
+    refetch,
+  } = useQuery({
     queryKey: ['userProfile', authUserId],
     queryFn: async () => {
       if (!authUserId) return null;
@@ -130,7 +137,10 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     retry: 2,
   });
 
-  const loading = sessionLoading || (!!authUserId && profileLoading);
+  // Wait for AsyncStorage cache restoration and initial profile fetch so reloads (`r`)
+  // do not briefly treat authenticated users as logged out (`role: null`).
+  const isWaitingForProfile = !!authUserId && (profileLoading || (profilePending && !profileError));
+  const loading = sessionLoading || isRestoring || isWaitingForProfile;
 
   const refreshUserContext = async () => {
     await refetch();

@@ -16,10 +16,11 @@ export default function SuccessPlan() {
 
   const handleStartWorkout = () => {
     try {
+      resetPlan();
+      if (router.canDismiss()) {
+        router.dismissAll();
+      }
       router.replace('/(customer)/workout' as any);
-      setTimeout(() => {
-        resetPlan();
-      }, 150);
     } catch (error) {
       console.error('[SuccessPlan] handleStartWorkout Error:', error);
     }
@@ -27,17 +28,18 @@ export default function SuccessPlan() {
 
   const handleViewMonthlyPlan = () => {
     try {
+      resetPlan();
+      if (router.canDismiss()) {
+        router.dismissAll();
+      }
       router.replace('/(customer)/weeklyWorkoutPlan' as any);
-      setTimeout(() => {
-        resetPlan();
-      }, 150);
     } catch (error) {
       console.error('[SuccessPlan] handleViewMonthlyPlan Error:', error);
     }
   };
 
   return (
-    <View className="flex-1 bg-[#0A0A0A] px-5 pt-12 pb-28 justify-between">
+    <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
         <View className="flex-row items-center mb-6">
           <Pressable

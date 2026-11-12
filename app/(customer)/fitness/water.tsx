@@ -181,10 +181,10 @@ export default function WaterScreen() {
       };
     }
 
-    const rawHours = tempEndHour > tempStartHour 
-      ? tempEndHour - tempStartHour 
+    const rawHours = tempEndHour > tempStartHour
+      ? tempEndHour - tempStartHour
       : 24 - tempStartHour + tempEndHour;
-    
+
     const hours = Math.min(23, rawHours);
     const isOvernight = tempEndHour < tempStartHour;
     const stepMinutes = Math.max(15, Math.round(tempInterval * 60));
@@ -350,7 +350,7 @@ export default function WaterScreen() {
             <View>
               <Text className="text-[#8E8E93] text-xs font-medium">Daily Goal</Text>
               <View className="flex-row items-baseline mt-0.5">
-                <Text className="text-white text-2xl font-bold tracking-tight">
+                <Text className="text-white text-2xl font-semibold tracking-tight">
                   {goalLiters}
                 </Text>
                 <Text className="text-[#8E8E93] text-xs font-semibold ml-1.5 tracking-wider">
@@ -389,7 +389,7 @@ export default function WaterScreen() {
             <Text className="text-[#8E8E93] text-[10px] font-medium tracking-tight text-center">
               Best Streak
             </Text>
-            <Text className="text-white font-bold text-sm mt-0.5 text-center">
+            <Text className="text-white font-semibold text-sm mt-0.5 text-center">
               {streakData?.bestStreak || 0} Days
             </Text>
             <Text className="text-[#D7FF00] text-[10px] font-semibold mt-0.5 text-center">
@@ -410,13 +410,13 @@ export default function WaterScreen() {
                 <Drop size={24} color="#00B2FE" weight="fill" />
                 <Text className="text-white text-3xl font-black mt-1">
                   {displayLiters}
-                  <Text className="text-xl font-bold">L</Text>
+                  <Text className="text-xl font-semibold">L</Text>
                 </Text>
                 <Text className="text-[#8E8E93] text-xs font-semibold mt-0.5">
                   of {goalLiters} L
                 </Text>
                 <View className="bg-[#0A2540] border border-[#00B2FE]/30 rounded-full px-3 py-1 mt-2">
-                  <Text className="text-[#00B2FE] text-[11px] font-bold">
+                  <Text className="text-[#00B2FE] text-[11px] font-semibold">
                     {progressPct}% Completed
                   </Text>
                 </View>
@@ -435,7 +435,7 @@ export default function WaterScreen() {
             <Text className="text-[#8E8E93] text-[10px] font-medium tracking-tight text-center">
               Reminder
             </Text>
-            <Text className="text-white font-bold text-sm mt-0.5 text-center">
+            <Text className="text-white font-semibold text-sm mt-0.5 text-center">
               {isReminderOn ? 'On' : 'Off'}
             </Text>
             <Text className="text-[#C084FC] text-[10px] font-semibold mt-0.5 text-center">
@@ -452,8 +452,8 @@ export default function WaterScreen() {
         {/* 4. Today's Log Section */}
         <View className="mt-2">
           <View className="flex-row items-center justify-between pb-3 border-b border-[#222222]/80">
-            <Text className="text-white text-lg font-bold">Today's Log</Text>
-            <Text className="text-[#00B2FE] text-lg font-bold">{displayLiters} L</Text>
+            <Text className="text-white text-lg font-semibold">Today's Log</Text>
+            <Text className="text-[#00B2FE] text-lg font-semibold">{displayLiters} L</Text>
           </View>
 
           {isLoadingLogs ? (
@@ -560,7 +560,7 @@ export default function WaterScreen() {
             >
               <View className="flex-row items-center justify-between mb-5">
                 <View>
-                  <Text className="text-white text-xl font-bold">Log Water</Text>
+                  <Text className="text-white text-xl font-semibold">Log Water</Text>
                   <Text className="text-[#8E8E93] text-xs mt-0.5">Quick add or enter custom amount</Text>
                 </View>
                 <Pressable
@@ -587,7 +587,7 @@ export default function WaterScreen() {
                     className="flex-1 min-w-[21%] bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl py-3 items-center active:bg-[#00B2FE]/15 active:border-[#00B2FE]"
                   >
                     <Text className="text-xl mb-1">{preset.icon}</Text>
-                    <Text className="text-white font-bold text-sm">{preset.amount}</Text>
+                    <Text className="text-white font-semibold text-sm">{preset.amount}</Text>
                     <Text className="text-[#8E8E93] text-[9px] uppercase font-semibold">ml</Text>
                   </Pressable>
                 ))}
@@ -615,7 +615,7 @@ export default function WaterScreen() {
                   disabled={isLogging || !customAmountText.trim()}
                   className="bg-[#00B2FE] py-3.5 px-6 rounded-2xl active:opacity-80 disabled:opacity-40"
                 >
-                  <Text className="text-black font-bold text-base">Add</Text>
+                  <Text className="text-black font-semibold text-base">Add</Text>
                 </Pressable>
               </View>
             </View>
@@ -640,7 +640,7 @@ export default function WaterScreen() {
           <View className="bg-[#141414] border-t border-[#2A2A2A] rounded-t-3xl p-6 pb-10">
             <View className="flex-row items-center justify-between mb-5">
               <View>
-                <Text className="text-white text-xl font-bold">Daily Hydration Goal</Text>
+                <Text className="text-white text-xl font-semibold">Daily Hydration Goal</Text>
                 <Text className="text-[#8E8E93] text-xs mt-0.5">Customize your daily water target</Text>
               </View>
               <Pressable
@@ -668,7 +668,7 @@ export default function WaterScreen() {
                 <View className="items-center">
                   <Text className="text-white text-4xl font-black">
                     {(tempGoalML / 1000).toFixed(1)}
-                    <Text className="text-2xl text-[#00B2FE] font-bold"> L</Text>
+                    <Text className="text-2xl text-[#00B2FE] font-semibold"> L</Text>
                   </Text>
                   <Text className="text-[#8E8E93] text-xs mt-1">{tempGoalML} ml per day</Text>
                 </View>
@@ -695,16 +695,14 @@ export default function WaterScreen() {
                     triggerLightHaptic();
                     setTempGoalML(ml);
                   }}
-                  className={`flex-1 py-2.5 rounded-xl border items-center ${
-                    tempGoalML === ml
+                  className={`flex-1 py-2.5 rounded-xl border items-center ${tempGoalML === ml
                       ? 'bg-[#00B2FE]/20 border-[#00B2FE]'
                       : 'bg-[#1A1A1A] border-[#2A2A2A]'
-                  }`}
+                    }`}
                 >
                   <Text
-                    className={`text-xs font-bold ${
-                      tempGoalML === ml ? 'text-[#00B2FE]' : 'text-white'
-                    }`}
+                    className={`text-xs font-semibold ${tempGoalML === ml ? 'text-[#00B2FE]' : 'text-white'
+                      }`}
                   >
                     {(ml / 1000).toFixed(1)}L
                   </Text>
@@ -721,7 +719,7 @@ export default function WaterScreen() {
               {isUpdatingGoal ? (
                 <ActivityIndicator color="#000000" />
               ) : (
-                <Text className="text-black font-bold text-base">Save Daily Goal</Text>
+                <Text className="text-black font-semibold text-base">Save Daily Goal</Text>
               )}
             </Pressable>
           </View>
@@ -745,7 +743,7 @@ export default function WaterScreen() {
           <View className="bg-[#141414] border-t border-[#2A2A2A] rounded-t-3xl p-6 pb-10 max-h-[88%]">
             <View className="flex-row items-center justify-between mb-5">
               <View>
-                <Text className="text-white text-xl font-bold">Active Window & Reminders</Text>
+                <Text className="text-white text-xl font-semibold">Active Window & Reminders</Text>
                 <Text className="text-[#8E8E93] text-xs mt-0.5">Customize your active hours and notification schedule</Text>
               </View>
               <Pressable
@@ -864,7 +862,7 @@ export default function WaterScreen() {
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center gap-2">
                       <Clock size={16} color="#EF4444" weight="bold" />
-                      <Text className="text-red-400 text-xs font-bold">
+                      <Text className="text-red-400 text-xs font-semibold">
                         Invalid Window (0 hours)
                       </Text>
                     </View>
@@ -875,7 +873,7 @@ export default function WaterScreen() {
                       }}
                       className="bg-red-500/20 px-2.5 py-1 rounded-lg border border-red-500/40 active:opacity-75"
                     >
-                      <Text className="text-red-300 text-[11px] font-bold">Fix (+1 hr)</Text>
+                      <Text className="text-red-300 text-[11px] font-semibold">Fix (+1 hr)</Text>
                     </Pressable>
                   </View>
                   <Text className="text-red-300/80 text-[11px] mt-1.5">
@@ -887,7 +885,7 @@ export default function WaterScreen() {
                   <View className="flex-row items-center gap-2">
                     <Clock size={16} color="#C084FC" weight="bold" />
                     <View>
-                      <Text className="text-white text-xs font-bold">
+                      <Text className="text-white text-xs font-semibold">
                         {activeWindowInfo.badgeText}
                       </Text>
                       <Text className="text-[#8E8E93] text-[10px] mt-0.5">
@@ -914,16 +912,14 @@ export default function WaterScreen() {
                         setTempStartHour(p.start);
                         setTempEndHour(p.end);
                       }}
-                      className={`py-2 px-3 rounded-xl border flex-1 min-w-[45%] items-center ${
-                        isSelected
+                      className={`py-2 px-3 rounded-xl border flex-1 min-w-[45%] items-center ${isSelected
                           ? 'bg-[#C084FC]/20 border-[#C084FC]'
                           : 'bg-[#1A1A1A] border-[#2A2A2A]'
-                      }`}
+                        }`}
                     >
                       <Text
-                        className={`text-xs font-bold ${
-                          isSelected ? 'text-[#C084FC]' : 'text-white'
-                        }`}
+                        className={`text-xs font-semibold ${isSelected ? 'text-[#C084FC]' : 'text-white'
+                          }`}
                       >
                         {p.label}
                       </Text>
@@ -949,18 +945,16 @@ export default function WaterScreen() {
                             triggerLightHaptic();
                             setTempInterval(hrs);
                           }}
-                          className={`flex-1 py-3 px-1 rounded-xl border items-center justify-center ${
-                            isSelected
+                          className={`flex-1 py-3 px-1 rounded-xl border items-center justify-center ${isSelected
                               ? 'bg-[#C084FC]/20 border-[#C084FC]'
                               : 'bg-[#1A1A1A] border-[#2A2A2A]'
-                          }`}
+                            }`}
                         >
                           <Text
                             numberOfLines={1}
                             adjustsFontSizeToFit
-                            className={`text-[11px] font-bold text-center ${
-                              isSelected ? 'text-[#C084FC]' : 'text-white'
-                            }`}
+                            className={`text-[11px] font-semibold text-center ${isSelected ? 'text-[#C084FC]' : 'text-white'
+                              }`}
                           >
                             {hrs === 0.5 ? '30 min' : `${hrs} hr`}
                           </Text>
@@ -975,19 +969,17 @@ export default function WaterScreen() {
               <Pressable
                 onPress={handleSaveReminderSettings}
                 disabled={updatePreference.isPending || !activeWindowInfo.isValid}
-                className={`py-4 rounded-2xl items-center mt-2 mb-2 ${
-                  !activeWindowInfo.isValid
+                className={`py-4 rounded-2xl items-center mt-2 mb-2 ${!activeWindowInfo.isValid
                     ? 'bg-[#2A2A2A] opacity-50'
                     : 'bg-[#C084FC] active:opacity-80'
-                }`}
+                  }`}
               >
                 {updatePreference.isPending ? (
                   <ActivityIndicator color="#000000" size="small" />
                 ) : (
                   <Text
-                    className={`font-bold text-base ${
-                      !activeWindowInfo.isValid ? 'text-[#8E8E93]' : 'text-black'
-                    }`}
+                    className={`font-semibold text-base ${!activeWindowInfo.isValid ? 'text-[#8E8E93]' : 'text-black'
+                      }`}
                   >
                     {!activeWindowInfo.isValid ? 'Set Valid Window (Min 1 hr)' : 'Save Active Window'}
                   </Text>
@@ -1038,11 +1030,11 @@ export default function WaterScreen() {
                 <Pressable onPress={() => setPickerState(null)}>
                   <Text className="text-[#8E8E93] text-base font-medium">Cancel</Text>
                 </Pressable>
-                <Text className="text-white font-bold text-base">
+                <Text className="text-white font-semibold text-base">
                   Select {pickerState?.field === 'start' ? 'Start' : 'End'} Time
                 </Text>
                 <Pressable onPress={() => setPickerState(null)}>
-                  <Text className="text-[#C084FC] font-bold text-base">Done</Text>
+                  <Text className="text-[#C084FC] font-semibold text-base">Done</Text>
                 </Pressable>
               </View>
               <DateTimePicker
@@ -1094,7 +1086,7 @@ export default function WaterScreen() {
           <View className="bg-[#141414] border-t border-[#2A2A2A] rounded-t-3xl p-6 pb-10">
             <View className="flex-row items-center justify-between mb-5">
               <View>
-                <Text className="text-white text-xl font-bold">Hydration Streak</Text>
+                <Text className="text-white text-xl font-semibold">Hydration Streak</Text>
                 <Text className="text-[#8E8E93] text-xs mt-0.5">Celebrate consistency and stay inspired</Text>
               </View>
               <Pressable
@@ -1130,11 +1122,10 @@ export default function WaterScreen() {
               {(streakData?.weeklyHistory || []).map((day, idx) => (
                 <View key={idx} className="items-center gap-1.5 flex-1">
                   <View
-                    className={`w-8 h-8 rounded-full items-center justify-center ${
-                      day.completed
+                    className={`w-8 h-8 rounded-full items-center justify-center ${day.completed
                         ? 'bg-[#00B2FE]'
                         : 'bg-[#262626] border border-[#333333]'
-                    }`}
+                      }`}
                   >
                     {day.completed ? (
                       <Check size={16} color="#000000" weight="bold" />
@@ -1151,7 +1142,7 @@ export default function WaterScreen() {
               onPress={() => setIsStreakModalVisible(false)}
               className="bg-[#D7FF00] py-4 rounded-2xl items-center active:opacity-80"
             >
-              <Text className="text-black font-bold text-base">Keep Going!</Text>
+              <Text className="text-black font-semibold text-base">Keep Going!</Text>
             </Pressable>
           </View>
         </View>

@@ -9,15 +9,46 @@ import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { useUserById } from '@/hooks/users';
 import { useWorkouts } from '@/hooks/workouts/useWorkouts';
 
+const MUSCLE_SUBTITLES: Record<string, string> = {
+  chest: 'Target your chest muscles',
+  back: 'Target your back muscles',
+  shoulder: 'Target your shoulder muscles',
+  abs: 'Target your core & abs',
+  biceps: 'Target your bicep muscles',
+  calves: 'Target your calf muscles',
+  cardio: 'Boost endurance & burn calories',
+  forearms: 'Target your forearm & grip strength',
+  hips: 'Target your hips & glutes',
+  trapezius: 'Target your upper back & traps',
+  triceps: 'Target your tricep muscles',
+  legs: 'Target your leg muscles',
+};
+
 const DEFAULT_MUSCLE_GROUPS = [
-  { id: 'chest', workoutId: 'chest', title: 'Chest', subtitle: 'Target your chest muscles' },
-  { id: 'back', workoutId: 'back', title: 'Back', subtitle: 'Target your back muscles' },
-  { id: 'shoulders', workoutId: 'shoulders', title: 'Shoulders', subtitle: 'Target your shoulder muscles' },
-  { id: 'legs', workoutId: 'legs', title: 'Legs', subtitle: 'Target your leg muscles' },
-  { id: 'biceps', workoutId: 'biceps', title: 'Biceps', subtitle: 'Target your bicep muscles' },
-  { id: 'triceps', workoutId: 'triceps', title: 'Triceps', subtitle: 'Target your tricep muscles' },
-  { id: 'abs', workoutId: 'abs', title: 'Abs', subtitle: 'Target your core & abs' },
+  { id: 'chest', workoutId: 'chest', title: 'Chest', subtitle: MUSCLE_SUBTITLES.chest },
+  { id: 'back', workoutId: 'back', title: 'Back', subtitle: MUSCLE_SUBTITLES.back },
+  { id: 'shoulder', workoutId: 'shoulder', title: 'Shoulder', subtitle: MUSCLE_SUBTITLES.shoulder },
+  { id: 'abs', workoutId: 'abs', title: 'Abs', subtitle: MUSCLE_SUBTITLES.abs },
+  { id: 'biceps', workoutId: 'biceps', title: 'Biceps', subtitle: MUSCLE_SUBTITLES.biceps },
+  { id: 'calves', workoutId: 'calves', title: 'Calves', subtitle: MUSCLE_SUBTITLES.calves },
+  { id: 'cardio', workoutId: 'cardio', title: 'Cardio', subtitle: MUSCLE_SUBTITLES.cardio },
+  { id: 'forearms', workoutId: 'forearms', title: 'Forearms', subtitle: MUSCLE_SUBTITLES.forearms },
+  { id: 'hips', workoutId: 'hips', title: 'Hips', subtitle: MUSCLE_SUBTITLES.hips },
+  { id: 'trapezius', workoutId: 'trapezius', title: 'Trapezius', subtitle: MUSCLE_SUBTITLES.trapezius },
+  { id: 'triceps', workoutId: 'triceps', title: 'Triceps', subtitle: MUSCLE_SUBTITLES.triceps },
 ];
+
+function getCanonicalMuscleKey(rawType: string): string {
+  const lower = (rawType || '').toLowerCase().trim();
+  if (lower.startsWith('shoulder')) return 'shoulder';
+  if (lower.startsWith('tricep')) return 'triceps';
+  if (lower.startsWith('bicep')) return 'biceps';
+  if (lower === 'calf' || lower === 'calves') return 'calves';
+  if (lower === 'hip' || lower === 'hips') return 'hips';
+  if (lower === 'trap' || lower === 'traps' || lower === 'trapezius') return 'trapezius';
+  if (lower === 'forearm' || lower === 'forearms') return 'forearms';
+  return lower;
+}
 
 export default function ChooseMuscleGroup() {
   const { day } = useLocalSearchParams<{ day: string }>();
@@ -41,7 +72,9 @@ export default function ChooseMuscleGroup() {
   const { data: workouts, isLoading } = useWorkouts(userGender);
 
   const currentPlan = planDays[currentEditingWeek]?.[day || ''];
-  const selectedType = currentPlan?.workoutType;
+  const selectedType = (currentPlan?.exercises && currentPlan.exercises.length > 0)
+    ? currentPlan.workoutType
+    : undefined;
 
   const handleSelectMuscle = (type: string, workoutId: string) => {
     try {
@@ -55,54 +88,65 @@ export default function ChooseMuscleGroup() {
       const resolvedWorkout = workouts?.find(w => w.workoutType?.toLowerCase() === type.toLowerCase());
       const safeWorkoutId = isValidUUID(workoutId) ? workoutId : (resolvedWorkout?.workoutId || null);
 
-      setPlanDays(prev => {
-        const weekData = prev[currentEditingWeek] || {};
-        return {
-          ...prev,
-          [currentEditingWeek]: {
-            ...weekData,
-            [day]: {
-              ...(weekData[day] || {}),
-              dayOfWeek: day,
-              workoutType: type,
-              workoutId: safeWorkoutId,
-              exercises: weekData[day]?.exercises || []
-            }
-          }
-        };
-      });
-
       router.push({
         pathname: '/(customer)/workoutPlan/customize-workout',
-        params: { day, muscleGroup: type, gender: userGender }
+        params: {
+          day,
+          muscleGroup: type,
+          workoutId: safeWorkoutId || '',
+          gender: userGender,
+        }
       });
     } catch (error) {
       console.error('[ChooseMuscleGroup] handleSelectMuscle Error:', error);
     }
   };
 
-  const uniqueTypes = new Set<string>();
-  const dynamicMuscleGroups = workouts?.reduce((acc, w) => {
-    const typeStr = w.workoutType;
-    if (!uniqueTypes.has(typeStr)) {
-      uniqueTypes.add(typeStr);
-      acc.push({
-        id: typeStr,
-        workoutId: w.workoutId,
-        title: typeStr.charAt(0).toUpperCase() + typeStr.slice(1),
-        subtitle: `Target your ${typeStr} muscles`
-      });
-    }
-    return acc;
-  }, [] as Array<{ id: string, workoutId: string, title: string, subtitle: string }>) || [];
+  const muscleGroupsToDisplay = React.useMemo(() => {
+    const merged: Array<{ id: string; workoutId: string; title: string; subtitle: string }> = [];
+    const seenCanonical = new Set<string>();
 
-  const muscleGroupsToDisplay = dynamicMuscleGroups.length > 0 ? dynamicMuscleGroups : DEFAULT_MUSCLE_GROUPS;
+    // First collect database workout entries (preserving real workoutId when present)
+    if (workouts && workouts.length > 0) {
+      for (const w of workouts) {
+        const typeStr = (w.workoutType || '').trim();
+        if (!typeStr) continue;
+        const canonical = getCanonicalMuscleKey(typeStr);
+        if (seenCanonical.has(canonical)) continue;
+        seenCanonical.add(canonical);
+
+        merged.push({
+          id: typeStr,
+          workoutId: w.workoutId || typeStr,
+          title: canonical.charAt(0).toUpperCase() + canonical.slice(1),
+          subtitle: MUSCLE_SUBTITLES[canonical] || `Target your ${typeStr} muscles`,
+        });
+      }
+    }
+
+    // Ensure all 11 supported workout types are always available even if the DB only returned a subset
+    for (const def of DEFAULT_MUSCLE_GROUPS) {
+      const canonical = getCanonicalMuscleKey(def.id);
+      if (!seenCanonical.has(canonical)) {
+        seenCanonical.add(canonical);
+        merged.push(def);
+      }
+    }
+
+    return merged;
+  }, [workouts]);
 
   return (
     <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
       <View className="flex-row items-center mb-6">
         <Pressable
-          onPress={() => router.push('/(customer)/workoutPlan/assign-days')}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(customer)/workoutPlan/assign-days' as any);
+            }
+          }}
           className="w-10 h-10 rounded-full border border-[#242424] items-center justify-center bg-[#161616] mr-4 active:opacity-70"
         >
           <ArrowLeft size={20} color="#fff" />
@@ -117,12 +161,15 @@ export default function ChooseMuscleGroup() {
           Select the muscle group you want to train on {day}.
         </Text>
 
-        {isLoading && dynamicMuscleGroups.length === 0 ? (
+        {isLoading && muscleGroupsToDisplay.length === 0 ? (
           <ActivityIndicator size="large" color="#C4EF00" className="mt-10" />
         ) : (
           <View className="flex-row flex-wrap justify-between w-full">
             {muscleGroupsToDisplay.map((item: any) => {
-              const isSelected = selectedType === item.id;
+              const isSelected = Boolean(
+                selectedType &&
+                getCanonicalMuscleKey(selectedType) === getCanonicalMuscleKey(item.id)
+              );
               return (
                 <Pressable
                   key={item.workoutId}

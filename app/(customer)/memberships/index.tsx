@@ -26,6 +26,7 @@ import { useIndividualCustomerPlans } from '@/hooks/individual/membership/indivi
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
 import { triggerMediumHaptic } from '@/lib/haptics';
+import { resolveActiveSupabaseSession, buildWebSsoUrl } from '@/lib/webSso';
 import {
   calculateRemainingDays,
   parseDurationMonths,
@@ -294,21 +295,7 @@ export default function MembershipsScreen() {
 
     let targetUrl = 'https://www.gkgymlife.com/customer';
     try {
-      let session: any = null;
-      try {
-        const sessionRes = await supabase.auth.getSession();
-        session = sessionRes?.data?.session;
-        if (!session?.access_token || (session.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
-          const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
-          if (refreshData?.session) {
-            session = refreshData.session;
-          } else if (refreshErr) {
-            console.warn('[Memberships] Token refresh warning:', refreshErr?.message);
-          }
-        }
-      } catch (sessErr) {
-        console.warn('[Memberships] Session read warning:', sessErr);
-      }
+      const session = await resolveActiveSupabaseSession('Memberships');
 
       if (!session?.access_token && !userId) {
         Alert.alert(
@@ -324,40 +311,22 @@ export default function MembershipsScreen() {
         return;
       }
 
-      const webHost = 'https://www.gkgymlife.com';
-      const baseUrl = `${webHost}/api/auth/sso`;
-      const params = new URLSearchParams();
-
-      params.append('returnTo', '/customer');
       const action =
         actionOverride || (isPendingActivation ? 'activate' : isIndividual ? 'subscribe' : 'renew');
-      params.append('action', action);
-      if (targetPlanId) params.append('planId', targetPlanId);
-      if (targetPlanName) params.append('planName', targetPlanName);
-      if (targetAmount !== undefined && targetAmount !== null) params.append('amount', String(targetAmount));
-
-      if (userId) params.append('userId', userId);
-      if (role) params.append('role', role);
-      if (customerProfileData?.customerData?.customerId) {
-        params.append('customerId', customerProfileData.customerData.customerId);
-      }
-      const gymIdVal = customerProfileData?.customerData?.gymId || gymId;
-      if (gymIdVal) params.append('gymId', gymIdVal);
-
-      const emailVal = session?.user?.email || customerProfileData?.customerData?.email || userEmail;
-      const phoneVal = session?.user?.phone || customerProfileData?.customerData?.phone || userPhone;
-      if (emailVal) params.append('email', emailVal);
-      if (phoneVal) params.append('phone', phoneVal);
-
-      if (session?.access_token) {
-        params.append('access_token', session.access_token);
-        if (session.refresh_token) {
-          params.append('refresh_token', session.refresh_token);
-        }
-      }
-
-      const queryString = params.toString() ? `?${params.toString()}` : '';
-      targetUrl = `${baseUrl}${queryString}`;
+      targetUrl = buildWebSsoUrl({
+        returnTo: '/customer',
+        action,
+        planId: targetPlanId,
+        planName: targetPlanName,
+        amount: targetAmount,
+        userId,
+        role,
+        customerId: customerProfileData?.customerData?.customerId,
+        gymId: customerProfileData?.customerData?.gymId || gymId,
+        email: customerProfileData?.customerData?.email || userEmail,
+        phone: customerProfileData?.customerData?.phone || userPhone,
+        session,
+      });
 
       try {
         await WebBrowser.openBrowserAsync(targetUrl, {

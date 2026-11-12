@@ -37,7 +37,7 @@ export default function CustomerLayout() {
         const selectedGym = await getSelectedGym();
         if (selectedGym?.gymId && userId) {
           const authResult = await verifyUserGymMembership(userId, email, selectedGym.gymId);
-          if (!authResult.isAuthorized) {
+          if (!authResult.isAuthorized && authResult.reason !== 'ERROR') {
             console.warn(`[CustomerLayout] Mismatch detected: user ${email} is not authorized for gym ${selectedGym.gymId}`);
             await supabase.auth.signOut();
             await clearSelectedGym();

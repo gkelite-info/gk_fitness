@@ -6,7 +6,15 @@ import { ArrowLeft, Repeat, CalendarPlus, Check, CaretRight } from 'phosphor-rea
 import { useWorkoutPlan } from './_layout';
 
 export default function ChoosePlanMode() {
-  const { planMode, setPlanMode } = useWorkoutPlan();
+  const { planMode, setPlanMode, setPlanDays, setCurrentEditingWeek } = useWorkoutPlan();
+
+  const handleSelectMode = (nextMode: 'repeat' | 'custom') => {
+    if (nextMode !== planMode) {
+      setPlanMode(nextMode);
+      setPlanDays({ 1: {}, 2: {}, 3: {}, 4: {} });
+      setCurrentEditingWeek(1);
+    }
+  };
 
   const handleContinue = () => {
     router.push('/(customer)/workoutPlan/assign-days');
@@ -16,7 +24,13 @@ export default function ChoosePlanMode() {
     <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
       <View className="flex-row items-center mb-6">
         <Pressable
-          onPress={() => router.push('/(customer)/workoutPlan')}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(customer)/workoutPlan' as any);
+            }
+          }}
           className="w-10 h-10 rounded-full border border-[#242424] items-center justify-center bg-[#161616] mr-4 active:opacity-70"
         >
           <ArrowLeft size={20} color="#fff" />
@@ -33,7 +47,7 @@ export default function ChoosePlanMode() {
 
         <View className="gap-4 mb-8">
           <Pressable
-            onPress={() => setPlanMode('repeat')}
+            onPress={() => handleSelectMode('repeat')}
             className={`border p-5 rounded-3xl ${planMode === 'repeat' ? 'border-[#C4EF00] bg-[#1a1a1a]' : 'border-[#27272A] bg-[#111111]'}`}
           >
             <View className="flex-row justify-between items-start mb-3">
@@ -51,7 +65,7 @@ export default function ChoosePlanMode() {
           </Pressable>
 
           <Pressable
-            onPress={() => setPlanMode('custom')}
+            onPress={() => handleSelectMode('custom')}
             className={`border p-5 rounded-3xl ${planMode === 'custom' ? 'border-[#C4EF00] bg-[#1a1a1a]' : 'border-[#27272A] bg-[#111111]'}`}
           >
             <View className="flex-row justify-between items-start mb-3">

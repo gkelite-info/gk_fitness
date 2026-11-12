@@ -33,6 +33,7 @@ export default function ConfirmModal({
     <Modal
       animationType="fade"
       transparent={true}
+      statusBarTranslucent={true}
       visible={visible}
       onRequestClose={onClose}
     >

@@ -57,8 +57,8 @@ export default function ReviewPlan() {
       const templateWeek = (planDays[1] && Object.keys(planDays[1]).length > 0)
         ? planDays[1]
         : (planDays[currentEditingWeek] && Object.keys(planDays[currentEditingWeek]).length > 0)
-        ? planDays[currentEditingWeek]
-        : (planDays[2] || planDays[3] || planDays[4] || {});
+          ? planDays[currentEditingWeek]
+          : (planDays[2] || planDays[3] || planDays[4] || {});
 
       let savedSuccessfully = false;
 
@@ -84,14 +84,14 @@ export default function ReviewPlan() {
         try {
           const { data: wList } = await supabase.from('workouts').select('workoutId').eq('is_deleted', false);
           if (wList) validWorkoutIds = new Set(wList.map((w: any) => w.workoutId));
-        } catch {}
+        } catch { }
 
         // Preload valid workout video IDs to avoid foreign key errors
         let validVideoIds = new Set<string>();
         try {
           const { data: vList } = await supabase.from('workout_videos').select('workoutVideoId').eq('is_deleted', false);
           if (vList) validVideoIds = new Set(vList.map((v: any) => v.workoutVideoId));
-        } catch {}
+        } catch { }
 
         for (const week of weeksToSave) {
           const weekData = planMode === 'repeat' ? templateWeek : (planDays[week] || templateWeek);
@@ -221,9 +221,8 @@ export default function ReviewPlan() {
   const recoveryCount = 7 - workoutsCount;
 
   return (
-    <View className="flex-1 bg-black">
-      {/* Header */}
-      <View className="px-5 pt-14 pb-4 flex-row items-center border-b border-[#27272A] bg-black">
+    <View className="flex-1 bg-black pb-28">
+      <View className="px-5 pt-5 pb-4 flex-row items-center border-b border-[#27272A] bg-black">
         <Pressable
           onPress={() => router.back()}
           className="w-10 h-10 items-center justify-center rounded-full bg-[#18181A] border border-[#27272A] mr-3 active:opacity-75"
@@ -231,13 +230,12 @@ export default function ReviewPlan() {
           <ArrowLeft size={20} color="#FFFFFF" weight="bold" />
         </Pressable>
         <View className="flex-1">
-          <Text className="text-white text-xl font-bold tracking-tight">Review Your Plan</Text>
+          <Text className="text-white text-xl font-semibold tracking-tight">Review Your Plan</Text>
           <Text className="text-[#8E8E8E] text-xs mt-0.5">Customized 4-Week Schedule</Text>
         </View>
       </View>
 
       <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Week Selector Tab Bar */}
         <View className="flex-row bg-[#141414] p-1 rounded-2xl mb-5 border border-[#27272A]">
           {[1, 2, 3, 4].map((wk) => {
             const isActive = currentEditingWeek === wk;
@@ -245,14 +243,12 @@ export default function ReviewPlan() {
               <Pressable
                 key={wk}
                 onPress={() => setCurrentEditingWeek(wk)}
-                className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
-                  isActive ? 'bg-[#C4EF00]' : 'bg-transparent'
-                }`}
+                className={`flex-1 py-2.5 rounded-xl items-center justify-center ${isActive ? 'bg-[#C4EF00]' : 'bg-transparent'
+                  }`}
               >
                 <Text
-                  className={`text-xs font-bold ${
-                    isActive ? 'text-black' : 'text-[#8E8E8E]'
-                  }`}
+                  className={`text-xs font-semibold ${isActive ? 'text-black' : 'text-[#8E8E8E]'
+                    }`}
                 >
                   WEEK {wk}
                 </Text>

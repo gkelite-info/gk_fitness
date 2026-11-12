@@ -81,7 +81,13 @@ export default function AssignDays() {
     <View className="flex-1 bg-[#0A0A0A] px-5 pt-5 pb-28 justify-between">
       <View className="flex-row items-center mb-6">
         <Pressable
-          onPress={() => router.push('/(customer)/workoutPlan/choose-plan-mode' as any)}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(customer)/workoutPlan/choose-plan-mode' as any);
+            }
+          }}
           className="w-10 h-10 rounded-full border border-[#242424] items-center justify-center bg-[#161616] mr-4 active:opacity-70"
         >
           <ArrowLeft size={20} color="#fff" />

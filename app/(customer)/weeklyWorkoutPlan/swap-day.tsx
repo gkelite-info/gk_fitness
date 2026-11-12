@@ -15,7 +15,7 @@ export default function SwapDay() {
   const { dayId, weekNumber } = useLocalSearchParams<{ dayId: string; weekNumber?: string }>();
   const { userId } = useUser();
   const [selectedDayId, setSelectedDayId] = useState('');
-  
+
   const queryClient = useQueryClient();
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
 
@@ -103,7 +103,6 @@ export default function SwapDay() {
 
   return (
     <View className="flex-1 bg-[#0A0A0A] pt-3 px-4 pb-20">
-      {/* Header */}
       <View className="flex-row items-center mb-5">
         <Pressable
           onPress={() => router.back()}
@@ -112,7 +111,7 @@ export default function SwapDay() {
           <ArrowLeft size={20} color="#fff" />
         </Pressable>
         <View>
-          <Text className="text-white text-xl font-bold">Swap Workout Day</Text>
+          <Text className="text-white text-xl font-semibold">Swap Workout Day</Text>
           <Text className="text-[#8E8E8E] text-xs">Move this workout to another day of the week.</Text>
         </View>
       </View>
@@ -122,8 +121,8 @@ export default function SwapDay() {
           <ActivityIndicator size="large" color="#D4FF00" />
         </View>
       ) : currentWorkout ? (
-        <ScrollView 
-          showsVerticalScrollIndicator={false} 
+        <ScrollView
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 120 }}
           refreshControl={<CustomRefreshControl refreshing={isManualRefreshing} onRefresh={handleRefresh} />}
         >
@@ -135,7 +134,7 @@ export default function SwapDay() {
           <View className="bg-[#121212] rounded-3xl border border-[#262626] p-4 flex-row items-center mb-1">
             <View className="bg-[#D4FF00] rounded-2xl w-[70px] h-[75px] items-center justify-center mr-4">
               <Text className="text-black text-xs font-semibold uppercase mb-0.5">{currentWorkout.dayAbbr}</Text>
-              <Text className="text-black text-3xl font-black">{currentWorkout.date}</Text>
+              <Text className="text-black text-2xl font-semibold">{currentWorkout.date}</Text>
             </View>
             <View className="flex-1">
               <Text className="text-white text-xl font-semibold mb-1.5">{currentWorkout.title}</Text>

@@ -467,6 +467,7 @@ export async function findGymCustomer(params: {
   userId?: string | null;
   email?: string | null;
   phone?: string | null;
+  silentNotFound?: boolean;
 }) {
   const cleanPhone = params.phone ? params.phone.replace(/[^\d+]/g, '').trim() : '';
   const digitsOnly = cleanPhone.replace(/[^\d]/g, '');
@@ -617,7 +618,9 @@ export async function findGymCustomer(params: {
     }
   }
 
-  console.warn('[customerHelper] findGymCustomer: No matching gym_customers record found.');
+  if (!params.silentNotFound) {
+    console.warn('[customerHelper] findGymCustomer: No matching gym_customers record found.');
+  }
   return null;
 }
 

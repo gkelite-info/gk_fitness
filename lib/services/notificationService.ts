@@ -29,9 +29,37 @@ function withTimeout<T = any>(promise: Promise<any>, ms: number, stepName: strin
   ]);
 }
 
+export function getNotifications() {
+  if (isExpoGo) return null;
+  if (!Notifications) {
+    try {
+      Notifications = require('expo-notifications');
+      if (Notifications?.setNotificationHandler) {
+        try {
+          Notifications.setNotificationHandler({
+            handleNotification: async () => ({
+              shouldShowAlert: true,
+              shouldShowBanner: true,
+              shouldShowList: true,
+              shouldPlaySound: true,
+              shouldSetBadge: true,
+            }),
+          });
+        } catch (handlerErr: any) {
+          console.warn('[notificationService] setNotificationHandler failed (native module missing in this build):', handlerErr?.message || handlerErr);
+        }
+      }
+    } catch (error) {
+      console.warn('[notificationService] Failed to load expo-notifications:', error);
+    }
+  }
+  return Notifications;
+}
+
 let channelsSetupPromise: Promise<void> | null = null;
 export async function setupNotificationChannels(): Promise<void> {
-  if (Platform.OS !== 'android' || !Notifications?.setNotificationChannelAsync) {
+  const notifs = getNotifications();
+  if (Platform.OS !== 'android' || !notifs?.setNotificationChannelAsync) {
     return;
   }
   if (channelsSetupPromise) {
@@ -40,9 +68,9 @@ export async function setupNotificationChannels(): Promise<void> {
   channelsSetupPromise = (async () => {
     try {
       await withTimeout(
-        Notifications.setNotificationChannelAsync('default', {
+        notifs.setNotificationChannelAsync('default', {
           name: 'Default',
-          importance: Notifications.AndroidImportance.MAX,
+          importance: notifs.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#CCF200',
           enableVibrate: true,
@@ -53,9 +81,9 @@ export async function setupNotificationChannels(): Promise<void> {
       );
 
       await withTimeout(
-        Notifications.setNotificationChannelAsync('reminders', {
+        notifs.setNotificationChannelAsync('reminders', {
           name: 'Reminders & Workouts',
-          importance: Notifications.AndroidImportance.HIGH,
+          importance: notifs.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#CCF200',
           enableVibrate: true,
@@ -73,41 +101,18 @@ export async function setupNotificationChannels(): Promise<void> {
 }
 
 export async function clearAppBadge(): Promise<void> {
-  if (isExpoGo || !Notifications?.setBadgeCountAsync) return;
+  const notifs = getNotifications();
+  if (isExpoGo || !notifs?.setBadgeCountAsync) return;
   try {
-    await Notifications.setBadgeCountAsync(0);
+    await notifs.setBadgeCountAsync(0);
   } catch (err) {
     console.warn('[notificationService] Failed to clear badge count:', err);
   }
 }
 
-if (!isExpoGo) {
-  try {
-    Notifications = require('expo-notifications');
-    if (Notifications?.setNotificationHandler) {
-      try {
-        Notifications.setNotificationHandler({
-          handleNotification: async () => ({
-            shouldShowAlert: true,
-            shouldShowBanner: true,
-            shouldShowList: true,
-            shouldPlaySound: true,
-            shouldSetBadge: true,
-          }),
-        });
-      } catch (handlerErr: any) {
-        console.warn('[notificationService] setNotificationHandler failed (native module missing in this build):', handlerErr?.message || handlerErr);
-      }
-    }
-    // Initialize channels early on Android
-    setupNotificationChannels().catch(() => {});
-  } catch (error) {
-    console.warn('[notificationService] Failed to load expo-notifications:', error);
-  }
-}
-
 export async function registerForPushNotifications(userId: string): Promise<string | null> {
-  if (isExpoGo || !Notifications) {
+  const notifs = getNotifications();
+  if (isExpoGo || !notifs) {
     return null;
   }
 

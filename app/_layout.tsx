@@ -1,17 +1,6 @@
 import '@/global.css';
 
-import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { LogBox, Platform, Pressable, StatusBar as RNStatusBar } from 'react-native';
-
-// Disable Reanimated strict mode to prevent warnings about reading shared values during component render
-try {
-  configureReanimatedLogger({
-    level: ReanimatedLogLevel.warn,
-    strict: false,
-  });
-} catch {
-  // Graceful fallback for environments where Reanimated logger is unavailable
-}
+import { LogBox, Platform, Pressable, StatusBar as RNStatusBar, View } from 'react-native';
 
 // Ignore intrusive LogBox popups to prevent Fabric crash cascades in Dev
 LogBox.ignoreAllLogs(true);
@@ -50,7 +39,6 @@ import { setupNotificationChannels } from '@/lib/services/notificationService';
 import { useWatchSync } from '@/hooks/watch/useWatchSync';
 
 function WatchSyncListener() {
-  if (Platform.OS !== 'android') return null;
   useWatchSync();
   return null;
 }
@@ -92,7 +80,7 @@ export default function RootLayout() {
   }, []);
 
   if (!loaded && !error) {
-    return null;
+    return <View style={{ flex: 1, backgroundColor: '#0A0A0A' }} />;
   }
 
   return (
@@ -117,7 +105,7 @@ export default function RootLayout() {
                 <Stack.Screen name="community" options={{ headerShown: false }} />
                 <Stack.Screen name="modal" options={MODAL_OPTIONS} />
               </Stack>
-              <WatchSyncListener />
+              {Platform.OS === 'android' && <WatchSyncListener />}
               <ToastProvider />
               <OfflineIndicator />
             </NavThemeProvider>

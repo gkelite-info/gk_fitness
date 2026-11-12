@@ -7,11 +7,19 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "node": "22.14.0",
+      "env": {
+        "RCT_USE_PREBUILT_RNCORE": "0"
+      }
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview"
+      "channel": "preview",
+      "node": "22.14.0",
+      "env": {
+        "RCT_USE_PREBUILT_RNCORE": "0"
+      }
     },
     "production": {
       "node": "22.14.0",

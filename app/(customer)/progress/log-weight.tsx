@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, CalendarBlank, CaretDown, CheckCircle } from 'phosphor-react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useUpdateMeasurements } from '@/hooks/fitness/useUpdateProgress';
+import { useProgressData } from '@/hooks/fitness/useProgressData';
 import { useUser } from '@/context/UserContext';
 import { supabase } from '@/lib/supabase';
 import { fetchCustomerOnboarding } from '@/helpers/onboardingHelper';
@@ -75,6 +76,14 @@ export default function LogWeightModal() {
   const scrollViewRef = useRef<ScrollView>(null);
   const { userId, createdAt: contextCreatedAt } = useUser();
   const { mutateAsync: updateMeasurements, isPending } = useUpdateMeasurements();
+  const { data: progressData } = useProgressData(userId || null);
+
+  const currentWeightFromProgress = progressData?.summary?.currentWeight || 0;
+  const goalWeight = progressData?.summary?.targetWeight || 0;
+
+  const [latestKnownWeight, setLatestKnownWeight] = useState<number>(0);
+  const [hasLoggedForDate, setHasLoggedForDate] = useState<boolean>(false);
+  const displayedCurrentWeight = currentWeightFromProgress > 0 ? currentWeightFromProgress : latestKnownWeight;
 
   const [userCreatedAt, setUserCreatedAt] = useState<Date | null>(() => {
     if (contextCreatedAt) {
@@ -165,7 +174,7 @@ export default function LogWeightModal() {
   // Fetch weight for the user on the selected date:
   // 1. Check customer_measurements matching createdAt or loggedAt for that date
   // 2. If not found, check customer_onboarding matching createdAt for that date
-  // 3. If no record exists for that date in either table, display 0.0 directly
+  // 3. If no record exists for that date in either table, prefill with current/latest weight
   const fetchWeightForDate = async (targetDate: Date) => {
     if (!userId) return;
     setIsFetchingWeight(true);
@@ -181,6 +190,10 @@ export default function LogWeightModal() {
         console.warn('[LogWeight] Error querying customer_measurements:', mError);
       }
 
+      // Check for latest known weight across all records
+      const validM = (measurements || []).filter((m: any) => m.weight != null && Number(m.weight) > 0);
+      let latestWeight = validM.length > 0 ? Number(validM[0].weight) : 0;
+
       const mMatch = (measurements || []).find((m: any) => {
         return isSameCalendarDay(m.createdAt, targetDate) || isSameCalendarDay(m.loggedAt, targetDate);
       });
@@ -191,10 +204,12 @@ export default function LogWeightModal() {
         setWeightInput(val.toFixed(1));
         originalDbWeightRef.current = val;
         setNotes(mMatch.notes || '');
+        setHasLoggedForDate(true);
+        if (latestWeight > 0) setLatestKnownWeight(latestWeight);
         return;
       }
 
-      // 2. Check customer_onboarding where createdAt matches targetDate
+      // 2. Check customer_onboarding
       const { data: onboardingRows, error: obError } = await supabase
         .from('customer_onboarding')
         .select('weight, createdAt')
@@ -203,6 +218,13 @@ export default function LogWeightModal() {
 
       if (obError) {
         console.warn('[LogWeight] Error querying customer_onboarding:', obError);
+      }
+
+      if (latestWeight === 0 && onboardingRows && onboardingRows.length > 0) {
+        const obWithWeight = onboardingRows.find((ob: any) => ob.weight != null && parseFloat(String(ob.weight)) > 0);
+        if (obWithWeight) {
+          latestWeight = parseFloat(String(obWithWeight.weight));
+        }
       }
 
       const obMatch = (onboardingRows || []).find((ob: any) => {
@@ -216,6 +238,8 @@ export default function LogWeightModal() {
           setWeightInput(p.toFixed(1));
           originalDbWeightRef.current = p;
           setNotes('');
+          setHasLoggedForDate(true);
+          if (latestWeight > 0) setLatestKnownWeight(latestWeight);
           return;
         }
       }
@@ -223,6 +247,10 @@ export default function LogWeightModal() {
       // Also check cached/RPC onboarding where createdAt matches targetDate
       try {
         const cachedOb = await fetchCustomerOnboarding(userId);
+        if (latestWeight === 0 && cachedOb?.weight) {
+          const p = parseFloat(String(cachedOb.weight));
+          if (!isNaN(p) && p > 0) latestWeight = p;
+        }
         if (cachedOb && cachedOb.weight && isSameCalendarDay(cachedOb.createdAt, targetDate)) {
           const p = parseFloat(String(cachedOb.weight));
           if (!isNaN(p) && p > 0) {
@@ -230,6 +258,8 @@ export default function LogWeightModal() {
             setWeightInput(p.toFixed(1));
             originalDbWeightRef.current = p;
             setNotes('');
+            setHasLoggedForDate(true);
+            if (latestWeight > 0) setLatestKnownWeight(latestWeight);
             return;
           }
         }
@@ -237,21 +267,38 @@ export default function LogWeightModal() {
         console.warn('[LogWeight] Error checking cached onboarding:', cacheErr);
       }
 
-      // 3. No weight logged or created for this user on the selected date -> display 0.0 directly
-      setWeight(0);
-      setWeightInput('0.0');
-      originalDbWeightRef.current = 0;
+      if (latestWeight > 0) {
+        setLatestKnownWeight(latestWeight);
+      }
+
+      // 3. No weight logged or created for this user on the selected date -> prefill with latest or current weight
+      setHasLoggedForDate(false);
+      const fallback = latestWeight > 0 ? latestWeight : (currentWeightFromProgress > 0 ? currentWeightFromProgress : 0);
+      setWeight(fallback);
+      setWeightInput(fallback > 0 ? fallback.toFixed(1) : '0.0');
+      originalDbWeightRef.current = fallback;
       setNotes('');
     } catch (err) {
       console.error('[LogWeight] Exception in fetchWeightForDate:', err);
-      setWeight(0);
-      setWeightInput('0.0');
-      originalDbWeightRef.current = 0;
+      setHasLoggedForDate(false);
+      const fallback = currentWeightFromProgress > 0 ? currentWeightFromProgress : 0;
+      setWeight(fallback);
+      setWeightInput(fallback > 0 ? fallback.toFixed(1) : '0.0');
+      originalDbWeightRef.current = fallback;
       setNotes('');
     } finally {
       setIsFetchingWeight(false);
     }
   };
+
+  // Sync with currentWeightFromProgress when it finishes loading if not yet logged for this date
+  useEffect(() => {
+    if (!hasLoggedForDate && currentWeightFromProgress > 0 && (weight === 0 || weightInput === '0.0')) {
+      setWeight(currentWeightFromProgress);
+      setWeightInput(currentWeightFromProgress.toFixed(1));
+      originalDbWeightRef.current = currentWeightFromProgress;
+    }
+  }, [currentWeightFromProgress, hasLoggedForDate]);
 
   // Initial fetch on mount
   useEffect(() => {
@@ -311,18 +358,18 @@ export default function LogWeightModal() {
     const trimmed = weightInput.trim();
 
     if (!trimmed) {
-      // Revert directly to what the user ACTUALLY had earlier in customer_measurements / customer_onboarding!
-      const original = originalDbWeightRef.current;
+      // Revert directly to what the user had earlier or current weight
+      const original = originalDbWeightRef.current || displayedCurrentWeight || 0;
       setWeight(original);
-      setWeightInput(original.toFixed(1));
+      setWeightInput(original > 0 ? original.toFixed(1) : '0.0');
       return;
     }
 
     const parsed = parseFloat(trimmed);
     if (isNaN(parsed) || parsed <= 0) {
-      const original = originalDbWeightRef.current;
+      const original = originalDbWeightRef.current || displayedCurrentWeight || 0;
       setWeight(original);
-      setWeightInput(original.toFixed(1));
+      setWeightInput(original > 0 ? original.toFixed(1) : '0.0');
     } else {
       const formatted = Number(parsed.toFixed(1));
       setWeight(formatted);
@@ -334,6 +381,11 @@ export default function LogWeightModal() {
     if (!userId) return;
     const finalWeight = parseFloat(weightInput);
     const weightToSave = isNaN(finalWeight) || finalWeight < 0 ? weight : Number(finalWeight.toFixed(1));
+
+    if (weightToSave <= 0) {
+      toast.error('Please enter a valid weight.');
+      return;
+    }
 
     // Construct timestamp with user's chosen date
     const saveDate = new Date(selectedDate);
@@ -348,6 +400,7 @@ export default function LogWeightModal() {
         loggedAt: loggedAt,
       });
       originalDbWeightRef.current = weightToSave;
+      setHasLoggedForDate(true);
       toast.success('Weight saved successfully!');
       router.back();
     } catch (e: any) {
@@ -371,27 +424,68 @@ export default function LogWeightModal() {
             contentContainerStyle={{
               paddingHorizontal: 20,
               paddingTop: Math.max(insets.top, 24),
-              paddingBottom: (isNotesFocused && keyboardHeight > 0) ? keyboardHeight + 80 : insets.bottom + 40,
+              paddingBottom: (isNotesFocused && keyboardHeight > 0) ? keyboardHeight + 50 : insets.bottom + 90,
             }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             automaticallyAdjustKeyboardInsets={isNotesFocused && Platform.OS === 'ios'}
           >
-            <View className="flex-row justify-between items-center mb-8">
-              <Text className="text-white text-[28px] font-semibold tracking-tight">Today's Weight</Text>
+            <View className="flex-row justify-between items-center mb-6">
+              <View>
+                <Text className="text-white text-[28px] font-semibold tracking-tight">Log Weight</Text>
+                <Text className="text-[#8E8E93] text-[13px] mt-0.5">Record and monitor your daily progress</Text>
+              </View>
               <Pressable
-                className="w-8 h-8 rounded-full bg-[#1C1C1E] items-center justify-center active:opacity-70"
+                className="w-9 h-9 rounded-full bg-[#1C1C1E] items-center justify-center active:opacity-70 border border-[#2A2A2D]"
                 onPress={() => router.back()}
               >
-                <X size={16} color="#8E8E93" weight="bold" />
+                <X size={18} color="#8E8E93" weight="bold" />
               </Pressable>
             </View>
 
-            {/* Current Reading Counter */}
+            <View className="bg-[#1C1C1E] rounded-3xl p-5 mb-6 border border-[#2A2A2D]/50 flex-row justify-between items-center">
+              <View>
+                <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase mb-1">
+                  Current Weight
+                </Text>
+                <View className="flex-row items-baseline gap-1.5">
+                  <Text className="text-white text-[30px] font-semibold tracking-tight">
+                    {displayedCurrentWeight > 0 ? displayedCurrentWeight.toFixed(1) : '0.0'}
+                  </Text>
+                  <Text className="text-[#8E8E93] text-base font-medium">kg</Text>
+                </View>
+              </View>
+
+              {goalWeight > 0 && (
+                <View className="items-end">
+                  <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase mb-1">
+                    Goal Weight
+                  </Text>
+                  <View className="flex-row items-baseline gap-1.5">
+                    <Text className="text-[#D4FF00] text-[26px] font-semibold tracking-tight">
+                      {goalWeight.toFixed(1)}
+                    </Text>
+                    <Text className="text-[#8E8E93] text-sm font-medium">kg</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
             <View className="bg-[#1C1C1E] rounded-3xl p-6 items-center justify-center mb-8 border border-[#2A2A2D]/50">
-              <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase mb-6">
-                Current Reading
-              </Text>
+              <View className="flex-row items-center justify-between w-full mb-6">
+                <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase">
+                  Weight Reading
+                </Text>
+                <View className={`px-2.5 py-1 rounded-full ${hasLoggedForDate ? 'bg-[#D4FF00]/15' : 'bg-[#2A2A2D]'}`}>
+                  <Text className={`text-[11px] font-medium ${hasLoggedForDate ? 'text-[#D4FF00]' : 'text-[#8E8E93]'}`}>
+                    {hasLoggedForDate
+                      ? 'Recorded for date'
+                      : displayedCurrentWeight > 0
+                        ? `Current: ${displayedCurrentWeight.toFixed(1)} kg`
+                        : 'New entry'}
+                  </Text>
+                </View>
+              </View>
 
               <View className="flex-row items-center justify-between w-full px-2">
                 <Pressable
@@ -433,7 +527,6 @@ export default function LogWeightModal() {
               </View>
             </View>
 
-            {/* Log Date */}
             <View className="mb-6">
               <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase mb-3 px-1">
                 Log Date
@@ -453,7 +546,6 @@ export default function LogWeightModal() {
               </Pressable>
             </View>
 
-            {/* Notes */}
             <View className="mb-8">
               <Text className="text-[#8E8E93] text-[11px] font-semibold tracking-[1.5px] uppercase mb-3 px-1">
                 Notes (Optional)
@@ -483,7 +575,6 @@ export default function LogWeightModal() {
               </View>
             </View>
 
-            {/* Save Button */}
             <View className="pb-8">
               <Pressable
                 className={`rounded-full py-4 flex-row items-center justify-center active:opacity-80 shadow-lg ${isPending ? 'bg-[#D4FF00]/50' : 'bg-[#D4FF00]'
@@ -505,7 +596,6 @@ export default function LogWeightModal() {
         </View>
       </TouchableWithoutFeedback>
 
-      {/* Date Picker - Android */}
       {showDatePicker && Platform.OS !== 'ios' && (
         <DateTimePicker
           value={selectedDate}
@@ -529,7 +619,6 @@ export default function LogWeightModal() {
         />
       )}
 
-      {/* Date Picker - iOS Modal */}
       {showDatePicker && Platform.OS === 'ios' && (
         <Modal visible={true} transparent={true} animationType="fade">
           <View className="flex-1 justify-end bg-black/60">

@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { compressImage } from '@/components/imageCompressor';
 import * as FileSystem from 'expo-file-system/legacy';
 import { CustomRefreshControl } from '@/components/CustomRefreshControl';
+import { CustomImageCropperModal } from '@/components/ui/CustomImageCropperModal';
 
 const PROGRESS_DAYS = [1, 30, 40, 60, 90];
 
@@ -36,6 +37,8 @@ export default function PreviewProgressPhotoModal() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [base64Image, setBase64Image] = useState<string | null>(null);
+  const [cropperVisible, setCropperVisible] = useState<boolean>(false);
+  const [pendingImageUri, setPendingImageUri] = useState<string | null>(null);
   const { mutateAsync: uploadPhoto, isPending } = useUploadProgressPhoto();
 
   const [userCreatedAt, setUserCreatedAt] = useState<Date | null>(() => {
@@ -112,30 +115,13 @@ export default function PreviewProgressPhotoModal() {
     }
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
+      allowsEditing: false,
+      quality: 1,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      const rawUri = result.assets[0].uri;
-      try {
-        const compressed = await compressImage(rawUri, {
-          maxWidth: 1200,
-          compress: 0.7,
-        });
-        setImageUri(compressed.uri);
-        const base64 = await FileSystem.readAsStringAsync(compressed.uri, {
-          encoding: 'base64',
-        });
-        setBase64Image(base64);
-      } catch (compErr) {
-        console.warn('[PreviewProgressPhoto] Compression error, using original:', compErr);
-        setImageUri(rawUri);
-        const base64 = await FileSystem.readAsStringAsync(rawUri, {
-          encoding: 'base64',
-        });
-        setBase64Image(base64);
-      }
+      setPendingImageUri(result.assets[0].uri);
+      setCropperVisible(true);
     }
   };
 
@@ -147,30 +133,34 @@ export default function PreviewProgressPhotoModal() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
+      allowsEditing: false,
+      quality: 1,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      const rawUri = result.assets[0].uri;
-      try {
-        const compressed = await compressImage(rawUri, {
-          maxWidth: 1200,
-          compress: 0.7,
-        });
-        setImageUri(compressed.uri);
-        const base64 = await FileSystem.readAsStringAsync(compressed.uri, {
-          encoding: 'base64',
-        });
-        setBase64Image(base64);
-      } catch (compErr) {
-        console.warn('[PreviewProgressPhoto] Compression error, using original:', compErr);
-        setImageUri(rawUri);
-        const base64 = await FileSystem.readAsStringAsync(rawUri, {
-          encoding: 'base64',
-        });
-        setBase64Image(base64);
-      }
+      setPendingImageUri(result.assets[0].uri);
+      setCropperVisible(true);
+    }
+  };
+
+  const handleCropperApply = async (croppedUri: string) => {
+    try {
+      const compressed = await compressImage(croppedUri, {
+        maxWidth: 1200,
+        compress: 0.7,
+      });
+      setImageUri(compressed.uri);
+      const base64 = await FileSystem.readAsStringAsync(compressed.uri, {
+        encoding: 'base64',
+      });
+      setBase64Image(base64);
+    } catch (compErr) {
+      console.warn('[PreviewProgressPhoto] Compression error, using original:', compErr);
+      setImageUri(croppedUri);
+      const base64 = await FileSystem.readAsStringAsync(croppedUri, {
+        encoding: 'base64',
+      });
+      setBase64Image(base64);
     }
   };
 
@@ -452,6 +442,17 @@ export default function PreviewProgressPhotoModal() {
           </View>
         </Modal>
       )}
+
+      {/* Custom Image Cropper / Editor Modal */}
+      <CustomImageCropperModal
+        visible={cropperVisible}
+        imageUri={pendingImageUri}
+        onClose={() => {
+          setCropperVisible(false);
+          setPendingImageUri(null);
+        }}
+        onApply={handleCropperApply}
+      />
     </View>
   );
 }

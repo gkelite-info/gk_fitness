@@ -26,7 +26,8 @@ import {
   Crown,
   ArrowSquareOut,
   CheckCircle,
-  ShieldCheck
+  ShieldCheck,
+  Ticket
 } from 'phosphor-react-native';
 import { Country, State } from 'country-state-city';
 import * as ImagePicker from 'expo-image-picker';
@@ -177,6 +178,7 @@ export default function SignupScreen() {
   const [state, setState] = useState('');
   const [pinCode, setPinCode] = useState('');
   const [city, setCity] = useState('');
+  const [referCode, setReferCode] = useState(typeof params.referCode === 'string' ? params.referCode : '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -628,6 +630,7 @@ export default function SignupScreen() {
               gender: normalizedGender,
               dob: dob || null,
               role: 'individual',
+              referCode: referCode.trim() || null,
             },
           },
         });
@@ -662,6 +665,7 @@ export default function SignupScreen() {
           role: 'individual',
           status: 'active',
           password: hashedPassword,
+          referCode: referCode.trim() || null,
           isPhoneVerified: ENABLE_FAST2SMS_OTP_VERIFICATION ? isPhoneVerified : false,
         });
 
@@ -1314,6 +1318,29 @@ export default function SignupScreen() {
               </View>
 
               {typeId === 'individual' && (
+                <View onLayout={(e) => registerField('referCode', e.nativeEvent.layout.y)}>
+                  <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">
+                    Refer Code <Text className="text-[#6B6B6B] text-[12px]">(Optional)</Text>
+                  </Text>
+                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3">
+                    <Ticket size={18} color="#6B6B6B" />
+                    <TextInput
+                      autoCorrect={false}
+                      spellCheck={false}
+                      value={referCode}
+                      onChangeText={setReferCode}
+                      onFocus={() => scrollToField('referCode')}
+                      placeholder="Enter refer code"
+                      placeholderTextColor="#6B6B6B"
+                      autoCapitalize="none"
+                      maxLength={255}
+                      className="flex-1 text-white text-[14px] p-0 font-medium"
+                    />
+                  </View>
+                </View>
+              )}
+
+              {typeId === 'individual' && (
                 <View onLayout={(e) => registerField('plan', e.nativeEvent.layout.y)}>
                   <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">
                     Membership Plan <Text className="text-red-500">*</Text>
@@ -1355,19 +1382,21 @@ export default function SignupScreen() {
               </View>
 
               <View onLayout={(e) => registerField('address', e.nativeEvent.layout.y)}>
-                <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Address <Text className="text-red-500">*</Text></Text>
                 {typeId !== 'individual' && (
-                  <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 mb-3">
-                    <MapPin size={18} color="#6B6B6B" />
-                    <TextInput autoCorrect={false} spellCheck={false}
-                      value={address}
-                      onChangeText={setAddress}
-                      onFocus={() => scrollToField('address')}
-                      placeholder="House / Flat / Building / Street"
-                      placeholderTextColor="#6B6B6B"
-                      className="flex-1 text-white text-[14px] p-0 font-medium"
-                    />
-                  </View>
+                  <>
+                    <Text className="text-[#E0E0E0] text-[13px] font-medium mb-2">Address <Text className="text-red-500">*</Text></Text>
+                    <View className="flex-row items-center bg-[#121212] border border-[#1E1E1E] rounded-xl px-4 py-3.5 gap-3 mb-3">
+                      <MapPin size={18} color="#6B6B6B" />
+                      <TextInput autoCorrect={false} spellCheck={false}
+                        value={address}
+                        onChangeText={setAddress}
+                        onFocus={() => scrollToField('address')}
+                        placeholder="House / Flat / Building / Street"
+                        placeholderTextColor="#6B6B6B"
+                        className="flex-1 text-white text-[14px] p-0 font-medium"
+                      />
+                    </View>
+                  </>
                 )}
 
                 <View className="flex-row gap-3 mb-3">

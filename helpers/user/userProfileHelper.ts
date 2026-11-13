@@ -20,6 +20,7 @@ export interface UserProfile {
   isPhoneVerified?: boolean;
   profilePhoto?: string | null;
   profilePic?: string | null;
+  referCode?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 
@@ -57,6 +58,7 @@ export async function fetchUserAndRoleProfile(
     isPhoneVerified: false,
     profilePhoto: null,
     profilePic: null,
+    referCode: null,
     createdAt: null,
     updatedAt: null,
   };
@@ -104,6 +106,7 @@ export async function fetchUserAndRoleProfile(
             city: metadata.city || null,
             pincode: metadata.pincode || null,
             role: metadata.role || null,
+            referCode: metadata.referCode || null,
           });
 
           if (createdProfile) {

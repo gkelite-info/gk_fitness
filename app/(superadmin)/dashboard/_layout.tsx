@@ -7,6 +7,7 @@ export default function DashboardLayout() {
       <Stack.Screen name="register" />
       <Stack.Screen name="globalTrainers/index" />
       <Stack.Screen name="globalTrainers/register" />
+      <Stack.Screen name="gym/index" />
     </Stack>
   );
 }

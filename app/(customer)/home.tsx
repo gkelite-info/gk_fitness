@@ -544,17 +544,18 @@ export default function CustomerHome() {
   const waterGoal = stats?.waterGoalML || 2500;
   const waterTotal = stats?.totalWaterML || 0;
 
-  useEffect(() => {
-    if (userId && onboardingStatus && !isCheckingOnboarding) {
-      if (!onboardingStatus.isOnboarded && !onboardingStatus.isSkipped) {
-        router.replace('/(customer)/(onboarding)/step1');
-      }
-    }
-  }, [userId, onboardingStatus, isCheckingOnboarding, router]);
+  const [initialLoadingTimedOut, setInitialLoadingTimedOut] = useState(false);
 
-  const needsOnboardingRedirect = userId && onboardingStatus && !onboardingStatus.isOnboarded && !onboardingStatus.isSkipped;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setInitialLoadingTimedOut(true);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
   const hasLoadedDash = !!(effectiveCustomerDash || effectiveTrainerDash);
-  if (needsOnboardingRedirect || (!hasLoadedDash && (isCheckingOnboarding || isLoadingDashboard))) {
+  // Show full-screen spinner only while initial dashboard data is loading and hasn't timed out
+  if (!hasLoadedDash && isLoadingDashboard && !initialLoadingTimedOut) {
     return (
       <View className="flex-1 bg-[#0A0A0A] items-center justify-center">
         <ActivityIndicator size="large" color="#d4ff00" />
@@ -769,6 +770,35 @@ export default function CustomerHome() {
           </>
         )}
       </View>
+
+      {/* Profile Setup / Onboarding Card (Shown if not yet completed or skipped) */}
+      {onboardingStatus && !onboardingStatus.isOnboarded && !onboardingStatus.isSkipped && (
+        <View className="bg-[#141414] border border-[#d4ff00]/30 rounded-3xl p-5 mb-4 relative overflow-hidden">
+          <View className="flex-row items-center justify-between mb-2">
+            <View className="flex-row items-center gap-2">
+              <View className="w-2 h-2 rounded-full bg-[#d4ff00]" />
+              <Text className="text-[#d4ff00] text-xs font-semibold tracking-wider uppercase">
+                PROFILE SETUP
+              </Text>
+            </View>
+          </View>
+          <Text className="text-white text-base font-semibold mb-1">
+            Personalize Your Fitness Plan
+          </Text>
+          <Text className="text-[#8E8E93] text-xs leading-4 mb-3.5 font-sans">
+            Set your fitness goals, workout preferences, and nutrition for a tailored experience.
+          </Text>
+          <Pressable
+            onPress={() => router.push('/(customer)/(onboarding)/step1' as any)}
+            className="w-full bg-[#d4ff00] py-2.5 px-4 rounded-xl flex-row items-center justify-center active:opacity-85"
+          >
+            <Text className="text-black text-xs font-semibold uppercase tracking-wider mr-1.5 text-center" numberOfLines={1}>
+              START SETUP
+            </Text>
+            <ArrowRight size={14} color="#000000" weight="bold" />
+          </Pressable>
+        </View>
+      )}
 
       {(role === 'individual' || isIndividual) && (
         <Pressable

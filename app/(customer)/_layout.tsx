@@ -15,6 +15,13 @@ export default function CustomerLayout() {
   const [tenantValidating, setTenantValidating] = useState(true);
 
   useEffect(() => {
+    const safetyTimer = setTimeout(() => {
+      setTenantValidating(false);
+    }, 2000);
+    return () => clearTimeout(safetyTimer);
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     async function checkTenantBoundary() {
@@ -183,6 +190,7 @@ export default function CustomerLayout() {
           options={{
             href: null,
             headerShown: false,
+            tabBarStyle: { display: 'none' },
           }}
         />
         <Tabs.Screen

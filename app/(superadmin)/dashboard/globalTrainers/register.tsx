@@ -10,13 +10,88 @@ import { fetchGlobalTrainerLeadById, updateGlobalTrainerLeadStatus } from '@/hel
 import { supabaseAdminAuth } from '@/lib/supabase';
 import * as Crypto from 'expo-crypto';
 import { createUser } from '@/helpers/otpHelper';
-import { saveGlobalTrainer } from '@/helpers/globalTrainer/globalTrainerHelper';
+import { saveGlobalTrainer, generateTrainerReferCode } from '@/helpers/globalTrainer/globalTrainerHelper';
 import { useUser } from '@/context/UserContext';
 import { useGlobalTrainer } from '@/hooks/globalTrainers/useGlobalTrainer';
 import { useUserById } from '@/hooks/users/useUsers';
 import { useSaveUser } from '@/hooks/users/useSaveUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { SafePasswordInput } from '@/components/ui/SafePasswordInput';
+
+export function formatDateWithSlash(rawDate?: string | Date | null): string {
+  if (!rawDate) return '';
+  const str = String(rawDate).trim();
+  if (!str || str === '-') return '';
+
+  // If already DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+    return str;
+  }
+
+  // If DD-MM-YYYY or DD.MM.YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-.](\d{1,2})[-.](\d{4})/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${day}/${month}/${year}`;
+  }
+
+  // If YYYY-MM-DD or ISO string like 2000-02-03T00:00:00
+  const ymdMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (ymdMatch) {
+    const year = ymdMatch[1];
+    const month = ymdMatch[2].padStart(2, '0');
+    const day = ymdMatch[3].padStart(2, '0');
+    return `${day}/${month}/${year}`;
+  }
+
+  // Fallback to JS Date parsing
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  return str;
+}
+
+export function isValidDateDDMMYYYY(dateStr: string): { isValid: boolean; message?: string } {
+  if (!dateStr || !dateStr.trim()) {
+    return { isValid: false, message: 'is required' };
+  }
+  const clean = dateStr.trim();
+  const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  const match = clean.match(regex);
+  if (!match) {
+    return { isValid: false, message: 'must be in DD/MM/YYYY format (e.g. 03/02/2000)' };
+  }
+
+  const day = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const year = parseInt(match[3], 10);
+
+  if (month < 1 || month > 12) {
+    return { isValid: false, message: 'has an invalid month (must be between 01 and 12)' };
+  }
+  if (day < 1 || day > 31) {
+    return { isValid: false, message: 'has an invalid day (must be between 01 and 31)' };
+  }
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  if (day > daysInMonth) {
+    const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return { isValid: false, message: `has an invalid day for ${monthNames[month]} ${year} (max ${daysInMonth} days)` };
+  }
+
+  if (year < 1920 || year > 2100) {
+    return { isValid: false, message: 'year must be between 1920 and 2100' };
+  }
+
+  return { isValid: true };
+}
 
 export default function CreateGlobalTrainerScreen() {
   const router = useRouter();
@@ -52,6 +127,7 @@ export default function CreateGlobalTrainerScreen() {
   const [pincode, setPincode] = useState('');
   const [price, setPrice] = useState('');
   const [password, setPassword] = useState('');
+  const [referCode, setReferCode] = useState(() => generateTrainerReferCode());
 
   const [stateModalVisible, setStateModalVisible] = useState(false);
   const [stateSearchQuery, setStateSearchQuery] = useState('');
@@ -69,11 +145,11 @@ export default function CreateGlobalTrainerScreen() {
             setEmail(leadDetails.email || '');
             setMobile(leadDetails.mobile || '');
             setAlternateMobile(leadDetails.alternateMobile || '');
-            setDateOfBirth(leadDetails.dateOfBirth || '');
+            setDateOfBirth(formatDateWithSlash(leadDetails.dateOfBirth));
             setGender((leadDetails.gender as any) || '');
             setSpecialization((leadDetails.specialization as any) || '');
             setExperience(leadDetails.experience ? leadDetails.experience.toString() : '');
-            setJoiningDate(leadDetails.joiningDate || '');
+            setJoiningDate(formatDateWithSlash(leadDetails.joiningDate));
             setQualification(leadDetails.qualification || '');
             setBio(leadDetails.bio || '');
             setLanguagesSpoken(
@@ -88,6 +164,9 @@ export default function CreateGlobalTrainerScreen() {
             setPincode(leadDetails.pincode ? leadDetails.pincode.toString() : '');
             setPrice((leadDetails as any).price ? (leadDetails as any).price.toString() : '');
             setPassword(leadDetails.password || '');
+            if ((leadDetails as any).referCode) {
+              setReferCode((leadDetails as any).referCode);
+            }
           }
         } catch (error) {
           toast.error('Failed to load lead details');
@@ -105,11 +184,11 @@ export default function CreateGlobalTrainerScreen() {
       setEmail(trainerDetails.email || userDetails?.email || '');
       setMobile(trainerDetails.mobile || userDetails?.phone || '');
       setAlternateMobile(trainerDetails.alternateMobile || '');
-      setDateOfBirth(trainerDetails.dateOfBirth || userDetails?.dob || '');
+      setDateOfBirth(formatDateWithSlash(trainerDetails.dateOfBirth || userDetails?.dob));
       setGender((trainerDetails.gender || userDetails?.gender || '') as any);
       setSpecialization((trainerDetails.specialization || '') as any);
       setExperience(trainerDetails.experience != null ? trainerDetails.experience.toString() : '');
-      setJoiningDate(trainerDetails.joiningDate || '');
+      setJoiningDate(formatDateWithSlash(trainerDetails.joiningDate));
       setQualification(trainerDetails.qualification || '');
       setBio(trainerDetails.bio || '');
       setLanguagesSpoken(
@@ -127,6 +206,9 @@ export default function CreateGlobalTrainerScreen() {
           : (userDetails?.pincode != null ? userDetails.pincode.toString() : '')
       );
       setPrice(trainerDetails.price != null ? trainerDetails.price.toString() : '');
+      if (trainerDetails.referCode) {
+        setReferCode(trainerDetails.referCode);
+      }
       setHasLoadedEditData(true);
     }
   }, [isEditMode, trainerDetails, userDetails, hasLoadedEditData]);
@@ -136,12 +218,46 @@ export default function CreateGlobalTrainerScreen() {
   const handleSave = async () => {
     if (!fullName.trim()) return toast.error('Full Name is required');
     if (!email.trim() || !email.includes('@')) return toast.error('Valid Email is required');
-    if (!mobile.trim() || mobile.length < 10) return toast.error('Valid Mobile number is required');
-    if (!dateOfBirth.trim()) return toast.error('Date of Birth is required');
+
+    const cleanMobile = mobile.trim();
+    if (!cleanMobile) return toast.error('Mobile number is required');
+    if (!/^[06789]/.test(cleanMobile)) {
+      return toast.error('Mobile number must start with 6, 7, 8, 9 or 0');
+    }
+    const requiredMobileLen = cleanMobile.startsWith('0') ? 11 : 10;
+    if (cleanMobile.length !== requiredMobileLen) {
+      return toast.error(`Mobile number must be ${requiredMobileLen} digits`);
+    }
+
+    const cleanAltMobile = alternateMobile.trim();
+    if (cleanAltMobile) {
+      if (!/^[06789]/.test(cleanAltMobile)) {
+        return toast.error('Alt mobile number must start with 6, 7, 8, 9 or 0');
+      }
+      const requiredAltLen = cleanAltMobile.startsWith('0') ? 11 : 10;
+      if (cleanAltMobile.length !== requiredAltLen) {
+        return toast.error(`Alt mobile number must be ${requiredAltLen} digits`);
+      }
+    }
+
+    const dobCheck = isValidDateDDMMYYYY(dateOfBirth);
+    if (!dobCheck.isValid) {
+      return toast.error(`Date of Birth ${dobCheck.message}`);
+    }
+    const [dDay, dMonth, dYear] = dateOfBirth.split('/').map(Number);
+    const dobDateObj = new Date(dYear, dMonth - 1, dDay);
+    if (dobDateObj > new Date()) {
+      return toast.error('Date of Birth cannot be in the future');
+    }
+
     if (!gender) return toast.error('Gender is required');
     if (!specialization) return toast.error('Specialization is required');
     if (!experience.trim()) return toast.error('Experience is required');
-    if (!joiningDate.trim()) return toast.error('Joining Date is required');
+
+    const joinCheck = isValidDateDDMMYYYY(joiningDate);
+    if (!joinCheck.isValid) {
+      return toast.error(`Joining Date ${joinCheck.message}`);
+    }
     if (!qualification.trim()) return toast.error('Qualification is required');
     if (!languagesSpoken.trim()) return toast.error('Languages Spoken are required');
     if (!address.trim()) return toast.error('Address is required');
@@ -170,6 +286,7 @@ export default function CreateGlobalTrainerScreen() {
             dob: dateOfBirth.trim() || null,
             gender: gender ? (gender.toLowerCase() === 'other' ? 'others' : gender.toLowerCase()) : 'male',
             role: 'globaltrainer',
+            referCode: referCode.trim() || null,
           });
         }
 
@@ -195,6 +312,7 @@ export default function CreateGlobalTrainerScreen() {
           city: city.trim(),
           pincode: Number(pincode),
           price: price ? Number(price) : 0,
+          referCode: referCode.trim() || null,
         });
 
         await queryClient.invalidateQueries({ queryKey: ['globalTrainersPaginated'] });
@@ -243,6 +361,7 @@ export default function CreateGlobalTrainerScreen() {
         phone: mobile.trim(),
         address: address.trim(),
         role: 'globaltrainer',
+        referCode: referCode.trim() || null,
       });
 
       if (!newUser) {
@@ -250,6 +369,7 @@ export default function CreateGlobalTrainerScreen() {
       }
 
       await saveGlobalTrainer({
+        userId: authUserId,
         fullName: fullName.trim(),
         dateOfBirth: dateOfBirth.trim(),
         gender: gender as 'male' | 'female' | 'others',
@@ -268,6 +388,7 @@ export default function CreateGlobalTrainerScreen() {
         city: city.trim(),
         pincode: Number(pincode),
         price: price ? Number(price) : 0,
+        referCode: referCode.trim() || null,
         isActive: true,
       });
 
@@ -288,6 +409,87 @@ export default function CreateGlobalTrainerScreen() {
     }
   };
 
+  const handleFullNameChange = (text: string) => {
+    if (!text) {
+      setFullName('');
+      return;
+    }
+    // Capitalize the first letter, remaining are as the user enters
+    setFullName(text.charAt(0).toUpperCase() + text.slice(1));
+  };
+
+  const handlePhoneChange = (val: string, setter: (val: string) => void) => {
+    const digits = val.replace(/[^0-9]/g, '');
+    if (!digits) {
+      setter('');
+      return;
+    }
+    // Mobile and Alt Mobile must only start with 6, 7, 8, 9, or 0
+    if (!/^[06789]/.test(digits)) {
+      return;
+    }
+    // Max length 11 if initial digit is 0, otherwise 10
+    const maxLen = digits.startsWith('0') ? 11 : 10;
+    setter(digits.slice(0, maxLen));
+  };
+
+  const handleDateChange = (val: string, setter: (val: string) => void, prevVal: string = '') => {
+    // If user pastes an ISO date or hyphenated date e.g. 2000-02-03 or 03-02-2000
+    if (val.includes('-')) {
+      const normalized = formatDateWithSlash(val);
+      if (normalized) {
+        setter(normalized);
+        return;
+      }
+    }
+
+    // Check if user pressed backspace on a trailing slash e.g. "03/" -> "03" or "03/01/" -> "03/01"
+    if (prevVal.endsWith('/') && val === prevVal.slice(0, -1)) {
+      // User hit backspace on the slash, remove the last digit before the slash as well for seamless backspacing
+      const digits = val.replace(/\D/g, '').slice(0, -1);
+      if (!digits) {
+        setter('');
+        return;
+      }
+      if (digits.length <= 2) {
+        setter(digits);
+        return;
+      }
+      setter(`${digits.slice(0, 2)}/${digits.slice(2)}`);
+      return;
+    }
+
+    // Strip everything that isn't a digit (no characters allowed)
+    const digits = val.replace(/\D/g, '').slice(0, 8);
+    if (!digits) {
+      setter('');
+      return;
+    }
+
+    // Auto add slash after 2 digits (date e.g. 03 -> 03/)
+    if (digits.length === 2) {
+      setter(`${digits}/`);
+      return;
+    }
+    if (digits.length < 2) {
+      setter(digits);
+      return;
+    }
+
+    // Auto add slash after 4 digits (month e.g. 03/01 -> 03/01/)
+    if (digits.length === 4) {
+      setter(`${digits.slice(0, 2)}/${digits.slice(2, 4)}/`);
+      return;
+    }
+    if (digits.length < 4) {
+      setter(`${digits.slice(0, 2)}/${digits.slice(2)}`);
+      return;
+    }
+
+    // Year digits (5 to 8 digits)
+    setter(`${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`);
+  };
+
   const renderInput = (
     label: string,
     value: string,
@@ -297,7 +499,9 @@ export default function CreateGlobalTrainerScreen() {
     optional = false,
     multiline = false,
     isEditable = true,
-    isSecure = false
+    isSecure = false,
+    autoCapitalize: 'none' | 'sentences' | 'words' | 'characters' = 'none',
+    maxLength?: number
   ) => (
     <View className="mb-4">
       <View className="flex-row items-center justify-between mb-1.5">
@@ -319,6 +523,7 @@ export default function CreateGlobalTrainerScreen() {
           placeholderTextColor="#6B7280"
           keyboardType={keyboardType}
           showPassword={false}
+          maxLength={maxLength}
           className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${(!saving && isEditable) ? '' : 'opacity-60 bg-[#141416]'}`}
           editable={!saving && isEditable}
         />
@@ -329,9 +534,10 @@ export default function CreateGlobalTrainerScreen() {
           placeholder={placeholder}
           placeholderTextColor="#6B7280"
           keyboardType={keyboardType}
-          autoCapitalize="none"
+          autoCapitalize={autoCapitalize}
           autoCorrect={false}
           multiline={multiline}
+          maxLength={maxLength}
           textAlignVertical={multiline ? 'top' : 'center'}
           className={`bg-[#0F0F0F] border border-[#1F293D] rounded-xl p-3.5 text-white text-sm font-sans ${multiline ? 'min-h-[100px]' : ''} ${(!saving && isEditable) ? '' : 'opacity-60 bg-[#141416]'}`}
           editable={!saving && isEditable}
@@ -399,21 +605,58 @@ export default function CreateGlobalTrainerScreen() {
         >
           {/* Section: Personal Info */}
           <Text className="text-xs font-semibold text-[#CCFF00] tracking-wider mb-3 mt-2">PERSONAL DETAILS</Text>
-          {renderInput('Full Name', fullName, setFullName, 'e.g. John Doe')}
+          {renderInput('Full Name', fullName, handleFullNameChange, 'e.g. John Doe', 'default', false, false, true, false, 'sentences')}
           {renderInput('Email Address', email, setEmail, 'e.g. john@example.com', 'email-address', false, false, !isEditMode)}
+          {renderInput('Referral Code', referCode, () => {}, 'Auto-generated code', 'default', false, false, false)}
 
           <View className="flex-row gap-3">
             <View className="flex-1">
-              {renderInput('Mobile', mobile, setMobile, 'e.g. 9876543210', 'phone-pad')}
+              {renderInput(
+                'Mobile',
+                mobile,
+                (val) => handlePhoneChange(val, setMobile),
+                'e.g. 9876543210',
+                'phone-pad',
+                false,
+                false,
+                true,
+                false,
+                'none',
+                (!mobile || mobile.startsWith('0')) ? 11 : 10
+              )}
             </View>
             <View className="flex-1">
-              {renderInput('Alt Mobile', alternateMobile, setAlternateMobile, 'e.g. 9876543210', 'phone-pad', true)}
+              {renderInput(
+                'Alt Mobile',
+                alternateMobile,
+                (val) => handlePhoneChange(val, setAlternateMobile),
+                'e.g. 9876543210',
+                'phone-pad',
+                true,
+                false,
+                true,
+                false,
+                'none',
+                (!alternateMobile || alternateMobile.startsWith('0')) ? 11 : 10
+              )}
             </View>
           </View>
 
           <View className="flex-row gap-3">
             <View className="flex-1">
-              {renderInput('Date of Birth', dateOfBirth, setDateOfBirth, 'DD/MM/YYYY')}
+              {renderInput(
+                'Date of Birth',
+                dateOfBirth,
+                (val) => handleDateChange(val, setDateOfBirth, dateOfBirth),
+                'DD/MM/YYYY',
+                'number-pad',
+                false,
+                false,
+                true,
+                false,
+                'none',
+                10
+              )}
             </View>
             {renderPicker('Gender', gender.charAt(0).toUpperCase() + gender.slice(1), 'Select Gender', () => setGenderModalVisible(true))}
           </View>
@@ -431,7 +674,19 @@ export default function CreateGlobalTrainerScreen() {
 
           <View className="flex-row gap-3">
             <View className="flex-1">
-              {renderInput('Joining Date', joiningDate, setJoiningDate, 'DD/MM/YYYY')}
+              {renderInput(
+                'Joining Date',
+                joiningDate,
+                (val) => handleDateChange(val, setJoiningDate, joiningDate),
+                'DD/MM/YYYY',
+                'number-pad',
+                false,
+                false,
+                true,
+                false,
+                'none',
+                10
+              )}
             </View>
             <View className="flex-1">
               {renderInput('Qualification', qualification, setQualification, 'e.g. ACE Certified')}

@@ -47,6 +47,7 @@ export interface CreateUserParams {
   pincode?: number | null;
   role?: string;
   password?: string | null;
+  referCode?: string | null;
   subscriptionPlanId?: string;
   customAmount?: number | null;
 }
@@ -65,6 +66,7 @@ export async function createUser(userData: CreateUserParams) {
     pincode: userData.pincode || null,
     role: userData.role || null,
     password: userData.password || null,
+    referCode: userData.referCode?.trim() || null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -111,6 +113,7 @@ export async function updateUser(userId: string, userData: Partial<CreateUserPar
   if (userData.city !== undefined) updateData.city = userData.city;
   if (userData.pincode !== undefined) updateData.pincode = userData.pincode;
   if (userData.password !== undefined) updateData.password = userData.password;
+  if (userData.referCode !== undefined) updateData.referCode = userData.referCode ? userData.referCode.trim() : null;
 
   const { data, error } = await supabase
     .from('users')

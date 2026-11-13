@@ -230,8 +230,16 @@ export default function EditWorkoutDay() {
     setExerciseToDelete(null);
   };
 
+  const hasNoExercises = exercises.length === 0;
+  const hasUnsavedChanges = exercises.some(e => e.isNew) || deletedExerciseIds.length > 0;
+  const isSaveDisabled = isSaving || hasNoExercises || !hasUnsavedChanges;
+
   const handleSave = async () => {
     if (!currentPlanDayId || isSaving) return;
+    if (exercises.length === 0) {
+      toast.error('Please select at least 1 exercise to save changes.');
+      return;
+    }
 
     try {
       setIsSaving(true);
@@ -416,7 +424,11 @@ export default function EditWorkoutDay() {
 
             <View className="gap-3">
               {exercises.length === 0 ? (
-                <Text className="text-[#8E8E8E] text-sm text-center py-5">No exercises added for this day yet.</Text>
+                <View className="bg-[#111111] border border-[#FF453A]/40 rounded-2xl px-4 py-5 items-center">
+                  <Text className="text-[#FF453A] text-sm font-medium text-center">
+                    No exercises selected. Select at least 1 exercise below to save.
+                  </Text>
+                </View>
               ) : (
                 exercises.map((ex, index) => {
                   const mediaKey = `planned-${ex.dayExerciseId || ex.workoutVideoId || ex.exerciseName || index}`;
@@ -516,11 +528,18 @@ export default function EditWorkoutDay() {
           {renderSuggestionsFooter()}
 
           <View className="mt-8 mb-4">
+            {hasNoExercises && (
+              <View className="mb-3 bg-[#FF453A]/10 border border-[#FF453A]/30 rounded-xl px-4 py-2.5">
+                <Text className="text-[#FF453A] text-xs font-medium text-center">
+                  Select at least 1 exercise to save changes.
+                </Text>
+              </View>
+            )}
             <Pressable
               onPress={handleSave}
-              disabled={isSaving || (!exercises.some(e => e.isNew) && deletedExerciseIds.length === 0)}
-              className={`w-full py-4 rounded-2xl items-center justify-center ${isSaving || (!exercises.some(e => e.isNew) && deletedExerciseIds.length === 0)
-                ? 'bg-[#D7FF00]/50'
+              disabled={isSaveDisabled}
+              className={`w-full py-4 rounded-2xl items-center justify-center ${isSaveDisabled
+                ? 'bg-[#D7FF00]/40 opacity-60'
                 : 'bg-[#D7FF00] active:opacity-80'
                 }`}
             >

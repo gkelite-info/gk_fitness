@@ -8,6 +8,7 @@ import { useUser } from '@/context/UserContext';
 import { getSelectedGym, verifyUserGymMembership, clearSelectedGym } from '@/helpers/tenantHelper';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
+import { recordActiveDay } from '@/hooks/fitness/useActiveDays';
 
 export default function CustomerLayout() {
   const { userId, email, role, gymId: userGymId, loading: userLoading } = useUser();
@@ -20,6 +21,12 @@ export default function CustomerLayout() {
     }, 2000);
     return () => clearTimeout(safetyTimer);
   }, []);
+
+  useEffect(() => {
+    if (userId) {
+      recordActiveDay(userId);
+    }
+  }, [userId]);
 
   useEffect(() => {
     let isMounted = true;

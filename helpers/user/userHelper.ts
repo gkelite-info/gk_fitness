@@ -25,6 +25,7 @@ export interface UserAttributes {
   dob?: string | null;
   gender: UserGender;
   password?: string | null;
+  referCode?: string | null;
 }
 
 export interface SaveUserParams {
@@ -45,6 +46,7 @@ export interface SaveUserParams {
   isPhoneVerified?: boolean;
   profilePhoto?: string | null;
   password?: string | null;
+  referCode?: string | null;
 }
 
 export interface UserFilterOptions {
@@ -56,6 +58,7 @@ export interface UserFilterOptions {
   state?: string;
   city?: string;
   pincode?: number;
+  referCode?: string;
   limit?: number;
   offset?: number;
   sortBy?: keyof UserAttributes | string;
@@ -108,6 +111,10 @@ export async function fetchUsers(
 
   if (options.pincode !== undefined && options.pincode !== null) {
     query = query.eq('pincode', options.pincode);
+  }
+
+  if (options.referCode && options.referCode.trim()) {
+    query = query.eq('referCode', options.referCode.trim());
   }
 
   if (options.search && options.search.trim()) {
@@ -235,6 +242,7 @@ export async function saveUser(userData: SaveUserParams): Promise<UserAttributes
       if (userData.isPhoneVerified !== undefined) updatePayload.isPhoneVerified = userData.isPhoneVerified;
       if (userData.profilePhoto !== undefined) updatePayload.profilePhoto = userData.profilePhoto;
       if (userData.password !== undefined) updatePayload.password = userData.password;
+      if (userData.referCode !== undefined) updatePayload.referCode = userData.referCode ? userData.referCode.trim() : null;
 
       const { data, error } = await supabase
         .from('users')
@@ -250,27 +258,14 @@ export async function saveUser(userData: SaveUserParams): Promise<UserAttributes
 
       return (data as UserAttributes) || null;
     } else {
-      const insertPayload = {
-        userId: userData.userId,
-        name: userData.name.trim(),
-        email: cleanEmail,
-        phone: cleanPhone,
-        address: userData.address || null,
-        country: userData.country || null,
-        state: userData.state || null,
-        city: userData.city || null,
-        pincode: userData.pincode || null,
-        dob: userData.dob || null,
-        gender: cleanGender,
-        role: userData.role || null,
-        status: userData.status || 'active',
-        isEmailVerified: userData.isEmailVerified ?? false,
-        isPhoneVerified: userData.isPhoneVerified ?? false,
-        profilePhoto: userData.profilePhoto || null,
-        password: userData.password || null,
-        createdAt: now,
-        updatedAt: now,
-      };
+      const insertPayload = buildUserInsertPayload(
+        userData.userId,
+        userData,
+        cleanEmail,
+        cleanPhone,
+        cleanGender,
+        now
+      );
 
       const { data, error } = await supabase
         .from('users')
@@ -287,27 +282,14 @@ export async function saveUser(userData: SaveUserParams): Promise<UserAttributes
     }
   } else {
     const generatedUserId = Crypto.randomUUID();
-    const insertPayload = {
-      userId: generatedUserId,
-      name: userData.name.trim(),
-      email: cleanEmail,
-      phone: cleanPhone,
-      address: userData.address || null,
-      country: userData.country || null,
-      state: userData.state || null,
-      city: userData.city || null,
-      pincode: userData.pincode || null,
-      dob: userData.dob || null,
-      gender: cleanGender,
-      role: userData.role || null,
-      status: userData.status || 'active',
-      isEmailVerified: userData.isEmailVerified ?? false,
-      isPhoneVerified: userData.isPhoneVerified ?? false,
-      profilePhoto: userData.profilePhoto || null,
-      password: userData.password || null,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const insertPayload = buildUserInsertPayload(
+      generatedUserId,
+      userData,
+      cleanEmail,
+      cleanPhone,
+      cleanGender,
+      now
+    );
 
     const { data, error } = await supabase
       .from('users')
@@ -322,6 +304,38 @@ export async function saveUser(userData: SaveUserParams): Promise<UserAttributes
 
     return (data as UserAttributes) || null;
   }
+}
+
+function buildUserInsertPayload(
+  userId: string,
+  userData: SaveUserParams,
+  cleanEmail: string,
+  cleanPhone: string,
+  cleanGender: string,
+  now: string
+) {
+  return {
+    userId,
+    name: userData.name.trim(),
+    email: cleanEmail,
+    phone: cleanPhone,
+    address: userData.address || null,
+    country: userData.country || null,
+    state: userData.state || null,
+    city: userData.city || null,
+    pincode: userData.pincode || null,
+    dob: userData.dob || null,
+    gender: cleanGender,
+    role: userData.role || null,
+    status: userData.status || 'active',
+    isEmailVerified: userData.isEmailVerified ?? false,
+    isPhoneVerified: userData.isPhoneVerified ?? false,
+    profilePhoto: userData.profilePhoto || null,
+    password: userData.password || null,
+    referCode: userData.referCode?.trim() || null,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 export async function createUser(userData: SaveUserParams): Promise<UserAttributes | null> {
@@ -353,6 +367,7 @@ export async function updateUser(
   if (updates.isPhoneVerified !== undefined) updatePayload.isPhoneVerified = updates.isPhoneVerified;
   if (updates.profilePhoto !== undefined) updatePayload.profilePhoto = updates.profilePhoto;
   if (updates.password !== undefined) updatePayload.password = updates.password;
+  if (updates.referCode !== undefined) updatePayload.referCode = updates.referCode ? updates.referCode.trim() : null;
 
   const { data, error } = await supabase
     .from('users')

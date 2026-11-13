@@ -104,7 +104,7 @@ export default function Step1() {
         headerRight={SkipButton}
         scrollViewRef={scrollViewRef}
       >
-        <View className="mb-6 opacity-60" pointerEvents="none">
+        <View className="mb-6 opacity-60" pointerEvents="box-none">
           <Text className="text-white mb-2 font-medium">Full Name <Text className="text-red-500">*</Text></Text>
           <TextInput
             className="border border-gray-800 rounded-xl p-4 text-white bg-[#111] font-sans"
@@ -115,7 +115,7 @@ export default function Step1() {
           />
         </View>
 
-        <View className="mb-6 opacity-60" pointerEvents="none">
+        <View className="mb-6 opacity-60" pointerEvents="box-none">
           <Text className="text-white mb-2 font-medium">Gender <Text className="text-red-500">*</Text></Text>
           <View className="flex-row gap-2">
             <SelectableCard
@@ -154,7 +154,7 @@ export default function Step1() {
           </View>
         </View>
 
-        <View className="mb-6 opacity-60" pointerEvents="none">
+        <View className="mb-6 opacity-60" pointerEvents="box-none">
           <Text className="text-white mb-2 font-medium">Date of Birth <Text className="text-red-500">*</Text></Text>
           <View className="border border-gray-800 rounded-xl p-4 bg-[#111] flex-row items-center">
             <CalendarBlank color="#888" size={20} />

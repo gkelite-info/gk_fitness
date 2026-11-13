@@ -41,8 +41,13 @@ export function Navbar() {
 
   // Helper to determine if current path is a sub-screen / internal page that has its own back header
   const isSubOrInternalScreen = (currentPath: string): boolean => {
-    // Superadmin Global Trainers pages should always show the navbar header
-    if (currentPath?.includes('globalTrainers') || currentPath?.includes('/dashboard/globalTrainers')) {
+    // Superadmin Global Trainers and Gym pages should always show the navbar header
+    if (
+      currentPath?.includes('globalTrainers') ||
+      currentPath?.includes('/dashboard/globalTrainers') ||
+      currentPath?.includes('dashboard/gym') ||
+      currentPath?.includes('/dashboard/gym')
+    ) {
       return false;
     }
 

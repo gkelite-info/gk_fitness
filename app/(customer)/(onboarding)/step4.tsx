@@ -129,7 +129,12 @@ export default function Step4() {
         <Text className="text-white font-semibold mb-2">3. Food Allergies (Optional)</Text>
         <Text className="text-gray-500 text-sm mb-4 font-sans">Select or add any ingredients you're allergic to</Text>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          nestedScrollEnabled={true}
+          className="mb-4"
+        >
           {ALLERGIES.map(a => (
             <Pressable
               key={a}

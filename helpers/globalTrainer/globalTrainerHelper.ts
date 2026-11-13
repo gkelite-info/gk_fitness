@@ -24,6 +24,7 @@ export interface GlobalTrainerAttributes {
   isActive?: boolean;
   is_deleted?: boolean;
   price?: number | null;
+  referCode?: string | null;
   profilePic?: string | null;
   profilePhoto?: string | null;
   createdAt?: string | Date;
@@ -53,6 +54,7 @@ export interface SaveGlobalTrainerParams {
   pincode: number;
   isActive?: boolean;
   price?: number | null;
+  referCode?: string | null;
 }
 
 export const GLOBAL_TRAINER_SELECT = `
@@ -151,7 +153,7 @@ export async function fetchGlobalTrainersPaginated(
   }
 
   if (searchQuery) {
-    query = query.or(`fullName.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,mobile.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,state.ilike.%${searchQuery}%`);
+    query = query.or(`fullName.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,mobile.ilike.%${searchQuery}%,referCode.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,state.ilike.%${searchQuery}%`);
   }
 
   query = query.order('createdAt', { ascending: sortOrder === 'oldest' });
@@ -175,7 +177,7 @@ export async function fetchGlobalTrainersPaginated(
     }
 
     if (searchQuery) {
-      fallbackQuery = fallbackQuery.or(`fullName.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,mobile.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,state.ilike.%${searchQuery}%`);
+      fallbackQuery = fallbackQuery.or(`fullName.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,mobile.ilike.%${searchQuery}%,referCode.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,state.ilike.%${searchQuery}%`);
     }
 
     fallbackQuery = fallbackQuery.order('createdAt', { ascending: sortOrder === 'oldest' }).range(from, to);
@@ -272,6 +274,50 @@ export async function fetchGlobalTrainerByUserId(userId: string) {
   };
 }
 
+export function generateTrainerReferCode(prefix = 'GT'): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = prefix + '-';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+export async function fetchGlobalTrainerByReferCode(referCode: string) {
+  let { data, error } = await supabase
+    .from('global_trainers')
+    .select(GLOBAL_TRAINER_SELECT)
+    .eq('referCode', referCode.trim())
+    .eq('is_deleted', false)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[globalTrainerHelper] fetchGlobalTrainerByReferCode join failed, attempting fallback:', error.message || error);
+    const fallbackRes = await supabase
+      .from('global_trainers')
+      .select('*')
+      .eq('referCode', referCode.trim())
+      .eq('is_deleted', false)
+      .maybeSingle();
+
+    if (fallbackRes.error) {
+      console.error('[globalTrainerHelper] fetchGlobalTrainerByReferCode fallback Error:', fallbackRes.error);
+      throw fallbackRes.error;
+    }
+    data = fallbackRes.data;
+  }
+
+  if (!data) return null;
+
+  const userObj = Array.isArray((data as any).users) ? (data as any).users[0] : (data as any).users;
+  const userPic = userObj?.profilePic || userObj?.profilePhoto || null;
+  return {
+    ...data,
+    profilePic: (data as any).profilePic || (data as any).profilePhoto || userPic || null,
+    profilePhoto: (data as any).profilePhoto || (data as any).profilePic || userPic || null,
+  };
+}
+
 export async function saveGlobalTrainer(trainerData: SaveGlobalTrainerParams) {
   const now = new Date().toISOString();
 
@@ -304,6 +350,10 @@ export async function saveGlobalTrainer(trainerData: SaveGlobalTrainerParams) {
 
     if (trainerData.price !== undefined) {
       updatePayload.price = trainerData.price;
+    }
+
+    if (trainerData.referCode !== undefined) {
+      updatePayload.referCode = trainerData.referCode ? trainerData.referCode.trim() : null;
     }
 
     const { data, error } = await supabase
@@ -341,6 +391,7 @@ export async function saveGlobalTrainer(trainerData: SaveGlobalTrainerParams) {
       city: trainerData.city,
       pincode: trainerData.pincode,
       price: trainerData.price !== undefined && trainerData.price !== null ? trainerData.price : 0,
+      referCode: trainerData.referCode ? trainerData.referCode.trim() : null,
       isActive: trainerData.isActive ?? true,
       is_deleted: false,
       createdAt: now,

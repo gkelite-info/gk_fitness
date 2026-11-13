@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { OnboardingLayout } from '@/components/onboarding/OnboardingLayout';
 import { SelectableCard } from '@/components/onboarding/SelectableCard';
@@ -22,6 +22,7 @@ const TIMES = [
 
 export default function Step3() {
   const { data, updateData } = useOnboarding();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const handleContinue = () => {
     router.push('/(customer)/(onboarding)/step4');
@@ -42,6 +43,7 @@ export default function Step3() {
       description="Tell us about your workout preferences so we can build a plan that fits you."
       onContinue={handleContinue}
       isContinueDisabled={!isFormValid}
+      scrollViewRef={scrollViewRef}
     >
       <View className="mb-8">
         <Text className="text-white font-semibold mb-4">1. Workout Location <Text className="text-red-500">*</Text></Text>

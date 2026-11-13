@@ -1,11 +1,20 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Pressable, Modal, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Pressable, Modal, ScrollView, Dimensions, ActivityIndicator, Image } from 'react-native';
 import { Text } from '@/components/nativewindui/Text';
 import { X, Barbell, Lightbulb, Play, Pause, ArrowsClockwise } from 'phosphor-react-native';
 import { Video, ResizeMode } from '@/components/ui/Video';
 import { supabase } from '@/lib/supabase';
 import { GeneratedExercise, MuscleValue } from '@/hooks/customWorkout/useCustomWorkoutBuilder';
-import { MUSCLE_TO_WORKOUT_TYPES, MUSCLE_RPC_ALIASES } from '@/helpers/customWorkout/customWorkoutHelper';
+import { getMuscleThumbnailImage } from '@/lib/workoutMuscleImage';
+import {
+  MUSCLE_TO_WORKOUT_TYPES,
+  MUSCLE_RPC_ALIASES,
+  isExerciseVideoMatchingGender,
+} from '@/helpers/customWorkout/customWorkoutHelper';
+import {
+  FEMALE_WORKOUT_IDS,
+  MALE_WORKOUT_IDS,
+} from '@/helpers/workoutVideos/workoutVideoHelper';
 import { MUSCLE_LABELS } from './MuscleBodyMap';
 import { triggerLightHaptic } from '@/lib/haptics';
 
@@ -26,31 +35,46 @@ export function ExercisePreviewModal({
   isShuffling = false,
   userGender,
 }: ExercisePreviewModalProps) {
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isFirstFrameReady, setIsFirstFrameReady] = useState(false);
   const [dynamicVideo, setDynamicVideo] = useState<string | null>(null);
   const [isResolvingVideo, setIsResolvingVideo] = useState(false);
 
+  const preferredRole: 'female' | 'male' = (userGender || 'male').toLowerCase().trim().includes('female') ? 'female' : 'male';
+
   const rawVideo = useMemo(() => {
+    let candidateUrl: string | null = null;
+
     if (exercise?.video_url || (exercise as any)?.videoUrl) {
-      return exercise?.video_url || (exercise as any)?.videoUrl;
-    }
-    if ((exercise as any)?.workout_videos) {
+      candidateUrl = exercise?.video_url || (exercise as any)?.videoUrl || null;
+    } else if ((exercise as any)?.workout_videos) {
       const wvList = (exercise as any).workout_videos;
       if (Array.isArray(wvList)) {
-        const preferredRole = (userGender || 'male').toLowerCase().trim().includes('female') ? 'female' : 'male';
-        const match = wvList.find((v: any) => v.gender?.toLowerCase() === preferredRole || v.workouts?.role?.toLowerCase() === preferredRole);
-        if (match?.videoUrl) return match.videoUrl;
-        const neutral = wvList.find((v: any) => !v.gender || v.gender === 'all');
-        if (neutral?.videoUrl) return neutral.videoUrl;
-        return wvList[0]?.videoUrl;
+        const match = wvList.find((v: any) => isExerciseVideoMatchingGender(v, preferredRole));
+        if (match?.videoUrl) candidateUrl = match.videoUrl;
+        else if (wvList[0]?.videoUrl) candidateUrl = wvList[0].videoUrl;
       } else if (wvList?.videoUrl) {
-        return wvList.videoUrl;
+        candidateUrl = wvList.videoUrl;
       }
     }
-    return null;
-  }, [exercise, userGender]);
 
-  // If exercise object lacked video_url, dynamically resolve it from workout_videos in Supabase
+    // Verify candidateUrl matches preferredRole
+    if (candidateUrl) {
+      const isMatch = isExerciseVideoMatchingGender(
+        {
+          video_url: candidateUrl,
+          exercise_name: exercise?.exercise_name || (exercise as any)?.exerciseName,
+          workout_id: exercise?.workoutVideoId || exercise?.exercise_id,
+        },
+        preferredRole
+      );
+      if (isMatch) return candidateUrl;
+    }
+
+    return null;
+  }, [exercise, preferredRole]);
+
+  // If exercise object lacked video_url or it did not match gender, dynamically resolve it from workout_videos in Supabase
   useEffect(() => {
     if (!visible || !exercise) {
       setDynamicVideo(null);
@@ -72,20 +96,48 @@ export function ExercisePreviewModal({
         const exName = exercise.exercise_name || (exercise as any)?.exerciseName || '';
         const muscle = (exercise.muscle_group as MuscleValue) || 'CHEST';
         const rpcAliases = (MUSCLE_RPC_ALIASES && MUSCLE_RPC_ALIASES[muscle]) || [muscle];
+        const workoutTypeKey = (MUSCLE_TO_WORKOUT_TYPES[muscle] || ['chest'])[0];
+        const knownWorkoutIds = preferredRole === 'female'
+          ? (FEMALE_WORKOUT_IDS[workoutTypeKey] || Object.values(FEMALE_WORKOUT_IDS).flat())
+          : (MALE_WORKOUT_IDS[workoutTypeKey] || Object.values(MALE_WORKOUT_IDS).flat());
 
-        // 1. Query get_custom_workout_videos RPC for this muscle group
+        // 1. First try direct lookup by exercise name in workout_videos filtered by preferred gender workout IDs
+        try {
+          const { data: directVids } = await supabase
+            .from('workout_videos')
+            .select('workoutVideoId, videoUrl, exerciseName, workoutId')
+            .ilike('exerciseName', `%${exName}%`)
+            .in('workoutId', knownWorkoutIds)
+            .eq('is_deleted', false)
+            .limit(5);
+
+          if (!isCancelled && directVids && directVids.length > 0) {
+            const match = directVids.find(v => isExerciseVideoMatchingGender(v, preferredRole));
+            if (match?.videoUrl) {
+              setDynamicVideo(match.videoUrl);
+              return;
+            }
+          }
+        } catch (directErr) {
+          console.warn('[ExercisePreviewModal] Direct gender video lookup error:', directErr);
+        }
+
+        // 2. Query get_custom_workout_videos RPC for this muscle group
         const { data: rpcVids, error: rpcErr } = await supabase.rpc('get_custom_workout_videos', {
           p_muscles: rpcAliases,
           p_equipment: [],
-          p_limit: 25,
+          p_limit: 40,
           p_exclude: [],
         });
 
         if (!isCancelled && rpcVids && rpcVids.length > 0) {
+          // Strictly filter rpcVids by gender
+          const genderVids = rpcVids.filter((v: any) => isExerciseVideoMatchingGender(v, preferredRole));
+
           const lowerExName = exName.toLowerCase().trim();
 
           // Match by name similarity
-          const nameMatch = rpcVids.find((v: any) => {
+          const nameMatch = genderVids.find((v: any) => {
             const vName = (v.exercise_name || v.exerciseName || '').toLowerCase().trim();
             return vName && (lowerExName.includes(vName) || vName.includes(lowerExName));
           });
@@ -101,7 +153,7 @@ export function ExercisePreviewModal({
             .filter((w: string) => w.length > 2 && !['and', 'the', 'for', 'with'].includes(w));
           if (keywords.length > 0) {
             const lastWord = keywords[keywords.length - 1];
-            const kwMatch = rpcVids.find((v: any) => {
+            const kwMatch = genderVids.find((v: any) => {
               const vName = (v.exercise_name || v.exerciseName || '').toLowerCase();
               return vName.includes(lastWord);
             });
@@ -111,8 +163,8 @@ export function ExercisePreviewModal({
             }
           }
 
-          // Fallback to any non-stretching video in this muscle
-          const nonStretch = rpcVids.find(
+          // Fallback to any non-stretching video of matching gender in this muscle
+          const nonStretch = genderVids.find(
             (v: any) => (v.video_url || v.videoUrl) && !(v.exercise_name || '').toLowerCase().startsWith('stretching')
           );
           if (nonStretch?.video_url || nonStretch?.videoUrl) {
@@ -120,12 +172,28 @@ export function ExercisePreviewModal({
             return;
           }
 
-          // Any video in this muscle
-          const anyVid = rpcVids.find((v: any) => v.video_url || v.videoUrl);
+          // Any video in this muscle of matching gender
+          const anyVid = genderVids.find((v: any) => v.video_url || v.videoUrl);
           if (anyVid?.video_url || anyVid?.videoUrl) {
             setDynamicVideo(anyVid.video_url || anyVid.videoUrl);
             return;
           }
+        }
+
+        // 3. Fallback: Any video from known gender workout IDs
+        try {
+          const { data: anyGenderVid } = await supabase
+            .from('workout_videos')
+            .select('videoUrl')
+            .in('workoutId', knownWorkoutIds)
+            .limit(1);
+
+          if (!isCancelled && anyGenderVid && anyGenderVid.length > 0 && anyGenderVid[0]?.videoUrl) {
+            setDynamicVideo(anyGenderVid[0].videoUrl);
+            return;
+          }
+        } catch {
+          // ignore
         }
       } catch (err) {
         console.warn('[ExercisePreviewModal] Video dynamic resolution error:', err);
@@ -137,7 +205,7 @@ export function ExercisePreviewModal({
     return () => {
       isCancelled = true;
     };
-  }, [visible, exercise, rawVideo, userGender]);
+  }, [visible, exercise, rawVideo, preferredRole]);
 
   const effectiveRawVideo = rawVideo || dynamicVideo;
 
@@ -155,14 +223,49 @@ export function ExercisePreviewModal({
     return supabase.storage.from('workout-videos').getPublicUrl(url).data.publicUrl;
   }, [effectiveRawVideo]);
 
-  if (!exercise) return null;
+  const title = exercise?.exercise_name || (exercise as any)?.exerciseName || 'Exercise';
+  const muscleName =
+    (exercise?.muscle_group && MUSCLE_LABELS[exercise.muscle_group as MuscleValue]) ??
+    exercise?.muscle_group ??
+    'Full Body';
+  const sets = exercise?.default_sets || 3;
+  const reps = exercise?.default_reps || '10';
+  const difficulty = exercise?.difficulty ? exercise.difficulty.toUpperCase() : 'INTERMEDIATE';
+  const category = exercise?.category || 'Strength';
 
-  const title = exercise.exercise_name || (exercise as any)?.exerciseName || 'Exercise';
-  const muscleName = MUSCLE_LABELS[exercise.muscle_group as MuscleValue] ?? exercise.muscle_group ?? 'Full Body';
-  const sets = exercise.default_sets || 3;
-  const reps = exercise.default_reps || '10';
-  const difficulty = exercise.difficulty ? exercise.difficulty.toUpperCase() : 'INTERMEDIATE';
-  const category = exercise.category || 'Strength';
+  const muscleThumbnailSource = useMemo(() => {
+    try {
+      const customImg = exercise?.image_url || (exercise as any)?.image;
+      if (typeof customImg === 'string' && customImg.trim().length > 0 && !customImg.includes('1571019614242')) {
+        const trimmed = customImg.trim();
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+          return { uri: trimmed };
+        }
+        return { uri: supabase.storage.from('workout-images').getPublicUrl(trimmed).data.publicUrl };
+      }
+      if (customImg && typeof customImg === 'object' && (customImg as any).uri) {
+        return customImg;
+      }
+      return getMuscleThumbnailImage(exercise?.muscle_group, title);
+    } catch {
+      return getMuscleThumbnailImage(exercise?.muscle_group, title);
+    }
+  }, [exercise, title]);
+
+  // Reset playing & loading state whenever modal visibility or exercise changes
+  useEffect(() => {
+    if (!visible) {
+      setIsPlaying(false);
+      setIsFirstFrameReady(false);
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    setIsPlaying(false);
+    setIsFirstFrameReady(false);
+  }, [exercise?.exercise_id]);
+
+  if (!visible || !exercise) return null;
 
   return (
     <Modal
@@ -173,7 +276,7 @@ export function ExercisePreviewModal({
     >
       <View className="flex-1 bg-black/75 justify-end">
         <Pressable className="flex-1" onPress={onClose} />
-        
+
         <View className="bg-[#121214] border-t border-[#27272A] rounded-t-3xl max-h-[85%] overflow-hidden">
           {/* Top Sheet Handle */}
           <View className="w-10 h-1 bg-[#2E2E32] rounded-full self-center mt-3 mb-2" />
@@ -212,44 +315,103 @@ export function ExercisePreviewModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, paddingTop: 10 }}
           >
-            {/* Video Player */}
+            {/* Video Player / Thumbnail with Play Button */}
             <View className="w-full aspect-video bg-[#000] rounded-2xl overflow-hidden mb-4 border border-[#27272A] items-center justify-center relative">
-              {videoUri ? (
+              {!isPlaying ? (
+                /* Static Thumbnail with Prominent Play Button */
+                <Pressable
+                  onPress={() => {
+                    triggerLightHaptic();
+                    setIsPlaying(true);
+                  }}
+                  className="w-full h-full relative items-center justify-center active:opacity-90"
+                >
+                  <Image
+                    source={muscleThumbnailSource}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                  <View className="absolute inset-0 bg-black/40 items-center justify-center">
+                    <View className="w-14 h-14 rounded-full bg-black/80 border-2 border-[#C4EF00] items-center justify-center shadow-lg">
+                      <Play size={24} color="#C4EF00" weight="fill" style={{ marginLeft: 2 }} />
+                    </View>
+                    <Text className="text-white text-xs font-semibold mt-2.5 tracking-wider uppercase">
+                      Tap to Play Video
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : videoUri ? (
+                /* Active Video Player when User Manually Plays */
                 <>
                   <Video
                     source={{ uri: videoUri }}
                     style={{ width: '100%', height: '100%' }}
                     resizeMode={ResizeMode.CONTAIN}
+                    surfaceType="textureView"
+                    useNativeControls={false}
                     shouldPlay={isPlaying}
-                    isLooping
+                    isLooping={true}
+                    onFirstFrameRender={() => setIsFirstFrameReady(true)}
+                    onError={() => setIsPlaying(false)}
                   />
+
+                  {/* Keep Thumbnail visible with spinner until first frame renders to eliminate black flashes */}
+                  {!isFirstFrameReady && (
+                    <View className="absolute inset-0">
+                      <Image
+                        source={muscleThumbnailSource}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                      <View className="absolute inset-0 bg-black/45 items-center justify-center">
+                        <ActivityIndicator size="small" color="#C4EF00" />
+                        <Text className="text-white text-xs mt-2 font-medium">
+                          Starting video...
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
                   <Pressable
                     onPress={() => {
                       triggerLightHaptic();
-                      setIsPlaying((prev) => !prev);
+                      setIsPlaying(false);
                     }}
-                    className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-black/60 items-center justify-center border border-white/20"
+                    hitSlop={8}
+                    className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-black/70 items-center justify-center border border-white/20 active:opacity-75"
                   >
-                    {isPlaying ? (
-                      <Pause size={18} color="#FFF" weight="fill" />
-                    ) : (
-                      <Play size={18} color="#C4EF00" weight="fill" />
-                    )}
+                    <Pause size={18} color="#FFF" weight="fill" />
                   </Pressable>
                 </>
               ) : isResolvingVideo ? (
-                <View className="items-center justify-center p-6">
-                  <ActivityIndicator size="small" color="#C4EF00" />
-                  <Text className="text-[#A1A1AA] text-xs mt-2 font-medium">
-                    Loading video demonstration...
-                  </Text>
+                /* Dynamic lookup in progress */
+                <View className="w-full h-full relative items-center justify-center">
+                  <Image
+                    source={muscleThumbnailSource}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                  <View className="absolute inset-0 bg-black/55 items-center justify-center">
+                    <ActivityIndicator size="small" color="#C4EF00" />
+                    <Text className="text-[#C4EF00] text-xs mt-2 font-medium">
+                      Loading video demonstration...
+                    </Text>
+                  </View>
                 </View>
               ) : (
-                <View className="items-center justify-center p-6">
-                  <Barbell size={40} color="#3F3F46" weight="fill" />
-                  <Text className="text-[#71717A] text-xs mt-2 font-medium">
-                    Video demonstration coming soon
-                  </Text>
+                /* Video not found fallback */
+                <View className="w-full h-full relative items-center justify-center">
+                  <Image
+                    source={muscleThumbnailSource}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                  <View className="absolute inset-0 bg-black/60 items-center justify-center p-4">
+                    <Barbell size={36} color="#C4EF00" weight="fill" />
+                    <Text className="text-white text-xs mt-2 font-medium text-center">
+                      Video demonstration coming soon
+                    </Text>
+                  </View>
                 </View>
               )}
             </View>
@@ -269,7 +431,7 @@ export function ExercisePreviewModal({
                 <Text className="text-[#71717A] text-[10px] font-semibold uppercase tracking-wider mb-1">
                   REPS
                 </Text>
-                <Text className="text-white text-xl font-black">
+                <Text className="text-white text-xl font-semibold">
                   {reps}
                 </Text>
               </View>

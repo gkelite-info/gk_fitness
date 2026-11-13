@@ -23,18 +23,12 @@ import {
   ForearmsGroup,
 } from './muscles';
 
-// ──────────────────────────────────────────────────────────────
-// Color tokens (GK Fitness sleek dark aesthetic)
-// ──────────────────────────────────────────────────────────────
-const MUSCLE_UNSELECTED = '#3F3F46'; // Anatomical zinc-700
-const MUSCLE_SELECTED = '#C4EF00';   // GK Fitness Neon Lime
-const BASE_BODY = '#27272A';         // Zinc-800 silhouette base
-const OUTLINE_COLOR = '#3F3F46';     // Muscle contour lines
-const CONTOUR_COLOR = '#52525B';     // Head, feet, hands contour accents
+const MUSCLE_UNSELECTED = '#3F3F46';
+const MUSCLE_SELECTED = '#C4EF00';
+const BASE_BODY = '#27272A';
+const OUTLINE_COLOR = '#3F3F46';
+const CONTOUR_COLOR = '#52525B';
 
-// ──────────────────────────────────────────────────────────────
-// Muscle group metadata & friendly labels
-// ──────────────────────────────────────────────────────────────
 export const MUSCLE_LABELS: Record<MuscleValue, string> = {
   CHEST: 'Chest',
   SHOULDERS: 'Shoulders',
@@ -51,7 +45,6 @@ export const MUSCLE_LABELS: Record<MuscleValue, string> = {
   CALVES: 'Calves',
 };
 
-// Preset splits for fast selection
 const PRESETS: { label: string; muscles: MuscleValue[] }[] = [
   { label: 'Upper', muscles: ['CHEST', 'BACK', 'SHOULDERS', 'BICEPS', 'TRICEPS'] },
   { label: 'Lower', muscles: ['QUADRICEPS', 'HAMSTRINGS', 'GLUTES', 'CALVES'] },
@@ -65,9 +58,6 @@ interface MuscleBodyMapProps {
   onToggleMuscle: (muscle: MuscleValue) => void;
 }
 
-// ──────────────────────────────────────────────────────────────
-// Reusable SVG Anatomical Diagram (Single View with Front & Back)
-// ──────────────────────────────────────────────────────────────
 interface MuscleSvgDiagramProps {
   svgHeight: number;
   onToggleMuscle: (muscle: MuscleValue) => void;
@@ -90,7 +80,6 @@ function MuscleSvgDiagram({
         height={svgHeight}
         style={{ alignSelf: 'center' }}
       >
-        {/* Base anatomical body silhouette outline - pointerEvents none ensures no touch interference */}
         <G pointerEvents="none">
           <BodySilhouettes
             baseColor={BASE_BODY}
@@ -99,7 +88,6 @@ function MuscleSvgDiagram({
           />
         </G>
 
-        {/* Anatomical muscle groups with localized, non-overlapping touch targets */}
         <TrapsGroup onToggleMuscle={onToggleMuscle} getMuscleColor={getMuscleColor} />
         <ShouldersGroup onToggleMuscle={onToggleMuscle} getMuscleColor={getMuscleColor} />
         <ChestGroup onToggleMuscle={onToggleMuscle} getMuscleColor={getMuscleColor} />
@@ -118,9 +106,6 @@ function MuscleSvgDiagram({
   );
 }
 
-// ──────────────────────────────────────────────────────────────
-// Main Component
-// ──────────────────────────────────────────────────────────────
 export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMapProps) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const insets = useSafeAreaInsets();
@@ -140,14 +125,12 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
     triggerLightHaptic();
     const allActive = muscles.every((m) => selectedMuscles.includes(m));
     if (allActive) {
-      // Toggle off all muscles in this preset
       muscles.forEach((m) => {
         if (selectedMuscles.includes(m)) {
           onToggleMuscle(m);
         }
       });
     } else {
-      // Add missing muscles in this preset
       muscles.forEach((m) => {
         if (!selectedMuscles.includes(m)) {
           onToggleMuscle(m);
@@ -163,9 +146,7 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
 
   return (
     <View className="w-full">
-      {/* Human Silhouette SVG Canvas Card */}
       <View className="bg-[#121214] border border-[#27272A] rounded-3xl p-4 overflow-hidden">
-        {/* Card Header: View Title & Fullscreen Button */}
         <View className="w-full flex-row items-center justify-between mb-2">
           <View>
             <Text className="text-[10px] font-semibold text-[#A1A1AA] uppercase tracking-wider">
@@ -191,7 +172,6 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
           </Pressable>
         </View>
 
-        {/* Anatomical Perspective Markers */}
         <View className="w-full flex-row justify-around mb-1 px-4">
           <View className="bg-[#18181B] border border-[#27272A] px-3 py-0.5 rounded-full">
             <Text className="text-[10px] font-semibold text-[#A1A1AA] uppercase tracking-wider">
@@ -205,14 +185,12 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
           </View>
         </View>
 
-        {/* SVG Anatomical Model */}
         <MuscleSvgDiagram
           svgHeight={310}
           onToggleMuscle={handleToggle}
           getMuscleColor={getMuscleColor}
         />
 
-        {/* Legend */}
         <View className="flex-row items-center justify-center gap-4 mt-2">
           <View className="flex-row items-center gap-1.5">
             <View className="w-2.5 h-2.5 rounded-full bg-[#C4EF00]" />
@@ -229,7 +207,6 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
         </View>
       </View>
 
-      {/* Quick Preset Splits */}
       <View className="mt-3">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
           {PRESETS.map((preset) => {
@@ -238,7 +215,7 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
               <Pressable
                 key={preset.label}
                 onPress={() => handleApplyPreset(preset.muscles)}
-                className={`px-3 py-1.5 rounded-full border ${allActive
+                className={`px-3 py-1.5 mr-1.5 rounded-full border ${allActive
                   ? 'bg-[#C4EF00]/20 border-[#C4EF00]'
                   : 'bg-[#18181B] border-[#27272A]'
                   }`}
@@ -255,7 +232,6 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
         </ScrollView>
       </View>
 
-      {/* Selected Muscles Chips */}
       {selectedMuscles.length > 0 && (
         <View className="mt-3">
           <View className="flex-row items-center justify-between mb-2">
@@ -284,9 +260,6 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
         </View>
       )}
 
-      {/* ────────────────────────────────────────────────────────── */}
-      {/* Full-Screen Precision Selection Modal                      */}
-      {/* ────────────────────────────────────────────────────────── */}
       <Modal
         visible={isFullScreen}
         animationType="slide"
@@ -353,9 +326,7 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
               </ScrollView>
             </View>
 
-            {/* Large Interactive Canvas */}
             <View className="bg-[#121214] border border-[#27272A] rounded-3xl p-4 my-2 items-center">
-              {/* Anatomical Perspective Markers */}
               <View className="w-full flex-row justify-around mb-2 px-6">
                 <View className="bg-[#1F240A] border border-[#C4EF00]/30 px-3 py-1 rounded-full">
                   <Text className="text-xs font-semibold text-[#C4EF00] uppercase tracking-wider">
@@ -369,14 +340,12 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
                 </View>
               </View>
 
-              {/* High-Resolution SVG Canvas */}
               <MuscleSvgDiagram
                 svgHeight={Math.min(screenHeight * 0.52, 460)}
                 onToggleMuscle={handleToggle}
                 getMuscleColor={getMuscleColor}
               />
 
-              {/* Bottom Legend */}
               <View className="flex-row items-center justify-center gap-5 mt-3 pt-2 border-t border-[#27272A]/60 w-full">
                 <View className="flex-row items-center gap-1.5">
                   <View className="w-3 h-3 rounded-full bg-[#C4EF00]" />
@@ -393,7 +362,6 @@ export function MuscleBodyMap({ selectedMuscles, onToggleMuscle }: MuscleBodyMap
               </View>
             </View>
 
-            {/* Selected Muscles Chips in Full Screen */}
             {selectedMuscles.length > 0 && (
               <View className="mt-3 bg-[#121214] border border-[#27272A] p-4 rounded-2xl">
                 <View className="flex-row items-center justify-between mb-2.5">

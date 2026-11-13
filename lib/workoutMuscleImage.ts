@@ -1,8 +1,10 @@
 /**
  * Maps a workout type / muscle group (with exercise-name fallback for mixed splits)
- * to the static local thumbnail artwork displayed behind the Play button.
+ * to the static local thumbnail artwork in assets/ displayed behind the Play button
+ * and on workout cards across iOS and Android.
  */
-const MUSCLE_IMAGE_ASSETS = {
+
+export const MUSCLE_IMAGE_ASSETS = {
   triceps: require('../assets/triceps.jpeg'),
   biceps: require('../assets/biceps.jpeg'),
   chest: require('../assets/chest.jpeg'),
@@ -18,102 +20,257 @@ const MUSCLE_IMAGE_ASSETS = {
   default: require('../assets/barbell.png'),
 };
 
+/**
+ * Matches exercise names or specific workout descriptions against muscle categories.
+ */
 function matchSpecificMuscle(text: string): any | null {
   if (!text) return null;
-  if (text.includes('calf') || text.includes('calves') || text.includes('tibialis') || text.includes('heel raise')) {
+  const lower = text.toLowerCase();
+
+  // 1. Calves
+  if (
+    lower.includes('calf') ||
+    lower.includes('calves') ||
+    lower.includes('tibialis') ||
+    lower.includes('heel raise')
+  ) {
     return MUSCLE_IMAGE_ASSETS.calves;
   }
-  if (text.includes('hip') || text.includes('glute') || text.includes('adduct') || text.includes('abduct')) {
+
+  // 2. Hips / Glutes
+  if (
+    lower.includes('hip') ||
+    lower.includes('glute') ||
+    lower.includes('adduct') ||
+    lower.includes('abduct') ||
+    lower.includes('bridge')
+  ) {
     return MUSCLE_IMAGE_ASSETS.hips;
   }
-  if (text.includes('trapezius') || text.includes('trap') || text.includes('shrug')) {
+
+  // 3. Trapezius / Traps
+  if (
+    lower.includes('trapezius') ||
+    lower.includes('trap') ||
+    lower.includes('shrug')
+  ) {
     return MUSCLE_IMAGE_ASSETS.trapezius;
   }
-  if (text.includes('forearm') || text.includes('wrist curl') || text.includes('reverse curl')) {
+
+  // 4. Forearms
+  if (
+    lower.includes('forearm') ||
+    lower.includes('wrist curl') ||
+    lower.includes('reverse curl') ||
+    lower.includes('grip')
+  ) {
     return MUSCLE_IMAGE_ASSETS.forearms;
   }
-  if (text.includes('cardio') || text.includes('treadmill') || text.includes('jump rope') || text.includes('burpee') || text.includes('jumping jack') || text.includes('mountain climber') || text.includes('cycling') || text.includes('running')) {
+
+  // 5. Cardio
+  if (
+    lower.includes('cardio') ||
+    lower.includes('treadmill') ||
+    lower.includes('jump rope') ||
+    lower.includes('burpee') ||
+    lower.includes('jumping jack') ||
+    lower.includes('mountain climber') ||
+    lower.includes('cycling') ||
+    lower.includes('running') ||
+    lower.includes('jogging') ||
+    lower.includes('hiit') ||
+    lower.includes('aerobic') ||
+    lower.includes('elliptical') ||
+    lower.includes('rower')
+  ) {
     return MUSCLE_IMAGE_ASSETS.cardio;
   }
-  if (text.includes('tricep') || text.includes('pushdown') || text.includes('skull') || text.includes('kickback')) {
+
+  // 6. Triceps
+  if (
+    lower.includes('tricep') ||
+    lower.includes('pushdown') ||
+    lower.includes('skull') ||
+    lower.includes('kickback') ||
+    lower.includes('close grip') ||
+    lower.includes('bench dip')
+  ) {
     return MUSCLE_IMAGE_ASSETS.triceps;
   }
-  if (text.includes('bicep') || text.includes('curl')) {
+
+  // 7. Biceps
+  if (
+    lower.includes('bicep') ||
+    lower.includes('curl') ||
+    lower.includes('preacher') ||
+    lower.includes('chin up') ||
+    lower.includes('chin-up')
+  ) {
     return MUSCLE_IMAGE_ASSETS.biceps;
   }
-  if (text.includes('chest') || text.includes('pectoral') || text.includes('bench press') || text.includes('push up') || text.includes('push-up') || text.includes('pushup') || text.includes('fly')) {
+
+  // 8. Chest
+  if (
+    lower.includes('chest') ||
+    lower.includes('pectoral') ||
+    lower.includes('pec') ||
+    lower.includes('bench press') ||
+    lower.includes('push up') ||
+    lower.includes('push-up') ||
+    lower.includes('pushup') ||
+    lower.includes('fly') ||
+    lower.includes('flies') ||
+    lower.includes('crossover')
+  ) {
     return MUSCLE_IMAGE_ASSETS.chest;
   }
-  if (text.includes('back') || text.includes('lat ') || text.includes('lats') || text.includes('pulldown') || text.includes('pull up') || text.includes('pull-up') || text.includes('deadlift') || text.includes('row')) {
+
+  // 9. Back
+  if (
+    lower.includes('back') ||
+    lower.includes('lat ') ||
+    lower.includes('lats') ||
+    lower.includes('pulldown') ||
+    lower.includes('pull up') ||
+    lower.includes('pull-up') ||
+    lower.includes('pullup') ||
+    lower.includes('deadlift') ||
+    lower.includes('row') ||
+    lower.includes('rhomboid')
+  ) {
     return MUSCLE_IMAGE_ASSETS.back;
   }
-  if (text.includes('shoulder') || text.includes('delt') || text.includes('lateral raise') || text.includes('overhead press') || text.includes('arnold')) {
+
+  // 10. Shoulders
+  if (
+    lower.includes('shoulder') ||
+    lower.includes('delt') ||
+    lower.includes('lateral raise') ||
+    lower.includes('overhead press') ||
+    lower.includes('arnold') ||
+    lower.includes('military press') ||
+    lower.includes('front raise')
+  ) {
     return MUSCLE_IMAGE_ASSETS.shoulder;
   }
-  if (text.includes('leg') || text.includes('lower body') || text.includes('quad') || text.includes('hamstring') || text.includes('squat') || text.includes('lunge')) {
+
+  // 11. Legs
+  if (
+    lower.includes('leg') ||
+    lower.includes('lower body') ||
+    lower.includes('quad') ||
+    lower.includes('hamstring') ||
+    lower.includes('squat') ||
+    lower.includes('lunge') ||
+    lower.includes('bulgarian') ||
+    lower.includes('hack')
+  ) {
     return MUSCLE_IMAGE_ASSETS.legs;
   }
-  if (text.includes('abs') || text.includes('ab ') || text === 'ab' || text.includes('core') || text.includes('oblique') || text.includes('crunch') || text.includes('plank') || text.includes('sit up') || text.includes('sit-up')) {
+
+  // 12. Abs / Core
+  if (
+    lower.includes('abs') ||
+    lower.includes('ab ') ||
+    lower === 'ab' ||
+    lower.includes('abdom') ||
+    lower.includes('core') ||
+    lower.includes('oblique') ||
+    lower.includes('crunch') ||
+    lower.includes('plank') ||
+    lower.includes('sit up') ||
+    lower.includes('sit-up') ||
+    lower.includes('situp') ||
+    lower.includes('belly')
+  ) {
+    return MUSCLE_IMAGE_ASSETS.abs;
+  }
+
+  return null;
+}
+
+/**
+ * Matches high-level muscle group / workout category labels directly.
+ */
+function matchMuscleGroup(normalizedGroup: string): any | null {
+  if (!normalizedGroup) return null;
+  const lower = normalizedGroup.toLowerCase().trim();
+
+  if (lower.includes('calf') || lower.includes('calves')) return MUSCLE_IMAGE_ASSETS.calves;
+  if (lower.includes('hip') || lower.includes('glute')) return MUSCLE_IMAGE_ASSETS.hips;
+  if (lower.includes('trap')) return MUSCLE_IMAGE_ASSETS.trapezius;
+  if (lower.includes('forearm')) return MUSCLE_IMAGE_ASSETS.forearms;
+  if (lower.includes('cardio')) return MUSCLE_IMAGE_ASSETS.cardio;
+  if (lower.includes('tricep')) return MUSCLE_IMAGE_ASSETS.triceps;
+  if (lower.includes('bicep')) return MUSCLE_IMAGE_ASSETS.biceps;
+  if (lower.includes('chest') || lower.includes('pectoral')) return MUSCLE_IMAGE_ASSETS.chest;
+  if (lower.includes('back') || lower.includes('lat')) return MUSCLE_IMAGE_ASSETS.back;
+  if (lower.includes('shoulder') || lower.includes('delt')) return MUSCLE_IMAGE_ASSETS.shoulder;
+  if (
+    lower.includes('leg') ||
+    lower.includes('quad') ||
+    lower.includes('hamstring') ||
+    lower.includes('lower body')
+  ) {
+    return MUSCLE_IMAGE_ASSETS.legs;
+  }
+  if (
+    lower.includes('ab') ||
+    lower.includes('core') ||
+    lower.includes('oblique')
+  ) {
     return MUSCLE_IMAGE_ASSETS.abs;
   }
   return null;
 }
 
-function matchMuscleGroup(normalizedGroup: string): any | null {
-  if (!normalizedGroup) return null;
-  if (normalizedGroup.includes('calf') || normalizedGroup.includes('calves')) return MUSCLE_IMAGE_ASSETS.calves;
-  if (normalizedGroup.includes('hip') || normalizedGroup.includes('glute')) return MUSCLE_IMAGE_ASSETS.hips;
-  if (normalizedGroup.includes('trap')) return MUSCLE_IMAGE_ASSETS.trapezius;
-  if (normalizedGroup.includes('forearm')) return MUSCLE_IMAGE_ASSETS.forearms;
-  if (normalizedGroup.includes('cardio')) return MUSCLE_IMAGE_ASSETS.cardio;
-  if (normalizedGroup.includes('tricep')) return MUSCLE_IMAGE_ASSETS.triceps;
-  if (normalizedGroup.includes('bicep')) return MUSCLE_IMAGE_ASSETS.biceps;
-  if (normalizedGroup.includes('chest') || normalizedGroup.includes('pectoral')) return MUSCLE_IMAGE_ASSETS.chest;
-  if (normalizedGroup.includes('back') || normalizedGroup.includes('lat')) return MUSCLE_IMAGE_ASSETS.back;
-  if (normalizedGroup.includes('shoulder') || normalizedGroup.includes('delt')) return MUSCLE_IMAGE_ASSETS.shoulder;
-  if (
-    normalizedGroup.includes('leg') ||
-    normalizedGroup.includes('quad') ||
-    normalizedGroup.includes('hamstring') ||
-    normalizedGroup.includes('lower body')
-  ) {
-    return MUSCLE_IMAGE_ASSETS.legs;
-  }
-  if (normalizedGroup.includes('ab') || normalizedGroup.includes('core')) return MUSCLE_IMAGE_ASSETS.abs;
-  return null;
-}
-
+/**
+ * Returns the local asset thumbnail source from assets/ for a muscle group and exercise name.
+ */
 export function getMuscleThumbnailImage(
   muscleGroup?: string | null,
   exerciseName?: string | null
-) {
+): any {
   const normalizedGroup = (muscleGroup || '').toLowerCase().trim();
   const normalizedName = (exerciseName || '').toLowerCase().trim();
 
-  // Direct match on explicit workout types (specific groups checked before broader ones)
+  // 1. Direct match on explicit muscle group
   const matchedGroup = matchMuscleGroup(normalizedGroup);
   if (matchedGroup) return matchedGroup;
+
+  // 2. Disambiguate 'arms' / 'arm' by checking exercise name
   if (normalizedGroup.includes('arm')) {
     return matchSpecificMuscle(normalizedName) ?? MUSCLE_IMAGE_ASSETS.biceps;
   }
 
+  // 3. Fallback to matching exercise name
   return matchSpecificMuscle(normalizedName) ?? MUSCLE_IMAGE_ASSETS.default;
 }
 
 /**
- * Resolves a workout type label (e.g., "Chest", "Biceps", "Push Day") to its local thumbnail artwork.
+ * Resolves a workout type label (e.g., "Chest", "Biceps", "Push Day", "Legs")
+ * to the corresponding image asset in assets/.
  */
 export function getWorkoutTypeImage(
   type?: string | null,
   fallbackAsset: any = MUSCLE_IMAGE_ASSETS.default
-) {
+): any {
   if (!type) return fallbackAsset;
   const lower = type.toLowerCase().trim();
+
+  // Workout splits / named routines
   if (lower.includes('push')) return require('../assets/push-day.png');
   if (lower.includes('pull')) return require('../assets/back-stood.png');
-  if (lower.includes('full')) return require('../assets/bodyweight-blast.png');
+  if (lower.includes('full') || lower.includes('fullbody') || lower.includes('full body')) {
+    return require('../assets/bodyweight-blast.png');
+  }
+
+  // Muscle group match
   const matchedGroup = matchMuscleGroup(lower);
   if (matchedGroup) return matchedGroup;
+
   if (lower.includes('arm')) return MUSCLE_IMAGE_ASSETS.biceps;
+
+  // Specific exercise / keyword match
   return matchSpecificMuscle(lower) ?? fallbackAsset;
 }

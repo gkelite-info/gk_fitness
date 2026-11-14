@@ -25,6 +25,7 @@
       "node": "22.14.0",
       "autoIncrement": true,
       "env": {
+        "RCT_USE_PREBUILT_RNCORE": "0",
         "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
       },
       "channel": "production"

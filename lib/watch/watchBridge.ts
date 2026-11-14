@@ -179,6 +179,23 @@ class WatchBridgeService {
   }
 
   /**
+   * Pushes daily step count to watch so the watch display stays in sync with the phone.
+   */
+  async syncStepsToWatch(steps: number, sessionDate?: string): Promise<boolean> {
+    if (!this.isAvailable) return false;
+    try {
+      if (WatchBridgeModule && typeof WatchBridgeModule.pushStepSync === 'function') {
+        const date = sessionDate || new Date().toISOString().split('T')[0];
+        return await WatchBridgeModule.pushStepSync(steps, date);
+      }
+      return false;
+    } catch (e) {
+      console.warn('[WatchBridge] syncStepsToWatch failed:', e);
+      return false;
+    }
+  }
+
+  /**
    * Pushes daily water total to watch so the watch display stays in sync with the phone.
    */
   async syncWaterToWatch(waterIntakeMl: number, waterGoalMl: number): Promise<boolean> {

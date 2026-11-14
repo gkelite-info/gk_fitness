@@ -48,6 +48,19 @@ class WearDataLayerListenerService : WearableListenerService() {
                     Log.e("GKWearListener", "water-sync error: ${e.message}", e)
                 }
             }
+            "/gk/step-sync" -> {
+                try {
+                    val json = String(messageEvent.data, StandardCharsets.UTF_8)
+                    Log.d("GKWearListener", "Received /gk/step-sync message: $json")
+                    val map = gson.fromJson(json, Map::class.java)
+                    val steps = (map["steps"] as? Number)?.toInt() ?: 0
+                    if (steps > 0) {
+                        WatchHealthManager.getInstance(applicationContext).updateStepsFromPhone(steps)
+                    }
+                } catch (e: Exception) {
+                    Log.e("GKWearListener", "step-sync error: ${e.message}", e)
+                }
+            }
             "/gk/auth-session" -> {
                 try {
                     val json = String(messageEvent.data, StandardCharsets.UTF_8)
@@ -95,6 +108,18 @@ class WearDataLayerListenerService : WearableListenerService() {
                             WatchHealthManager.getInstance(applicationContext).updateWaterFromPhone(intake, goal)
                         } catch (e: Exception) {
                             Log.e("GKWearListener", "DataChanged water error: ${e.message}", e)
+                        }
+                    }
+                    "/gk/step-sync" -> {
+                        try {
+                            val dataMapItem = DataMapItem.fromDataItem(event.dataItem)
+                            val steps = dataMapItem.dataMap.getInt("steps", 0)
+                            Log.d("GKWearListener", "DataChanged /gk/step-sync: steps=$steps")
+                            if (steps > 0) {
+                                WatchHealthManager.getInstance(applicationContext).updateStepsFromPhone(steps)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("GKWearListener", "DataChanged step error: ${e.message}", e)
                         }
                     }
                     "/gk/auth-session" -> {

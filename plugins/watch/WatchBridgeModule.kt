@@ -209,6 +209,48 @@ class WatchBridgeModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun pushStepSync(steps: Double, sessionDate: String, promise: Promise) {
+        scope.launch {
+            try {
+                val stepCount = steps.toInt()
+                val json = "{\"steps\":$stepCount,\"sessionDate\":\"$sessionDate\",\"timestamp\":${System.currentTimeMillis()}}"
+                Log.d("GKWatchBridge", "pushStepSync: steps=$stepCount, sessionDate=$sessionDate")
+
+                // 1. DataClient for persistent sync (cached on watch even if watch is asleep/disconnected)
+                try {
+                    val dataClient = Wearable.getDataClient(reactContext)
+                    val putDataMapRequest = PutDataMapRequest.create("/gk/step-sync")
+                    putDataMapRequest.dataMap.putInt("steps", stepCount)
+                    putDataMapRequest.dataMap.putString("sessionDate", sessionDate)
+                    putDataMapRequest.dataMap.putLong("timestamp", System.currentTimeMillis())
+                    val request = putDataMapRequest.asPutDataRequest().setUrgent()
+                    Tasks.await(dataClient.putDataItem(request))
+                    Log.d("GKWatchBridge", "pushStepSync: DataClient putDataItem succeeded")
+                } catch (dataErr: Exception) {
+                    Log.w("GKWatchBridge", "pushStepSync DataClient notice: ${dataErr.message}")
+                }
+
+                // 2. MessageClient for instantaneous real-time delivery
+                val nodeClient = Wearable.getNodeClient(reactContext)
+                val messageClient = Wearable.getMessageClient(reactContext)
+                val nodes: List<Node> = Tasks.await(nodeClient.connectedNodes)
+                Log.d("GKWatchBridge", "pushStepSync: found ${nodes.size} connected nodes")
+                val data = json.toByteArray(StandardCharsets.UTF_8)
+                var anySent = false
+                for (node in nodes) {
+                    Tasks.await(messageClient.sendMessage(node.id, "/gk/step-sync", data))
+                    Log.d("GKWatchBridge", "pushStepSync: sent message to node ${node.id} (${node.displayName})")
+                    anySent = true
+                }
+                promise.resolve(anySent || nodes.isNotEmpty())
+            } catch (e: Exception) {
+                Log.e("GKWatchBridge", "pushStepSync error: ${e.message}", e)
+                promise.resolve(false)
+            }
+        }
+    }
+
+    @ReactMethod
     fun pushAuthSession(sessionJson: String, promise: Promise) {
         scope.launch {
             try {

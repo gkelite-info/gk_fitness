@@ -45,6 +45,10 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
   // iOS step tracking ref (preserves native CoreMotion handler)
   const lastWatchStepsRef = useRef(0);
 
+  // Smartwatch wrist tracking refs (Wear OS)
+  const lastSmartwatchSyncTimeRef = useRef(0);
+  const lastSmartwatchStepsRef = useRef(0);
+
   // Android step tracking refs:
   const lastAndroidReadingRef = useRef(-1);
   const lastAndroidRawStepsRef = useRef(-1);
@@ -225,6 +229,10 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
             if (userId) {
               AsyncStorage.setItem(getStepsCacheKey(userId, today), best.toString()).catch(() => { });
             }
+            if (Platform.OS === 'android' && best > lastSmartwatchStepsRef.current) {
+              lastSmartwatchStepsRef.current = best;
+              watchBridge.syncStepsToWatch(best, today).catch(() => { });
+            }
             return best;
           });
           setDebugInfo(`HC: ${hcSteps}, Cached: ${cachedSteps}, Using: ${bestSteps}`);
@@ -262,7 +270,8 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
               lastStepTimeRef.current = now;
               accelValleyDetectedRef.current = false;
 
-              if (isMounted) {
+              const isWatchActivelyStreaming = (Date.now() - lastSmartwatchSyncTimeRef.current) < 60_000;
+              if (isMounted && !isWatchActivelyStreaming) {
                 accelLiveDeltaRef.current += 1;
                 setSteps(prev => {
                   const next = prev + 1;
@@ -403,7 +412,12 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
                 const hwDelta = currentReading - lastAndroidReadingRef.current;
                 lastAndroidReadingRef.current = currentReading;
 
-                if (hwDelta > 0 && isMounted) {
+                // Smartwatch Active Streaming Guard:
+                // If smartwatch wrist sensor is actively streaming steps (within last 60s),
+                // wrist sensor is authoritative to avoid double-counting steps from pocket motion.
+                const isWatchActivelyStreaming = (Date.now() - lastSmartwatchSyncTimeRef.current) < 60_000;
+
+                if (hwDelta > 0 && isMounted && !isWatchActivelyStreaming) {
                   // Reconcile with any live steps the accelerometer already displayed
                   let stepsToAdd = hwDelta;
                   if (accelLiveDeltaRef.current > 0) {
@@ -524,6 +538,8 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
         if (data && data.steps > 0 && (!data.sessionDate || data.sessionDate === today)) {
           if (!data.userId || data.userId === userId) {
             console.log('[Pedometer] Reconciling smartwatch steps:', data.steps);
+            lastSmartwatchSyncTimeRef.current = Date.now();
+            lastSmartwatchStepsRef.current = data.steps;
             setSteps((prev) => {
               const reconciled = Math.max(prev, data.steps);
               if (userId) {
@@ -557,6 +573,14 @@ export function PedometerProvider({ children }: { children: React.ReactNode }) {
     const syncTimeout = setTimeout(async () => {
       try {
         await supabaseFitnessService.updateSteps(userId, today, steps, calories);
+
+        // Bi-directional watch sync: If phone has higher steps than the smartwatch
+        // (e.g. user walked with phone while watch was charging or inactive),
+        // push the updated total to the smartwatch so its display stays in sync.
+        if (Platform.OS === 'android' && steps > lastSmartwatchStepsRef.current) {
+          lastSmartwatchStepsRef.current = steps;
+          watchBridge.syncStepsToWatch(steps, today).catch(() => { });
+        }
 
         // Progress Milestone: 10k steps
         if (steps >= 10000) {

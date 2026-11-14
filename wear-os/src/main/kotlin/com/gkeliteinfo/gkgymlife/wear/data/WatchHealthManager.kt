@@ -57,12 +57,15 @@ class WatchHealthManager(private val context: Context) :
     val waterGoalMl = _waterGoalMl.asStateFlow()
 
     private var initialStepOffset = -1
+    private var externalStepBonus = 0
+    private var lastRawSensorSteps = 0
     private var lastHrSentTime = 0L
     private var lastStepsSentToPhone = 0
     private var currentUserId: String? = null
 
     init {
         loadDailyWater()
+        loadDailySteps()
         startSensors()
         registerWearableListeners()
     }
@@ -86,6 +89,22 @@ class WatchHealthManager(private val context: Context) :
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
         when (messageEvent.path) {
+            "/gk/step-sync" -> {
+                try {
+                    val json = String(messageEvent.data, StandardCharsets.UTF_8)
+                    Log.d("GKWatchHealth", "onMessageReceived /gk/step-sync: $json")
+                    val map = gson.fromJson(json, Map::class.java)
+                    val sessionDate = map["sessionDate"] as? String
+                    if (sessionDate == null || sessionDate == getTodayKey()) {
+                        val steps = (map["steps"] as? Number)?.toInt() ?: 0
+                        if (steps > 0) {
+                            updateStepsFromPhone(steps)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("GKWatchHealth", "onMessageReceived /gk/step-sync error: ${e.message}", e)
+                }
+            }
             "/gk/water-sync" -> {
                 try {
                     val json = String(messageEvent.data, StandardCharsets.UTF_8)
@@ -116,6 +135,21 @@ class WatchHealthManager(private val context: Context) :
             if (event.type == DataEvent.TYPE_CHANGED) {
                 val uri = event.dataItem.uri
                 when (uri.path) {
+                    "/gk/step-sync" -> {
+                        try {
+                            val dataMapItem = DataMapItem.fromDataItem(event.dataItem)
+                            val sessionDate = dataMapItem.dataMap.getString("sessionDate")
+                            if (sessionDate.isNullOrEmpty() || sessionDate == getTodayKey()) {
+                                val steps = dataMapItem.dataMap.getInt("steps", 0)
+                                Log.d("GKWatchHealth", "onDataChanged /gk/step-sync: steps=$steps")
+                                if (steps > 0) {
+                                    updateStepsFromPhone(steps)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("GKWatchHealth", "onDataChanged /gk/step-sync error: ${e.message}", e)
+                        }
+                    }
                     "/gk/water-sync" -> {
                         try {
                             val dataMapItem = DataMapItem.fromDataItem(event.dataItem)
@@ -161,6 +195,54 @@ class WatchHealthManager(private val context: Context) :
         } else {
             _waterIntakeMl.value = 0
             prefs.edit().putString("water_date_$userKey", today).putInt("water_ml_$userKey", 0).apply()
+        }
+    }
+
+    private fun loadDailySteps() {
+        val today = getTodayKey()
+        val savedDate = prefs.getString("steps_date", "")
+        if (savedDate == today) {
+            initialStepOffset = prefs.getInt("step_offset_$today", -1)
+            externalStepBonus = prefs.getInt("step_external_$today", 0)
+            val savedSteps = prefs.getInt("steps_total_$today", 0)
+            _steps.value = savedSteps
+            lastStepsSentToPhone = savedSteps
+        } else {
+            initialStepOffset = -1
+            externalStepBonus = 0
+            _steps.value = 0
+            lastStepsSentToPhone = 0
+            prefs.edit()
+                .putString("steps_date", today)
+                .putInt("step_external_$today", 0)
+                .putInt("steps_total_$today", 0)
+                .apply()
+        }
+    }
+
+    fun updateStepsFromPhone(phoneSteps: Int) {
+        if (phoneSteps <= 0) return
+        val today = getTodayKey()
+
+        // Calculate current wrist steps recorded today
+        val currentWristSteps = if (initialStepOffset >= 0 && lastRawSensorSteps >= initialStepOffset) {
+            lastRawSensorSteps - initialStepOffset
+        } else {
+            0
+        }
+
+        val currentTotal = currentWristSteps + externalStepBonus
+        if (phoneSteps > currentTotal) {
+            externalStepBonus = phoneSteps - currentWristSteps
+            val newTotal = currentWristSteps + externalStepBonus
+            _steps.value = newTotal
+            lastStepsSentToPhone = newTotal
+            prefs.edit()
+                .putString("steps_date", today)
+                .putInt("step_external_$today", externalStepBonus)
+                .putInt("steps_total_$today", newTotal)
+                .apply()
+            Log.d("GKWatchHealth", "updateStepsFromPhone applied: phoneSteps=$phoneSteps, newTotal=$newTotal, externalBonus=$externalStepBonus")
         }
     }
 
@@ -325,17 +407,35 @@ class WatchHealthManager(private val context: Context) :
             Sensor.TYPE_STEP_COUNTER -> {
                 val rawSteps = event.values[0].toInt()
                 if (rawSteps > 0) {
-                    if (initialStepOffset == -1) {
-                        val savedOffset = prefs.getInt("step_offset_${getTodayKey()}", -1)
-                        if (savedOffset != -1) {
+                    val today = getTodayKey()
+                    lastRawSensorSteps = rawSteps
+
+                    // Device reboot detection: hardware raw counter reset to zero
+                    if (initialStepOffset != -1 && rawSteps < initialStepOffset) {
+                        val previousWrist = maxOf(0, lastRawSensorSteps - initialStepOffset)
+                        externalStepBonus += previousWrist
+                        initialStepOffset = rawSteps
+                        prefs.edit()
+                            .putInt("step_offset_$today", rawSteps)
+                            .putInt("step_external_$today", externalStepBonus)
+                            .apply()
+                    } else if (initialStepOffset == -1) {
+                        val savedOffset = prefs.getInt("step_offset_$today", -1)
+                        if (savedOffset != -1 && rawSteps >= savedOffset) {
                             initialStepOffset = savedOffset
                         } else {
                             initialStepOffset = rawSteps
-                            prefs.edit().putInt("step_offset_${getTodayKey()}", rawSteps).apply()
+                            prefs.edit().putInt("step_offset_$today", rawSteps).apply()
                         }
                     }
-                    val todaySteps = maxOf(0, rawSteps - initialStepOffset)
+
+                    val currentWristSteps = maxOf(0, rawSteps - initialStepOffset)
+                    val todaySteps = currentWristSteps + externalStepBonus
                     _steps.value = todaySteps
+                    prefs.edit()
+                        .putString("steps_date", today)
+                        .putInt("steps_total_$today", todaySteps)
+                        .apply()
 
                     // Sync steps to phone throttled (every 25 steps)
                     if (todaySteps - lastStepsSentToPhone >= 25) {

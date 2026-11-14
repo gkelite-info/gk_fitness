@@ -124,6 +124,30 @@ export async function pushDailyWaterToWatch(
 }
 
 /**
+ * Pushes today's daily steps from Supabase or memory to the smartwatch.
+ */
+export async function pushDailyStepsToWatch(
+  userId: string,
+  explicitSteps?: number
+): Promise<boolean> {
+  try {
+    const today = getLocalDateString(new Date());
+    let stepsToPush = explicitSteps;
+    if (stepsToPush === undefined) {
+      const stats = await supabaseFitnessService.getDailyStats(userId, today);
+      stepsToPush = stats?.steps || 0;
+    }
+    if (stepsToPush <= 0) return false;
+    const success = await watchBridge.syncStepsToWatch(stepsToPush, today);
+    console.log('[pushDailyStepsToWatch] Steps synced to watch:', stepsToPush, '(success:', success, ')');
+    return success;
+  } catch (err) {
+    console.warn('[pushDailyStepsToWatch] Failed:', err);
+    return false;
+  }
+}
+
+/**
  * Pushes the current user's authentication & profile session to the smartwatch.
  */
 export async function pushAuthSessionToWatch(session: WatchAuthSession): Promise<boolean> {
@@ -185,6 +209,7 @@ export function useWatchSync() {
           });
           pushTodayWorkoutToWatch(userId);
           pushDailyWaterToWatch(userId);
+          pushDailyStepsToWatch(userId);
         }
       } catch (err) {
         console.warn('[useWatchSync] syncWatchDevice error:', err);
@@ -339,6 +364,32 @@ export function useWatchSync() {
       });
       await pushTodayWorkoutToWatch(userId);
       await pushDailyWaterToWatch(userId);
+      await pushDailyStepsToWatch(userId);
+    });
+
+    // 6. Listen for step counts sent from smartwatch wrist sensor
+    const stepSubscription = watchBridge.onStepSyncReceived(async (stepData) => {
+      try {
+        if (!stepData || typeof stepData.steps !== 'number' || stepData.steps <= 0) return;
+        const targetUserId = stepData.userId || userId;
+        const today = getLocalDateString(new Date());
+        const sessionDate = stepData.sessionDate || today;
+        if (sessionDate !== today) return;
+
+        console.log('[useWatchSync] Received step sync from watch:', stepData.steps, 'steps for user:', targetUserId);
+        const calories = Math.round(stepData.steps * 0.04);
+
+        // Update Supabase in background
+        await supabaseFitnessService.updateSteps(targetUserId, sessionDate, stepData.steps, calories);
+
+        // Invalidate queries so dashboard/activity metrics update
+        queryClient.invalidateQueries({ queryKey: ['fitnessStats', targetUserId] });
+        queryClient.invalidateQueries({ queryKey: ['today_activity_metrics', targetUserId] });
+        queryClient.invalidateQueries({ queryKey: ['customerDashboardData', targetUserId] });
+        queryClient.invalidateQueries({ queryKey: ['daily_fitness_stats', targetUserId] });
+      } catch (err) {
+        console.warn('[useWatchSync] Step sync from watch error:', err);
+      }
     });
 
     return () => {
@@ -347,6 +398,7 @@ export function useWatchSync() {
       hrSubscription.remove();
       waterSubscription.remove();
       requestWorkoutSubscription.remove();
+      stepSubscription.remove();
     };
   }, [userId, queryClient]);
 }

@@ -17,6 +17,7 @@ import {
 import { router } from 'expo-router';
 import { useUser } from '@/context/UserContext';
 import { useCustomerProfile } from '@/hooks/auth/useCustomerProfile';
+import { useUserById } from '@/hooks/users';
 
 import { EquipmentSelector } from './EquipmentSelector';
 import { MuscleBodyMap } from './MuscleBodyMap';
@@ -117,8 +118,10 @@ export function CustomWorkoutBuilder() {
   const userContext = useUser();
   const userId = userContext.userId;
   const { data: customerProfileData } = useCustomerProfile(userId);
+  const { data: userRecord } = useUserById(userId);
 
   const rawGender = (
+    userRecord?.gender ||
     (userContext.role === 'customer' ? customerProfileData?.customerData?.gender : null) ||
     customerProfileData?.customerData?.gender ||
     customerProfileData?.onboardingData?.gender ||
@@ -126,7 +129,7 @@ export function CustomWorkoutBuilder() {
     'male'
   ).toString().trim().toLowerCase();
 
-  const userGender = rawGender.includes('female') ? 'female' : 'male';
+  const userGender: 'female' | 'male' = rawGender.includes('female') ? 'female' : 'male';
 
   const {
     currentStep,

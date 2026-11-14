@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Pressable, Image, ActivityIndicator } from 'react-native';
-import { useIsFocused } from 'expo-router';
 import { Play } from 'phosphor-react-native';
 import { Video, ResizeMode } from '@/components/ui/Video';
 import { getSupabaseVideoPublicUrl } from '@/lib/videoCache';
@@ -57,7 +56,6 @@ export const ExerciseMediaPlayer = React.memo(({
 }: ExerciseMediaPlayerProps) => {
   const [hasVideoError, setHasVideoError] = useState(false);
   const [isFirstFrameReady, setIsFirstFrameReady] = useState(false);
-  const isFocused = useIsFocused();
 
   const publicUrl = useMemo(() => (videoUrl ? getSupabaseVideoPublicUrl(videoUrl) : null), [videoUrl]);
   const isStaticMedia = useMemo(() => isStaticImageOrGif(publicUrl), [publicUrl]);
@@ -73,10 +71,10 @@ export const ExerciseMediaPlayer = React.memo(({
   }, [publicUrl]);
 
   useEffect(() => {
-    if (!isPlaying || !isFocused) {
+    if (!isPlaying) {
       setIsFirstFrameReady(false);
     }
-  }, [isPlaying, isFocused]);
+  }, [isPlaying]);
 
   const handleFirstFrameRender = useCallback(() => {
     setIsFirstFrameReady(true);
@@ -87,20 +85,33 @@ export const ExerciseMediaPlayer = React.memo(({
     setIsFirstFrameReady(false);
   }, []);
 
-  const shouldShowActiveVideo = Boolean(publicUrl && !hasVideoError && !isStaticMedia && isPlaying && isFocused);
+  const shouldShowActiveVideo = Boolean(publicUrl && !hasVideoError && !isStaticMedia && isPlaying);
   const badgeDimensions = badgeSize === 'lg' ? 'w-10 h-10' : 'w-6 h-6';
   const playIconSize = badgeSize === 'lg' ? 16 : 11;
   const spinnerScale = badgeSize === 'lg' ? 0.95 : 0.65;
 
   if (!publicUrl || hasVideoError) {
     return (
-      <View className={`${containerClassName} ${dimmed ? 'opacity-70' : ''}`}>
+      <Pressable
+        onPress={onTogglePlay}
+        disabled={!onTogglePlay}
+        hitSlop={4}
+        className={`${containerClassName} ${dimmed ? 'opacity-70' : ''}`}
+      >
         <Image
           source={muscleThumbnailSource}
           style={{ width: '100%', height: '100%' }}
           resizeMode="cover"
         />
-      </View>
+        <View className="absolute inset-0 bg-black/35 items-center justify-center">
+          <View
+            className={`${badgeDimensions} rounded-full bg-black/75 border items-center justify-center`}
+            style={{ borderColor: `${accentColor}B3` }}
+          >
+            <Play size={playIconSize} color={accentColor} weight="fill" />
+          </View>
+        </View>
+      </Pressable>
     );
   }
 

@@ -32,12 +32,14 @@ export function getSanitizedVideoFilename(rawUrl: string): string {
 /**
  * Resolves a raw videoUrl or filename to its public Supabase Storage URL.
  */
-export function getSupabaseVideoPublicUrl(rawUrl: string): string {
+export function getSupabaseVideoPublicUrl(rawUrl: any): string {
   if (!rawUrl) return '';
-  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('file://')) {
-    return rawUrl;
+  const url = typeof rawUrl === 'string' ? rawUrl.trim() : (rawUrl?.uri || String(rawUrl || '')).trim();
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('file://')) {
+    return url;
   }
-  return supabase.storage.from('workout-videos').getPublicUrl(rawUrl).data.publicUrl;
+  return supabase.storage.from('workout-videos').getPublicUrl(url).data.publicUrl;
 }
 
 /**
